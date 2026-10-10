@@ -22,6 +22,10 @@
     <PackageVersion Include="System.Memory" Version="4.6.0" />
     <!-- Roslyn as shipped with VS 17.14; only its public API, never internals. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+    <!-- What VS 2026 18.11 ships in PrivateAssemblies; devenv.exe.config redirects 0.0.0.0-1.0.3967.48
+         to it, so the VSIX never carries these DLLs. VS 17.14's redirect range is still unchecked:
+         if it stops lower, this has to come down. -->
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
   </ItemGroup>
 
   <!-- MSBuild task API. MSBuild itself provides these at runtime, so task projects reference
