@@ -24,6 +24,8 @@ internal sealed class OutputWindowLogger : IDamlLogger
 {
     private const string ActivityLogSource = "Daml for Visual Studio";
 
+    // Flushes are tracked so pending output can be awaited (tests, shutdown) instead of guessed at.
+    private readonly JoinableTaskCollection _flushes;
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly ConcurrentQueue<(DamlLogCategory Category, string Line)> _queue = new();
     private int _flushScheduled;
@@ -34,7 +36,8 @@ internal sealed class OutputWindowLogger : IDamlLogger
     [ImportingConstructor]
     public OutputWindowLogger(JoinableTaskContext joinableTaskContext)
     {
-        _joinableTaskFactory = joinableTaskContext.Factory;
+        _flushes = joinableTaskContext.CreateCollection();
+        _joinableTaskFactory = joinableTaskContext.CreateFactory(_flushes);
     }
 
     // Becomes configurable with the options page; until then Information and up.
@@ -62,6 +65,9 @@ internal sealed class OutputWindowLogger : IDamlLogger
             _ = _joinableTaskFactory.RunAsync(FlushAsync);
         }
     }
+
+    /// <summary>Completes once everything logged so far has reached its pane.</summary>
+    internal Task DrainAsync() => _flushes.JoinTillEmptyAsync();
 
     private async Task FlushAsync()
     {

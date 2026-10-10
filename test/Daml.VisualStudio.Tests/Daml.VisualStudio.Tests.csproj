@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Extension code outside devenv: MEF exports checked with VS-MEF discovery, and VS services
+       mocked by the VS SDK test framework. There is no real editor here (no ITextBuffer); editor
+       behaviour is tested through Core logic and in the IDE tests. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- Required by the VS SDK test framework. -->
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" />
+    <PackageReference Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" />
+    <PackageReference Include="Microsoft.VisualStudio.Composition" />
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Daml.VisualStudio\Daml.VisualStudio.csproj" />
+    <ProjectReference Include="..\TestHelpers\TestHelpers.csproj" />
+  </ItemGroup>
+
+</Project>

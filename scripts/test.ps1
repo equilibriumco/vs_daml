@@ -121,7 +121,11 @@ function Get-TargetFrameworks([string] $ProjectPath) {
 # short "line coverage per framework" note for the summary table.
 function Merge-Coverage([string] $CategoryDir) {
     $notes = foreach ($tfmDir in Get-ChildItem $CategoryDir -Directory -ErrorAction SilentlyContinue) {
-        $reports = @(Get-ChildItem $tfmDir.FullName -Recurse -Filter 'coverage.cobertura.xml')
+        # A project with no tests in this category still emits a coverage file in which its
+        # product assemblies show 0%; only runs that executed something count.
+        $reports = @(Get-ChildItem $tfmDir.FullName -Directory |
+            Where-Object { (Get-TrxCounters $_.FullName).Executed -gt 0 } |
+            ForEach-Object { Get-ChildItem $_.FullName -Recurse -Filter 'coverage.cobertura.xml' })
         if (-not $reports) { continue }
         $target = Join-Path $tfmDir.FullName 'coverage'
         & dotnet tool run reportgenerator "-reports:$($reports.FullName -join ';')" "-targetdir:$target" '-reporttypes:Cobertura;TextSummary' '-verbosity:Warning' | Out-Host
@@ -170,7 +174,7 @@ $summary = foreach ($cat in $categories) {
                 '--configuration', $Configuration
                 '--framework', $tfm
                 '--filter', $filter
-                '--results-directory', (Join-Path $outDir $tfm)
+                '--results-directory', (Join-Path $outDir "$tfm\$($proj.BaseName)")
                 '--logger', "trx;LogFilePrefix=$($proj.BaseName)"
             )
             if ($collectCoverage) { $testArgs += '--collect', 'XPlat Code Coverage', '--settings', $runSettings }
