@@ -1,0 +1,14 @@
+# for config file options, refer to
+# https://docs.digitalasset.com/build/3.5/dpm/configuration.html#project-configuration
+
+sdk-version: 3.6.0
+name: multi-package-test
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../interfaces/.daml/dist/multi-package-interfaces-1.0.0.dar
+  - ../main/.daml/dist/multi-package-main-1.0.0.dar

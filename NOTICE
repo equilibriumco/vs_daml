@@ -25,3 +25,5 @@ third_party/canton-dotnet-sdk-mini-demo
   (third_party/canton-dotnet-sdk-mini-demo/LICENSE, .../NOTICE).
   daml/dars/splice-api-token-*.dar are built from the Splice project
   (https://github.com/hyperledger-labs/splice), Apache License, Version 2.0.
+  A modified copy of the Daml package (SDK 3.6.0, renamed) is used as
+  samples/mixed-dotnet; the changes are listed in samples/mixed-dotnet/README.md.

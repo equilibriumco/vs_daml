@@ -1,0 +1,5 @@
+module SyntaxError where
+
+-- Deliberately broken: the `with` block has no fields and the `where` is missing.
+template Unfinished
+  with

@@ -1,0 +1,169 @@
+-- Copyright (c) 2026 Peaceful Studio OÜ. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MiniDemo.AssetTest where
+
+import DA.Assert ((===))
+import DA.Optional (isSome)
+import DA.List (sort)
+import DA.Time (addRelTime, days, hours)
+import Daml.Script
+import MiniDemo.Asset
+import Splice.Api.Token.HoldingV2 qualified as HoldingV2
+import Splice.Api.Token.MetadataV1 (emptyChoiceContext, emptyMetadata)
+import Splice.Api.Token.MetadataV1 qualified as MetadataV1
+import Splice.Api.Token.TransferInstructionV2 qualified as TransferInstructionV2
+
+data Fixture = Fixture with
+    issuer : Party
+    alice : Party
+    bob : Party
+    factoryCid : ContractId TransferInstructionV2.TransferFactory
+    aliceHoldingCid : ContractId Asset
+
+gold : Text
+gold = "GOLD"
+
+setup : Script Fixture
+setup = do
+  issuer <- allocateParty "issuer"
+  alice <- allocateParty "alice"
+  bob <- allocateParty "bob"
+  submit issuer $ createCmd Instrument with issuer; name = gold
+  aliceHoldingCid <- submit issuer $ exerciseByKeyCmd @Instrument (issuer, gold) Mint with owner = alice; amount = 42.0
+  factoryCid <- submit issuer $ createCmd AssetTransferFactory with issuer; users = [alice, bob]
+  pure Fixture with factoryCid = toInterfaceContractId factoryCid; ..
+
+noExtraArgs : MetadataV1.ExtraArgs
+noExtraArgs = MetadataV1.ExtraArgs with context = emptyChoiceContext; meta = emptyMetadata
+
+transferToBob : Fixture -> Decimal -> Script TransferInstructionV2.Transfer
+transferToBob fixture amount = do
+  now <- getTime
+  pure TransferInstructionV2.Transfer with
+    sender = ownerAccount fixture.alice
+    receiver = ownerAccount fixture.bob
+    amount
+    instrumentId = HoldingV2.InstrumentId with admin = fixture.issuer; id = gold
+    requestedAt = now
+    executeBefore = addRelTime now (days 1)
+    inputHoldingCids = [toInterfaceContractId fixture.aliceHoldingCid]
+    meta = emptyMetadata
+
+proposeToBob : Fixture -> Script (ContractId TransferInstructionV2.TransferInstruction)
+proposeToBob fixture = do
+  transfer <- transferToBob fixture 42.0
+  result <- submit fixture.alice $ exerciseCmd fixture.factoryCid TransferInstructionV2.TransferFactory_Transfer with
+    transfer
+    actors = [fixture.alice]
+    extraArgs = noExtraArgs
+  case result.output of
+    TransferInstructionV2.TransferInstructionResult_Pending instructionCid -> pure instructionCid
+    other -> fail $ "expected a pending transfer, got " <> show other
+
+holdingsOf : Party -> Script [HoldingV2.HoldingView]
+holdingsOf owner = do
+  holdings <- queryInterface @HoldingV2.Holding owner
+  pure [view | (_, Some view) <- holdings, view.account.owner == Some owner]
+
+assertUnlockedHoldings : Party -> [Decimal] -> Script ()
+assertUnlockedHoldings owner expectedAmounts = do
+  holdings <- holdingsOf owner
+  map (.amount) holdings === expectedAmounts
+  all (\holding -> holding.lock == None) holdings === True
+
+lockedHoldingDisclosure : Fixture -> ContractId TransferInstructionV2.TransferInstruction -> Script Disclosure
+lockedHoldingDisclosure fixture instructionCid = do
+  Some instruction <- queryContractId fixture.issuer (fromInterfaceContractId @AssetTransferInstruction instructionCid)
+  Some disclosure <- queryDisclosure fixture.issuer instruction.lockedHoldingCid
+  pure disclosure
+
+totalSupply : Party -> Script Decimal
+totalSupply issuer = submit issuer $ exerciseByKeyCmd @Instrument (issuer, gold) TotalSupply
+
+test_acceptMovesTheLockedHoldingToBob : Script ()
+test_acceptMovesTheLockedHoldingToBob = do
+  fixture <- setup
+  instructionCid <- proposeToBob fixture
+
+  [locked] <- holdingsOf fixture.alice
+  locked.amount === 42.0
+  (fmap (.holders) locked.lock) === Some [fixture.issuer]
+  (fmap (.context) locked.lock) === Some (Some ("transfer to " <> partyToText fixture.bob))
+  isSome (locked.lock >>= (.expiresAt)) === True
+
+  submitMustFail fixture.bob $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Accept with
+    actors = [fixture.bob]
+    extraArgs = noExtraArgs
+
+  lockedHolding <- lockedHoldingDisclosure fixture instructionCid
+  result <- submit (actAs fixture.bob <> disclose lockedHolding) $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Accept with
+    actors = [fixture.bob]
+    extraArgs = noExtraArgs
+  case result.output of
+    TransferInstructionV2.TransferInstructionResult_Completed _ -> pure ()
+    other -> fail $ "expected a completed transfer, got " <> show other
+
+  holdingsOf fixture.alice >>= (=== [])
+  assertUnlockedHoldings fixture.bob [42.0]
+
+  submit fixture.issuer $ exerciseByKeyCmd @Instrument (fixture.issuer, gold) Mint with owner = fixture.bob; amount = 10.0
+  totalSupply fixture.issuer >>= (=== 52.0)
+
+test_rejectReturnsTheHoldingToAlice : Script ()
+test_rejectReturnsTheHoldingToAlice = do
+  fixture <- setup
+  instructionCid <- proposeToBob fixture
+
+  submitMustFail fixture.alice $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Reject with
+    actors = [fixture.alice]
+    extraArgs = noExtraArgs
+
+  lockedHolding <- lockedHoldingDisclosure fixture instructionCid
+  result <- submit (actAs fixture.bob <> disclose lockedHolding) $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Reject with
+    actors = [fixture.bob]
+    extraArgs = noExtraArgs
+  result.output === TransferInstructionV2.TransferInstructionResult_Failed
+
+  assertUnlockedHoldings fixture.alice [42.0]
+  holdingsOf fixture.bob >>= (=== [])
+  totalSupply fixture.issuer >>= (=== 42.0)
+
+test_withdrawReturnsTheHoldingToAlice : Script ()
+test_withdrawReturnsTheHoldingToAlice = do
+  fixture <- setup
+  instructionCid <- proposeToBob fixture
+
+  submitMustFail fixture.bob $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Withdraw with
+    actors = [fixture.bob]
+    extraArgs = noExtraArgs
+
+  result <- submit fixture.alice $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Withdraw with
+    actors = [fixture.alice]
+    extraArgs = noExtraArgs
+  result.output === TransferInstructionV2.TransferInstructionResult_Failed
+
+  assertUnlockedHoldings fixture.alice [42.0]
+  holdingsOf fixture.bob >>= (=== [])
+
+test_acceptAfterTheDeadlineFails : Script ()
+test_acceptAfterTheDeadlineFails = do
+  fixture <- setup
+  instructionCid <- proposeToBob fixture
+  lockedHolding <- lockedHoldingDisclosure fixture instructionCid
+  passTime (days 1 + hours 1)
+  submitMustFail (actAs fixture.bob <> disclose lockedHolding) $ exerciseCmd instructionCid TransferInstructionV2.TransferInstruction_Accept with
+    actors = [fixture.bob]
+    extraArgs = noExtraArgs
+
+test_partialTransferReturnsChangeToAlice : Script ()
+test_partialTransferReturnsChangeToAlice = do
+  fixture <- setup
+  transfer <- transferToBob fixture 30.0
+  result <- submit fixture.alice $ exerciseCmd fixture.factoryCid TransferInstructionV2.TransferFactory_Transfer with
+    transfer
+    actors = [fixture.alice]
+    extraArgs = noExtraArgs
+  length result.senderChangeCids === 1
+  holdings <- holdingsOf fixture.alice
+  sort (map (\holding -> (holding.amount, isSome holding.lock)) holdings) === [(12.0, False), (30.0, True)]

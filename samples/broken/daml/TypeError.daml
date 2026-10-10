@@ -1,0 +1,5 @@
+module TypeError where
+
+-- Deliberately broken: a Text where an Int is expected.
+total : Int
+total = "forty-two"

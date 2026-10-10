@@ -1,0 +1,7 @@
+module UnknownImport where
+
+-- Deliberately broken: no such module exists.
+import DA.DoesNotExist
+
+answer : Int
+answer = 42
