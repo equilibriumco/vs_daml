@@ -37,10 +37,11 @@
     <Product>Daml for Visual Studio</Product>
     <Copyright>Copyright 2026 Equilibrium</Copyright>
     <NeutralLanguage>en</NeutralLanguage>
+    <!-- Only the projects that ship as NuGet packages opt back in. -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(RepoArea)' == 'test'">
-    <IsPackable>false</IsPackable>
     <!-- Microsoft.Extensions.TimeProvider.Testing ships a net462 lib but warns that
          .NET Framework is untested. Fine for tests; product code never loads it. -->
     <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>

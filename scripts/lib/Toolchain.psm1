@@ -102,6 +102,38 @@ function Select-BuildVsInstance {
     $chosen | Add-Member -NotePropertyName SdkVersion -NotePropertyValue $sdk.SdkVersion -PassThru
 }
 
+# The IDE the extension gets installed into and launched from. Independent of the build
+# instance: we build with VS 2026 but test in both 17.14 and 18.x. Build Tools has no
+# devenv, so it never qualifies. Default: newest stable IDE, else newest preview.
+function Select-TestVsInstance {
+    param(
+        [ValidateSet('', '17', '18')] [string] $Major,
+        [string] $InstallationPath
+    )
+
+    $ides = @(Get-VsInstances | Where-Object { Test-Path (Join-Path $_.Path 'Common7\IDE\devenv.exe') })
+    if ($InstallationPath) {
+        $ides = @($ides | Where-Object { $_.Path -eq $InstallationPath.TrimEnd('\') })
+    }
+    elseif ($Major) {
+        $ides = @($ides | Where-Object { $_.Version.Major -eq [int]$Major })
+    }
+    if ($Major -eq '17') {
+        # 17.14 is the oldest host we support; earlier 2022 builds would hide real incompatibilities.
+        $ides = @($ides | Where-Object { $_.Version -ge [version]'17.14' })
+    }
+
+    if (-not $ides) {
+        $want = if ($InstallationPath) { "Visual Studio IDE at '$InstallationPath'" } elseif ($Major -eq '17') { 'Visual Studio 2022 17.14 or later' } elseif ($Major) { "Visual Studio $Major.x IDE" } else { 'Visual Studio IDE' }
+        throw "No $want is installed."
+    }
+
+    $chosen = @($ides | Where-Object { -not $_.IsPrerelease }) + @($ides | Where-Object { $_.IsPrerelease }) |
+        Select-Object -First 1
+    $chosen | Add-Member -NotePropertyName DevenvPath -NotePropertyValue (Join-Path $chosen.Path 'Common7\IDE\devenv.exe') -PassThru |
+        Add-Member -NotePropertyName VsixInstallerPath -NotePropertyValue (Join-Path $chosen.Path 'Common7\IDE\VSIXInstaller.exe') -PassThru
+}
+
 # External tools the tests may need. dpm installs into %APPDATA%\dpm\bin without touching PATH.
 function Find-Tool {
     param([Parameter(Mandatory)][ValidateSet('dpm', 'java', 'node')] [string] $Name)
@@ -118,4 +150,4 @@ function Find-Tool {
     $null
 }
 
-Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance, Find-Tool
+Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance, Select-TestVsInstance, Find-Tool

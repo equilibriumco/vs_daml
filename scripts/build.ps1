@@ -20,7 +20,12 @@ param(
     [string] $Verbosity = 'minimal',
 
     # Use this installation instead of auto-selecting one (installationPath from vswhere).
-    [string] $VsInstallationPath
+    [string] $VsInstallationPath,
+
+    [string[]] $Targets = @('Build'),
+
+    # Extra global properties, e.g. @{ PackageOutputPath = '...' }.
+    [hashtable] $Properties = @{}
 )
 
 Set-StrictMode -Version Latest
@@ -39,6 +44,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $msbuildArgs = @(
     (Join-Path $root 'Daml.VisualStudio.sln')
     '-restore'
+    "-target:$($Targets -join ';')"
     "-p:Configuration=$Configuration"
     "-verbosity:$Verbosity"
     '-nologo'
@@ -48,6 +54,7 @@ $msbuildArgs = @(
     '-warnNotAsError:NU1901;NU1902;NU1903;NU1904'
     "-binaryLogger:$(Join-Path $logDir 'build.binlog')"
 )
+foreach ($p in $Properties.GetEnumerator()) { $msbuildArgs += "-p:$($p.Key)=$($p.Value)" }
 
 & $vs.MSBuildPath @msbuildArgs
 exit $LASTEXITCODE
