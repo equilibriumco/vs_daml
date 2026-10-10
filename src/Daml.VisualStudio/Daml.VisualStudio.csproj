@@ -16,9 +16,17 @@
     <!-- Command-line builds never touch an Exp hive; scripts/install-exp.ps1 does that.
          Inside the IDE the usual F5 deploy keeps working. -->
     <DeployExtension Condition="'$(BuildingInsideVisualStudio)' != 'true'">false</DeployExtension>
-    <!-- No VS package class yet, so there is nothing to register in a .pkgdef. -->
-    <GeneratePkgDefFile>false</GeneratePkgDefFile>
   </PropertyGroup>
+
+  <!-- Devenv ships these. They reach us transitively through Microsoft.VisualStudio.SDK
+       (ExcludeAssets doesn't flow to dependencies) and the VSSDK suppression list misses them;
+       its entry for System.Text.Encodings.Web is misspelt. Shipping our own copies would
+       shadow the host's versions. -->
+  <ItemGroup>
+    <SuppressFromVsix Include="Microsoft.VisualStudio.Extensibility.Editor.Contracts.dll" />
+    <SuppressFromVsix Include="Microsoft.VisualStudio.Linux.ConnectionManager.Store.dll" />
+    <SuppressFromVsix Include="System.Text.Encodings.Web.dll" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="source.extension.vsixmanifest" SubType="Designer" />
@@ -27,6 +35,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
+    <PackageReference Include="Community.VisualStudio.Toolkit.17" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
   </ItemGroup>
 
