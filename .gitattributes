@@ -1,0 +1,20 @@
+# Normalize to LF in the repo; checkout follows the machine's core.eol/autocrlf.
+* text=auto
+
+# Daml tooling and shell scripts expect LF regardless of platform.
+*.daml text eol=lf
+*.sh   text eol=lf
+
+# Visual Studio and cmd.exe are happier with CRLF.
+*.sln  text eol=crlf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+*.png   binary
+*.ico   binary
+*.snk   binary
+*.dar   binary
+*.vsix  binary
+*.nupkg binary
+*.dll   binary
+*.wasm  binary

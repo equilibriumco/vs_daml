@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- damlc process supervision and the daml/* protocol pieces. Talks JSON-RPC, never VS UI. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Daml.VisualStudio.Core\Daml.VisualStudio.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Daml.VisualStudio.LanguageServer.Tests" />
+  </ItemGroup>
+
+</Project>

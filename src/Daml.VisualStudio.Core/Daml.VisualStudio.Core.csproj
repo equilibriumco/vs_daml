@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Host-independent logic: syntax, project model, SDK resolution. No VS or Roslyn types here (ADR-0004). -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Daml.VisualStudio.Core.Tests" />
+  </ItemGroup>
+
+</Project>
