@@ -11,19 +11,26 @@
   <ItemGroup>
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="StreamJsonRpc" />
+    <PackageReference Include="MessagePack" />
     <InternalsVisibleTo Include="Daml.TestHelpers.Tests" />
   </ItemGroup>
 
   <!-- Build the fakes first, but don't reference them: they are separate net10.0 executables
        that tests launch as processes, even from net48 test runs. -->
   <ItemGroup>
-    <ProjectReference Include="..\FakeDpm\FakeDpm.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" SkipGetTargetFrameworkProperties="true" />
+    <ProjectReference Include="..\FakeDpm\FakeDpm.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" GlobalPropertiesToRemove="TargetFramework" />
+    <ProjectReference Include="..\FakeDamlLanguageServer\FakeDamlLanguageServer.csproj" ReferenceOutputAssembly="false" SkipGetTargetFrameworkProperties="true" GlobalPropertiesToRemove="TargetFramework" />
   </ItemGroup>
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>FakeDpmDirectory</_Parameter1>
       <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\FakeDpm\bin\$(Configuration)\net10.0\'))</_Parameter2>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FakeDamlLanguageServerDirectory</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\FakeDamlLanguageServer\bin\$(Configuration)\net10.0\'))</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 

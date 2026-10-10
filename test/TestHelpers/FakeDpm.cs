@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -64,7 +63,7 @@ public sealed class FakeDpm : IDisposable
     /// <summary>Copies the built fake into a fresh temp directory and writes <paramref name="scenario"/>.</summary>
     public static FakeDpm Create(FakeDpmScenario scenario)
     {
-        var source = BuiltFakeDirectory();
+        var source = Path.GetDirectoryName(BuiltFakes.Executable("FakeDpmDirectory", "dpm.exe"))!;
         var fake = new FakeDpm(Path.Combine(Path.GetTempPath(), "daml-fake-dpm-" + Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(fake.BinDirectory);
         foreach (var file in Directory.GetFiles(source))
@@ -174,16 +173,5 @@ public sealed class FakeDpm : IDisposable
         quoted.Append('\\', backslashes * 2);
         quoted.Append('"');
         return quoted.ToString();
-    }
-
-    private static string BuiltFakeDirectory()
-    {
-        var directory = typeof(FakeDpm).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
-            .FirstOrDefault(a => a.Key == "FakeDpmDirectory")?.Value;
-        if (directory is null || !File.Exists(Path.Combine(directory, "dpm.exe")))
-        {
-            throw new InvalidOperationException($"The fake dpm isn't built at '{directory}'. Build the solution first.");
-        }
-        return directory;
     }
 }

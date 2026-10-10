@@ -55,8 +55,11 @@
     <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.3.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
-    <!-- Pulls MessagePack 2.5.192, which has open advisories; the test project that uses it pins a patched 2.5.x. -->
     <PackageVersion Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
+    <!-- StreamJsonRpc 2.22 and the VS test framework pull MessagePack 2.5.192, which has open
+         advisories (fixed in 2.5.301). Test-side projects that use them reference this directly;
+         product code never ships MessagePack, devenv provides its own. -->
+    <PackageVersion Include="MessagePack" Version="2.5.301" />
     <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>

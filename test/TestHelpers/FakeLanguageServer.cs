@@ -1,0 +1,70 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+namespace Daml.TestHelpers;
+
+/// <summary>
+/// The fake Daml language server plus a temp folder holding its scenario and the log of
+/// methods it received. <see cref="Start"/> launches one process per session.
+/// </summary>
+public sealed class FakeLanguageServer : IDisposable
+{
+    private readonly string _root;
+    private readonly string _scenarioPath;
+    private readonly string _callsPath;
+
+    private FakeLanguageServer(string root)
+    {
+        _root = root;
+        _scenarioPath = Path.Combine(root, "scenario.json");
+        _callsPath = Path.Combine(root, "calls.jsonl");
+        ExecutablePath = BuiltFakes.Executable("FakeDamlLanguageServerDirectory", "FakeDamlLanguageServer.exe");
+    }
+
+    /// <summary>Full path of the fake server executable.</summary>
+    public string ExecutablePath { get; }
+
+    /// <summary>Variables the fake needs to find its scenario and call log.</summary>
+    public IReadOnlyDictionary<string, string> Environment => new Dictionary<string, string>
+    {
+        ["FAKE_LS_SCENARIO"] = _scenarioPath,
+        ["FAKE_LS_CALLS"] = _callsPath,
+    };
+
+    /// <summary>Prepares a fake server with <paramref name="scenario"/>.</summary>
+    public static FakeLanguageServer Create(FakeLanguageServerScenario scenario)
+    {
+        var server = new FakeLanguageServer(Path.Combine(Path.GetTempPath(), "daml-fake-ls-" + Guid.NewGuid().ToString("N")));
+        Directory.CreateDirectory(server._root);
+        File.WriteAllText(server._scenarioPath, new JObject { ["capabilities"] = scenario.Capabilities }.ToString(Formatting.None));
+        return server;
+    }
+
+    /// <summary>Starts a server process and connects a JSON-RPC client to it.</summary>
+    public FakeLanguageServerSession Start() => FakeLanguageServerSession.Start(ExecutablePath, Environment);
+
+    /// <summary>Methods received across all sessions, in order.</summary>
+    public IReadOnlyList<string> ReadReceivedMethods() =>
+        File.Exists(_callsPath)
+            ? File.ReadAllLines(_callsPath).Where(l => l.Length > 0).Select(l => (string)JObject.Parse(l)["method"]!).ToList()
+            : Array.Empty<string>();
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(_root, recursive: true);
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+}
