@@ -134,20 +134,35 @@ function Select-TestVsInstance {
         Add-Member -NotePropertyName VsixInstallerPath -NotePropertyValue (Join-Path $chosen.Path 'Common7\IDE\VSIXInstaller.exe') -PassThru
 }
 
-# External tools the tests may need. dpm installs into %APPDATA%\dpm\bin without touching PATH.
+# Where dpm keeps its home. DPM_HOME wins; Digital Asset's docs name both %APPDATA%\.dpm and
+# %APPDATA%\dpm as the default, so we look in both until an install settles it.
+function Get-DpmHomeCandidates {
+    if ($env:DPM_HOME) { return @($env:DPM_HOME) }
+    if (-not $env:APPDATA) { return @() }
+    @((Join-Path $env:APPDATA '.dpm'), (Join-Path $env:APPDATA 'dpm'))
+}
+
+# External tools the tests may need. A fresh dpm install doesn't touch PATH in the current
+# session, so its home directories are checked too.
 function Find-Tool {
-    param([Parameter(Mandatory)][ValidateSet('dpm', 'java', 'node')] [string] $Name)
+    param([Parameter(Mandatory)][ValidateSet('dpm', 'java', 'node', 'tree-sitter')] [string] $Name)
 
     $onPath = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($onPath) { return $onPath.Source }
 
-    if ($Name -eq 'dpm' -and $env:APPDATA) {
-        foreach ($exe in 'dpm.exe', 'dpm.cmd') {
-            $candidate = Join-Path $env:APPDATA "dpm\bin\$exe"
-            if (Test-Path $candidate) { return $candidate }
+    if ($Name -eq 'dpm') {
+        foreach ($dpmHome in Get-DpmHomeCandidates) {
+            foreach ($exe in 'dpm.exe', 'dpm.cmd') {
+                $candidate = Join-Path $dpmHome "bin\$exe"
+                if (Test-Path $candidate) { return $candidate }
+            }
         }
+    }
+    if ($Name -eq 'java' -and $env:JAVA_HOME) {
+        $candidate = Join-Path $env:JAVA_HOME 'bin\java.exe'
+        if (Test-Path $candidate) { return $candidate }
     }
     $null
 }
 
-Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance, Select-TestVsInstance, Find-Tool
+Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance, Select-TestVsInstance, Find-Tool, Get-DpmHomeCandidates
