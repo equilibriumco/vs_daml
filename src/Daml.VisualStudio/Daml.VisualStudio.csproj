@@ -1,12 +1,33 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<!-- Explicit SDK imports: the VSIX targets below need TargetName and friends, which only exist
+     after Sdk.targets, so they can't be imported from the project body. -->
+<Project>
 
-  <!-- The extension itself. VSIX packaging (VSSDK build tools, manifest, pkgdef) is not wired up yet. -->
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- The extension itself, packaged as a VSIX. -->
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
+
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer>true</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+    <!-- Command-line builds never touch an Exp hive; scripts/install-exp.ps1 does that.
+         Inside the IDE the usual F5 deploy keeps working. -->
+    <DeployExtension Condition="'$(BuildingInsideVisualStudio)' != 'true'">false</DeployExtension>
+    <!-- No VS package class yet, so there is nothing to register in a .pkgdef. -->
+    <GeneratePkgDefFile>false</GeneratePkgDefFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="source.extension.vsixmanifest" SubType="Designer" />
+    <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,5 +39,14 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Daml.VisualStudio.Tests" />
   </ItemGroup>
+
+  <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
+  <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- The VSSDK.BuildTools package only points VSToolsPath at its tools; SDK-style projects
+       have to pull in the VSIX targets themselves. -->
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
 
 </Project>
