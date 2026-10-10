@@ -1,0 +1,15 @@
+<Project>
+
+  <!-- Evaluated after the project body, so TargetFramework is known here
+       (per inner build when a project multi-targets). -->
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'net48'">
+    <PackageReference Include="PolySharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- VSSDK analyzers only make sense for code that runs inside devenv. -->
+  <ItemGroup Condition="'$(RepoArea)' == 'src' and '$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.VisualStudio.SDK.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

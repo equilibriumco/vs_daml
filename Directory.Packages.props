@@ -1,0 +1,64 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <!-- Left off on purpose: transitive pinning would force the VS baseline
+         versions below onto test-only packages that need newer ones. -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
+  </ItemGroup>
+
+  <!-- VS 17.14 baseline (ADR-0002). These assemblies come from devenv at runtime:
+       never raise them above what Microsoft.VisualStudio.SDK 17.14 resolves to,
+       and never ship them in the VSIX. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
+    <PackageVersion Include="Microsoft.VisualStudio.LanguageServer.Client" Version="17.14.60" />
+    <PackageVersion Include="StreamJsonRpc" Version="2.22.11" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="System.Memory" Version="4.6.0" />
+  </ItemGroup>
+
+  <!-- Build tooling. VSSDK.BuildTools 18.x is unlisted on nuget.org, so we stay
+       on the latest listed 17.14 build; it runs fine under MSBuild 18. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.VSSDK.BuildTools" Version="17.14.2142" />
+    <PackageVersion Include="Microsoft.VisualStudio.SDK.Analyzers" Version="17.7.113" />
+    <PackageVersion Include="Community.VisualStudio.Toolkit.17" Version="17.0.551" />
+    <PackageVersion Include="Community.VisualStudio.VSCT" Version="16.0.29.14" />
+    <PackageVersion Include="PolySharp" Version="1.16.0" />
+  </ItemGroup>
+
+  <!-- Libraries we ship. Anything loaded into devenv needs a binding redirect
+       registration when it lands in the VSIX (CLAUDE.md §3). -->
+  <ItemGroup>
+    <PackageVersion Include="YamlDotNet" Version="18.1.0" />
+    <PackageVersion Include="System.IO.Abstractions" Version="22.3.0" />
+    <!-- 8.0.1 keeps Microsoft.Bcl.AsyncInterfaces at 8.0.0, below the VS baseline (9.0.0). -->
+    <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
+  </ItemGroup>
+
+  <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3 (ADR-0012).
+       Microsoft.VisualStudio.Extensibility.Testing.Xunit is only published to the
+       VS SDK Azure Artifacts feed; it is added in M0-T04 together with nuget.config. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="Verify.Xunit" Version="31.12.5" />
+    <PackageVersion Include="FsCheck.Xunit" Version="3.4.0" />
+    <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.3.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+    <!-- Pulls MessagePack 2.5.192, which has open advisories; M0-T04 pins a patched 2.5.x. -->
+    <PackageVersion Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
+    <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,49 @@
+<Project>
+
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <!-- src | test | spikes; drives which analyzers and packaging rules apply. -->
+    <RepoArea>$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Split('\')[0])</RepoArea>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- C# 14 ships with the pinned .NET 10 SDK. net48/netstandard2.0 get the
+         missing attributes from PolySharp (see Directory.Build.targets). -->
+    <LangVersion>14.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Missing XML docs are enforced for public API in src only. -->
+    <NoWarn Condition="'$(RepoArea)' != 'src'">$(NoWarn);CS1591</NoWarn>
+    <!-- A freshly published advisory must not break every build; CI reports it instead. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902;NU1903;NU1904</WarningsNotAsErrors>
+    <!-- The Toolkit's Newtonsoft.Json check reads the VS SDK version from
+         PackageReference metadata, which is empty under CPM, so it falsely flags
+         13.0.3. Newtonsoft.Json is pinned to the 17.14 baseline in Directory.Packages.props. -->
+    <CheckNewtonsoftJsonVersion>false</CheckNewtonsoftJsonVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' or '$(TF_BUILD)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Company>Equilibrium</Company>
+    <Authors>Equilibrium</Authors>
+    <Product>Daml for Visual Studio</Product>
+    <Copyright>Copyright 2026 Equilibrium</Copyright>
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RepoArea)' == 'test'">
+    <IsPackable>false</IsPackable>
+    <!-- Microsoft.Extensions.TimeProvider.Testing ships a net462 lib but warns that
+         .NET Framework is untested. Fine for tests; product code never loads it. -->
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+  </PropertyGroup>
+
+</Project>
