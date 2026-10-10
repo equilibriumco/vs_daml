@@ -109,6 +109,36 @@ function Get-TrxCounters {
     [pscustomobject]$sum
 }
 
+function Get-TargetFrameworks([string] $ProjectPath) {
+    $doc = [xml](Get-Content $ProjectPath -Raw)
+    $value = @($doc.SelectNodes('/Project/PropertyGroup/TargetFrameworks | /Project/PropertyGroup/TargetFramework') |
+        ForEach-Object { $_.InnerText } | Where-Object { $_ }) | Select-Object -First 1
+    if (-not $value) { throw "No TargetFramework(s) in '$ProjectPath'." }
+    $value.Split(';', [StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() }
+}
+
+# Merges every coverage file of one framework into <category>/<tfm>/coverage and returns a
+# short "line coverage per framework" note for the summary table.
+function Merge-Coverage([string] $CategoryDir) {
+    $notes = foreach ($tfmDir in Get-ChildItem $CategoryDir -Directory -ErrorAction SilentlyContinue) {
+        $reports = @(Get-ChildItem $tfmDir.FullName -Recurse -Filter 'coverage.cobertura.xml')
+        if (-not $reports) { continue }
+        $target = Join-Path $tfmDir.FullName 'coverage'
+        & dotnet tool run reportgenerator "-reports:$($reports.FullName -join ';')" "-targetdir:$target" '-reporttypes:Cobertura;TextSummary' '-verbosity:Warning' | Out-Host
+        $summaryFile = Join-Path $target 'Summary.txt'
+        $line = if (Test-Path $summaryFile) { Select-String -Path $summaryFile -Pattern '^\s*Line coverage:\s*(.+)$' | Select-Object -First 1 } else { $null }
+        $rate = if ($line) { $line.Matches[0].Groups[1].Value.Trim() } else { '?' }
+        "$($tfmDir.Name) $rate"
+    }
+    if ($notes) { ", coverage " + ($notes -join ' / ') } else { '' }
+}
+
+$runSettings = Join-Path $root 'test\coverlet.runsettings'
+if (-not $NoCoverage) {
+    & dotnet tool restore --tool-manifest (Join-Path $root 'dotnet-tools.json') | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'dotnet tool restore failed (ReportGenerator).' }
+}
+
 $summary = foreach ($cat in $categories) {
     $isRequired = $required -contains $cat
     $outDir = Join-Path $resultsRoot $cat
@@ -130,19 +160,26 @@ $summary = foreach ($cat in $categories) {
     if ($cat -eq 'MSBuild' -and $Backend -ne 'All') { $filter += "&Backend=$Backend" }
     $collectCoverage = -not $NoCoverage -and $cat -in 'Unit', 'Editor', 'Contract', 'MSBuild'
 
+    # One run per target framework into its own folder: coverage files don't say which
+    # framework produced them, and net48 and net10.0 numbers must never be mixed.
     $exitCodes = foreach ($proj in $testProjects) {
-        $testArgs = @(
-            'test', $proj.FullName
-            '--no-build', '--nologo'
-            '--configuration', $Configuration
-            '--filter', $filter
-            '--results-directory', $outDir
-            '--logger', "trx;LogFilePrefix=$($proj.BaseName)"
-        )
-        if ($collectCoverage) { $testArgs += '--collect', 'XPlat Code Coverage' }
-        & dotnet @testArgs | Out-Host
-        $LASTEXITCODE
+        foreach ($tfm in Get-TargetFrameworks $proj.FullName) {
+            $testArgs = @(
+                'test', $proj.FullName
+                '--no-build', '--nologo'
+                '--configuration', $Configuration
+                '--framework', $tfm
+                '--filter', $filter
+                '--results-directory', (Join-Path $outDir $tfm)
+                '--logger', "trx;LogFilePrefix=$($proj.BaseName)"
+            )
+            if ($collectCoverage) { $testArgs += '--collect', 'XPlat Code Coverage', '--settings', $runSettings }
+            & dotnet @testArgs | Out-Host
+            $LASTEXITCODE
+        }
     }
+
+    $coverageNote = if ($collectCoverage) { Merge-Coverage $outDir } else { '' }
 
     $c = Get-TrxCounters $outDir
     $status = if ($c.Failed -gt 0 -or ($exitCodes | Where-Object { $_ -ne 0 })) { 'FAILED' }
@@ -154,7 +191,7 @@ $summary = foreach ($cat in $categories) {
 
     [pscustomobject]@{
         Category = $cat; Status = $status
-        Note     = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed), skipped $($c.Skipped), trx $($c.Files)"
+        Note     = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed), skipped $($c.Skipped), trx $($c.Files)$coverageNote"
     }
 }
 
