@@ -43,7 +43,15 @@ dotnet_style_predefined_type_for_locals_parameters_members = true:warning
 dotnet_style_readonly_field = true:warning
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
 
-# Naming: _camelCase private fields, PascalCase constants, I-prefixed interfaces
+# Naming: _camelCase private fields, PascalCase constants and static readonly fields,
+# I-prefixed interfaces. More specific symbol groups (more modifiers) take precedence.
+dotnet_naming_symbols.private_static_readonly.applicable_kinds = field
+dotnet_naming_symbols.private_static_readonly.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_readonly.required_modifiers = static, readonly
+dotnet_naming_rule.private_static_readonly_pascal.symbols = private_static_readonly
+dotnet_naming_rule.private_static_readonly_pascal.style = pascal
+dotnet_naming_rule.private_static_readonly_pascal.severity = warning
+
 dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.capitalization = camel_case
@@ -69,7 +77,8 @@ dotnet_naming_rule.interfaces_i_prefix.severity = warning
 # Async methods need the Async suffix (VSTHRD200 covers the rest)
 dotnet_diagnostic.VSTHRD200.severity = warning
 
-# Test projects: xUnit method names use underscores
+# Test projects: xUnit method names use underscores; allocation-tuning advice is noise there.
 [test/**.cs]
 dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.VSTHRD200.severity = none
+dotnet_diagnostic.CA1861.severity = none

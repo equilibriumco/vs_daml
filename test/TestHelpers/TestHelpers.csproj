@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Shared plumbing for the test projects: locating external tools and deciding whether a
-       missing one skips a test or fails it. -->
+  <!-- Shared plumbing for the test projects: locating external tools, deciding whether a
+       missing one skips a test or fails it, and driving the fake dpm. -->
   <PropertyGroup>
     <TargetFrameworks>net48;net10.0</TargetFrameworks>
     <RootNamespace>Daml.TestHelpers</RootNamespace>
@@ -10,7 +10,21 @@
 
   <ItemGroup>
     <PackageReference Include="Xunit.SkippableFact" />
+    <PackageReference Include="Newtonsoft.Json" />
     <InternalsVisibleTo Include="Daml.TestHelpers.Tests" />
+  </ItemGroup>
+
+  <!-- Build the fakes first, but don't reference them: they are separate net10.0 executables
+       that tests launch as processes, even from net48 test runs. -->
+  <ItemGroup>
+    <ProjectReference Include="..\FakeDpm\FakeDpm.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" SkipGetTargetFrameworkProperties="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>FakeDpmDirectory</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\FakeDpm\bin\$(Configuration)\net10.0\'))</_Parameter2>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>
