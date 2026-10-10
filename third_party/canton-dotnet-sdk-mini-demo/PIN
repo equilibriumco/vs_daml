@@ -1,0 +1,31 @@
+repository:  https://github.com/peacefulstudio/canton-dotnet-sdk-mini-demo
+ref:         main (release v0.6.0)
+commit:      e15529f35030d9ea4f383a451bff70aa614cc375
+commit date: 2026-10-07
+retrieved:   2026-10-10
+
+Subset of the upstream tree: the Daml package and its test package, the codegen
+manifest (pins the dpm-codegen-cs component by digest) and the committed generated C#
+bindings with their project file. Upstream pins at this commit: Daml SDK 3.5.2,
+Daml.Runtime / Daml.Ledger.Abstractions 0.6.0, Splice.Api.Token.* 1.0.0.17, net10.0.
+Files are byte-for-byte copies; do not edit them.
+
+sha256  path
+edde5c82a7318957523c4e6439fa084bf1f00fb70709abcf752a913be151bcb8  LICENSE
+4b62778a6523790b7e91c83e1a8d830a616f997ae87e914ecfa0ae84b30d5256  NOTICE
+356dd89a5bea8ab16e5f248f033ccc210edc29ffb30a1d4f5ea3e91f82c5562b  codegen/daml.yaml
+e742e64c23690e1d1a8a5db461436ac113719ab820541075f75de92ca653ce3b  daml/daml.yaml
+451d3ccb00a063bfb558e20847d23d944bcef45cf4f4dc64f609535497849520  daml/daml/MiniDemo/Asset.daml
+f044b34d7a28c2b6c8a540af720297d55450a889b451dc4eed64a9914f1d6b00  daml/dars/splice-api-token-holding-v2-1.0.0.dar
+455eb160cb5abd4ae9918a6fbb9dad471f721adda39f0e5c76feef08d05637fc  daml/dars/splice-api-token-metadata-v1-1.0.0.dar
+720e766456b33abdd26bfc21e54d19413559f0a7ee52000e12d3b6c308199faa  daml/dars/splice-api-token-transfer-instruction-v2-1.0.0.dar
+693b1c2a0152a9d6738d2448d6592fa661bb366ace16152f1256ee512b4a3c4c  daml/test/daml.yaml
+eda5b55ab57bf880d445f966e10a9ef9d5a153655454213f526afcffda0a3676  daml/test/daml/MiniDemo/AssetTest.daml
+7773ad12723573a82250f1349a735da9c03eef52165494655da2cbcd951eec19  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/Asset.cs
+10ec81afb3100cdcada0142627960d45de2931b648155e98b7eea21be731282f  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/AssetTransferFactory.cs
+300223e7d892c47f6369b0319ae136c05293fa294c99ede5f1c4a8ba18df1957  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/AssetTransferInstruction.cs
+91785b261c58daa880d3039bd5ed2699987f93281b056dac0287b2b7b5037a5b  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/Instrument.Mint.cs
+35909c86a9e76f4295618f8ded78528e2f57e7eedba6cb4d9336c0d602ac1919  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/Instrument.TotalSupply.cs
+deba80ec36f34ebb27f79f1345cd11f4daed829c2821ab907cc9955054270bdc  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/Instrument.cs
+a88fe673a2cd81f03d9111c3c13cb3a3e30c53086f29fbbe0197b71f7271975b  src/MiniDemo.Contracts/Generated/MiniDemo/Asset/PackageRegistration_1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb.cs
+7b15569b00145b26391db6590092c1e5898de1599f5607115a6ed726abcc1ba9  src/MiniDemo.Contracts/MiniDemo.Contracts.csproj

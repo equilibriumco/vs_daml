@@ -1,0 +1,15 @@
+sdk-version: 3.5.2
+name: canton-mini-demo-test
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - .daml/lib/canton-mini-demo.dar
+  - ../dars/splice-api-token-holding-v2-1.0.0.dar
+  - ../dars/splice-api-token-metadata-v1-1.0.0.dar
+  - ../dars/splice-api-token-transfer-instruction-v2-1.0.0.dar
+build-options:
+  - --target=2.3

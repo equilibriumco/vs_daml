@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Peaceful Studio OÜ. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Separate from daml/daml.yaml because dpm rejects a daml.yaml that sets both
+# `sdk-version` and `components` (ErrBothSdkAndComponentsInUse): `dpm build`
+# uses daml/daml.yaml (sdk-version); `dpm codegen-cs` runs here (components).
+name: canton-mini-demo-codegen
+version: 0.0.1
+components:
+  - oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548

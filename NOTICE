@@ -15,3 +15,13 @@ third_party/daml-extension
   daml12.tmLanguage.xml
     Copyright (c) 2017 Justus Adam. BSD 3-Clause license
     (third_party/daml-extension/daml12.tmLanguage.license.txt).
+
+------------------------------------------------------------------------------
+third_party/canton-dotnet-sdk-mini-demo
+  Source:  https://github.com/peacefulstudio/canton-dotnet-sdk-mini-demo
+           (see third_party/canton-dotnet-sdk-mini-demo/PIN)
+  Copyright 2026 Peaceful Studio OÜ.
+  Licensed under the Apache License, Version 2.0
+  (third_party/canton-dotnet-sdk-mini-demo/LICENSE, .../NOTICE).
+  daml/dars/splice-api-token-*.dar are built from the Splice project
+  (https://github.com/hyperledger-labs/splice), Apache License, Version 2.0.

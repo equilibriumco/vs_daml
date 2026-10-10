@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MiniDemo.Asset</RootNamespace>
+    <AssemblyName>MiniDemo.Contracts</AssemblyName>
+    <Description>Generated DAML contract bindings for the Canton .NET SDK mini demo.</Description>
+    <!-- Generated XML-doc crefs reference extension methods that don't resolve via cref syntax. -->
+    <NoWarn>$(NoWarn);CS1574</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Daml.Runtime" />
+    <PackageReference Include="Daml.Ledger.Abstractions" />
+    <PackageReference Include="Splice.Api.Token.Holding.V2" />
+    <PackageReference Include="Splice.Api.Token.Transfer.Instruction.V2" />
+  </ItemGroup>
+</Project>
