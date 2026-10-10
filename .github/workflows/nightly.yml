@@ -1,0 +1,60 @@
+name: Nightly
+
+# Gate-mode run: every required tool must be present and every required category must
+# execute tests without skips. IDE tests need an interactive desktop session, which hosted
+# runners don't give us, so this stays manual until a self-hosted runner is registered.
+# Then switch runs-on to its label and enable the schedule.
+on:
+  workflow_dispatch:
+    inputs:
+      milestone:
+        description: Milestone whose gate to check (see scripts/test-gates.psd1)
+        default: M0
+        required: true
+  # schedule:
+  #   - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+      MILESTONE: ${{ inputs.milestone || 'M0' }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - name: Toolchain preflight
+        run: |
+          Import-Module ./scripts/lib/Toolchain.psm1
+          Get-VsInstances | Format-Table DisplayName, Version, IsPrerelease, MSBuildVersion, HasDotNetSdkResolver -AutoSize
+          foreach ($tool in 'dpm', 'java', 'node') { '{0,-5} {1}' -f $tool, (Find-Tool $tool) }
+
+      - name: Build
+        run: ./scripts/build.ps1 -Configuration Release
+
+      - name: Gate tests
+        run: ./scripts/test.ps1 -Category All -Milestone $env:MILESTONE -RequiredTools -Configuration Release -NoBuild
+
+      - name: Upload logs and test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-${{ env.MILESTONE }}-${{ github.run_number }}
+          path: |
+            artifacts/logs
+            artifacts/test
+          if-no-files-found: ignore
+          retention-days: 30

@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    # windows-latest still ships VS 2022 only; this label carries VS 2026 / MSBuild 18.
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_NOLOGO: 'true'
+      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      # Fail early and readably when the image stops matching the toolchain we build with.
+      - name: Toolchain preflight
+        run: |
+          Import-Module ./scripts/lib/Toolchain.psm1
+          Get-VsInstances | Format-Table DisplayName, Version, IsPrerelease, MSBuildVersion, HasDotNetSdkResolver -AutoSize
+          Select-BuildVsInstance | Format-List DisplayName, Version, MSBuildVersion, SdkVersion
+
+      - name: Build
+        run: ./scripts/build.ps1 -Configuration Release
+
+      - name: Unit tests
+        run: ./scripts/test.ps1 -Category Unit -Configuration Release -NoBuild
+
+      - name: Editor tests
+        run: ./scripts/test.ps1 -Category Editor -Configuration Release -NoBuild
+
+      - name: MSBuild tests (fake backend)
+        run: ./scripts/test.ps1 -Category MSBuild -Backend Fake -Configuration Release -NoBuild
+
+      - name: Upload logs and test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-${{ github.run_number }}
+          path: |
+            artifacts/logs
+            artifacts/test
+          if-no-files-found: ignore
+          retention-days: 14
