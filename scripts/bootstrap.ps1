@@ -71,11 +71,12 @@ function Get-JavaMajor([string] $JavaExe) {
     [pscustomobject]@{ Major = $major; Banner = $banner }
 }
 
-# Shape per Digital Asset docs: array of { version, installed, remote, active }.
+# Local only: `dpm version --all` would also ask the remote registry, which a check must not do.
+# Output is an array of { version, installed, active }.
 function Get-InstalledDamlSdks([string] $Dpm) {
     if (-not $Dpm) { return @() }
     try {
-        $json = & $Dpm version --all -o json 2>$null
+        $json = & $Dpm versions -o json 2>$null
         if ($LASTEXITCODE -ne 0) { return @() }
         @($json | ConvertFrom-Json | Where-Object { $_.PSObject.Properties['installed'] -and $_.installed })
     }
@@ -187,7 +188,7 @@ if ($dpm) {
             Add-Row "Daml SDK $($sdk.Version)" 'OK' "installed$active"
         }
         else {
-            Add-Row "Daml SDK $($sdk.Version)" 'MISSING' 'not reported by `dpm version --all -o json`'
+            Add-Row "Daml SDK $($sdk.Version)" 'MISSING' 'not reported by `dpm versions -o json`'
         }
     }
 }

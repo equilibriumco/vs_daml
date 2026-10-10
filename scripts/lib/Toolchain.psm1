@@ -134,8 +134,8 @@ function Select-TestVsInstance {
         Add-Member -NotePropertyName VsixInstallerPath -NotePropertyValue (Join-Path $chosen.Path 'Common7\IDE\VSIXInstaller.exe') -PassThru
 }
 
-# Where dpm keeps its home. DPM_HOME wins; Digital Asset's docs name both %APPDATA%\.dpm and
-# %APPDATA%\dpm as the default, so we look in both until an install settles it.
+# Where dpm keeps its home. DPM_HOME wins; the archive bootstrap installs into %APPDATA%\dpm,
+# while Digital Asset's docs also mention %APPDATA%\.dpm, so both are checked.
 function Get-DpmHomeCandidates {
     if ($env:DPM_HOME) { return @($env:DPM_HOME) }
     if (-not $env:APPDATA) { return @() }

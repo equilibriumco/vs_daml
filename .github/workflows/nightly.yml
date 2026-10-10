@@ -36,11 +36,10 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Toolchain preflight
-        run: |
-          Import-Module ./scripts/lib/Toolchain.psm1
-          Get-VsInstances | Format-Table DisplayName, Version, IsPrerelease, MSBuildVersion, HasDotNetSdkResolver -AutoSize
-          foreach ($tool in 'dpm', 'java', 'node') { '{0,-5} {1}' -f $tool, (Find-Tool $tool) }
+      # Check only: a gate run must use a toolchain that was installed on purpose, not one
+      # this job quietly downloaded.
+      - name: Toolchain check
+        run: ./scripts/bootstrap.ps1
 
       - name: Build
         run: ./scripts/build.ps1 -Configuration Release
