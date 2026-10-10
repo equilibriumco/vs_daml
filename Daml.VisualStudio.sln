@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FakeDamlLanguageServer", "t
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.VisualStudio.Tests", "test\Daml.VisualStudio.Tests\Daml.VisualStudio.Tests.csproj", "{4FD9CE5C-C5A2-4DDA-9139-B6F3BB43D763}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.VisualStudio.IntegrationTests", "test\Daml.VisualStudio.IntegrationTests\Daml.VisualStudio.IntegrationTests.csproj", "{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -185,6 +187,18 @@ Global
 		{4FD9CE5C-C5A2-4DDA-9139-B6F3BB43D763}.Release|x64.Build.0 = Release|Any CPU
 		{4FD9CE5C-C5A2-4DDA-9139-B6F3BB43D763}.Release|x86.ActiveCfg = Release|Any CPU
 		{4FD9CE5C-C5A2-4DDA-9139-B6F3BB43D763}.Release|x86.Build.0 = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|x64.Build.0 = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Debug|x86.Build.0 = Debug|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|x64.ActiveCfg = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|x64.Build.0 = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|x86.ActiveCfg = Release|Any CPU
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -202,5 +216,6 @@ Global
 		{103332EE-FEE1-46F8-910D-BE6871B503F8} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{EE79AE58-6922-4F9C-85BF-1C4637E2DDEA} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 		{4FD9CE5C-C5A2-4DDA-9139-B6F3BB43D763} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
+		{B5F7F9A5-E85F-4D99-96D7-2A6E4214FBEA} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
 	EndGlobalSection
 EndGlobal

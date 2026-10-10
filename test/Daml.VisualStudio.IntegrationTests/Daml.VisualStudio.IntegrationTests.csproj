@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests that run inside a real Visual Studio (experimental instance) with the built VSIX
+       installed. They open real windows, so they need an interactive desktop session. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- The harness is compiled against VS 18 assemblies while everything else here targets the
+         17.14 baseline, so the build sees two versions of e.g. Microsoft.VisualStudio.Interop.
+         The tests run inside devenv, which supplies its own versions and binding redirects. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Extensibility.Testing.Xunit" />
+    <PackageReference Include="Microsoft.VisualStudio.SDK" />
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+
+  <!-- Build the extension first and put its VSIX next to the test assembly, where
+       [RequireExtension] looks for it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Daml.VisualStudio\Daml.VisualStudio.csproj" ReferenceOutputAssembly="false" />
+    <None Include="..\..\src\Daml.VisualStudio\bin\$(Configuration)\net48\Daml.VisualStudio.vsix" Link="Daml.VisualStudio.vsix" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+</Project>
