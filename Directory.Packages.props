@@ -20,6 +20,15 @@
     <PackageVersion Include="StreamJsonRpc" Version="2.22.11" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="System.Memory" Version="4.6.0" />
+    <!-- Roslyn as shipped with VS 17.14; only its public API, never internals. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+  </ItemGroup>
+
+  <!-- MSBuild task API. MSBuild itself provides these at runtime, so task projects reference
+       them with ExcludeAssets="runtime"; 17.14 keeps the tasks loadable by every supported host. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Build.Framework" Version="17.14.28" />
+    <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
   </ItemGroup>
 
   <!-- Build tooling. VSSDK.BuildTools 18.x is unlisted on nuget.org, so we stay
