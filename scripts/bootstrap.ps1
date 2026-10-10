@@ -1,20 +1,36 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Checks the development toolchain and reports what is missing.
+    Checks the development toolchain and reports what is missing; -Install adds dpm and
+    the pinned Daml SDKs.
 
 .DESCRIPTION
-    Read-only: no downloads, no installs, no network. Prints one row per requirement and
-    exits non-zero when anything required is missing or too old. Pins come from
-    global.json (.NET SDK) and scripts/tools.psd1 (Daml SDKs, JDK, VS test hosts).
+    Without -Install the script is read-only: no downloads, no installs, no network. It
+    prints one row per requirement and exits non-zero when anything required is missing
+    or too old. Pins come from global.json (.NET SDK) and scripts/tools.psd1 (Daml SDKs,
+    JDK, VS test hosts).
+
+    -Install downloads each pinned dpm-sdk archive (cached under
+    %LOCALAPPDATA%\DamlVisualStudio\downloads), refuses it unless the SHA-256 matches
+    tools.psd1, and runs the archive's own "dpm bootstrap". Visual Studio and the JDK are
+    never installed by this script. PATH and user environment variables are left alone;
+    the script prints what to add.
 
     -WithParser adds the optional grammar tooling (Node, tree-sitter CLI).
 
 .EXAMPLE
     pwsh scripts/bootstrap.ps1
+.EXAMPLE
+    pwsh scripts/bootstrap.ps1 -Install
 #>
 [CmdletBinding()]
 param(
+    [switch] $Install,
+
+    # Install dpm here instead of its default home. Applies to this run only; persist
+    # DPM_HOME yourself if you use it.
+    [string] $DpmHome,
+
     [switch] $WithParser
 )
 
@@ -23,6 +39,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib\Toolchain.psm1') -Force
 
 $tools = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'tools.psd1')
+if ($DpmHome) { $env:DPM_HOME = $DpmHome }
 $rows = [System.Collections.Generic.List[object]]::new()
 
 function Add-Row([string] $Name, [string] $Status, [string] $Detail, [switch] $Optional) {
@@ -52,6 +69,81 @@ function Get-JavaMajor([string] $JavaExe) {
     $major = [int]$Matches[1]
     if ($major -eq 1 -and $Matches[2]) { $major = [int]$Matches[2] }
     [pscustomobject]@{ Major = $major; Banner = $banner }
+}
+
+# Shape per Digital Asset docs: array of { version, installed, remote, active }.
+function Get-InstalledDamlSdks([string] $Dpm) {
+    if (-not $Dpm) { return @() }
+    try {
+        $json = & $Dpm version --all -o json 2>$null
+        if ($LASTEXITCODE -ne 0) { return @() }
+        @($json | ConvertFrom-Json | Where-Object { $_.PSObject.Properties['installed'] -and $_.installed })
+    }
+    catch { @() }
+}
+
+function Install-DamlSdks {
+    $stateDir = Join-Path $env:LOCALAPPDATA 'DamlVisualStudio'
+    $cache = Join-Path $stateDir 'downloads'
+    # dpm's docs warn against extracting into a temp directory the user may not own.
+    $work = Join-Path $stateDir 'dpm-bootstrap'
+    New-Item -ItemType Directory -Force -Path $cache, $work | Out-Null
+
+    # Oldest first: every archive bootstraps with its own dpm.exe, so finishing with the
+    # default (first-listed) SDK leaves the newest dpm in place and that SDK installed last.
+    $sdks = @($tools.Dpm.Sdks)
+    [array]::Reverse($sdks)
+
+    foreach ($sdk in $sdks) {
+        $installed = Get-InstalledDamlSdks (Find-Tool dpm)
+        if ($installed | Where-Object { $_.version -eq $sdk.Version }) {
+            Write-Host "Daml SDK $($sdk.Version) is already installed."
+            continue
+        }
+
+        $name = "dpm-$($sdk.Version)-windows-amd64.zip"
+        $zip = Join-Path $cache $name
+        if (-not (Test-Path $zip)) {
+            Write-Host "Downloading $name (~1.2 GB)..."
+            $partial = "$zip.partial"
+            # The progress bar slows Invoke-WebRequest down by an order of magnitude on big files.
+            $ProgressPreference = 'SilentlyContinue'
+            Invoke-WebRequest -Uri "$($tools.Dpm.BaseUrl)/$name" -OutFile $partial
+            Move-Item $partial $zip -Force
+        }
+
+        $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+        if ($hash -ne $sdk.Sha256) {
+            Remove-Item $zip -Force
+            throw ("SHA-256 mismatch for $name (expected $($sdk.Sha256), got $($hash.ToLowerInvariant())). " +
+                'The archive changed upstream; find out why before re-pinning it in tools.psd1.')
+        }
+
+        $dest = Join-Path $work $sdk.Version
+        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+        Write-Host "Extracting $name..."
+        Expand-Archive -Path $zip -DestinationPath $dest
+        $sdkRoot = Join-Path $dest 'windows-amd64'
+
+        Write-Host "dpm bootstrap $($sdk.Version)..."
+        & (Join-Path $sdkRoot 'bin\dpm.exe') bootstrap $sdkRoot
+        $exitCode = $LASTEXITCODE
+        Remove-Item $dest -Recurse -Force
+        if ($exitCode -ne 0) { throw "dpm bootstrap for $($sdk.Version) failed with exit code $exitCode." }
+    }
+
+    $dpm = Find-Tool dpm
+    if (-not $dpm) {
+        throw "dpm bootstrap reported success but dpm.exe is not in $((Get-DpmHomeCandidates) -join ' or ')."
+    }
+    $onPath = Get-Command dpm -CommandType Application -ErrorAction SilentlyContinue
+    if (-not $onPath) {
+        Write-Host "dpm is installed at $dpm but not on PATH. Add '$(Split-Path $dpm)' to your user PATH." -ForegroundColor Yellow
+    }
+}
+
+if ($Install) {
+    Install-DamlSdks
 }
 
 Test-Requirement '.NET SDK (global.json)' {
@@ -87,14 +179,7 @@ Test-Requirement 'dpm' {
 }
 
 if ($dpm) {
-    # Shape per Digital Asset docs: array of { version, installed, remote, active }.
-    $installed = @()
-    try {
-        $json = & $dpm version --all -o json 2>$null
-        if ($LASTEXITCODE -eq 0) { $installed = @($json | ConvertFrom-Json | Where-Object { $_.PSObject.Properties['installed'] -and $_.installed }) }
-    }
-    catch { }
-
+    $installed = Get-InstalledDamlSdks $dpm
     foreach ($sdk in $tools.Dpm.Sdks) {
         $match = $installed | Where-Object { $_.version -eq $sdk.Version } | Select-Object -First 1
         if ($match) {
@@ -137,6 +222,9 @@ $rows | Format-Table Requirement, Status, Required, Detail -AutoSize -Wrap | Out
 $missing = @($rows | Where-Object { $_.Required -and $_.Status -ne 'OK' })
 if ($missing) {
     Write-Host "$($missing.Count) required item(s) missing." -ForegroundColor Red
+    if (-not $Install -and ($missing | Where-Object { $_.Requirement -like 'Daml SDK*' -or $_.Requirement -eq 'dpm' })) {
+        Write-Host 'dpm and the Daml SDKs can be installed with: pwsh scripts/bootstrap.ps1 -Install'
+    }
     exit 1
 }
 Write-Host 'Toolchain OK.' -ForegroundColor Green
