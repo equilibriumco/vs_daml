@@ -1,0 +1,16 @@
+repository:  https://github.com/digital-asset/daml
+branch:      release/3.6.x
+commit:      89c04ee50e563cd5031c2d3fa2263d2ebac4b76f
+commit date: 2026-10-08
+retrieved:   2026-10-10
+
+Files are byte-for-byte copies; do not edit them. To update, re-fetch every file from
+one commit, update this file and check the webview against both supported SDKs.
+
+sha256  local file                     upstream path
+7b126f2ec85d5645b61f26d2d9ba89231b96de708ab396549533c6d4064752ad  LICENSE                        LICENSE
+2cd56cdf9cd189823d034218bf19f7d7c80706f90b74eaa7fcac7a8334c59d03  webview.js                     sdk/compiler/daml-extension/src/webview.js
+e2064a6908652f1884d78b51e6669958c8718c1e7c8229d0bd25068f646aa316  webview.css                    sdk/compiler/daml-extension/src/webview.css
+e196ff683d98e28b7ecf82c8d47833b94b5519e95eb2e3c1b4176c4f58d631e0  TestGrammar.daml               sdk/compiler/daml-extension/syntaxes/TestGrammar.daml
+0b416645e06c1c3e2b653dffb7e5c0b4b3cdb2e11d4234cbe07454ac7dda2167  daml12.tmLanguage.xml          sdk/compiler/daml-extension/syntaxes/daml12.tmLanguage.xml
+450dadd223bec8ff5eb70165bdc047e8271ec65c2c90bff22eeac5623e33a565  daml12.tmLanguage.license.txt  sdk/compiler/daml-extension/syntaxes/daml12.tmLanguage.license.txt

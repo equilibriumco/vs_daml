@@ -5,3 +5,13 @@ This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 
 Third-party components are listed below together with their licenses. Their
 sources and license files live under third_party/<name>/.
+
+------------------------------------------------------------------------------
+third_party/daml-extension
+  Source:  https://github.com/digital-asset/daml (see third_party/daml-extension/PIN)
+  webview.js, webview.css, TestGrammar.daml
+    Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates.
+    Licensed under the Apache License, Version 2.0 (third_party/daml-extension/LICENSE).
+  daml12.tmLanguage.xml
+    Copyright (c) 2017 Justus Adam. BSD 3-Clause license
+    (third_party/daml-extension/daml12.tmLanguage.license.txt).
