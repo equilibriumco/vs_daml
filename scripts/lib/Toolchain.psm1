@@ -102,4 +102,20 @@ function Select-BuildVsInstance {
     $chosen | Add-Member -NotePropertyName SdkVersion -NotePropertyValue $sdk.SdkVersion -PassThru
 }
 
-Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance
+# External tools the tests may need. dpm installs into %APPDATA%\dpm\bin without touching PATH.
+function Find-Tool {
+    param([Parameter(Mandatory)][ValidateSet('dpm', 'java', 'node')] [string] $Name)
+
+    $onPath = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($onPath) { return $onPath.Source }
+
+    if ($Name -eq 'dpm' -and $env:APPDATA) {
+        foreach ($exe in 'dpm.exe', 'dpm.cmd') {
+            $candidate = Join-Path $env:APPDATA "dpm\bin\$exe"
+            if (Test-Path $candidate) { return $candidate }
+        }
+    }
+    $null
+}
+
+Export-ModuleMember -Function Get-RepoRoot, Get-VsInstances, Get-SdkMinimumMSBuildVersion, Select-BuildVsInstance, Find-Tool
