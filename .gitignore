@@ -35,3 +35,6 @@ grammar/test/real-world/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Spike run output (machine-specific paths); curated evidence goes to the spike report.
+spikes/*/out/
