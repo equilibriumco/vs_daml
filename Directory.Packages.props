@@ -11,7 +11,7 @@
     <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
   </ItemGroup>
 
-  <!-- VS 17.14 baseline (ADR-0002). These assemblies come from devenv at runtime:
+  <!-- VS 17.14 baseline. These assemblies come from devenv at runtime:
        never raise them above what Microsoft.VisualStudio.SDK 17.14 resolves to,
        and never ship them in the VSIX. -->
   <ItemGroup>
@@ -33,7 +33,7 @@
   </ItemGroup>
 
   <!-- Libraries we ship. Anything loaded into devenv needs a binding redirect
-       registration when it lands in the VSIX (CLAUDE.md §3). -->
+       registration when it lands in the VSIX. -->
   <ItemGroup>
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
     <PackageVersion Include="System.IO.Abstractions" Version="22.3.0" />
@@ -41,9 +41,9 @@
     <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
   </ItemGroup>
 
-  <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3 (ADR-0012).
+  <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3.
        Microsoft.VisualStudio.Extensibility.Testing.Xunit is only published to the
-       VS SDK Azure Artifacts feed; it is added in M0-T04 together with nuget.config. -->
+       VS SDK Azure Artifacts feed; it gets added together with a nuget.config. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
@@ -55,7 +55,7 @@
     <PackageVersion Include="System.IO.Abstractions.TestingHelpers" Version="22.3.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
-    <!-- Pulls MessagePack 2.5.192, which has open advisories; M0-T04 pins a patched 2.5.x. -->
+    <!-- Pulls MessagePack 2.5.192, which has open advisories; the test project that uses it pins a patched 2.5.x. -->
     <PackageVersion Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
     <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />

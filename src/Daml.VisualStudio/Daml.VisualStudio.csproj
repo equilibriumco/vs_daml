@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The extension itself. VSIX packaging (VSSDK build tools, manifest, pkgdef) arrives in M0-T03. -->
+  <!-- The extension itself. VSIX packaging (VSSDK build tools, manifest, pkgdef) is not wired up yet. -->
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
   </PropertyGroup>
