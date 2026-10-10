@@ -1,0 +1,7 @@
+Daml for Visual Studio
+Copyright 2026 Equilibrium
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Third-party components are listed below together with their licenses. Their
+sources and license files live under third_party/<name>/.
