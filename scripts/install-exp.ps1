@@ -7,7 +7,9 @@
     Removes any previous install of the same extension Id from Exp first, so rebuilding
     without bumping the version still gets picked up. Close the Exp instance before running;
     the installer is not allowed to shut down running Visual Studio processes, because that
-    would also kill your normal VS windows. The installer log lands in artifacts/logs.
+    would also kill your normal VS windows. Afterwards the Exp configuration is rebuilt
+    (devenv /updateConfiguration) so the package registration is guaranteed to be picked up.
+    The installer log lands in artifacts/logs.
 
 .EXAMPLE
     pwsh scripts/install-exp.ps1
@@ -79,5 +81,15 @@ if (Test-Path $log) { Copy-Item $log $logDir -Force }
 
 if ($exitCode -ne 0) {
     Write-Host "VSIXInstaller failed with exit code $exitCode; see artifacts\logs\$logName" -ForegroundColor Red
+    exit $exitCode
 }
-exit $exitCode
+
+# VSIXInstaller doesn't always get the new .pkgdef merged: on a fresh Exp hive the pkgdef cache
+# considered itself current and the package was never registered (MEF parts loaded, the package
+# didn't). Rebuilding the configuration explicitly makes the install deterministic.
+Write-Host 'Updating Exp configuration...'
+$update = Start-Process $vs.DevenvPath -ArgumentList '/rootSuffix', 'Exp', '/updateConfiguration' -Wait -PassThru -NoNewWindow
+if ($update.ExitCode -ne 0) {
+    Write-Host "devenv /updateConfiguration failed with exit code $($update.ExitCode)" -ForegroundColor Red
+}
+exit $update.ExitCode
