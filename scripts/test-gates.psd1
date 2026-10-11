@@ -5,7 +5,7 @@
     Projects = @{
         Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
         Editor      = @('Daml.VisualStudio.Tests')
-        Contract    = @('Daml.VisualStudio.Core.Tests')
+        Contract    = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
         MSBuild     = @('Daml.Build.Tests')
         Integration = @('Daml.VisualStudio.IntegrationTests')
     }
