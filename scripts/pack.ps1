@@ -9,8 +9,9 @@
     produces NuGet packages for the projects meant to ship as packages.
 
     The VSIX is checked before it is accepted: it must target VS 2026 on x64 only, carry our
-    own assemblies, and must not carry assemblies Visual Studio provides itself (shipping our
-    copy of those breaks binding in the IDE).
+    own assemblies, must not carry assemblies Visual Studio provides itself (shipping our copy
+    of those breaks binding in the IDE), and every other third-party assembly needs a codeBase
+    entry in the pkgdef for exactly the version it ships.
 #>
 [CmdletBinding()]
 param(
@@ -40,17 +41,51 @@ if ($vsix.Count -ne 1) {
     exit 1
 }
 
+function Read-ZipText($Zip, [string] $Name) {
+    $entry = $Zip.GetEntry($Name)
+    if (-not $entry) { return $null }
+    $reader = [System.IO.StreamReader]::new($entry.Open())
+    try { $reader.ReadToEnd() } finally { $reader.Dispose() }
+}
+
+# Assembly name -> version of every codeBase entry in a .pkgdef.
+function Get-CodeBases([string] $Pkgdef) {
+    $result = @{}
+    foreach ($section in ($Pkgdef -split '(?m)^\[') | Where-Object { $_ -match '^\$RootKey\$\\RuntimeConfiguration\\dependentAssembly\\codeBase\\' }) {
+        if ($section -match '"name"="([^"]+)"' ) {
+            $name = $Matches[1]
+            $result[$name] = if ($section -match '"version"="([^"]+)"') { $Matches[1] } else { '' }
+        }
+    }
+    $result
+}
+
 function Test-Vsix([string] $Path) {
     $problems = [System.Collections.Generic.List[string]]::new()
     $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
+    $scratch = Join-Path ([System.IO.Path]::GetTempPath()) "daml-vsix-check-$PID"
     try {
         $entries = @($zip.Entries | ForEach-Object { $_.FullName })
-        $manifestEntry = $zip.GetEntry('extension.vsixmanifest')
-        if (-not $manifestEntry) { return @('no extension.vsixmanifest') }
-        $reader = [System.IO.StreamReader]::new($manifestEntry.Open())
-        try { $manifest = [xml]$reader.ReadToEnd() } finally { $reader.Dispose() }
+        $manifestText = Read-ZipText $zip 'extension.vsixmanifest'
+        if (-not $manifestText) { return @('no extension.vsixmanifest') }
+        $manifest = [xml]$manifestText
+        $codeBases = Get-CodeBases ((Read-ZipText $zip 'Daml.VisualStudio.pkgdef') ?? '')
+
+        # A third-party assembly found only by probing can lose to another extension's copy of a
+        # different version; each one needs an exact codeBase entry matching the file we ship.
+        New-Item -ItemType Directory -Force -Path $scratch | Out-Null
+        foreach ($dll in $zip.Entries | Where-Object { $_.Name -match '\.dll$' -and $_.Name -notmatch '^Daml\.' }) {
+            $file = Join-Path $scratch $dll.Name
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($dll, $file, $true)
+            $identity = [System.Reflection.AssemblyName]::GetAssemblyName($file)
+            if (-not $codeBases.ContainsKey($identity.Name)) { $problems.Add("$($dll.FullName) has no codeBase entry in the pkgdef") }
+            elseif ($codeBases[$identity.Name] -ne $identity.Version.ToString()) { $problems.Add("$($dll.FullName) is $($identity.Version) but its codeBase entry says $($codeBases[$identity.Name])") }
+        }
     }
-    finally { $zip.Dispose() }
+    finally {
+        $zip.Dispose()
+        if (Test-Path $scratch) { Remove-Item -LiteralPath $scratch -Recurse -Force }
+    }
 
     $targets = @($manifest.PackageManifest.Installation.InstallationTarget)
     if (-not $targets) { $problems.Add('no InstallationTarget') }
@@ -78,7 +113,7 @@ if ($vsixProblems) {
     $vsixProblems | ForEach-Object { Write-Host "VSIX check: $_" -ForegroundColor Red }
     exit 1
 }
-Write-Host "VSIX check passed: $($vsix[0].Name) (VS 2026 [18.0,), amd64, no VS-provided assemblies)"
+Write-Host "VSIX check passed: $($vsix[0].Name) (VS 2026 [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
 $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }

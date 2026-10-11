@@ -8,6 +8,10 @@ using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 
+// VS and its bundled extensions carry YamlDotNet 12 and 13; an exact codebase makes our version
+// resolve to our copy instead of whichever one was probed or loaded first.
+[assembly: ProvideCodeBase(AssemblyName = "YamlDotNet", Version = "18.0.0.0", PublicKeyToken = "ec19458f3c15af5e", CodeBase = "$PackageFolder$\\YamlDotNet.dll")]
+
 namespace Daml.VisualStudio;
 
 /// <summary>

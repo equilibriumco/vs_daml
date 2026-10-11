@@ -6,6 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Manifest parsing (daml.yaml, multi-package.yaml); ships in the VSIX with its own codebase entry. -->
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Daml.VisualStudio.Core.Tests" />
   </ItemGroup>
 
