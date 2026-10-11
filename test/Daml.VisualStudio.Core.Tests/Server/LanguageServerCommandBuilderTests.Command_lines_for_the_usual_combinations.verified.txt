@@ -1,0 +1,58 @@
+﻿{
+  ide, daml assistant, warning: {
+    FileName: C:\Users\ann\.daml\bin\daml.cmd,
+    Arguments: [
+      damlc,
+      ide
+    ],
+    WorkingDirectory: C:\repo\app
+  },
+  ide, dpm, debug + autorun + extras: {
+    FileName: C:\Users\ann\AppData\Roaming\dpm\bin\dpm.cmd,
+    Arguments: [
+      damlc,
+      ide,
+      --debug,
+      --studio-auto-run-all-scripts=yes,
+      --jobs=2
+    ],
+    WorkingDirectory: C:\repo\app
+  },
+  ide, dpm, defaults: {
+    FileName: C:\Users\ann\AppData\Roaming\dpm\bin\dpm.cmd,
+    Arguments: [
+      damlc,
+      ide
+    ],
+    WorkingDirectory: C:\repo\app
+  },
+  multi-ide, daml assistant, error: {
+    FileName: C:\Users\ann\.daml\bin\daml.cmd,
+    Arguments: [
+      damlc,
+      multi-ide,
+      --log-level=ERROR
+    ],
+    WorkingDirectory: C:\repo
+  },
+  multi-ide, dpm, debug + autorun + extras: {
+    FileName: C:\Users\ann\AppData\Roaming\dpm\bin\dpm.cmd,
+    Arguments: [
+      damlc,
+      multi-ide,
+      --log-level=DEBUG,
+      --studio-auto-run-all-scripts=yes,
+      --jobs=2
+    ],
+    WorkingDirectory: C:\repo
+  },
+  multi-ide, dpm, defaults: {
+    FileName: C:\Users\ann\AppData\Roaming\dpm\bin\dpm.cmd,
+    Arguments: [
+      damlc,
+      multi-ide,
+      --log-level=INFO
+    ],
+    WorkingDirectory: C:\repo
+  }
+}
