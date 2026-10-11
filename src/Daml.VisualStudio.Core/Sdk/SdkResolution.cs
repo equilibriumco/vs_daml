@@ -33,6 +33,21 @@ public sealed record SdkResolution
     /// <summary>The SDK reported by <c>daml version</c> when the daml assistant was chosen.</summary>
     public string? AssistantSdkVersion { get; init; }
 
+    /// <summary>
+    /// The version of the damlc that will actually run the server (a component version, e.g. 3.6.2
+    /// for SDK 3.6.0), as damlc reports it; <c>null</c> if it couldn't be asked.
+    /// </summary>
+    public string? CoordinatorVersion { get; init; }
+
+    /// <summary>
+    /// Whether <c>damlc multi-ide</c> is available: damlc's own answer, else a guess from the SDK
+    /// version, else <c>null</c>.
+    /// </summary>
+    public bool? SupportsMultiIde { get; init; }
+
+    /// <summary>Whether <c>multi-ide</c> accepts <c>--ide-identifier</c>; <c>null</c> if damlc couldn't be asked.</summary>
+    public bool? SupportsIdeIdentifier { get; init; }
+
     /// <summary>Each workspace package's own SDK pin.</summary>
     public IReadOnlyList<PackageSdk> Packages { get; init; } = [];
 

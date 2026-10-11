@@ -25,20 +25,22 @@ public sealed class SdkResolver
     private readonly IManifestReader _manifests;
     private readonly ISdkResolver _dpm;
     private readonly ISdkResolver _damlAssistant;
+    private readonly DamlcProbe _probe;
 
     /// <summary>Creates a resolver with the standard dpm and daml assistant strategies.</summary>
     public SdkResolver(IProcessRunner runner, AssistantLocator locator, IManifestReader manifests)
-        : this(locator, manifests, new DpmSdkResolver(runner), new DamlAssistantSdkResolver(runner))
+        : this(locator, manifests, new DpmSdkResolver(runner), new DamlAssistantSdkResolver(runner), new DamlcProbe(runner))
     {
     }
 
     /// <summary>Creates a resolver with explicit strategies.</summary>
-    public SdkResolver(AssistantLocator locator, IManifestReader manifests, ISdkResolver dpm, ISdkResolver damlAssistant)
+    public SdkResolver(AssistantLocator locator, IManifestReader manifests, ISdkResolver dpm, ISdkResolver damlAssistant, DamlcProbe probe)
     {
         _locator = locator ?? throw new ArgumentNullException(nameof(locator));
         _manifests = manifests ?? throw new ArgumentNullException(nameof(manifests));
         _dpm = dpm ?? throw new ArgumentNullException(nameof(dpm));
         _damlAssistant = damlAssistant ?? throw new ArgumentNullException(nameof(damlAssistant));
+        _probe = probe ?? throw new ArgumentNullException(nameof(probe));
     }
 
     /// <summary>Resolves the tool and SDK versions for <paramref name="workspace"/>.</summary>
@@ -92,6 +94,11 @@ public sealed class SdkResolver
                 "Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
         }
 
+        var capabilities = await TryProbeAsync(assistant, workingDirectory, notes, cancellationToken).ConfigureAwait(false);
+        // Without an answer from damlc, the SDK version is only a hint: multi-ide arrived in 2.9.
+        var hintVersion = contextSdk ?? (assistant.Kind == AssistantKind.Dpm ? activeDpmVersion : assistantSdk);
+        var multiIdeHint = hintVersion is null ? null : !SdkVersion.IsBefore(hintVersion, 2, 9);
+
         var pinned = packages.Select(p => p.SdkVersion).OfType<string>().Distinct(StringComparer.Ordinal).OrderBy(v => v, StringComparer.Ordinal).ToList();
         if (pinned.Count > 1)
         {
@@ -104,6 +111,9 @@ public sealed class SdkResolver
             ContextSdkVersion = contextSdk,
             ActiveDpmVersion = activeDpmVersion,
             AssistantSdkVersion = assistantSdk,
+            CoordinatorVersion = capabilities?.Version,
+            SupportsMultiIde = capabilities?.SupportsMultiIde ?? multiIdeHint,
+            SupportsIdeIdentifier = capabilities?.SupportsIdeIdentifier,
             Packages = packages,
             Notes = notes,
         };
@@ -125,6 +135,19 @@ public sealed class SdkResolver
             }
         }
         return packages;
+    }
+
+    private async Task<DamlcCapabilities?> TryProbeAsync(AssistantLocation assistant, string workingDirectory, List<string> notes, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _probe.ProbeAsync(assistant, workingDirectory, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or FormatException or TimeoutException or IOException or Win32Exception)
+        {
+            notes.Add($"Couldn't ask damlc what it supports, so the SDK version is used as a guess: {ex.Message}");
+            return null;
+        }
     }
 
     // The version only informs; a tool that can't report it may still run the server.

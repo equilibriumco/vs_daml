@@ -28,6 +28,19 @@ public class SdkResolverTests
         ["USERPROFILE"] = @"C:\Users\ann",
     };
 
+    private static readonly string[] DamlcHelp = ["damlc", "--help"];
+    private static readonly string[] MultiIdeHelp = ["damlc", "multi-ide", "--help"];
+
+    public SdkResolverTests()
+    {
+        // Every tool answers the capability probe like damlc 3.6.2 unless a test says otherwise.
+        foreach (var tool in new[] { Dpm, Daml, @"D:\pinned\dpm.exe" })
+        {
+            _runner.On(tool, DamlcHelp, DamlcProbeTests.TopHelp);
+            _runner.On(tool, MultiIdeHelp, DamlcProbeTests.MultiIdeHelp);
+        }
+    }
+
     private SdkResolver Resolver() => new(
         _runner,
         new AssistantLocator(_files, name => _environment.TryGetValue(name, out var value) ? value : null),
@@ -70,9 +83,11 @@ public class SdkResolverTests
         package.Name.ShouldBe("app");
         package.SdkVersion.ShouldBe("3.6.0");
         sdk.Notes.ShouldBeEmpty();
-        var call = _runner.Calls.ShouldHaveSingleItem();
-        call.WorkingDirectory.ShouldBe(@"C:\repo\app");
-        call.Timeout.ShouldNotBeNull();
+        sdk.CoordinatorVersion.ShouldBe("3.6.2");
+        sdk.SupportsMultiIde.ShouldBe(true);
+        sdk.SupportsIdeIdentifier.ShouldBe(true);
+        _runner.Calls.Select(c => string.Join(" ", c.Arguments)).ShouldBe(["versions -o json", "damlc --help", "damlc multi-ide --help"]);
+        _runner.Calls.ShouldAllBe(c => c.WorkingDirectory == @"C:\repo\app" && c.Timeout != null);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -102,7 +117,9 @@ public class SdkResolverTests
 
         sdk.Assistant.ShouldBe(new AssistantLocation(AssistantKind.DamlAssistant, Daml));
         sdk.AssistantSdkVersion.ShouldBe("3.3.0");
-        _runner.Calls[^1].WorkingDirectory.ShouldBe(@"C:\repo\old");
+        var damlCalls = _runner.Calls.Where(c => c.FileName == Daml).ToList();
+        damlCalls.Select(c => string.Join(" ", c.Arguments)).ShouldBe(["version", "damlc --help", "damlc multi-ide --help"]);
+        damlCalls.ShouldAllBe(c => c.WorkingDirectory == @"C:\repo\old");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -226,6 +243,36 @@ public class SdkResolverTests
         sdk.Assistant.Kind.ShouldBe(AssistantKind.Dpm);
         sdk.ActiveDpmVersion.ShouldBeNull();
         sdk.Notes.ShouldContain(n => n.Contains(expectedInNote));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_failing_probe_falls_back_to_the_sdk_version_as_a_hint()
+    {
+        _files.AddFile(Dpm, "");
+        Package(@"C:\repo\app", "3.6.0");
+        _runner.On(Dpm, DpmVersions, ActiveJson("3.6.0"));
+        _runner.On(Dpm, DamlcHelp, new ProcessResult(1, "", "damlc crashed"));
+
+        var sdk = await ResolveAsync(Ide(@"C:\repo\app"));
+
+        sdk.CoordinatorVersion.ShouldBeNull();
+        sdk.SupportsMultiIde.ShouldBe(true);
+        sdk.SupportsIdeIdentifier.ShouldBeNull();
+        sdk.Notes.ShouldContain(n => n.Contains("damlc crashed"));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_failing_probe_on_a_snapshot_sdk_leaves_the_capabilities_unknown()
+    {
+        _files.AddFile(Dpm, "");
+        Package(@"C:\repo\app", "0.0.0");
+        _runner.On(Dpm, DpmVersions, ActiveJson("3.6.0"));
+        _runner.On(Dpm, DamlcHelp, new TimeoutException("dpm.cmd didn't finish within 60 s"));
+
+        var sdk = await ResolveAsync(Ide(@"C:\repo\app"));
+
+        sdk.SupportsMultiIde.ShouldBeNull();
+        sdk.SupportsIdeIdentifier.ShouldBeNull();
     }
 
     public static TheoryData<object, string> BrokenDpmVersions => new()

@@ -9,7 +9,8 @@ namespace Daml.TestHelpers;
 
 /// <summary>
 /// <see cref="IProcessRunner"/> that answers from a script instead of starting anything. A call
-/// nobody scripted throws, so a test can't pass by accident on an unexpected command.
+/// nobody scripted throws, so a test can't pass by accident on an unexpected command. A later
+/// entry for the same command overrides an earlier one, so a test can change a default answer.
 /// </summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
@@ -41,7 +42,7 @@ public sealed class FakeProcessRunner : IProcessRunner
     public Task<ProcessResult> RunAsync(ProcessSpec spec, CancellationToken cancellationToken)
     {
         _calls.Add(spec);
-        var entry = _script.FirstOrDefault(s =>
+        var entry = _script.LastOrDefault(s =>
             string.Equals(s.FileName, spec.FileName, StringComparison.OrdinalIgnoreCase) && s.Arguments.SequenceEqual(spec.Arguments));
         if (entry.Answer is null)
         {
