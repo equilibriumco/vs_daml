@@ -12,6 +12,10 @@ using Task = System.Threading.Tasks.Task;
 // resolve to our copy instead of whichever one was probed or loaded first.
 [assembly: ProvideCodeBase(AssemblyName = "YamlDotNet", Version = "18.0.0.0", PublicKeyToken = "ec19458f3c15af5e", CodeBase = "$PackageFolder$\\YamlDotNet.dll")]
 
+// Same for Microsoft.Bcl.TimeProvider: VS itself doesn't ship it, only other extensions'
+// private folders do.
+[assembly: ProvideCodeBase(AssemblyName = "Microsoft.Bcl.TimeProvider", Version = "8.0.0.1", PublicKeyToken = "cc7b13ffcd2ddd51", CodeBase = "$PackageFolder$\\Microsoft.Bcl.TimeProvider.dll")]
+
 namespace Daml.VisualStudio;
 
 /// <summary>

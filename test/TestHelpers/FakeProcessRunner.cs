@@ -11,11 +11,14 @@ namespace Daml.TestHelpers;
 /// <see cref="IProcessRunner"/> that answers from a script instead of starting anything. A call
 /// nobody scripted throws, so a test can't pass by accident on an unexpected command. A later
 /// entry for the same command overrides an earlier one, so a test can change a default answer.
+/// <see cref="Start"/> hands out <see cref="FakeRunningProcess"/> instances the test ends by hand.
 /// </summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
     private readonly List<(string FileName, string[] Arguments, Func<Task<ProcessResult>> Answer)> _script = new();
     private readonly List<ProcessSpec> _calls = new();
+    private readonly List<FakeRunningProcess> _started = new();
+    private Exception? _startFailure;
 
     /// <summary>Everything run so far, oldest first.</summary>
     public IReadOnlyList<ProcessSpec> Calls => _calls;
@@ -51,7 +54,22 @@ public sealed class FakeProcessRunner : IProcessRunner
         return entry.Answer();
     }
 
+    /// <summary>Processes handed out by <see cref="Start"/>, oldest first.</summary>
+    public IReadOnlyList<FakeRunningProcess> Started => _started;
+
+    /// <summary>Makes the next <see cref="Start"/> calls throw <paramref name="exception"/> until cleared with <c>null</c>.</summary>
+    public void FailStarts(Exception? exception) => _startFailure = exception;
+
     /// <inheritdoc />
-    public IRunningProcess Start(ProcessSpec spec) =>
-        throw new NotSupportedException("FakeProcessRunner only scripts runs to completion.");
+    public IRunningProcess Start(ProcessSpec spec)
+    {
+        _calls.Add(spec);
+        if (_startFailure is not null)
+        {
+            throw _startFailure;
+        }
+        var process = new FakeRunningProcess(spec);
+        _started.Add(process);
+        return process;
+    }
 }

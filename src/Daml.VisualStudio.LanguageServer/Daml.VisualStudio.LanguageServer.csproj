@@ -10,6 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- TimeProvider for netstandard2.0, so backoff timing is testable. -->
+    <PackageReference Include="Microsoft.Bcl.TimeProvider" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Daml.VisualStudio.LanguageServer.Tests" />
   </ItemGroup>
 
