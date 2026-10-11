@@ -38,6 +38,20 @@ public class SampleWorkspaceTests
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void Main_imports_Asset_from_the_interfaces_package_it_depends_on()
+    {
+        var files = new PhysicalFileSystem();
+        var reader = new YamlManifestReader(files);
+        var main = reader.ReadPackage(Repository.Sample(@"multi-package\main\daml.yaml")).Value.ShouldNotBeNull();
+        var interfaces = reader.ReadPackage(Repository.Sample(@"multi-package\interfaces\daml.yaml")).Value.ShouldNotBeNull();
+
+        var result = new ModulePathResolver(files).Resolve("Asset", main, [main, interfaces]);
+
+        result.Status.ShouldBe(ModuleResolutionStatus.Found);
+        result.Path.ShouldBe(Repository.Sample(@"multi-package\interfaces\daml\Asset.daml"));
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void The_nested_test_package_of_mixed_dotnet_is_listed_by_its_multi_package()
     {
         var location = _locator.FindForFile(Repository.Sample(@"mixed-dotnet\daml\test\daml\MiniDemo\AssetTest.daml"));
