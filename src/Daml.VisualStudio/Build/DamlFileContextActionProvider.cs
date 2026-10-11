@@ -14,8 +14,8 @@ namespace Daml.VisualStudio.Build;
 
 /// <summary>
 /// Turns the contexts from <see cref="DamlFileContextProviderFactory"/> into runnable actions.
-/// Build and Clean appear under the folder view's built-in commands; Test comes with its own
-/// menu command.
+/// Build and Clean answer the folder view's own Build and Clean commands; Test is listed in the
+/// folder-view menu by Open Folder itself, under its display name.
 /// </summary>
 [ExportFileContextActionProvider(
     (FileContextActionProviderOptions)VsCommandActionProviderOptions.SupportVsCommands,
@@ -26,7 +26,11 @@ namespace Daml.VisualStudio.Build;
     BuildIds.TestContextTypeString)]
 internal sealed class DamlFileContextActionProviderFactory : IWorkspaceProviderFactory<IFileContextActionProvider>, IVsCommandActionProvider
 {
-    private static readonly IReadOnlyList<CommandID> Commands = [new CommandID(BuildIds.CommandSet, BuildIds.TestCommandId)];
+    private static readonly IReadOnlyList<CommandID> Commands =
+    [
+        new CommandID(BuildIds.VsBuildCommandGroup, (int)BuildIds.BuildCommandId),
+        new CommandID(BuildIds.VsBuildCommandGroup, (int)BuildIds.CleanCommandId),
+    ];
 
     private readonly DamlBuildService _service;
 
@@ -45,9 +49,14 @@ internal sealed class DamlFileContextActionProviderFactory : IWorkspaceProviderF
 
         public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
         {
-            // Other providers' build contexts (CMake, MSBuild, ...) come here too; only ours carry a DamlBuildAction.
-            IReadOnlyList<IFileContextAction> actions = fileContext.Context is DamlBuildAction action
-                ? [action.Kind == DpmCommandKind.Test ? new TestAction(_service, action, fileContext) : new Action(_service, action, fileContext)]
+            // Other providers' build contexts (CMake, MSBuild, ...) come here too; only ours carry a Daml action.
+            IReadOnlyList<IFileContextAction> actions = fileContext.Context is DamlBuildConfigurationContext { Action: var action }
+                ? [action.Kind switch
+                {
+                    DpmCommandKind.Build => new CommandAction(_service, action, fileContext, BuildIds.BuildCommandId),
+                    DpmCommandKind.Clean => new CommandAction(_service, action, fileContext, BuildIds.CleanCommandId),
+                    _ => new Action(_service, action, fileContext),
+                }]
                 : [];
             return Task.FromResult(actions);
         }
@@ -73,15 +82,14 @@ internal sealed class DamlFileContextActionProviderFactory : IWorkspaceProviderF
             new FileContextActionResult(await _service.RunAsync(_action, cancellationToken).ConfigureAwait(false));
     }
 
-    private sealed class TestAction : Action, IVsCommandItem
+    // An action the folder view's own Build or Clean command runs.
+    private sealed class CommandAction : Action, IVsCommandItem
     {
-        public TestAction(DamlBuildService service, DamlBuildAction action, FileContext source)
-            : base(service, action, source)
-        {
-        }
+        public CommandAction(DamlBuildService service, DamlBuildAction action, FileContext source, uint commandId)
+            : base(service, action, source) => CommandId = commandId;
 
-        public Guid CommandGroup => BuildIds.CommandSet;
+        public Guid CommandGroup => BuildIds.VsBuildCommandGroup;
 
-        public uint CommandId => BuildIds.TestCommandId;
+        public uint CommandId { get; }
     }
 }

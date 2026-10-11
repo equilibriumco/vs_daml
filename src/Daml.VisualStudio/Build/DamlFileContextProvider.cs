@@ -31,7 +31,7 @@ internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory
         public Task<IReadOnlyCollection<FileContext>> GetContextsForFileAsync(string filePath, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<FileContext> contexts = DamlBuildActions.For(filePath)
-                .Select(action => new FileContext(BuildIds.FileContextProvider, ContextTypeFor(action.Kind), action, [filePath], action.DisplayName))
+                .Select(action => new FileContext(BuildIds.FileContextProvider, ContextTypeFor(action.Kind), new DamlBuildConfigurationContext(action), [filePath], action.DisplayName))
                 .ToList();
             return Task.FromResult(contexts);
         }
