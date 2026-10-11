@@ -30,6 +30,6 @@ if ($Path) {
     $devenvArgs += "`"$((Resolve-Path $target).Path)`""
 }
 
-Write-Host "Starting $($vs.DisplayName) $($vs.Version) /rootSuffix Exp $($devenvArgs[2..99] -join ' ')"
+Write-Host "Starting $($vs.DisplayName) $($vs.Version) $($devenvArgs -join ' ')"
 $process = Start-Process $vs.DevenvPath -ArgumentList $devenvArgs -PassThru -Wait:$Wait
 if ($Wait) { exit $process.ExitCode }
