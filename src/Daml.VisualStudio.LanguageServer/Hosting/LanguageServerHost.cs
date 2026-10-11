@@ -79,6 +79,7 @@ public sealed class LanguageServerHost : IDisposable
     private int _currentSession;
     private int _initializedSession;
     private int _attachedSession;
+    private int _activations;
 
     /// <summary>Creates a host.</summary>
     public LanguageServerHost(
@@ -137,6 +138,7 @@ public sealed class LanguageServerHost : IDisposable
     /// </summary>
     public async Task<ServerConnection?> ActivateAsync(CancellationToken cancellationToken)
     {
+        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"Visual Studio asked for a server session (activation {Interlocked.Increment(ref _activations)}).");
         lock (_gate)
         {
             if (_workspace is null)
@@ -179,6 +181,28 @@ public sealed class LanguageServerHost : IDisposable
             session.Id,
             new ServerToClientStream(session.Output, _lspSettings, tracker, _logger),
             new ClientToServerStream(session.Input, _lspSettings, tracker, _logger));
+    }
+
+    /// <summary>
+    /// Whether messages about <paramref name="documentUri"/> may go to the server. VS sends every
+    /// open Daml document to the client, but damlc multi-ide stops altogether when it gets a file
+    /// with no daml.yaml above it, so files outside the workspace are kept away (they still get
+    /// syntax colouring). Other URI schemes, such as the server's own virtual documents, pass.
+    /// </summary>
+    public bool IsServed(string? documentUri)
+    {
+        // Some clients escape the drive colon (file:///m%3A/...), which Uri leaves in LocalPath.
+        var unescapedDrive = documentUri?.Replace("%3A", ":").Replace("%3a", ":");
+        if (unescapedDrive is null || !Uri.TryCreate(unescapedDrive, UriKind.Absolute, out var uri) || !uri.IsFile)
+        {
+            return true;
+        }
+        WorkspaceContext? workspace;
+        lock (_gate)
+        {
+            workspace = _workspace;
+        }
+        return workspace is not null && workspace.Contains(uri.LocalPath);
     }
 
     /// <summary>VS handed over the JSON-RPC connection of the session it just activated.</summary>

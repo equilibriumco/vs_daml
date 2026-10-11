@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Logging;
@@ -8,37 +9,77 @@ using Newtonsoft.Json.Linq;
 namespace Daml.VisualStudio.LanguageClient;
 
 /// <summary>
-/// Passes every message through unchanged and, at Debug level, logs which methods VS calls and
-/// how long requests take. Messages are fixed up on the byte stream instead, because
-/// <c>initialize</c> never reaches a middle layer.
+/// Sits between VS and the server for everything after <c>initialize</c>. It keeps messages
+/// about documents outside the workspace from reaching damlc (notifications are dropped,
+/// requests get an empty answer) and, at Debug level, logs what VS calls and how long it takes.
+/// Message content is fixed up on the byte stream instead, because <c>initialize</c> never
+/// reaches a middle layer.
 /// </summary>
 internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
 {
     private readonly IDamlLogger _logger;
+    private readonly Func<string?, bool> _isServed;
+    private readonly ConcurrentDictionary<string, bool> _reportedOutside = new(StringComparer.OrdinalIgnoreCase);
 
-    public DamlMiddleLayer(IDamlLogger logger) => _logger = logger;
+    /// <param name="logger">Where skipped documents and Debug traffic are logged.</param>
+    /// <param name="isServed">Whether a document URI belongs to the workspace the server runs.</param>
+    public DamlMiddleLayer(IDamlLogger logger, Func<string?, bool> isServed)
+    {
+        _logger = logger;
+        _isServed = isServed;
+    }
 
-    public bool CanHandle(string methodName) => _logger.IsEnabled(DamlLogLevel.Debug);
+    public bool CanHandle(string methodName) =>
+        methodName.StartsWith("textDocument/", StringComparison.Ordinal) || _logger.IsEnabled(DamlLogLevel.Debug);
 
     public Task HandleNotificationAsync(string methodName, JToken methodParam, Func<JToken, Task> sendNotification)
     {
-        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"notify {methodName}");
+        if (!Served(methodParam))
+        {
+            return Task.CompletedTask;
+        }
+        if (_logger.IsEnabled(DamlLogLevel.Debug))
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"notify {methodName}");
+        }
         return sendNotification(methodParam);
     }
 
     public async Task<JToken?> HandleRequestAsync(string methodName, JToken methodParam, Func<JToken, Task<JToken?>> sendRequest)
     {
+        if (!Served(methodParam))
+        {
+            return null;
+        }
         var clock = Stopwatch.StartNew();
         try
         {
             var result = await sendRequest(methodParam).ConfigureAwait(false);
-            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"request {methodName}: {clock.ElapsedMilliseconds} ms");
+            if (_logger.IsEnabled(DamlLogLevel.Debug))
+            {
+                _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"request {methodName}: {clock.ElapsedMilliseconds} ms");
+            }
             return result;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (_logger.IsEnabled(DamlLogLevel.Debug))
         {
             _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"request {methodName} failed after {clock.ElapsedMilliseconds} ms: {ex.Message}");
             throw;
         }
+    }
+
+    private bool Served(JToken? methodParam)
+    {
+        var uri = (methodParam as JObject)?["textDocument"]?["uri"]?.Value<string>();
+        if (_isServed(uri))
+        {
+            return true;
+        }
+        if (uri is not null && _reportedOutside.TryAdd(uri, true))
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information,
+                $"{uri} is outside the Daml workspace; it gets syntax colouring only. Open its folder for language features.");
+        }
+        return false;
     }
 }

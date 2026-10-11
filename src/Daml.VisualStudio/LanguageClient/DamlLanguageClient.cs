@@ -55,7 +55,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _discovery = new WorkspaceDiscovery(files, manifests);
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
         _host.ProblemRaised += OnProblemRaised;
-        MiddleLayer = new DamlMiddleLayer(logger);
+        MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
         _sequence = new ClientRestartSequence(_host, DiscoverAsync, () => RaiseAsync(StopAsync), () => RaiseAsync(StartAsync));
     }
 
