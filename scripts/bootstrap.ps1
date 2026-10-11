@@ -164,13 +164,10 @@ Test-Requirement 'Build instance (MSBuild 18.x)' {
     "$($vs.DisplayName) $($vs.Version)$tag, MSBuild $($vs.MSBuildVersion)"
 }
 
-foreach ($testHost in $tools.VsTestHosts) {
-    $major = ([version]"$testHost.0").Major.ToString()
-    Test-Requirement "Test IDE VS $testHost" {
-        $vs = Select-TestVsInstance -Major $major
-        $tag = if ($vs.IsPrerelease) { ' [prerelease]' } else { '' }
-        "$($vs.DisplayName) $($vs.Version)$tag"
-    }
+Test-Requirement 'Test IDE (VS 2026)' {
+    $vs = Select-TestVsInstance
+    $tag = if ($vs.IsPrerelease) { ' [prerelease]' } else { '' }
+    "$($vs.DisplayName) $($vs.Version)$tag"
 }
 
 $dpm = Find-Tool dpm

@@ -11,8 +11,9 @@
     <Preview>true</Preview>
   </Metadata>
   <Installation>
-    <!-- 17.14 is the oldest host we support; VS 2026 loads 17.x extensions as-is. -->
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.14,)">
+    <!-- VS 2026 only. The SDK packages we compile against are 17.14 (nuget.org has no 18.x);
+         VS 2026 redirects them to its own assemblies. -->
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,)">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
   </Installation>
@@ -20,7 +21,7 @@
     <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.8,)" />
   </Dependencies>
   <Prerequisites>
-    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[17.14,)" DisplayName="Visual Studio core editor" />
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[18.0,)" DisplayName="Visual Studio core editor" />
   </Prerequisites>
   <Assets>
     <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />

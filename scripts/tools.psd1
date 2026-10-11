@@ -13,7 +13,4 @@
     }
 
     Java = @{ MinimumMajor = 17 }
-
-    # Oldest VS 2022 we test against; VS 2026 is always the newest installed 18.x.
-    VsTestHosts = @('17.14', '18')
 }

@@ -14,7 +14,7 @@
 .EXAMPLE
     pwsh scripts/install-exp.ps1
 .EXAMPLE
-    pwsh scripts/install-exp.ps1 -VsMajor 17 -Configuration Release
+    pwsh scripts/install-exp.ps1 -Configuration Release
 #>
 [CmdletBinding()]
 param(
@@ -23,9 +23,6 @@ param(
 
     # Defaults to the newest VSIX under src/Daml.VisualStudio/bin/<Configuration>.
     [string] $VsixPath,
-
-    [ValidateSet('17', '18')]
-    [string] $VsMajor,
 
     [string] $VsInstallationPath
 )
@@ -62,7 +59,7 @@ function Invoke-VsixInstaller([string[]] $Arguments) {
     (Start-Process $vs.VsixInstallerPath -ArgumentList $Arguments -Wait -PassThru -NoNewWindow).ExitCode
 }
 
-$vs = Select-TestVsInstance -Major $VsMajor -InstallationPath $VsInstallationPath
+$vs = Select-TestVsInstance -InstallationPath $VsInstallationPath
 $id = Get-VsixId $VsixPath
 Write-Host "Test instance: $($vs.DisplayName) $($vs.Version) ($($vs.InstanceId)), Exp"
 Write-Host "VSIX: $VsixPath ($id)"

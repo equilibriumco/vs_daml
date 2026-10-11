@@ -11,9 +11,9 @@
     <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" />
   </ItemGroup>
 
-  <!-- VS 17.14 baseline. These assemblies come from devenv at runtime:
-       never raise them above what Microsoft.VisualStudio.SDK 17.14 resolves to,
-       and never ship them in the VSIX. -->
+  <!-- Compile-time baseline. We target VS 2026 only, but nuget.org has no 18.x SDK packages, so
+       we build against 17.14 and devenv redirects to its own assemblies at runtime. Never raise
+       these above what Microsoft.VisualStudio.SDK resolves to, and never ship them in the VSIX. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.VisualStudio.SDK" Version="17.14.40265" />
     <PackageVersion Include="Microsoft.VisualStudio.LanguageServer.Client" Version="17.14.60" />
@@ -23,13 +23,12 @@
     <!-- Roslyn as shipped with VS 17.14; only its public API, never internals. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
     <!-- What VS 2026 18.11 ships in PrivateAssemblies; devenv.exe.config redirects 0.0.0.0-1.0.3967.48
-         to it, so the VSIX never carries these DLLs. VS 17.14's redirect range is still unchecked:
-         if it stops lower, this has to come down. -->
+         to it, so the VSIX never carries these DLLs. Don't go above what VS 2026 redirects. -->
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
   </ItemGroup>
 
   <!-- MSBuild task API. MSBuild itself provides these at runtime, so task projects reference
-       them with ExcludeAssets="runtime"; 17.14 keeps the tasks loadable by every supported host. -->
+       them with ExcludeAssets="runtime"; 17.14 loads in both MSBuild 18 and the .NET 10 SDK. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.Build.Framework" Version="17.14.28" />
     <PackageVersion Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />

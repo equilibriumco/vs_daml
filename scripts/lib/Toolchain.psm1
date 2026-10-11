@@ -102,29 +102,23 @@ function Select-BuildVsInstance {
     $chosen | Add-Member -NotePropertyName SdkVersion -NotePropertyValue $sdk.SdkVersion -PassThru
 }
 
-# The IDE the extension gets installed into and launched from. Independent of the build
-# instance: we build with VS 2026 but test in both 17.14 and 18.x. Build Tools has no
-# devenv, so it never qualifies. Default: newest stable IDE, else newest preview.
+# The IDE the extension gets installed into and launched from: VS 2026 (18.x) or newer, the
+# only host we support. Build Tools has no devenv, so it never qualifies. Default: newest
+# stable IDE, else newest preview.
 function Select-TestVsInstance {
     param(
-        [ValidateSet('', '17', '18')] [string] $Major,
         [string] $InstallationPath
     )
 
-    $ides = @(Get-VsInstances | Where-Object { Test-Path (Join-Path $_.Path 'Common7\IDE\devenv.exe') })
+    $ides = @(Get-VsInstances | Where-Object {
+            $_.Version.Major -ge 18 -and (Test-Path (Join-Path $_.Path 'Common7\IDE\devenv.exe'))
+        })
     if ($InstallationPath) {
         $ides = @($ides | Where-Object { $_.Path -eq $InstallationPath.TrimEnd('\') })
     }
-    elseif ($Major) {
-        $ides = @($ides | Where-Object { $_.Version.Major -eq [int]$Major })
-    }
-    if ($Major -eq '17') {
-        # 17.14 is the oldest host we support; earlier 2022 builds would hide real incompatibilities.
-        $ides = @($ides | Where-Object { $_.Version -ge [version]'17.14' })
-    }
 
     if (-not $ides) {
-        $want = if ($InstallationPath) { "Visual Studio IDE at '$InstallationPath'" } elseif ($Major -eq '17') { 'Visual Studio 2022 17.14 or later' } elseif ($Major) { "Visual Studio $Major.x IDE" } else { 'Visual Studio IDE' }
+        $want = if ($InstallationPath) { "Visual Studio 2026 IDE at '$InstallationPath'" } else { 'Visual Studio 2026 IDE' }
         throw "No $want is installed."
     }
 

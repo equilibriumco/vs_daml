@@ -5,16 +5,11 @@
 
 .EXAMPLE
     pwsh scripts/run-exp.ps1 -Path samples\single-package
-.EXAMPLE
-    pwsh scripts/run-exp.ps1 -VsMajor 17
 #>
 [CmdletBinding()]
 param(
     # Folder or .sln to open; relative paths resolve against the repository root.
     [string] $Path,
-
-    [ValidateSet('17', '18')]
-    [string] $VsMajor,
 
     [string] $VsInstallationPath,
 
@@ -26,7 +21,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib\Toolchain.psm1') -Force
 
-$vs = Select-TestVsInstance -Major $VsMajor -InstallationPath $VsInstallationPath
+$vs = Select-TestVsInstance -InstallationPath $VsInstallationPath
 $devenvArgs = @('/rootSuffix', 'Exp')
 
 if ($Path) {

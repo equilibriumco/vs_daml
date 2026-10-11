@@ -14,7 +14,7 @@ public class OpenDamlFileTests
 {
     private const string PackageGuid = "117354e2-f560-49ff-8753-121bb9a6b227";
 
-    [IdeFact(MinVersion = VisualStudioVersion.VS2022, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
     public async Task Opening_a_daml_file_uses_the_daml_content_type_and_loads_the_package()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
