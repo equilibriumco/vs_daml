@@ -54,6 +54,18 @@ public class ToolLocatorTests
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void Prefers_JAVA_HOME_over_a_java_on_PATH()
+    {
+        // The codegen puts JAVA_HOME\bin first, so that is the java a test must check.
+        _env["PATH"] = @"C:\Windows\system32;C:\old-jre\bin";
+        _env["JAVA_HOME"] = @"C:\jdk-21";
+        _files.Add(@"C:\old-jre\bin\java.exe");
+        _files.Add(@"C:\jdk-21\bin\java.exe");
+
+        Find(ExternalTool.Java).ShouldBe(@"C:\jdk-21\bin\java.exe");
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void Returns_null_when_nothing_is_installed()
     {
         _env["PATH"] = @"C:\empty";

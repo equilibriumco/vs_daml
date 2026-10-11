@@ -38,17 +38,23 @@ jobs:
           Get-VsInstances | Format-Table DisplayName, Version, IsPrerelease, MSBuildVersion, HasDotNetSdkResolver -AutoSize
           Select-BuildVsInstance | Format-List DisplayName, Version, MSBuildVersion, SdkVersion
 
-      - name: Build
-        run: ./scripts/build.ps1 -Configuration Release
+      # Release build plus packaging; pack.ps1 also rejects a VSIX with the wrong targets or
+      # with assemblies Visual Studio provides itself.
+      - name: Build and pack
+        run: ./scripts/pack.ps1
 
-      - name: Unit tests
-        run: ./scripts/test.ps1 -Category Unit -Configuration Release -NoBuild
+      # The PR profile in scripts/test-gates.psd1: every required project must run tests on each
+      # of its frameworks without skips; coverage is reported, not enforced.
+      - name: Tests (PR gate)
+        run: ./scripts/test.ps1 -Category All -Milestone PR -RequiredTools -Configuration Release -NoBuild
 
-      - name: Editor tests
-        run: ./scripts/test.ps1 -Category Editor -Configuration Release -NoBuild
-
-      - name: MSBuild tests (fake backend)
-        run: ./scripts/test.ps1 -Category MSBuild -Backend Fake -Configuration Release -NoBuild
+      - name: Upload VSIX and packages
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-${{ github.run_number }}
+          path: artifacts/packages
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload logs and test results
         if: always()

@@ -71,6 +71,13 @@ function Get-JavaMajor([string] $JavaExe) {
     [pscustomobject]@{ Major = $major; Banner = $banner }
 }
 
+function Get-DpmVersion([string] $Dpm) {
+    # First line of `dpm --version` is e.g. 'version: 1.0.22'.
+    $banner = (& $Dpm --version 2>&1 | Select-Object -First 1).ToString()
+    if ($banner -notmatch '(\d+\.\d+\.\d+)') { throw "Unrecognised dpm --version output: $banner" }
+    [version]$Matches[1]
+}
+
 # Local only: `dpm version --all` would also ask the remote registry, which a check must not do.
 # Output is an array of { version, installed, active }.
 function Get-InstalledDamlSdks([string] $Dpm) {
@@ -173,7 +180,9 @@ Test-Requirement 'Test IDE (VS 2026)' {
 $dpm = Find-Tool dpm
 Test-Requirement 'dpm' {
     if (-not $dpm) { throw "not on PATH or in $((Get-DpmHomeCandidates) -join ', ')" }
-    $dpm
+    $version = Get-DpmVersion $dpm
+    if ($version -lt [version]$tools.Dpm.MinimumVersion) { throw "found dpm $version at $dpm; need $($tools.Dpm.MinimumVersion)+" }
+    "dpm $version at $dpm"
 }
 
 if ($dpm) {
@@ -195,7 +204,7 @@ else {
 
 Test-Requirement "JDK $($tools.Java.MinimumMajor)+" {
     $java = Find-Tool java
-    if (-not $java) { throw 'java not on PATH and JAVA_HOME not set' }
+    if (-not $java) { throw 'JAVA_HOME not set and java not on PATH' }
     $v = Get-JavaMajor $java
     if ($v.Major -lt $tools.Java.MinimumMajor) { throw "found Java $($v.Major) at $java; need $($tools.Java.MinimumMajor)+" }
     $note = if ($env:JAVA_HOME) { '' } else { '; JAVA_HOME not set (dpm expects it)' }

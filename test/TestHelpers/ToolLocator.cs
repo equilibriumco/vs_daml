@@ -27,6 +27,12 @@ public static class ToolLocator
         // dpm is a .cmd shim on Windows; java is a real exe.
         var fileNames = tool == ExternalTool.Dpm ? new[] { "dpm.exe", "dpm.cmd" } : new[] { "java.exe" };
 
+        // The codegen puts JAVA_HOME\bin ahead of PATH, so that java is the one that runs.
+        if (tool == ExternalTool.Java && env("JAVA_HOME") is { Length: > 0 } javaHome)
+        {
+            yield return Path.Combine(javaHome, "bin", "java.exe");
+        }
+
         foreach (var dir in (env("PATH") ?? "").Split(new[] { Path.PathSeparator }, StringSplitOptions.RemoveEmptyEntries))
         {
             foreach (var fileName in fileNames)
@@ -48,10 +54,6 @@ public static class ToolLocator
                 homeDirs.Add(Path.Combine(appData, "dpm"));
                 homeDirs.Add(Path.Combine(appData, ".dpm"));
             }
-        }
-        else if (env("JAVA_HOME") is { Length: > 0 } javaHome)
-        {
-            homeDirs.Add(javaHome);
         }
 
         foreach (var home in homeDirs)

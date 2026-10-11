@@ -137,9 +137,15 @@ function Get-DpmHomeCandidates {
 }
 
 # External tools the tests may need. A fresh dpm install doesn't touch PATH in the current
-# session, so its home directories are checked too.
+# session, so its home directories are checked too. Java comes from JAVA_HOME first: the
+# codegen puts JAVA_HOME\bin ahead of PATH, so that is the java that will actually run.
 function Find-Tool {
     param([Parameter(Mandatory)][ValidateSet('dpm', 'java', 'node', 'tree-sitter')] [string] $Name)
+
+    if ($Name -eq 'java' -and $env:JAVA_HOME) {
+        $candidate = Join-Path $env:JAVA_HOME 'bin\java.exe'
+        if (Test-Path $candidate) { return $candidate }
+    }
 
     $onPath = Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($onPath) { return $onPath.Source }
@@ -151,10 +157,6 @@ function Find-Tool {
                 if (Test-Path $candidate) { return $candidate }
             }
         }
-    }
-    if ($Name -eq 'java' -and $env:JAVA_HOME) {
-        $candidate = Join-Path $env:JAVA_HOME 'bin\java.exe'
-        if (Test-Path $candidate) { return $candidate }
     }
     $null
 }

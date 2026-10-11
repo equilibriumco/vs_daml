@@ -5,6 +5,8 @@
         # taken when each version was adopted; a mismatch means the file changed upstream
         # and needs a human look before re-pinning.
         BaseUrl = 'https://get.digitalasset.com/install/dpm-sdk'
+        # The C# generator component (dpm codegen-cs) is documented to need at least this dpm.
+        MinimumVersion = '1.0.20'
         Sdks    = @(
             # First entry is the default SDK and the one dpm itself is bootstrapped from.
             @{ Version = '3.6.0'; Sha256 = 'a826f5733c80ae7763ef4631fe0d8a82a64345a10dbcbe117e9bcc76883db8c5' }
