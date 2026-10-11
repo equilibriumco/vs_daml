@@ -5,6 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="FsCheck.Xunit" />
+    <PackageReference Include="Verify.Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Daml.VisualStudio.Core\Daml.VisualStudio.Core.csproj" />
     <ProjectReference Include="..\TestHelpers\TestHelpers.csproj" />
   </ItemGroup>

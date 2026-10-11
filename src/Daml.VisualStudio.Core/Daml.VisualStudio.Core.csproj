@@ -10,6 +10,8 @@
     <PackageReference Include="YamlDotNet" />
     <!-- Reads dpm's JSON output. VS ships it, so it stays out of the VSIX. -->
     <PackageReference Include="Newtonsoft.Json" />
+    <!-- ReadOnlySpan for the lexer on netstandard2.0. -->
+    <PackageReference Include="System.Memory" />
   </ItemGroup>
 
   <ItemGroup>
