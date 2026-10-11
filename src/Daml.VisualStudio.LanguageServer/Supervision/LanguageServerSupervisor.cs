@@ -333,16 +333,39 @@ public sealed class LanguageServerSupervisor : IDisposable
         session.Process.KillTree(); // the exit is then handled as a crash
     }
 
+    // damlc logs one entry over several lines and only ends it when the next one starts, so a
+    // pending entry is also written out once stderr has been quiet for this long.
+    private static readonly TimeSpan QuietFlush = TimeSpan.FromMilliseconds(150);
+
     private async Task PumpStderrAsync(Session session)
     {
-        var windowStart = _time.GetUtcNow();
-        var linesInWindow = 0;
-        var dropped = 0;
+        var assembler = new DamlcLogAssembler();
+        var output = new StderrLog(this, session.Id);
         try
         {
             using var reader = new StreamReader(session.Process.StandardError, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
+            Task<string?>? pendingRead = null;
+            while (true)
             {
+                var read = pendingRead ?? reader.ReadLineAsync();
+                pendingRead = null;
+                if (assembler.HasPending)
+                {
+                    using var quiet = new CancellationTokenSource();
+                    var delay = _time.Delay(QuietFlush, quiet.Token);
+                    if (await Task.WhenAny(read, delay).ConfigureAwait(false) != read)
+                    {
+                        output.Write(assembler.Flush());
+                        pendingRead = read;
+                        continue;
+                    }
+                    quiet.Cancel();
+                }
+
+                if (await read.ConfigureAwait(false) is not { } line)
+                {
+                    break;
+                }
                 lock (_gate)
                 {
                     _recentStderr.Enqueue(line);
@@ -352,22 +375,9 @@ public sealed class LanguageServerSupervisor : IDisposable
                     }
                 }
                 StdErrLine?.Invoke(this, new LanguageServerStdErrEventArgs(session.Id, line));
-
-                // A server spewing stderr mustn't flood the Output window.
-                var now = _time.GetUtcNow();
-                if (now - windowStart >= TimeSpan.FromSeconds(1))
+                foreach (var record in assembler.Add(line))
                 {
-                    ReportDropped(session, ref dropped);
-                    windowStart = now;
-                    linesInWindow = 0;
-                }
-                if (++linesInWindow <= _settings.StderrLinesPerSecond)
-                {
-                    _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, line);
-                }
-                else
-                {
-                    dropped++;
+                    output.Write(record);
                 }
             }
         }
@@ -375,16 +385,49 @@ public sealed class LanguageServerSupervisor : IDisposable
         {
             // The pipe went away with the process.
         }
-        ReportDropped(session, ref dropped);
+        output.Write(assembler.Flush());
+        output.ReportDropped();
     }
 
-    private void ReportDropped(Session session, ref int dropped)
+    // Writes damlc's log entries to the logger, at most so many per second, so a server spewing
+    // stderr can't flood the Output window; what's left out is counted and summarised.
+    private sealed class StderrLog(LanguageServerSupervisor owner, int sessionId)
     {
-        if (dropped > 0)
+        private DateTimeOffset _windowStart = owner._time.GetUtcNow();
+        private int _inWindow;
+        private int _dropped;
+
+        public void Write(DamlcLogRecord? record)
         {
-            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning,
-                $"{dropped} stderr line(s) of session {session.Id} not shown; the language server wrote more than {_settings.StderrLinesPerSecond} per second.");
-            dropped = 0;
+            if (record is not { } entry)
+            {
+                return;
+            }
+            var now = owner._time.GetUtcNow();
+            if (now - _windowStart >= TimeSpan.FromSeconds(1))
+            {
+                ReportDropped();
+                _windowStart = now;
+                _inWindow = 0;
+            }
+            if (++_inWindow <= owner._settings.StderrLinesPerSecond)
+            {
+                owner._logger.Log(DamlLogCategory.LanguageServer, entry.Level, entry.Text);
+            }
+            else
+            {
+                _dropped++;
+            }
+        }
+
+        public void ReportDropped()
+        {
+            if (_dropped > 0)
+            {
+                owner._logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning,
+                    $"{_dropped} stderr line(s) of session {sessionId} not shown; the language server wrote more than {owner._settings.StderrLinesPerSecond} per second.");
+                _dropped = 0;
+            }
         }
     }
 
