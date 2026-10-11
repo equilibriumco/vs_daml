@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using StreamJsonRpc;
@@ -8,7 +9,10 @@ namespace Daml.TestFakes.LanguageServer;
 
 /// <summary>
 /// Fake Daml language server speaking LSP (Content-Length framing) over stdin/stdout.
-/// FAKE_LS_SCENARIO points at a JSON file: <c>{ "capabilities": { ... } }</c>.
+/// FAKE_LS_SCENARIO points at a JSON file:
+/// <c>{ "capabilities": { ... }, "stderrLines": [...], "exitCodeAtStart": 1, "hangOnInitialize": true }</c>
+/// (all but capabilities optional): lines written to stderr at start, an immediate exit, and an
+/// initialize that never gets a reply.
 /// FAKE_LS_CALLS, when set, receives every incoming method name as one JSON line.
 /// Exit codes follow the LSP spec: 0 after shutdown + exit, 1 for exit without shutdown or a
 /// closed input stream.
@@ -18,6 +22,16 @@ internal static class Program
     private static async Task<int> Main()
     {
         var scenario = LoadScenario();
+        foreach (var line in scenario["stderrLines"] ?? new JArray())
+        {
+            await Console.Error.WriteLineAsync((string?)line).ConfigureAwait(false);
+        }
+        await Console.Error.FlushAsync().ConfigureAwait(false);
+        if (scenario["exitCodeAtStart"] is JValue { Type: JTokenType.Integer } exitCode)
+        {
+            return (int)exitCode;
+        }
+
         var server = new Server(scenario, Environment.GetEnvironmentVariable("FAKE_LS_CALLS"));
 
         var handler = new HeaderDelimitedMessageHandler(Console.OpenStandardOutput(), Console.OpenStandardInput(), new JsonMessageFormatter());
@@ -51,9 +65,13 @@ internal static class Program
         public Task<int> Exited => _exited.Task;
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
-        public JObject Initialize(JToken? parameters)
+        public async Task<JObject> Initialize(JToken? parameters)
         {
             Record("initialize");
+            if (_scenario["hangOnInitialize"] is JValue { Type: JTokenType.Boolean } hang && (bool)hang)
+            {
+                await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+            }
             return new JObject
             {
                 ["capabilities"] = _scenario["capabilities"]?.DeepClone() ?? new JObject(),

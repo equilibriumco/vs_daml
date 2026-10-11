@@ -40,7 +40,14 @@ public sealed class FakeLanguageServer : IDisposable
     {
         var server = new FakeLanguageServer(Path.Combine(Path.GetTempPath(), "daml-fake-ls-" + Guid.NewGuid().ToString("N")));
         Directory.CreateDirectory(server._root);
-        File.WriteAllText(server._scenarioPath, new JObject { ["capabilities"] = scenario.Capabilities }.ToString(Formatting.None));
+        var json = new JObject
+        {
+            ["capabilities"] = scenario.Capabilities,
+            ["stderrLines"] = new JArray(scenario.StderrLines),
+            ["exitCodeAtStart"] = scenario.ExitCodeAtStart is { } code ? new JValue(code) : JValue.CreateNull(),
+            ["hangOnInitialize"] = scenario.HangOnInitialize,
+        };
+        File.WriteAllText(server._scenarioPath, json.ToString(Formatting.None));
         return server;
     }
 

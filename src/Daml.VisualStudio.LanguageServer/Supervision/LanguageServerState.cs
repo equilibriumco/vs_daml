@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace Daml.VisualStudio.LanguageServer.Supervision;
 
@@ -69,11 +70,12 @@ public sealed class RestartRequestedEventArgs : EventArgs
 /// <summary>One run of the server process, as handed to the LSP client.</summary>
 public sealed class LanguageServerSession
 {
-    internal LanguageServerSession(int id, Stream input, Stream output)
+    internal LanguageServerSession(int id, Stream input, Stream output, CancellationToken ending)
     {
         Id = id;
         Input = input;
         Output = output;
+        Ending = ending;
     }
 
     /// <summary>Increases with every start; events and replies of older sessions are ignored.</summary>
@@ -84,4 +86,46 @@ public sealed class LanguageServerSession
 
     /// <summary>What the client reads from: the server's standard output.</summary>
     public Stream Output { get; }
+
+    /// <summary>
+    /// Cancelled as soon as the session starts to end (stop, crash or replacement), before the
+    /// process goes; work tied to this session should stop when it fires.
+    /// </summary>
+    public CancellationToken Ending { get; }
+}
+
+/// <summary>A line the server wrote to stderr.</summary>
+public sealed class LanguageServerStdErrEventArgs : EventArgs
+{
+    /// <summary>Creates the event data.</summary>
+    public LanguageServerStdErrEventArgs(int sessionId, string line)
+    {
+        SessionId = sessionId;
+        Line = line;
+    }
+
+    /// <summary>The session that wrote it.</summary>
+    public int SessionId { get; }
+
+    /// <summary>The line, without its line break.</summary>
+    public string Line { get; }
+}
+
+/// <summary>Timeouts and limits of <see cref="LanguageServerSupervisor"/>.</summary>
+public sealed record SupervisorSettings
+{
+    /// <summary>
+    /// How long the server may take to answer <c>initialize</c> before it is treated as crashed.
+    /// Generous, because a first start may install an SDK.
+    /// </summary>
+    public TimeSpan InitializeTimeout { get; init; } = TimeSpan.FromMinutes(2);
+
+    /// <summary>How long a stopped server gets to exit on its own before its tree is killed.</summary>
+    public TimeSpan StopGracePeriod { get; init; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>stderr lines logged per second; the rest are counted and summarised.</summary>
+    public int StderrLinesPerSecond { get; init; } = 50;
+
+    /// <summary>How many recent stderr lines are kept for diagnostics.</summary>
+    public int RetainedStderrLines { get; init; } = 500;
 }
