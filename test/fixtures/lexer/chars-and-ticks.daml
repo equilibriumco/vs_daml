@@ -1,0 +1,12 @@
+module CharsAndTicks where
+
+letter = 'a'
+newline = '\n'
+quote = '\''
+hex = '\x41'
+x' = x
+foldl' f z xs = z
+promoted : Proxy '[]
+promoted = Proxy
+promotedTrue : Proxy 'True
+promotedTrue = Proxy

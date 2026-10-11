@@ -1,0 +1,7 @@
+﻿L1 [0..6) ModuleKeyword "module"
+L1 [7..18) ConId "SyntaxError"
+L1 [19..24) Keyword "where"
+L3 [0..82) LineComment "-- Deliberately broken: the `with` block has no fields and the `where` is missing."
+L4 [0..8) DeclarationKeyword "template"
+L4 [9..19) ConId "Unfinished"
+L5 [2..6) ContractKeyword "with"

@@ -1,0 +1,8 @@
+module TypeApplication where
+
+fromAny = fromAnyChoice @Account @Close x
+parsed = read @Int "1"
+list = show @[Int] []
+asPattern xs@(x :: rest) = xs
+asPatternBracket all@[_] = all
+spaced = f @ g

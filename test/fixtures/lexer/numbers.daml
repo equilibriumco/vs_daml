@@ -1,0 +1,8 @@
+module Numbers where
+
+ints = [0, 42, 1_000_000]
+radix = [0x1F, 0XfF, 0o17, 0b1010, 0b1_0]
+decimals = [3.14, 1.0e10, 2.5E-3, 6e+2]
+notAFraction = 1.foo
+range = [1..10]
+underscoreTail = 1_

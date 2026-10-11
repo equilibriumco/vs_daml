@@ -1,0 +1,11 @@
+module Strings where
+
+plain = "hello, world"
+escapes = "tab\there \"quoted\" back\\slash \1234 \x41"
+gap = "this string \
+      \continues here \
+      \and ends here"
+gapThenCode = "a\
+   \b" <> "c"
+unterminated = "never closed
+afterUnterminated = 1

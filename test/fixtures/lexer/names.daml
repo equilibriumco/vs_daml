@@ -1,0 +1,14 @@
+module Names where
+
+import DA.List qualified
+import DA.Map (Map)
+
+sorted = DA.List.sort [3, 1, 2]
+m : M.Map Text Int
+m = M.empty
+composed = DA.List.head . DA.List.tail
+op = (DA.Map.!)
+field = this.owner
+backticked = 1 `div` 2
+qualifiedTick = 1 `M.member` m
+unit = ()

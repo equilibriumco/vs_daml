@@ -1,0 +1,9 @@
+module Unicode where
+
+-- Identifiers and operators outside ASCII.
+zażółć = "gęślą jaźń"
+πr = 3
+λx = 1
+a ⊕ b = a
+x ≤ y = True
+naïve = Ñandú

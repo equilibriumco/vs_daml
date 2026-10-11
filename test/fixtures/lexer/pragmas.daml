@@ -1,0 +1,8 @@
+{-# LANGUAGE
+      ApplicativeDo,
+      PartialTypeSignatures #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+module Pragmas where
+
+import DA.List qualified as L hiding (sort)
+import qualified DA.Map as M

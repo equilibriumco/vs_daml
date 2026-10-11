@@ -1,0 +1,43 @@
+module Keywords where
+
+data Shape = Circle | Square deriving (Eq, Show)
+newtype Wrapper = Wrapper with value : Int
+type Alias = Int
+class Describe a where
+  describe : a -> Text
+instance Describe Shape where
+  describe _ = "shape"
+
+template Account
+  with
+    owner : Party
+    bank : Party
+  where
+    signatory bank
+    observer owner
+    ensure True
+    key (bank, owner) : (Party, Party)
+    maintainer key._1
+
+    nonconsuming choice Check : Bool
+      controller owner
+      do
+        let ok = True in pure ok
+
+    preconsuming choice Close : ()
+      controller bank
+      do pure ()
+
+interface Asset where
+  viewtype AssetView
+  requires Holding
+  getOwner : Party
+
+exception Oops with message : Text where
+  message message
+
+run = do
+  if True then pure () else abort "no"
+  case [] of
+    [] -> pure ()
+  try pure () catch Oops _ -> pure ()

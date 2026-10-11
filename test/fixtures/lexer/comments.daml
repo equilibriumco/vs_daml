@@ -1,0 +1,18 @@
+module Comments where
+
+-- a plain line comment
+--- three dashes are still a comment
+x --> y = x
+a |-- b = a
+c --| d = c
+-- | A doc comment before a declaration.
+f : Int -> Int
+f n = n -- ^ a doc comment after an argument
+{- one-line block -} g = 1
+{- outer {- inner -} still outer
+   -} h = 2
+{- unclosed at depth one
+   {- now two
+   -} back to one
+-}
+done = True
