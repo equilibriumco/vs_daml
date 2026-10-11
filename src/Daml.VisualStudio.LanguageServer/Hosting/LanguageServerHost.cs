@@ -195,7 +195,18 @@ public sealed class LanguageServerHost : IDisposable
     }
 
     /// <summary>Ends the current session (VS has sent shutdown/exit or is about to drop the connection).</summary>
-    public Task StopAsync(CancellationToken cancellationToken) => Supervisor.StopAsync(cancellationToken);
+    /// <param name="cancellationToken">Stops waiting; the session is still ended.</param>
+    /// <param name="immediately">Kill the process tree at once instead of waiting for it to leave.</param>
+    public Task StopAsync(CancellationToken cancellationToken, bool immediately = false) =>
+        Supervisor.StopAsync(cancellationToken, immediately ? TimeSpan.Zero : null);
+
+    /// <summary>Tells the user that there's no daml.yaml to serve.</summary>
+    public void ReportNoWorkspace() =>
+        Raise(LanguageServerProblemKind.NoWorkspace, "No daml.yaml found for the open folder or file; Daml language features are off.");
+
+    /// <summary>Writes to the language server log.</summary>
+    public void Log(DamlLogLevel level, string message, Exception? exception = null) =>
+        _logger.Log(DamlLogCategory.LanguageServer, level, message, exception);
 
     /// <summary>
     /// A file in the workspace changed. The single-package server doesn't notice manifest edits

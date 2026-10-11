@@ -187,8 +187,14 @@ public sealed class LanguageServerSupervisor : IDisposable
     /// The session's <see cref="LanguageServerSession.Ending"/> token is cancelled first, so
     /// nothing in flight acts on a server that's going away.
     /// </summary>
-    public async Task StopAsync(CancellationToken cancellationToken)
+    /// <param name="cancellationToken">Stops waiting; the session is still ended.</param>
+    /// <param name="gracePeriod">
+    /// How long the process may take to leave on its own; <see cref="SupervisorSettings.StopGracePeriod"/>
+    /// if <c>null</c>, and zero to kill it at once (a server that never initialized won't leave).
+    /// </param>
+    public async Task StopAsync(CancellationToken cancellationToken, TimeSpan? gracePeriod = null)
     {
+        var grace = gracePeriod ?? _settings.StopGracePeriod;
         await _transitions.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -209,10 +215,10 @@ public sealed class LanguageServerSupervisor : IDisposable
 
             SetState(LanguageServerState.Stopping);
             session.Ending.Cancel();
-            if (!await ExitsWithinAsync(session.Process, _settings.StopGracePeriod, cancellationToken).ConfigureAwait(false))
+            if (grace > TimeSpan.Zero && !await ExitsWithinAsync(session.Process, grace, cancellationToken).ConfigureAwait(false))
             {
                 _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning,
-                    $"The language server (session {session.Id}) didn't exit within {_settings.StopGracePeriod.TotalSeconds:0.#} s of being stopped; killing it.");
+                    $"The language server (session {session.Id}) didn't exit within {grace.TotalSeconds:0.#} s of being stopped; killing it.");
             }
             session.End();
             SetState(LanguageServerState.Stopped);

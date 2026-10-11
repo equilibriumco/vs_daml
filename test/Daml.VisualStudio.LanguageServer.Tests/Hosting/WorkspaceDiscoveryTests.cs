@@ -1,0 +1,54 @@
+using Daml.TestHelpers;
+using Daml.VisualStudio.Core.Project;
+using Daml.VisualStudio.LanguageServer.Hosting;
+using Shouldly;
+using Xunit;
+
+namespace Daml.VisualStudio.LanguageServer.Tests.Hosting;
+
+public class WorkspaceDiscoveryTests
+{
+    private readonly InMemoryFileSystem _files = new();
+
+    private WorkspaceContext? Discover(string? root, string? activeFile) =>
+        new WorkspaceDiscovery(_files, new YamlManifestReader(_files)).Discover(root, activeFile, version: 3);
+
+    [Fact, Trait("Category", "Unit")]
+    public void The_active_file_decides_the_package_and_server_folder()
+    {
+        _files.AddFile(@"C:\repo\multi-package.yaml", "packages:\n  - app\n");
+        _files.AddFile(@"C:\repo\app\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+
+        var context = Discover(@"C:\repo", @"C:\repo\app\daml\Main.daml").ShouldNotBeNull();
+
+        context.Mode.ShouldBe(ServerMode.MultiIde);
+        context.PackageRoot.ShouldBe(@"C:\repo\app");
+        context.ServerWorkingDirectory.ShouldBe(@"C:\repo");
+        context.Version.ShouldBe(3);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Without_an_active_file_a_manifest_at_the_root_is_enough()
+    {
+        _files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+
+        Discover(@"C:\repo", null).ShouldNotBeNull().PackageRoot.ShouldBe(@"C:\repo");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Without_a_folder_the_active_files_package_is_the_workspace()
+    {
+        _files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+
+        var context = Discover(null, @"C:\repo\daml\Main.daml").ShouldNotBeNull();
+
+        context.WorkspaceRoot.ShouldBe(@"C:\repo");
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\loose", @"C:\loose\Scratch.daml")]
+    [InlineData(@"C:\loose", null)]
+    [InlineData(null, null)]
+    public void No_manifest_anywhere_means_no_workspace(string? root, string? activeFile) =>
+        Discover(root, activeFile).ShouldBeNull();
+}
