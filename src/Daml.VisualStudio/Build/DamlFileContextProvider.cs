@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +18,17 @@ namespace Daml.VisualStudio.Build;
 [ExportFileContextProvider(BuildIds.FileContextProviderString, BuildContextTypes.BuildContextType, BuildContextTypes.CleanContextType, BuildIds.TestContextTypeString)]
 internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory<IFileContextProvider>
 {
-    public IFileContextProvider CreateProvider(IWorkspace workspaceContext) => new Provider();
+    private readonly Func<DamlBuildAction, CancellationToken, Task<bool>> _run;
+
+    [ImportingConstructor]
+    public DamlFileContextProviderFactory(DamlBuildService service)
+        : this(service.RunAsync)
+    {
+    }
+
+    internal DamlFileContextProviderFactory(Func<DamlBuildAction, CancellationToken, Task<bool>> run) => _run = run;
+
+    public IFileContextProvider CreateProvider(IWorkspace workspaceContext) => new Provider(_run);
 
     internal static Guid ContextTypeFor(DpmCommandKind kind) => kind switch
     {
@@ -28,10 +39,19 @@ internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory
 
     private sealed class Provider : IFileContextProvider
     {
+        private readonly Func<DamlBuildAction, CancellationToken, Task<bool>> _run;
+
+        public Provider(Func<DamlBuildAction, CancellationToken, Task<bool>> run) => _run = run;
+
         public Task<IReadOnlyCollection<FileContext>> GetContextsForFileAsync(string filePath, CancellationToken cancellationToken)
         {
             IReadOnlyCollection<FileContext> contexts = DamlBuildActions.For(filePath)
-                .Select(action => new FileContext(BuildIds.FileContextProvider, ContextTypeFor(action.Kind), new DamlBuildConfigurationContext(action), [filePath], action.DisplayName))
+                .Select(action => new FileContext(
+                    BuildIds.FileContextProvider,
+                    ContextTypeFor(action.Kind),
+                    new DamlBuildConfigurationContext(action, _run),
+                    [filePath],
+                    action.DisplayName))
                 .ToList();
             return Task.FromResult(contexts);
         }

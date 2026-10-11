@@ -2,23 +2,22 @@ using System;
 
 namespace Daml.VisualStudio.Build;
 
-// Identifiers of the Open Folder build integration.
+// Identifiers of the Open Folder build integration. The command set and command id must match
+// DamlPackage.vsct.
 internal static class BuildIds
 {
     public const string FileContextProviderString = "202da85d-ff38-4820-b89e-d9f8db6d85b3";
     public const string ActionProviderString = "93136e07-9dde-4dd2-99f4-d51cc8feff4d";
     public const string FileScannerString = "c7b1c3a4-1d5e-4b8f-9a62-3f0e8d2b7a15";
 
-    // Build and Clean use the built-in context types; Test has none, so it gets its own type.
-    // Open Folder lists actions of such custom types in the folder-view menu by their display name.
+    // Build and Clean use the built-in context types, which the folder view's own commands
+    // handle; Test has no built-in type, so it gets its own type and menu command.
     public const string TestContextTypeString = "23dcfaf1-d146-4c14-8aa7-67eef823a4ab";
     public static readonly Guid TestContextType = new(TestContextTypeString);
 
-    // The folder view's own Build and Clean commands. An action has to name one of them to be
-    // what those menu entries run.
-    public static readonly Guid VsBuildCommandGroup = new("16537f6e-cb14-44da-b087-d1387ce3bf57");
-    public const uint BuildCommandId = 0x1000;
-    public const uint CleanCommandId = 0x1020;
+    public const string CommandSetString = "9387515d-2cd9-4b38-87ba-e7d2f53a9d0d";
+    public static readonly Guid CommandSet = new(CommandSetString);
+    public const uint TestCommandId = 0x0100;
 
     public static readonly Guid FileContextProvider = new(FileContextProviderString);
 }

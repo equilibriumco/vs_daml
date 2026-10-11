@@ -73,7 +73,7 @@ public class BuildIntegrationTests
             value.Name.ShouldBe(BuildConfigurationContext.DataValueName);
             value.Context.ShouldBeNull();
         }
-        var contexts = await new DamlFileContextProviderFactory().CreateProvider(null!).GetContextsForFileAsync(path, CancellationToken.None);
+        var contexts = await new DamlFileContextProviderFactory(NoRun).CreateProvider(null!).GetContextsForFileAsync(path, CancellationToken.None);
         contexts.Select(c => ((IBuildConfigurationContext)c.Context).BuildConfiguration).ShouldAllBe(configuration => values.All(v => v.Context == configuration));
     }
 
@@ -86,20 +86,23 @@ public class BuildIntegrationTests
     }
 
     [Fact, Trait("Category", "Editor")]
-    public async Task The_providers_announce_the_build_clean_and_test_context_types()
+    public async Task Contexts_cover_build_clean_and_test_while_actions_only_cover_test()
     {
         var parts = await DiscoverAsync();
 
-        foreach (var contract in new[] { typeof(IWorkspaceProviderFactory<IFileContextProvider>), typeof(IWorkspaceProviderFactory<IFileContextActionProvider>) })
+        // The attributes take strings; the metadata holds them as Guids.
+        var contextTypes = Flatten(Exports(parts, typeof(IWorkspaceProviderFactory<IFileContextProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
+        foreach (var type in OurContextTypes)
         {
-            var metadata = Exports(parts, contract).Single().Metadata;
-            // The attributes take strings; the metadata holds them as Guids.
-            var values = Flatten(metadata.Values).OfType<Guid>().ToList();
-            foreach (var type in OurContextTypes)
-            {
-                values.ShouldContain(new Guid(type), $"{contract.Name} metadata");
-            }
+            contextTypes.ShouldContain(new Guid(type));
         }
+
+        // Build and Clean run through the folder view's own commands; an action of ours mapped
+        // onto them as well put a second Build in the menu.
+        var actionTypes = Flatten(Exports(parts, typeof(IWorkspaceProviderFactory<IFileContextActionProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
+        actionTypes.ShouldContain(BuildIds.TestContextType);
+        actionTypes.ShouldNotContain(BuildContextTypes.BuildContextTypeGuid);
+        actionTypes.ShouldNotContain(BuildContextTypes.CleanContextTypeGuid);
     }
 
     [Fact, Trait("Category", "Editor")]
@@ -117,7 +120,7 @@ public class BuildIntegrationTests
     [InlineData(@"C:\repo\app\daml\Main.daml", 0)]
     public async Task Manifests_get_one_file_context_per_command(string path, int expected)
     {
-        var provider = new DamlFileContextProviderFactory().CreateProvider(null!);
+        var provider = new DamlFileContextProviderFactory(NoRun).CreateProvider(null!);
 
         var contexts = await provider.GetContextsForFileAsync(path, CancellationToken.None);
 
@@ -131,51 +134,57 @@ public class BuildIntegrationTests
     [Fact, Trait("Category", "Editor")]
     public async Task Each_command_maps_to_its_context_type()
     {
-        var contexts = await new DamlFileContextProviderFactory().CreateProvider(null!).GetContextsForFileAsync(@"C:\repo\app\daml.yaml", CancellationToken.None);
+        var contexts = await new DamlFileContextProviderFactory(NoRun).CreateProvider(null!).GetContextsForFileAsync(@"C:\repo\app\daml.yaml", CancellationToken.None);
 
         contexts.Select(c => c.ContextType).ShouldBe([BuildContextTypes.BuildContextTypeGuid, BuildIds.TestContextType, BuildContextTypes.CleanContextTypeGuid]);
     }
 
     [Fact, Trait("Category", "Editor")]
-    public async Task Test_is_a_plain_action_and_other_providers_contexts_are_ignored()
+    public async Task Test_answers_our_menu_command_and_nothing_else_gets_an_action()
     {
-        // Open Folder lists actions of custom context types in the folder-view menu by itself;
-        // mapping Test onto a menu command of our own as well showed it twice.
-        var factory = new DamlFileContextActionProviderFactory(null!);
+        var ran = new List<DamlBuildAction>();
+        var factory = new DamlFileContextActionProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(true); });
         var provider = factory.CreateProvider(null!);
         var test = Context(BuildIds.TestContextType, DpmCommandKind.Test, @"C:\repo\app", false, @"C:\repo\app\daml.yaml");
+        var build = Context(BuildContextTypes.BuildContextTypeGuid, DpmCommandKind.Build, @"C:\repo\app", false, @"C:\repo\app\daml.yaml");
         var foreign = new FileContext(Guid.NewGuid(), BuildContextTypes.BuildContextTypeGuid, new object(), [@"C:\repo\CMakeLists.txt"], "Build");
 
         var action = (await provider.GetActionsAsync(@"C:\repo\app\daml.yaml", test, CancellationToken.None)).ShouldHaveSingleItem();
+        await action.ExecuteAsync(null!, CancellationToken.None);
 
-        action.ShouldNotBeAssignableTo<IVsCommandItem>();
+        var command = action.ShouldBeAssignableTo<IVsCommandItem>()!;
+        (command.CommandGroup, command.CommandId).ShouldBe((BuildIds.CommandSet, BuildIds.TestCommandId));
+        ((IVsCommandActionProvider)factory).GetSupportedVsCommands().Select(c => (c.Guid, c.ID)).ShouldBe([(BuildIds.CommandSet, (int)BuildIds.TestCommandId)]);
         action.DisplayName.ShouldBe("Test");
+        ran.ShouldHaveSingleItem().Kind.ShouldBe(DpmCommandKind.Test);
+        (await provider.GetActionsAsync(@"C:\repo\app\daml.yaml", build, CancellationToken.None)).ShouldBeEmpty();
         (await provider.GetActionsAsync(@"C:\repo\CMakeLists.txt", foreign, CancellationToken.None)).ShouldBeEmpty();
     }
 
     [Theory, Trait("Category", "Editor")]
-    [InlineData(DpmCommandKind.Build, false, 0x1000u, "Build")]
-    [InlineData(DpmCommandKind.Clean, false, 0x1020u, "Clean")]
-    [InlineData(DpmCommandKind.Build, true, 0x1000u, "Build All")]
-    [InlineData(DpmCommandKind.Clean, true, 0x1020u, "Clean All")]
-    public async Task Build_and_clean_answer_the_standard_build_commands(DpmCommandKind kind, bool all, uint commandId, string name)
+    [InlineData(@"C:\repo\app\daml.yaml", DpmCommandKind.Build, false)]
+    [InlineData(@"C:\repo\app\daml.yaml", DpmCommandKind.Clean, false)]
+    [InlineData(@"C:\repo\multi-package.yaml", DpmCommandKind.Build, true)]
+    [InlineData(@"C:\repo\multi-package.yaml", DpmCommandKind.Clean, true)]
+    public async Task Build_and_clean_contexts_are_run_by_the_folder_views_own_commands(string manifest, DpmCommandKind kind, bool all)
     {
-        var factory = new DamlFileContextActionProviderFactory(null!);
-        var manifest = all ? @"C:\repo\multi-package.yaml" : @"C:\repo\daml.yaml";
-        var context = Context(DamlFileContextProviderFactory.ContextTypeFor(kind), kind, @"C:\repo", all, manifest);
+        var ran = new List<DamlBuildAction>();
+        var provider = new DamlFileContextProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(true); }).CreateProvider(null!);
+        var context = (await provider.GetContextsForFileAsync(manifest, CancellationToken.None))
+            .Single(c => c.ContextType == DamlFileContextProviderFactory.ContextTypeFor(kind));
 
-        var action = (await factory.CreateProvider(null!).GetActionsAsync(manifest, context, CancellationToken.None)).ShouldHaveSingleItem();
+        var built = await context.Context.ShouldBeAssignableTo<IBuildFileContext>()!.ExecuteBuildAsync(null!, CancellationToken.None);
 
-        var command = action.ShouldBeAssignableTo<IVsCommandItem>()!;
-        (command.CommandGroup, command.CommandId).ShouldBe((BuildIds.VsBuildCommandGroup, commandId));
-        action.DisplayName.ShouldBe(name);
-        action.Source.ShouldBeSameAs(context);
-        ((IVsCommandActionProvider)factory).GetSupportedVsCommands().Select(c => (c.Guid, c.ID))
-            .ShouldBe([(BuildIds.VsBuildCommandGroup, 0x1000), (BuildIds.VsBuildCommandGroup, 0x1020)], ignoreOrder: true);
+        built.ShouldBeTrue();
+        var action = ran.ShouldHaveSingleItem();
+        action.Kind.ShouldBe(kind);
+        action.AllPackages.ShouldBe(all);
     }
 
+    private static Task<bool> NoRun(DamlBuildAction action, CancellationToken cancellationToken) => Task.FromResult(false);
+
     private static FileContext Context(Guid type, DpmCommandKind kind, string folder, bool all, string manifest) =>
-        new(BuildIds.FileContextProvider, type, new DamlBuildConfigurationContext(new DamlBuildAction(kind, folder, all)), [manifest], kind.ToString());
+        new(BuildIds.FileContextProvider, type, new DamlBuildConfigurationContext(new DamlBuildAction(kind, folder, all), NoRun), [manifest], kind.ToString());
 
     [Fact, Trait("Category", "Editor")]
     public void The_error_list_gets_zero_based_entries_tagged_as_daml_build_and_follows_the_store()
