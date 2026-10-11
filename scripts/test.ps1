@@ -207,7 +207,8 @@ $summary = foreach ($cat in $categories) {
     if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
 
     if ($cat -notin $vstestCategories) {
-        # Grammar runs through tree-sitter and Perf through BenchmarkDotNet; neither exists yet.
+        # Neither is a vstest run: Perf is BenchmarkDotNet (scripts/bench.ps1, budgets checked by
+        # hand at gates for now) and Grammar will be tree-sitter.
         if ($isRequired) { $problems.Add("$cat is required but has no runner yet") }
         [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'no runner yet' }
         continue

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- BenchmarkDotNet runs, not tests: test.ps1 doesn't pick this project up (its name doesn't
+       end in Tests). The budgets are set for net48 x64, where the editor runs; net10.0 is kept
+       for comparison. Run it with scripts/bench.ps1. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+    <PlatformTarget>x64</PlatformTarget>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Daml.VisualStudio.Core\Daml.VisualStudio.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded so the run doesn't depend on where BenchmarkDotNet puts its generated build. -->
+    <EmbeddedResource Include="..\fixtures\perf\large-5k.daml" LogicalName="large-5k.daml" />
+  </ItemGroup>
+
+</Project>
