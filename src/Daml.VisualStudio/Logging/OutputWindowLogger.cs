@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Community.VisualStudio.Toolkit;
@@ -15,9 +16,10 @@ namespace Daml.VisualStudio.Logging;
 
 /// <summary>
 /// Writes each category to its own Output window pane; errors also go to the ActivityLog.
-/// <see cref="Log"/> only enqueues, so it is cheap and safe on any thread. One coalesced job on
-/// the UI thread drains the queue, creating a pane the first time its category shows up so
-/// unused categories don't clutter the Output dropdown.
+/// <see cref="Log"/> only enqueues, so it is cheap and safe on any thread. A single job on the
+/// UI thread drains the queue in bounded batches, merging consecutive lines of a category into
+/// one write, and creates a pane the first time its category shows up so unused categories
+/// don't clutter the Output dropdown.
 /// </summary>
 [Export(typeof(IDamlLogger))]
 internal sealed class OutputWindowLogger : IDamlLogger
@@ -33,11 +35,23 @@ internal sealed class OutputWindowLogger : IDamlLogger
     // Only touched on the UI thread. A null value means pane creation failed; lines are dropped.
     private readonly Dictionary<DamlLogCategory, IVsOutputWindowPane?> _panes = new();
 
+    /// <summary>Most queue entries one pass writes before giving the UI thread back.</summary>
+    internal const int MaxEntriesPerPass = 256;
+
+    private readonly Func<Guid, string, Task<IVsOutputWindowPane?>> _createPaneAsync;
+
     [ImportingConstructor]
     public OutputWindowLogger(JoinableTaskContext joinableTaskContext)
+        : this(joinableTaskContext, null)
+    {
+    }
+
+    // Tests pass their own pane factory to control when pane creation completes.
+    internal OutputWindowLogger(JoinableTaskContext joinableTaskContext, Func<Guid, string, Task<IVsOutputWindowPane?>>? createPaneAsync)
     {
         _flushes = joinableTaskContext.CreateCollection();
         _joinableTaskFactory = joinableTaskContext.CreateFactory(_flushes);
+        _createPaneAsync = createPaneAsync ?? CreateOutputPaneAsync;
     }
 
     // Becomes configurable with the options page; until then Information and up.
@@ -69,18 +83,57 @@ internal sealed class OutputWindowLogger : IDamlLogger
     /// <summary>Completes once everything logged so far has reached its pane.</summary>
     internal Task DrainAsync() => _flushes.JoinTillEmptyAsync();
 
+    // The only flusher while _flushScheduled is 1, so lines can't overtake each other even when
+    // a pane creation awaits. Each pass writes a bounded batch, then yields the UI thread.
     private async Task FlushAsync()
     {
         await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
 
-        // Reset before draining: anything enqueued from here on schedules another pass.
-        Volatile.Write(ref _flushScheduled, 0);
-
-        while (_queue.TryDequeue(out var entry))
+        while (true)
         {
-            var pane = await GetOrCreatePaneAsync(entry.Category);
-            pane?.OutputStringThreadSafe(entry.Line);
+            await WriteBatchAsync();
+
+            if (_queue.IsEmpty)
+            {
+                Volatile.Write(ref _flushScheduled, 0);
+                // Something enqueued just before the reset saw the flag still set and didn't
+                // schedule a flush; take it on here unless a new Log call already has.
+                if (_queue.IsEmpty || Interlocked.CompareExchange(ref _flushScheduled, 1, 0) != 0)
+                {
+                    return;
+                }
+            }
+
+            await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
         }
+    }
+
+    // Consecutive lines of one category go out as a single pane write.
+    private async Task WriteBatchAsync()
+    {
+        var text = new StringBuilder();
+        DamlLogCategory? category = null;
+        for (var taken = 0; taken < MaxEntriesPerPass && _queue.TryDequeue(out var entry); taken++)
+        {
+            if (category is { } current && current != entry.Category)
+            {
+                await WriteAsync(current, text);
+            }
+            category = entry.Category;
+            text.Append(entry.Line);
+        }
+        if (category is { } last)
+        {
+            await WriteAsync(last, text);
+        }
+    }
+
+    private async Task WriteAsync(DamlLogCategory category, StringBuilder text)
+    {
+        var pane = await GetOrCreatePaneAsync(category);
+        await _joinableTaskFactory.SwitchToMainThreadAsync();
+        pane?.OutputStringThreadSafe(text.ToString());
+        text.Clear();
     }
 
     private async Task<IVsOutputWindowPane?> GetOrCreatePaneAsync(DamlLogCategory category)
@@ -94,10 +147,9 @@ internal sealed class OutputWindowLogger : IDamlLogger
         IVsOutputWindowPane? pane = null;
         try
         {
-            var outputWindow = await VS.Services.GetOutputWindowAsync();
             var (paneGuid, title) = PaneFor(category);
-            ErrorHandler.ThrowOnFailure(outputWindow.CreatePane(ref paneGuid, title, fInitVisible: 1, fClearWithSolution: 0));
-            ErrorHandler.ThrowOnFailure(outputWindow.GetPane(ref paneGuid, out pane));
+            pane = await _createPaneAsync(paneGuid, title);
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
         }
         catch (Exception ex)
         {
@@ -107,6 +159,15 @@ internal sealed class OutputWindowLogger : IDamlLogger
         }
 
         _panes[category] = pane;
+        return pane;
+    }
+
+    private async Task<IVsOutputWindowPane?> CreateOutputPaneAsync(Guid paneGuid, string title)
+    {
+        await _joinableTaskFactory.SwitchToMainThreadAsync();
+        var outputWindow = await VS.Services.GetOutputWindowAsync();
+        ErrorHandler.ThrowOnFailure(outputWindow.CreatePane(ref paneGuid, title, fInitVisible: 1, fClearWithSolution: 0));
+        ErrorHandler.ThrowOnFailure(outputWindow.GetPane(ref paneGuid, out var pane));
         return pane;
     }
 

@@ -47,6 +47,21 @@ internal sealed class FakeOutputWindow : IVsOutputWindow
 
     public int DeletePane(ref Guid rguidPane) => VSConstants.E_NOTIMPL;
 
+    // Same as CreatePane + GetPane, for tests that stand in for the VS service calls.
+    public FakePane Create(Guid id, string title)
+    {
+        lock (_panes)
+        {
+            var pane = _panes.FirstOrDefault(p => p.Id == id);
+            if (pane is null)
+            {
+                pane = new FakePane(id, title);
+                _panes.Add(pane);
+            }
+            return pane;
+        }
+    }
+
     internal sealed class FakePane : IVsOutputWindowPane
     {
         private readonly List<string> _lines = new();
