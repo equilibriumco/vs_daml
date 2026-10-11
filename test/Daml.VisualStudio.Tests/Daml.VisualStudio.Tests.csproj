@@ -14,6 +14,12 @@
     <PackageReference Include="Microsoft.VisualStudio.SDK" />
     <PackageReference Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" />
     <PackageReference Include="Microsoft.VisualStudio.Composition" />
+    <!-- The extension references these without runtime assets (VS provides them); MEF discovery
+         and the build tests need to load them. -->
+    <PackageReference Include="Microsoft.VisualStudio.Workspace" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
+    <!-- Only to pin the version Workspace.Extensions.VS asks for; its build targets stay out. -->
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="MessagePack" />
   </ItemGroup>
 

@@ -25,6 +25,7 @@ namespace Daml.VisualStudio;
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 [Guid(PackageGuids.PackageString)]
 [ProvideBindingPath]
+[ProvideMenuResource("Menus.ctmenu", 1)]
 [ProvideAutoLoad(PackageGuids.DamlActiveString, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideUIContextRule(
     PackageGuids.DamlActiveString,

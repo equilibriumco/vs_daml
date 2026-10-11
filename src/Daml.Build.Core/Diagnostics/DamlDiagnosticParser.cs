@@ -41,6 +41,13 @@ public sealed class DamlDiagnosticParser
     /// <summary>Diagnostics completed so far, in output order.</summary>
     public IReadOnlyList<DamlDiagnostic> Diagnostics => _diagnostics;
 
+    /// <summary>
+    /// <paramref name="line"/> without the ANSI colour codes damlc writes even when its output is
+    /// redirected, for showing the line as plain text.
+    /// </summary>
+    public static string StripAnsi(string line) =>
+        AnsiEscape.Replace(line ?? throw new ArgumentNullException(nameof(line)), "");
+
     /// <summary>Parses a whole output at once.</summary>
     public static IReadOnlyList<DamlDiagnostic> Parse(string output)
     {

@@ -30,12 +30,15 @@
 
   <ItemGroup>
     <None Include="source.extension.vsixmanifest" SubType="Designer" />
+    <VSCTCompile Include="DamlPackage.vsct" ResourceName="Menus.ctmenu" />
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" ExcludeAssets="runtime" />
     <PackageReference Include="Community.VisualStudio.Toolkit.17" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
   </ItemGroup>
