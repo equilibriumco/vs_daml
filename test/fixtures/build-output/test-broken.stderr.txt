@@ -1,0 +1,31 @@
+
+2026-10-11 18:52:44.73 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+2026-10-11 18:52:44.73 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.apache.pekko.util.Unsafe (file:/C:/Users/<user>/AppData/Roaming/dpm/cache/components/daml-script/3.6.2/script-service.jar)
+
+2026-10-11 18:52:44.73 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: Please consider reporting this to the maintainers of class org.apache.pekko.util.Unsafe
+
+2026-10-11 18:52:44.73 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+File:     daml/UnknownImport.daml
+Hidden:   no
+Range:    4:8-4:23
+Source:   not found
+Severity: DsError
+Message: 
+[0;91mCould not find module ‘DA.DoesNotExist’
+It is not a module in the current program, or in any known package.[0m
+File:     daml/SyntaxError.daml
+Hidden:   no
+Range:    6:1-6:1
+Source:   parser
+Severity: DsError
+Message: 
+[0;91mdaml/SyntaxError.daml:6:1: error:
+    parse error (possibly incorrect indentation or mismatched brackets)[0m
+damlc.exe: Error when running Shake build system:
+BadDependency "GeneratePackage"
+

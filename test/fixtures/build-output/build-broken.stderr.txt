@@ -1,0 +1,31 @@
+Running single package build of broken as no multi-package.yaml was found.
+
+2026-10-11 18:52:14.45 [INFO]  [build] 
+Compiling broken to a DAR.
+File:     daml/SyntaxError.daml
+Hidden:   no
+Range:    6:1-6:1
+Source:   parser
+Severity: DsError
+Message: 
+[0;91mdaml/SyntaxError.daml:6:1: error:
+    parse error (possibly incorrect indentation or mismatched brackets)[0m
+File:     daml/TypeError.daml
+Hidden:   no
+Range:    5:9-5:20
+Source:   typecheck
+Severity: DsError
+Message: 
+[0;91mdaml/TypeError.daml:5:9: error:
+    • Couldn't match expected type ‘Int’ with actual type ‘Text’
+    • In the expression: "forty-two"
+      In an equation for ‘total’: total = "forty-two"[0m
+File:     daml/UnknownImport.daml
+Hidden:   no
+Range:    4:8-4:23
+Source:   not found
+Severity: DsError
+Message: 
+[0;91mCould not find module ‘DA.DoesNotExist’
+It is not a module in the current program, or in any known package.[0m
+ERROR: Creation of DAR file failed.

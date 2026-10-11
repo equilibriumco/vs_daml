@@ -1,0 +1,2 @@
+Cleaning C:\work\single
+Removed build artifacts.

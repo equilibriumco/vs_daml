@@ -1,0 +1,20 @@
+Running single package build of single-package as no multi-package.yaml was found.
+
+2026-10-11 18:52:25.18 [INFO]  [build] 
+Compiling single-package to a DAR.
+File:     daml
+Hidden:   no
+Range:    1:1-2:1
+Source:   Daml-LF typechecker
+Severity: DsWarning
+Message: 
+[0;93mwarning while type checking package:
+  This package defines templates or interfaces, and depends on daml-script.
+  Uploading this package to a ledger will also upload daml-script, which will bloat the package store on your participant.
+  It is recommended that scripts/tests are defined in a separate package to your templates, and that
+  you remove `867c8b7e7e8feb98f0bb71c2c86772f20124a2dc1607e0139e5713dcdc76b385 (daml-script, 3.6.2)` from the dependencies in your daml.yaml
+  Upgrade this warning to an error -Werror=template-interface-depends-on-daml-script
+  Disable this warning entirely with -Wno-template-interface-depends-on-daml-script[0m
+
+2026-10-11 18:52:26.25 [INFO]  [build] 
+Created .daml\dist\single-package-0.0.1.dar

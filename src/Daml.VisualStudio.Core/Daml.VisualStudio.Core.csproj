@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Diagnostic parsing and dpm arguments, shared with the MSBuild tasks. Build.Core itself
+         depends on nothing, so the tasks don't load this assembly or its packages. -->
+    <ProjectReference Include="..\Daml.Build.Core\Daml.Build.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Daml.VisualStudio.Core.Tests" />
   </ItemGroup>
 

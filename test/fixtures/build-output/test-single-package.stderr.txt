@@ -1,0 +1,12 @@
+
+2026-10-11 18:52:47.40 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+2026-10-11 18:52:47.40 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.apache.pekko.util.Unsafe (file:/C:/Users/<user>/AppData/Roaming/dpm/cache/components/daml-script/3.6.2/script-service.jar)
+
+2026-10-11 18:52:47.40 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: Please consider reporting this to the maintainers of class org.apache.pekko.util.Unsafe
+
+2026-10-11 18:52:47.40 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
