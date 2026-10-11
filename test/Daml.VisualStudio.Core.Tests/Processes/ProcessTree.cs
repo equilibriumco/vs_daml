@@ -5,24 +5,12 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.VisualStudio.Core.Tests.Processes;
 
-// Process.Kill(entireProcessTree) isn't available on netstandard2.0, and killing only the
-// direct child isn't enough: dpm.cmd runs inside cmd.exe, which starts the real dpm.exe.
+// Lists the processes a test process started, to check they are gone after a kill. Walks
+// parent IDs from a Toolhelp snapshot, since Process has no notion of children.
 internal static class ProcessTree
 {
-    public static void Kill(Process root, DateTime rootStartTime)
-    {
-        // Collect first: once the parent is gone its children are harder to tell from strangers.
-        var descendants = Descendants(root.Id, rootStartTime);
-        TryKill(root);
-        foreach (var descendant in descendants)
-        {
-            TryKill(descendant);
-            descendant.Dispose();
-        }
-    }
-
     public static List<Process> Descendants(int parentId) =>
         Descendants(parentId, Process.GetProcessById(parentId).StartTime);
 
@@ -89,18 +77,6 @@ internal static class ProcessTree
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {
             return null; // not ours to look at, or gone
-        }
-    }
-
-    private static void TryKill(Process process)
-    {
-        try
-        {
-            process.Kill();
-        }
-        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or NotSupportedException)
-        {
-            // Already exited or exiting.
         }
     }
 

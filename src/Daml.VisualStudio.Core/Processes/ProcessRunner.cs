@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -7,9 +6,28 @@ using System.Threading.Tasks;
 
 namespace Daml.VisualStudio.Core.Processes;
 
-/// <summary><see cref="IProcessRunner"/> over <see cref="Process"/>.</summary>
+/// <summary>
+/// <see cref="IProcessRunner"/> that creates every process inside its own kill-on-close Job
+/// Object, so nothing it starts can outlive it or the host.
+/// </summary>
 public sealed class ProcessRunner : IProcessRunner
 {
+    private readonly Action<StartStage, int>? _startHook;
+
+    /// <summary>Creates a runner.</summary>
+    public ProcessRunner()
+    {
+    }
+
+    // Lets tests fail a start at a given point to prove nothing is left behind.
+    internal ProcessRunner(Action<StartStage, int>? startHook) => _startHook = startHook;
+
+    internal enum StartStage
+    {
+        JobCreated,
+        Created,
+    }
+
     /// <inheritdoc />
     public async Task<ProcessResult> RunAsync(ProcessSpec spec, CancellationToken cancellationToken)
     {
@@ -19,7 +37,7 @@ public sealed class ProcessRunner : IProcessRunner
         }
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var process = RunningProcess.Start(spec);
+        using var process = JobProcess.Start(spec, _startHook);
         process.StandardInput.Dispose();
         var stdout = ReadAllAsync(process.StandardOutput);
         var stderr = ReadAllAsync(process.StandardError);
@@ -41,91 +59,11 @@ public sealed class ProcessRunner : IProcessRunner
 
     /// <inheritdoc />
     public IRunningProcess Start(ProcessSpec spec) =>
-        RunningProcess.Start(spec ?? throw new ArgumentNullException(nameof(spec)));
+        JobProcess.Start(spec ?? throw new ArgumentNullException(nameof(spec)), _startHook);
 
     private static async Task<string> ReadAllAsync(Stream stream)
     {
         using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return await reader.ReadToEndAsync().ConfigureAwait(false);
-    }
-
-    private sealed class RunningProcess : IRunningProcess
-    {
-        private readonly Process _process;
-        private readonly DateTime _startTime;
-        private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        private RunningProcess(Process process)
-        {
-            _process = process;
-            _process.Exited += (_, _) => _exited.TrySetResult(_process.ExitCode);
-            _process.Start();
-            _startTime = _process.StartTime;
-            Id = _process.Id;
-        }
-
-        public int Id { get; }
-
-        public Stream StandardInput => _process.StandardInput.BaseStream;
-
-        public Stream StandardOutput => _process.StandardOutput.BaseStream;
-
-        public Stream StandardError => _process.StandardError.BaseStream;
-
-        public Task<int> Exited => _exited.Task;
-
-        public static RunningProcess Start(ProcessSpec spec)
-        {
-            if (Path.IsPathRooted(spec.FileName) && !File.Exists(spec.FileName))
-            {
-                throw new FileNotFoundException($"{spec.FileName} doesn't exist.", spec.FileName);
-            }
-
-            var startInfo = new ProcessStartInfo
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WorkingDirectory = spec.WorkingDirectory ?? "",
-            };
-            if (CommandLine.IsBatchFile(spec.FileName))
-            {
-                startInfo.FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe");
-                startInfo.Arguments = CommandLine.ForBatch(spec.FileName, spec.Arguments);
-            }
-            else
-            {
-                startInfo.FileName = spec.FileName;
-                startInfo.Arguments = CommandLine.ForExecutable(spec.Arguments);
-            }
-            foreach (var variable in spec.Environment)
-            {
-                if (variable.Value is null)
-                {
-                    startInfo.Environment.Remove(variable.Key);
-                }
-                else
-                {
-                    startInfo.Environment[variable.Key] = variable.Value;
-                }
-            }
-
-            var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-            try
-            {
-                return new RunningProcess(process);
-            }
-            catch
-            {
-                process.Dispose();
-                throw;
-            }
-        }
-
-        public void KillTree() => ProcessTree.Kill(_process, _startTime);
-
-        public void Dispose() => _process.Dispose();
     }
 }
