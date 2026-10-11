@@ -8,6 +8,8 @@
   <ItemGroup>
     <!-- Manifest parsing (daml.yaml, multi-package.yaml); ships in the VSIX with its own codebase entry. -->
     <PackageReference Include="YamlDotNet" />
+    <!-- Reads dpm's JSON output. VS ships it, so it stays out of the VSIX. -->
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
   <ItemGroup>

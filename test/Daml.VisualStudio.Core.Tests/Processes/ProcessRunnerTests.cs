@@ -10,7 +10,6 @@ using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Processes;
 using Shouldly;
 using Xunit;
-using ProcessResult = Daml.VisualStudio.Core.Processes.ProcessResult;
 
 namespace Daml.VisualStudio.Core.Tests.Processes;
 
