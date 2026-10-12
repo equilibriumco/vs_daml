@@ -26,16 +26,22 @@ public class BuildTests
         var solution = ServiceProvider.GlobalProvider.GetService(typeof(SVsSolution)) as IVsSolution7 ?? throw new InvalidOperationException("SVsSolution is not available.");
         solution.OpenFolder(folder);
         var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE ?? throw new InvalidOperationException("DTE is not available.");
-        // In Open Folder, Build All runs every build context, ours for daml.yaml included. It only
-        // becomes available once the folder's build index is ready.
-        var build = dte.Commands.Item("Build.BuildSolution");
+        // In Open Folder, building everything runs every build context, ours for daml.yaml
+        // included. It only becomes available once the folder's build index is ready, and which
+        // command carries it isn't the same as with a solution, so take the first that's offered.
+        string[] candidates = ["Build.BuildAll", "Build.BuildSolution", "Build.BuildSelection"];
+        string? available = null;
         var ready = DateTime.UtcNow + TimeSpan.FromMinutes(1);
-        while (!build.IsAvailable && DateTime.UtcNow < ready)
+        while (available is null && DateTime.UtcNow < ready)
         {
-            await Task.Delay(500);
+            available = candidates.FirstOrDefault(name => IsAvailable(dte, name));
+            if (available is null)
+            {
+                await Task.Delay(500);
+            }
         }
-        Assert.True(build.IsAvailable, "Build.BuildSolution never became available for the opened folder.");
-        dte.ExecuteCommand("Build.BuildSolution");
+        Assert.True(available is not null, "No build command became available for the opened folder: " + string.Join(", ", candidates));
+        dte.ExecuteCommand(available);
 
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
         var deadline = DateTime.UtcNow + BuildTimeout;
@@ -43,7 +49,8 @@ public class BuildTests
         while (DateTime.UtcNow < deadline)
         {
             await errorList.TableControl.ForceUpdateAsync();
-            count = errorList.TableControl.Entries.Count(e => e.TryGetValue(StandardTableKeyNames.BuildTool, out var tool) && Equals(tool, "Daml Build"));
+            // Build errors reach the Error List through Visual Studio's build messages, under our codes.
+            count = errorList.TableControl.Entries.Count(e => e.TryGetValue(StandardTableKeyNames.ErrorCode, out var code) && Equals(code, "DAML0001"));
             if (count > 0)
             {
                 break;
@@ -51,7 +58,21 @@ public class BuildTests
             await Task.Delay(1000);
         }
 
-        Assert.True(count >= 1, "No Daml Build entries reached the Error List.");
+        Assert.True(count >= 1, "No DAML0001 build errors reached the Error List.");
+    }
+
+    private static bool IsAvailable(DTE dte, string command)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            return dte.Commands.Item(command).IsAvailable;
+        }
+        catch (ArgumentException)
+        {
+            // Not a command this Visual Studio knows.
+            return false;
+        }
     }
 
     private static string CopySample(string name)

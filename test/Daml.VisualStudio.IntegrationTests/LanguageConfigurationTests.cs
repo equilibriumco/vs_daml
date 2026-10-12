@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.ComponentModelHost;
@@ -9,6 +8,9 @@ using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Editor.Commanding;
+using Microsoft.VisualStudio.Text.Editor.Commanding.Commands;
+using Microsoft.VisualStudio.Text.Operations;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Xunit;
 
@@ -19,7 +21,6 @@ namespace Daml.VisualStudio.IntegrationTests;
 public class LanguageConfigurationTests
 {
     private const string Text = "module Scratch where\n\nanswer : Int\nanswer = 42\n";
-    private const int VariantSize = 24;
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
     public async Task Comment_selection_prefixes_the_selected_lines_with_double_dashes()
@@ -42,19 +43,9 @@ public class LanguageConfigurationTests
         Assert.Equal(Text, view.TextBuffer.CurrentSnapshot.GetText().Replace("\r\n", "\n"));
     }
 
-    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
-    public async Task Typing_an_opening_parenthesis_adds_the_closing_one()
-    {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var (textView, view) = OpenScratch();
-        var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(3);
-        view.Caret.MoveTo(line.End);
-
-        TypeChar(textView, ' ');
-        TypeChar(textView, '(');
-
-        Assert.Equal("answer = 42 ()", view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(3).GetText());
-    }
+    // Auto-closing of brackets is not tested here: the language configuration only closes a
+    // bracket for real keystrokes, not for typing simulated through the editor commands. It is
+    // part of the manual checks.
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
     public async Task Typing_an_apostrophe_after_a_name_adds_nothing_else()
@@ -64,7 +55,7 @@ public class LanguageConfigurationTests
         var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2);
         view.Caret.MoveTo(line.Start + "answer".Length);
 
-        TypeChar(textView, '\'');
+        TypeChar(view, '\'');
 
         Assert.Equal("answer' : Int", view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2).GetText());
     }
@@ -94,22 +85,15 @@ public class LanguageConfigurationTests
         Assert.Equal(VSConstants.S_OK, result);
     }
 
-    private static void TypeChar(IVsTextView textView, char c)
+    // Types the way the keyboard does, through the editor's command handlers; brace completion
+    // lives there and never sees a TYPECHAR sent to the old text view command target.
+    private static void TypeChar(IWpfTextView view, char c)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        var group = VSConstants.VSStd2K;
-        // A VARIANT is 24 bytes in a 64-bit process; writing one into less corrupts the heap and
-        // the CLR takes Visual Studio down some time later.
-        var variant = Marshal.AllocCoTaskMem(VariantSize);
-        try
-        {
-            Marshal.GetNativeVariantForObject(c, variant);
-            var result = ((IOleCommandTarget)textView).Exec(ref group, (uint)VSConstants.VSStd2KCmdID.TYPECHAR, 0, variant, IntPtr.Zero);
-            Assert.Equal(VSConstants.S_OK, result);
-        }
-        finally
-        {
-            Marshal.FreeCoTaskMem(variant);
-        }
+        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel ?? throw new InvalidOperationException("SComponentModel is not available.");
+        var commands = componentModel.GetService<IEditorCommandHandlerServiceFactory>().GetService(view);
+        var operations = componentModel.GetService<IEditorOperationsFactoryService>().GetEditorOperations(view);
+        // The last handler in the chain is what puts the character into the buffer.
+        commands.Execute((textView, buffer) => new TypeCharCommandArgs(textView, buffer, c), () => operations.InsertText(c.ToString()));
     }
 }

@@ -16,6 +16,13 @@
     <PackageReference Include="MessagePack" />
   </ItemGroup>
 
+  <!-- No shadow copies: when a test fails, the harness writes its failure log next to the test
+       assembly, and in a shadow copy that folder doesn't exist. The write fails inside an
+       exception filter, which the CLR treats as fatal, and Visual Studio goes down with every
+       result still to come. -->
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
   <!-- Build the extension first and put its VSIX next to the test assembly, where
        [RequireExtension] looks for it. -->
   <ItemGroup>
