@@ -18,6 +18,9 @@ public sealed class FakeLanguageServerScenario
     /// <summary>When true, <c>initialize</c> never gets a reply, like a server stuck while starting.</summary>
     public bool HangOnInitialize { get; set; }
 
+    /// <summary>When true, <c>daml/keepAlive</c> never gets a reply, like a server that hangs.</summary>
+    public bool HangOnKeepAlive { get; set; }
+
     /// <summary>Notifications the server sends, in order, once the client says <c>initialized</c>.</summary>
     public List<JObject> NotificationsAfterInitialized { get; } = new();
 }

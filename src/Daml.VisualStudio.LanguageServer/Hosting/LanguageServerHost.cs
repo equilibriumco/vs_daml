@@ -27,6 +27,9 @@ public enum LanguageServerProblemKind
 
     /// <summary>The server crashed too often and won't be restarted until the user asks.</summary>
     CircuitOpen,
+
+    /// <summary>The server stopped answering and is being restarted.</summary>
+    Unresponsive,
 }
 
 /// <summary>A problem worth telling the user about.</summary>
@@ -79,6 +82,7 @@ public sealed class LanguageServerHost : IDisposable
     private int _currentSession;
     private int _initializedSession;
     private int _attachedSession;
+    private int _unresponsiveSession;
     private int _activations;
 
     /// <summary>Creates a host.</summary>
@@ -89,13 +93,15 @@ public sealed class LanguageServerHost : IDisposable
         TimeProvider? time = null,
         RestartPolicy? policy = null,
         SupervisorSettings? supervisorSettings = null,
-        LspAdapterSettings? lspSettings = null)
+        LspAdapterSettings? lspSettings = null,
+        KeepAliveSettings? keepAlive = null)
     {
         _sdkResolver = sdkResolver ?? throw new ArgumentNullException(nameof(sdkResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _lspSettings = lspSettings ?? new LspAdapterSettings();
         Supervisor = new LanguageServerSupervisor(runner, BuildCommandAsync, logger, time, policy, supervisorSettings);
         Supervisor.StateChanged += OnStateChanged;
+        KeepAlive = new KeepAliveWatchdog(_channel, OnUnresponsive, logger, time, keepAlive);
     }
 
     /// <summary>Something keeps the server from running.</summary>
@@ -106,6 +112,46 @@ public sealed class LanguageServerHost : IDisposable
 
     /// <summary>Process ownership, backoff and restarts.</summary>
     public LanguageServerSupervisor Supervisor { get; }
+
+    /// <summary>Whether the current session stopped answering; such a server won't answer a shutdown either.</summary>
+    public bool IsUnresponsive
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _unresponsiveSession != 0 && _unresponsiveSession == _currentSession;
+            }
+        }
+    }
+
+    internal KeepAliveWatchdog KeepAlive { get; }
+
+    /// <summary>
+    /// Whether, and how often, the server is checked for hangs. Takes effect at once: turning it
+    /// off stops the checks, turning it on starts them for a ready session.
+    /// </summary>
+    public KeepAliveSettings KeepAliveSettings
+    {
+        get => KeepAlive.Settings;
+        set
+        {
+            KeepAlive.Settings = value ?? throw new ArgumentNullException(nameof(value));
+            int ready;
+            lock (_gate)
+            {
+                ready = _currentSession != 0 && _initializedSession == _currentSession && _attachedSession == _currentSession && _unresponsiveSession != _currentSession
+                    ? _currentSession
+                    : 0;
+            }
+            if (!value.Enabled || ready == 0 || Supervisor.State != LanguageServerState.Ready)
+            {
+                KeepAlive.Stop();
+                return;
+            }
+            KeepAlive.Watch(ready);
+        }
+    }
 
     /// <summary>The current session's JSON-RPC connection.</summary>
     public IDamlRpcChannel Channel => _channel;
@@ -277,6 +323,7 @@ public sealed class LanguageServerHost : IDisposable
     public void Dispose()
     {
         Supervisor.StateChanged -= OnStateChanged;
+        KeepAlive.Dispose();
         Supervisor.Dispose();
     }
 
@@ -323,7 +370,23 @@ public sealed class LanguageServerHost : IDisposable
                 return;
             }
         }
+        KeepAlive.Watch(session);
         SessionReady?.Invoke(this, new SessionReadyEventArgs(session));
+    }
+
+    // The watchdog's report; one about a session that is already gone changes nothing.
+    internal void OnUnresponsive(int session)
+    {
+        lock (_gate)
+        {
+            if (session == 0 || session != _currentSession)
+            {
+                return;
+            }
+            _unresponsiveSession = session;
+        }
+        Raise(LanguageServerProblemKind.Unresponsive, "The Daml language server stopped responding and was restarted.");
+        Supervisor.RequestRestart("The language server stopped responding");
     }
 
     private void OnStateChanged(object? sender, LanguageServerStateChangedEventArgs e)
@@ -335,6 +398,7 @@ public sealed class LanguageServerHost : IDisposable
             {
                 session = _currentSession;
             }
+            KeepAlive.Stop();
             _channel.Detach(session);
         }
     }

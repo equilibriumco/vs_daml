@@ -46,6 +46,7 @@ public sealed class FakeLanguageServer : IDisposable
             ["stderrLines"] = new JArray(scenario.StderrLines),
             ["exitCodeAtStart"] = scenario.ExitCodeAtStart is { } code ? new JValue(code) : JValue.CreateNull(),
             ["hangOnInitialize"] = scenario.HangOnInitialize,
+            ["hangOnKeepAlive"] = scenario.HangOnKeepAlive,
             ["notificationsAfterInitialized"] = new JArray(scenario.NotificationsAfterInitialized),
         };
         File.WriteAllText(server._scenarioPath, json.ToString(Formatting.None));

@@ -10,10 +10,10 @@ namespace Daml.TestFakes.LanguageServer;
 /// <summary>
 /// Fake Daml language server speaking LSP (Content-Length framing) over stdin/stdout.
 /// FAKE_LS_SCENARIO points at a JSON file:
-/// <c>{ "capabilities": { ... }, "stderrLines": [...], "exitCodeAtStart": 1, "hangOnInitialize": true,</c>
+/// <c>{ "capabilities": { ... }, "stderrLines": [...], "exitCodeAtStart": 1, "hangOnInitialize": true, "hangOnKeepAlive": true,</c>
 /// <c>"notificationsAfterInitialized": [ { "method": "...", "params": { ... } } ] }</c>
-/// (all but capabilities optional): lines written to stderr at start, an immediate exit, and an
-/// initialize that never gets a reply.
+/// (all but capabilities optional): lines written to stderr at start, an immediate exit, an
+/// initialize or a daml/keepAlive that never gets a reply, and notifications sent after initialized.
 /// FAKE_LS_CALLS, when set, receives every incoming method name as one JSON line.
 /// Exit codes follow the LSP spec: 0 after shutdown + exit, 1 for exit without shutdown or a
 /// closed input stream.
@@ -91,6 +91,17 @@ internal static class Program
             {
                 await Rpc!.NotifyWithParameterObjectAsync((string)notification["method"]!, notification["params"]).ConfigureAwait(false);
             }
+        }
+
+        [JsonRpcMethod("daml/keepAlive")]
+        public async Task<object?> KeepAlive()
+        {
+            Record("daml/keepAlive");
+            if (_scenario["hangOnKeepAlive"] is JValue { Type: JTokenType.Boolean } hang && (bool)hang)
+            {
+                await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+            }
+            return null;
         }
 
         [JsonRpcMethod("daml/sdkInstallCancel", UseSingleObjectParameterDeserialization = true)]

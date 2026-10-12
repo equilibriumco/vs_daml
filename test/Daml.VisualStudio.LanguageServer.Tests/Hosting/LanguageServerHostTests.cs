@@ -172,6 +172,83 @@ public sealed class LanguageServerHostTests
         host.Channel.TryGet(out _, out _).ShouldBeFalse();
     }
 
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_ready_server_is_asked_whether_it_is_alive_and_restarted_when_it_hangs(bool hangs)
+    {
+        using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario { HangOnKeepAlive = hangs });
+        var files = new PhysicalFileSystem();
+        var environment = server.Environment;
+        var time = new FakeTimeProvider();
+        using var host = new LanguageServerHost(
+            new EnvironmentRunner(new ProcessRunner(), environment),
+            new SdkResolver(new EnvironmentRunner(new ProcessRunner(), environment), new AssistantLocator(files, _ => null), new YamlManifestReader(files)),
+            NullDamlLogger.Instance,
+            time);
+        host.ProblemRaised += (_, e) => _problems.Add(e.Problem);
+        var restarts = new List<string>();
+        host.Supervisor.RestartRequested += (_, e) => restarts.AddRange(e.Reasons);
+        host.SetWorkspace(Single(Repository.Sample("single-package")), new LanguageServerOptions { DpmPath = server.ExecutablePath });
+        var ready = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        host.SessionReady += (_, e) => ready.TrySetResult(e.SessionId);
+        var connection = (await host.ActivateAsync(CancellationToken.None)).ShouldNotBeNull();
+        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(connection.ToServer, connection.FromServer, new JsonMessageFormatter()));
+        rpc.StartListening();
+        host.AttachRpc(rpc);
+        await rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, capabilities = new { } });
+        (await Task.WhenAny(ready.Task, Task.Delay(Generous))).ShouldBe(ready.Task);
+
+        time.Advance(TimeSpan.FromSeconds(60));
+        (await EventuallyAsync(() => server.ReadReceivedMethods().Contains("daml/keepAlive"))).ShouldBeTrue("no keep-alive request reached the server");
+        if (!hangs)
+        {
+            // The answer has to be in before the clock reaches the deadline.
+            (await EventuallyAsync(() => host.KeepAlive.Answered == 1 && host.KeepAlive.IsSettled)).ShouldBeTrue();
+        }
+        time.Advance(TimeSpan.FromSeconds(120));
+        (await EventuallyAsync(() => host.KeepAlive.IsSettled)).ShouldBeTrue();
+
+        if (hangs)
+        {
+            (await EventuallyAsync(() => _problems.Count > 0)).ShouldBeTrue();
+            _problems.ShouldHaveSingleItem().Kind.ShouldBe(LanguageServerProblemKind.Unresponsive);
+            restarts.ShouldBe(["The language server stopped responding"]);
+            host.IsUnresponsive.ShouldBeTrue();
+        }
+        else
+        {
+            _problems.ShouldBeEmpty();
+            restarts.ShouldBeEmpty();
+            (await EventuallyAsync(() => server.ReadReceivedMethods().Count(m => m == "daml/keepAlive") == 2)).ShouldBeTrue("answered, so asked again a minute later");
+            (await EventuallyAsync(() => host.KeepAlive.Answered == 2 && host.KeepAlive.IsSettled)).ShouldBeTrue();
+
+            host.KeepAliveSettings = new KeepAliveSettings { Enabled = false };
+            time.Advance(TimeSpan.FromMinutes(10));
+            await Task.Delay(200);
+            server.ReadReceivedMethods().Count(m => m == "daml/keepAlive").ShouldBe(2, "switched off");
+
+            host.KeepAliveSettings = new KeepAliveSettings();
+            time.Advance(TimeSpan.FromSeconds(60));
+            (await EventuallyAsync(() => server.ReadReceivedMethods().Count(m => m == "daml/keepAlive") == 3)).ShouldBeTrue("switched on again for the ready session");
+        }
+        await host.StopAsync(CancellationToken.None, immediately: true);
+    }
+
+    private static async Task<bool> EventuallyAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + Generous;
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                return false;
+            }
+            await Task.Delay(20);
+        }
+        return true;
+    }
+
     // Adds the fake server's scenario variables to everything started, as VS's environment would.
     private sealed class EnvironmentRunner(IProcessRunner inner, IReadOnlyDictionary<string, string> environment) : IProcessRunner
     {

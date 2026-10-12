@@ -143,4 +143,36 @@ public sealed class ClientRestartSequenceTests : IDisposable
         (await Task.WhenAny(finished.Task, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(finished.Task);
         _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
     }
+
+    // A hung server wouldn't answer VS's shutdown either, so it goes first.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_ready_server_that_stopped_answering_is_killed_before_the_client_is_stopped()
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+        var finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sequence.RestartCompleted += (_, _) => finished.TrySetResult(true);
+
+        _host.OnUnresponsive(1);
+
+        (await Task.WhenAny(finished.Task, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(finished.Task);
+        _steps.ShouldBe(["discover", "start", "discover", "stop (server already gone)", "start"]);
+        _problems.ShouldBe([LanguageServerProblemKind.Unresponsive]);
+        _host.IsUnresponsive.ShouldBeFalse("the new session starts with a clean slate");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_report_about_an_older_session_changes_nothing()
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+
+        _host.OnUnresponsive(0);
+
+        _problems.ShouldBeEmpty();
+        _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+        _host.IsUnresponsive.ShouldBeFalse();
+    }
 }

@@ -12,8 +12,9 @@ namespace Daml.VisualStudio.LanguageServer.Hosting;
 /// Starts and restarts the server the way VS's LSP client needs it. VS restarts a crashed
 /// server by itself; every other restart (settings, manifests, the user's Restart) has to go
 /// through the client's StopAsync and StartAsync events, and a server that never answered
-/// initialize must be killed first, or VS waits for it for about 20 seconds. The workspace is
-/// looked up again on each run, so a restart also picks up a moved folder or a new daml.yaml.
+/// initialize, or stopped answering since, must be killed first, or VS waits for it for about
+/// 20 seconds. The workspace is looked up again on each run, so a restart also picks up a moved
+/// folder or a new daml.yaml.
 /// </summary>
 public sealed class ClientRestartSequence : IDisposable
 {
@@ -68,7 +69,7 @@ public sealed class ClientRestartSequence : IDisposable
 
             if (restart && _clientStarted)
             {
-                if (_host.Supervisor.State != LanguageServerState.Ready)
+                if (_host.Supervisor.State != LanguageServerState.Ready || _host.IsUnresponsive)
                 {
                     await _host.StopAsync(cancellationToken, immediately: true).ConfigureAwait(false);
                 }

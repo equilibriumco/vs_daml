@@ -1,6 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Daml.VisualStudio.LanguageServer.Hosting;
+using StreamJsonRpc;
 
 namespace Daml.VisualStudio.LanguageServer.Messages;
 
@@ -23,5 +25,18 @@ public static class DamlRequests
         }
         await rpc.NotifyWithParameterObjectAsync("daml/sdkInstallCancel", new { sdkVersionIdentifier }).ConfigureAwait(false);
         return true;
+    }
+
+    /// <summary>
+    /// Sends <c>daml/keepAlive</c>, with no parameters; damlc answers <c>null</c> for as long as
+    /// it is responsive.
+    /// </summary>
+    public static Task KeepAliveAsync(this JsonRpc rpc, CancellationToken cancellationToken)
+    {
+        if (rpc is null)
+        {
+            throw new ArgumentNullException(nameof(rpc));
+        }
+        return rpc.InvokeWithCancellationAsync<object?>("daml/keepAlive", null, cancellationToken);
     }
 }
