@@ -56,6 +56,7 @@ internal static class Program
         private readonly JObject _scenario;
         private readonly string? _callsPath;
         private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly object _recordGate = new();
         private bool _shutdownRequested;
 
         public Server(JObject scenario, string? callsPath)
@@ -122,11 +123,19 @@ internal static class Program
             _exited.TrySetResult(_shutdownRequested ? 0 : 1);
         }
 
+        // The test may be reading the file at the same moment, so it stays shared; one write per
+        // line keeps a reader from seeing half of one for long.
         private void Record(string method)
         {
-            if (_callsPath is not null)
+            if (_callsPath is null)
             {
-                File.AppendAllText(_callsPath, new JObject { ["method"] = method }.ToString(Newtonsoft.Json.Formatting.None) + Environment.NewLine);
+                return;
+            }
+            var line = System.Text.Encoding.UTF8.GetBytes(new JObject { ["method"] = method }.ToString(Newtonsoft.Json.Formatting.None) + Environment.NewLine);
+            lock (_recordGate)
+            {
+                using var calls = new FileStream(_callsPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+                calls.Write(line, 0, line.Length);
             }
         }
     }

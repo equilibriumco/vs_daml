@@ -57,10 +57,28 @@ public sealed class FakeLanguageServer : IDisposable
     public FakeLanguageServerSession Start() => FakeLanguageServerSession.Start(ExecutablePath, Environment);
 
     /// <summary>Methods received across all sessions, in order.</summary>
-    public IReadOnlyList<string> ReadReceivedMethods() =>
-        File.Exists(_callsPath)
-            ? File.ReadAllLines(_callsPath).Where(l => l.Length > 0).Select(l => (string)JObject.Parse(l)["method"]!).ToList()
-            : Array.Empty<string>();
+    public IReadOnlyList<string> ReadReceivedMethods()
+    {
+        if (!File.Exists(_callsPath))
+        {
+            return Array.Empty<string>();
+        }
+        // The server may be appending right now: share the file and skip a line it hasn't finished.
+        using var stream = new FileStream(_callsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        var methods = new List<string>();
+        while (reader.ReadLine() is { } line)
+        {
+            try
+            {
+                methods.Add((string)JObject.Parse(line)["method"]!);
+            }
+            catch (JsonReaderException)
+            {
+            }
+        }
+        return methods;
+    }
 
     /// <inheritdoc />
     public void Dispose()

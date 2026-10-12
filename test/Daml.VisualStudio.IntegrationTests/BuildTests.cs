@@ -26,7 +26,15 @@ public class BuildTests
         var solution = ServiceProvider.GlobalProvider.GetService(typeof(SVsSolution)) as IVsSolution7 ?? throw new InvalidOperationException("SVsSolution is not available.");
         solution.OpenFolder(folder);
         var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE ?? throw new InvalidOperationException("DTE is not available.");
-        // In Open Folder, Build All runs every build context, ours for daml.yaml included.
+        // In Open Folder, Build All runs every build context, ours for daml.yaml included. It only
+        // becomes available once the folder's build index is ready.
+        var build = dte.Commands.Item("Build.BuildSolution");
+        var ready = DateTime.UtcNow + TimeSpan.FromMinutes(1);
+        while (!build.IsAvailable && DateTime.UtcNow < ready)
+        {
+            await Task.Delay(500);
+        }
+        Assert.True(build.IsAvailable, "Build.BuildSolution never became available for the opened folder.");
         dte.ExecuteCommand("Build.BuildSolution");
 
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
