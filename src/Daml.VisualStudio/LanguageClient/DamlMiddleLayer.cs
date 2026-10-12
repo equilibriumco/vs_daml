@@ -11,12 +11,15 @@ namespace Daml.VisualStudio.LanguageClient;
 /// <summary>
 /// Sits between VS and the server for everything after <c>initialize</c>. It keeps messages
 /// about documents outside the workspace from reaching damlc (notifications are dropped,
-/// requests get an empty answer) and, at Debug level, logs what VS calls and how long it takes.
+/// requests get an empty answer), drops configuration changes damlc has no handler for, and, at
+/// Debug level, logs what VS calls and how long it takes.
 /// Message content is fixed up on the byte stream instead, because <c>initialize</c> never
 /// reaches a middle layer.
 /// </summary>
 internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
 {
+    private const string DidChangeConfiguration = "workspace/didChangeConfiguration";
+
     private readonly IDamlLogger _logger;
     private readonly Func<string?, bool> _isServed;
     private readonly ConcurrentDictionary<string, bool> _reportedOutside = new(StringComparer.OrdinalIgnoreCase);
@@ -30,11 +33,14 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
     }
 
     public bool CanHandle(string methodName) =>
-        methodName.StartsWith("textDocument/", StringComparison.Ordinal) || _logger.IsEnabled(DamlLogLevel.Debug);
+        methodName.StartsWith("textDocument/", StringComparison.Ordinal)
+        || methodName == DidChangeConfiguration
+        || _logger.IsEnabled(DamlLogLevel.Debug);
 
     public Task HandleNotificationAsync(string methodName, JToken methodParam, Func<JToken, Task> sendNotification)
     {
-        if (!Served(methodParam))
+        // damlc answers it with an error in its log; its settings come on the command line.
+        if (methodName == DidChangeConfiguration || !Served(methodParam))
         {
             return Task.CompletedTask;
         }

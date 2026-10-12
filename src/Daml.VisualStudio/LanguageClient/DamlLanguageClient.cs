@@ -171,6 +171,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     // line waits for the user to restart it.
     private void OnSettingsChanged(object? sender, DamlSettingsChangedEventArgs e)
     {
+        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, e.RestartRequired
+            ? $"Daml settings saved; a server restart applies: {string.Join(", ", e.ChangesNeedingRestart)}."
+            : "Daml settings saved; nothing needs a server restart.");
         ApplyKeepAlive(e.Settings);
         if (e.RestartRequired)
         {
@@ -188,6 +191,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         var infoBar = await VS.InfoBar.CreateAsync(model);
         if (infoBar is null)
         {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "Couldn't show the restart bar for the changed settings; use Restart to apply them.");
             return;
         }
         infoBar.ActionItemClicked += (_, args) =>
@@ -199,7 +203,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
                 _host.Supervisor.RequestRestart("Options changed");
             }
         };
-        await infoBar.TryShowInfoBarUIAsync();
+        if (!await infoBar.TryShowInfoBarUIAsync())
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "Couldn't show the restart bar for the changed settings; use Restart to apply them.");
+        }
     }
 
     // Manifest changes the server won't notice by itself go to the host, which may ask for a restart.

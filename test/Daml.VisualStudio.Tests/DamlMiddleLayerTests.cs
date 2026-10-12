@@ -48,6 +48,23 @@ public class DamlMiddleLayerTests
         result.ShouldBeNull();
     }
 
+    // damlc has no handler for it and logs an error each time; settings reach it on its command line.
+    [Fact, Trait("Category", "Editor")]
+    public async Task Configuration_changes_are_kept_from_the_server()
+    {
+        var sent = false;
+        var layer = Layer();
+
+        layer.CanHandle("workspace/didChangeConfiguration").ShouldBeTrue();
+        await layer.HandleNotificationAsync("workspace/didChangeConfiguration", JObject.FromObject(new { settings = new { daml = new { } } }), p =>
+        {
+            sent = true;
+            return Task.CompletedTask;
+        });
+
+        sent.ShouldBeFalse();
+    }
+
     [Fact, Trait("Category", "Editor")]
     public async Task Requests_about_workspace_files_reach_the_server()
     {
