@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,13 +19,20 @@ public sealed class ClientToServerStream : Stream
     private readonly InitializeTracker _tracker;
     private readonly IDamlLogger _logger;
     private readonly byte[] _header;
+    private readonly OpenDocuments? _documents;
     private int _headerCount;
     private byte[]? _body;
     private int _bodyFilled;
 
     /// <summary>Creates the stream over the server's standard input.</summary>
-    public ClientToServerStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger)
+    /// <param name="server">The server's standard input.</param>
+    /// <param name="settings">Size limits.</param>
+    /// <param name="tracker">Learns the id of the <c>initialize</c> request.</param>
+    /// <param name="logger">Where framing problems are logged.</param>
+    /// <param name="documents">Keeps closes away from the server; shared with the session's <see cref="ServerToClientStream"/>.</param>
+    public ClientToServerStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null)
     {
+        _documents = documents;
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _tracker = tracker ?? throw new ArgumentNullException(nameof(tracker));
@@ -153,13 +161,18 @@ public sealed class ClientToServerStream : Stream
         {
             _tracker.Expect(id);
         }
+        var outgoing = _documents is null ? message.Body : _documents.FromClient(message.Body);
+        if (outgoing is null)
+        {
+            return; // a close the server must not see
+        }
         if (async)
         {
-            await LspFrameWriter.WriteAsync(_server, message.Body, cancellationToken).ConfigureAwait(false);
+            await LspFrameWriter.WriteAsync(_server, outgoing, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            LspFrameWriter.Write(_server, message.Body);
+            LspFrameWriter.Write(_server, outgoing);
         }
     }
 
@@ -173,8 +186,9 @@ public sealed class ClientToServerStream : Stream
 /// <summary>
 /// What the LSP client reads from: the server's messages, checked against the framing rules and
 /// size limit, passed on unchanged (with a normalised header) while watching for the reply to
-/// <c>initialize</c>. A framing error surfaces as an <see cref="IOException"/>, which ends the
-/// connection.
+/// <c>initialize</c>. A background reader queues them, so a message handed back by
+/// <see cref="OpenDocuments"/> reaches the client even while the server stays silent. A framing
+/// error surfaces as an <see cref="IOException"/>, which ends the connection.
 /// </summary>
 public sealed class ServerToClientStream : Stream
 {
@@ -182,18 +196,35 @@ public sealed class ServerToClientStream : Stream
     private readonly LspFrameReader _reader;
     private readonly InitializeTracker _tracker;
     private readonly IDamlLogger _logger;
+    private readonly OpenDocuments? _documents;
+    private readonly ConcurrentQueue<byte[]> _frames = new();
+    private readonly SemaphoreSlim _available = new(0);
+    private readonly CancellationTokenSource _stop = new();
+    private readonly object _gate = new();
+    private Task? _pump;
+    private Exception? _failure;
     private byte[] _header = [];
     private byte[] _body = [];
     private int _headerPosition;
     private int _bodyPosition;
 
     /// <summary>Creates the stream over the server's standard output.</summary>
-    public ServerToClientStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger)
+    /// <param name="server">The server's standard output.</param>
+    /// <param name="settings">Size limits.</param>
+    /// <param name="tracker">Spots the reply to <c>initialize</c>.</param>
+    /// <param name="logger">Where framing problems are logged.</param>
+    /// <param name="documents">Remembers diagnostics for reopened documents; shared with the session's <see cref="ClientToServerStream"/>.</param>
+    public ServerToClientStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null)
     {
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _reader = new LspFrameReader(server, settings ?? throw new ArgumentNullException(nameof(settings)));
         _tracker = tracker ?? throw new ArgumentNullException(nameof(tracker));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _documents = documents;
+        if (documents is not null)
+        {
+            documents.Redeliver += Enqueue;
+        }
     }
 
     /// <inheritdoc />
@@ -247,11 +278,58 @@ public sealed class ServerToClientStream : Stream
     {
         if (disposing)
         {
+            if (_documents is not null)
+            {
+                _documents.Redeliver -= Enqueue;
+            }
+            _stop.Cancel();
             _server.Dispose();
         }
         base.Dispose(disposing);
     }
 
+    private void Enqueue(byte[] body)
+    {
+        _frames.Enqueue(body);
+        _available.Release();
+    }
+
+    private void StartPump()
+    {
+        lock (_gate)
+        {
+            _pump ??= Task.Run(PumpAsync);
+        }
+    }
+
+    private async Task PumpAsync()
+    {
+        try
+        {
+            while (await _reader.ReadFrameAsync(_stop.Token).ConfigureAwait(false) is { } body)
+            {
+                _tracker.Inspect(body);
+                if (_documents?.FromServer(body) == false)
+                {
+                    continue;
+                }
+                Enqueue(body);
+            }
+        }
+        catch (LspFramingException ex)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server sent a malformed message; closing the connection.", ex);
+            _failure = ex;
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or OperationCanceledException)
+        {
+            // The server went away.
+        }
+        _available.Release();
+    }
+
+    // One body for Read and ReadAsync: the blocking wait only runs when async is false.
+#pragma warning disable VSTHRD103
     private async Task<int> ReadCoreAsync(byte[] buffer, int offset, int count, bool async, CancellationToken cancellationToken)
     {
         if (count == 0)
@@ -260,21 +338,25 @@ public sealed class ServerToClientStream : Stream
         }
         if (_headerPosition == _header.Length && _bodyPosition == _body.Length)
         {
-            byte[]? body;
-            try
+            StartPump();
+            if (async)
             {
-                body = async ? await _reader.ReadFrameAsync(cancellationToken).ConfigureAwait(false) : _reader.ReadFrame();
+                await _available.WaitAsync(cancellationToken).ConfigureAwait(false);
             }
-            catch (LspFramingException ex)
+            else
             {
-                _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server sent a malformed message; closing the connection.", ex);
-                throw;
+                _available.Wait(cancellationToken);
             }
-            if (body is null)
+            if (!_frames.TryDequeue(out var body))
             {
+                // The end: let any later read see it too.
+                _available.Release();
+                if (_failure is not null)
+                {
+                    throw new IOException(_failure.Message, _failure);
+                }
                 return 0;
             }
-            _tracker.Inspect(body);
             _header = LspHeader.Format(body.Length);
             _body = body;
             _headerPosition = 0;
@@ -293,4 +375,5 @@ public sealed class ServerToClientStream : Stream
         _bodyPosition += bodyTake;
         return bodyTake;
     }
+#pragma warning restore VSTHRD103
 }

@@ -63,7 +63,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     public event AsyncEventHandler<EventArgs>? StopAsync;
 
-    public string Name => "Daml Language Server";
+    // VS names an Output pane after the client, so it must not clash with our panes ("Daml",
+    // "Daml Language Server", "Daml Build").
+    public string Name => "Daml Language Client";
 
     public IEnumerable<string> ConfigurationSections { get; } = ["daml"];
 
