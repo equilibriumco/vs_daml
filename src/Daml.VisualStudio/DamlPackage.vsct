@@ -1,12 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
+  <Include href="VSGlobals.vsct" />
+
   <Commands package="guidDamlPackage">
+    <Menus>
+      <!-- Extensions > Daml, shown while Daml content is active (see VisibilityConstraints). -->
+      <Menu guid="guidDamlCommandSet" id="DamlMenu" priority="0x0100" type="Menu">
+        <Parent guid="VSMainMenu" id="Extensions.DefaultGroup" />
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <Strings>
+          <ButtonText>Daml</ButtonText>
+        </Strings>
+      </Menu>
+    </Menus>
+
     <Groups>
       <!-- No parent: Open Folder puts commands its action providers name (IVsCommandItem) into
            the folder view's context menu by itself; placing the group there as well listed
            Test twice. -->
       <Group guid="guidDamlCommandSet" id="FolderViewBuildGroup" priority="0x0600" />
+
+      <Group guid="guidDamlCommandSet" id="DamlMenuServerGroup" priority="0x0100">
+        <Parent guid="guidDamlCommandSet" id="DamlMenu" />
+      </Group>
+      <Group guid="guidDamlCommandSet" id="DamlMenuBuildGroup" priority="0x0200">
+        <Parent guid="guidDamlCommandSet" id="DamlMenu" />
+      </Group>
+      <Group guid="guidDamlCommandSet" id="DamlMenuHelpGroup" priority="0x0300">
+        <Parent guid="guidDamlCommandSet" id="DamlMenu" />
+      </Group>
     </Groups>
 
     <Buttons>
@@ -19,15 +43,62 @@
           <ButtonText>Test</ButtonText>
         </Strings>
       </Button>
+
+      <Button guid="guidDamlCommandSet" id="RestartLanguageServerCommand" priority="0x0100" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuServerGroup" />
+        <Strings>
+          <ButtonText>Restart Language Server</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidDamlCommandSet" id="ShowLanguageServerLogCommand" priority="0x0200" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuServerGroup" />
+        <Strings>
+          <ButtonText>Show Language Server Log</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidDamlCommandSet" id="BuildCurrentPackageCommand" priority="0x0100" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuBuildGroup" />
+        <Strings>
+          <ButtonText>Build Current Package</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidDamlCommandSet" id="TestCurrentPackageCommand" priority="0x0200" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuBuildGroup" />
+        <Strings>
+          <ButtonText>Test Current Package</ButtonText>
+        </Strings>
+      </Button>
+      <Button guid="guidDamlCommandSet" id="OpenDocumentationCommand" priority="0x0100" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuHelpGroup" />
+        <Strings>
+          <ButtonText>Open Daml Documentation</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
+
+  <VisibilityConstraints>
+    <VisibilityItem guid="guidDamlCommandSet" id="DamlMenu" context="guidDamlActiveContext" />
+  </VisibilityConstraints>
 
   <Symbols>
     <GuidSymbol name="guidDamlPackage" value="{117354e2-f560-49ff-8753-121bb9a6b227}" />
 
+    <!-- The UI context the package autoloads on: a Daml editor or a Daml file selected. -->
+    <GuidSymbol name="guidDamlActiveContext" value="{fc87431c-653c-4483-a783-beb6e66e8cfe}" />
+
     <GuidSymbol name="guidDamlCommandSet" value="{9387515d-2cd9-4b38-87ba-e7d2f53a9d0d}">
       <IDSymbol name="FolderViewBuildGroup" value="0x1000" />
       <IDSymbol name="TestCommand" value="0x0100" />
+      <IDSymbol name="DamlMenu" value="0x2000" />
+      <IDSymbol name="DamlMenuServerGroup" value="0x2100" />
+      <IDSymbol name="DamlMenuBuildGroup" value="0x2200" />
+      <IDSymbol name="DamlMenuHelpGroup" value="0x2300" />
+      <IDSymbol name="RestartLanguageServerCommand" value="0x0200" />
+      <IDSymbol name="ShowLanguageServerLogCommand" value="0x0201" />
+      <IDSymbol name="BuildCurrentPackageCommand" value="0x0202" />
+      <IDSymbol name="TestCurrentPackageCommand" value="0x0203" />
+      <IDSymbol name="OpenDocumentationCommand" value="0x0204" />
     </GuidSymbol>
 
     <GuidSymbol name="guidWorkspaceExplorerCommandSet" value="{cfb400f1-5c60-4f3c-856e-180d28def0b7}">

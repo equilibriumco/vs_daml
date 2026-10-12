@@ -50,5 +50,8 @@ public sealed class DamlPackage : ToolkitPackage
         var version = typeof(DamlPackage).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
         logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Daml extension loaded (version {version})");
+
+        // The Extensions > Daml menu.
+        await this.RegisterCommandsAsync();
     }
 }

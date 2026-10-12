@@ -11,8 +11,8 @@ namespace Daml.VisualStudio.Build;
 // Error List as build errors, navigates to them itself and clears them at the next build.
 internal static class BuildMessages
 {
-    public const string ErrorCode = "DAML0001";
-    public const string WarningCode = "DAML0002";
+    public const string ErrorCode = BuildDiagnostic.ErrorCode;
+    public const string WarningCode = BuildDiagnostic.WarningCode;
 
     public static IReadOnlyCollection<BuildMessage> From(IEnumerable<BuildDiagnostic> diagnostics, string projectFile) =>
         diagnostics.Select(d => From(d, projectFile)).ToList();

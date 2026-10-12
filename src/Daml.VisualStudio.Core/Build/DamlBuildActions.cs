@@ -24,6 +24,25 @@ public sealed record DamlBuildAction(DpmCommandKind Kind, string WorkingDirector
 public static class DamlBuildActions
 {
     /// <summary>
+    /// <paramref name="kind"/> for the package <paramref name="filePath"/> belongs to (the
+    /// nearest daml.yaml above it), or <c>null</c> when it belongs to none.
+    /// </summary>
+    public static DamlBuildAction? ForPackageOf(WorkspaceLocator locator, string? filePath, DpmCommandKind kind)
+    {
+        if (locator is null)
+        {
+            throw new ArgumentNullException(nameof(locator));
+        }
+        if (string.IsNullOrEmpty(filePath))
+        {
+            return null;
+        }
+        return locator.FindForFile(filePath!).Package?.PackageRoot is { } root
+            ? new DamlBuildAction(kind, root, AllPackages: false)
+            : null;
+    }
+
+    /// <summary>
     /// Build, Test and Clean for a package's daml.yaml; Build All and Clean All for a
     /// multi-package.yaml (dpm tests one package at a time). Nothing for any other file.
     /// </summary>

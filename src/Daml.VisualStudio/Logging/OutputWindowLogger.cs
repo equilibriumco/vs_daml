@@ -67,13 +67,32 @@ internal sealed class OutputWindowLogger : IDamlLogger
         }
 
         var details = exception is null ? "" : Environment.NewLine + exception;
-        _queue.Enqueue((category, $"[{DateTime.Now:HH:mm:ss.fff}] {LevelTag(level)} {message}{details}{Environment.NewLine}"));
+        Enqueue(category, $"[{DateTime.Now:HH:mm:ss.fff}] {LevelTag(level)} {message}{details}{Environment.NewLine}");
 
         if (level == DamlLogLevel.Error)
         {
             ActivityLog.TryLogError(ActivityLogSource, $"{category}: {message}{details}");
         }
+    }
 
+    /// <summary>
+    /// Writes <paramref name="line"/> as it is, in order with the log entries around it. The
+    /// Output window only jumps to <c>file(line,col): …</c> when the line starts with the path.
+    /// </summary>
+    internal void WritePlainLine(DamlLogCategory category, string line) => Enqueue(category, line + Environment.NewLine);
+
+    /// <summary>Opens the Output window on the pane of <paramref name="category"/>, creating it if needed.</summary>
+    internal async Task ShowAsync(DamlLogCategory category)
+    {
+        var pane = await GetOrCreatePaneAsync(category);
+        await _joinableTaskFactory.SwitchToMainThreadAsync();
+        await VS.Windows.ShowToolWindowAsync(new Guid(ToolWindowGuids80.Outputwindow));
+        pane?.Activate();
+    }
+
+    private void Enqueue(DamlLogCategory category, string text)
+    {
+        _queue.Enqueue((category, text));
         if (Interlocked.CompareExchange(ref _flushScheduled, 1, 0) == 0)
         {
             _ = _joinableTaskFactory.RunAsync(FlushAsync);

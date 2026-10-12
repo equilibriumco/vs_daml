@@ -22,6 +22,18 @@ public class LanguageClientExportsTests
         ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
     }
 
+    // Menu commands reach the running server through it; one part, so the same shared instance.
+    [Fact, Trait("Category", "Editor")]
+    public async Task The_language_client_part_is_also_exported_as_itself_for_commands()
+    {
+        var parts = await DiscoverAsync();
+
+        var client = parts.Parts.Single(p => p.ExportedTypes.Any(e => e.ContractName == typeof(ILanguageClient).FullName));
+
+        client.ExportedTypes.Select(e => e.ContractName).ShouldContain(typeof(Daml.VisualStudio.LanguageClient.DamlLanguageClient).FullName);
+        client.IsShared.ShouldBeTrue();
+    }
+
     [Fact, Trait("Category", "Editor")]
     public async Task The_language_client_only_imports_services_every_VS_has()
     {

@@ -165,4 +165,22 @@ public class OutputWindowLoggerTests
 
         LinesOf(_outputWindow.Panes.Single()).Select(Message).ShouldBe(new[] { "first", "second" });
     }
+
+    // The Output window only jumps to file(line,col) when the line starts with the path.
+    [Fact, Trait("Category", "Editor")]
+    public async Task Plain_lines_keep_their_place_among_log_entries_without_a_prefix()
+    {
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+
+        logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "Build started");
+        logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error DAML0001: boom");
+        logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, "Build failed");
+        await logger.DrainAsync();
+
+        var lines = LinesOf(_outputWindow.Panes.Single());
+        lines.Length.ShouldBe(3);
+        lines[0].ShouldEndWith("info Build started");
+        lines[1].ShouldBe(@"C:\repo\Main.daml(5,9): error DAML0001: boom");
+        lines[2].ShouldEndWith("warn Build failed");
+    }
 }

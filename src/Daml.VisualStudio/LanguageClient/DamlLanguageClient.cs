@@ -32,6 +32,7 @@ namespace Daml.VisualStudio.LanguageClient;
 /// when to restart and how to talk to damlc happens there.
 /// </summary>
 [Export(typeof(ILanguageClient))]
+[Export(typeof(DamlLanguageClient))]
 [ContentType(DamlContentDefinition.ContentTypeName)]
 internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCustomMessage2, IDisposable
 {

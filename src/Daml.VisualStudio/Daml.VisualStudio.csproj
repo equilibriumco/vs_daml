@@ -48,6 +48,8 @@
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" ExcludeAssets="runtime" />
     <PackageReference Include="Community.VisualStudio.Toolkit.17" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
+    <!-- Build only: VSGlobals.vsct names Visual Studio's own menus (Extensions) for the VSCT. -->
+    <PackageReference Include="Community.VisualStudio.VSCT" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

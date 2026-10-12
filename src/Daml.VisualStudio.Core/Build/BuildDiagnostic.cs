@@ -17,6 +17,32 @@ namespace Daml.VisualStudio.Core.Build;
 public sealed record BuildDiagnostic(
     string FilePath, int Line, int Column, int EndLine, int EndColumn, DamlDiagnosticSeverity Severity, string Message, string? Source)
 {
+    private static readonly char[] Blanks = ['\r', '\n', ' ', '\t'];
+
+    // "daml/TypeError.daml:5:9: error:" in front of damlc's text; the output line already has it.
+    private static readonly System.Text.RegularExpressions.Regex RepeatedPlace =
+        new(@"^\s*\S.*?:\d+:\d+:\s*(error|warning):\s*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>Code shown for build errors.</summary>
+    public const string ErrorCode = "DAML0001";
+
+    /// <summary>Code shown for build warnings.</summary>
+    public const string WarningCode = "DAML0002";
+
+    /// <summary><see cref="ErrorCode"/> or <see cref="WarningCode"/>.</summary>
+    public string Code => Severity == DamlDiagnosticSeverity.Error ? ErrorCode : WarningCode;
+
+    /// <summary>
+    /// One line in the form Visual Studio's Output window jumps from on double-click:
+    /// <c>path(line,column): error DAML0001: message</c>, 1-based, the message on a single line.
+    /// </summary>
+    public string ToOutputLine()
+    {
+        var message = string.Join(" ", RepeatedPlace.Replace(Message ?? "", "").Split(Blanks, StringSplitOptions.RemoveEmptyEntries));
+        var kind = Severity == DamlDiagnosticSeverity.Error ? "error" : "warning";
+        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}({1},{2}): {3} {4}: {5}", FilePath, Line + 1, Column + 1, kind, Code, message);
+    }
+
     /// <summary>
     /// Converts damlc's 1-based range (end column just past the end) to 0-based positions and
     /// resolves the file against the folder dpm ran in. No range means the start of the file.
