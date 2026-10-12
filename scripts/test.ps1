@@ -127,6 +127,25 @@ function Get-TrxCounters {
     [pscustomobject]$sum
 }
 
+# The IDE harness can lose results: when the Visual Studio it drives dies, the runner stops
+# reporting and the run still looks green. Count what the sources declare instead.
+function Get-IdeTestShortfall {
+    param([string] $ProjectPath, [string] $Directory)
+
+    $declared = @(Get-ChildItem (Split-Path $ProjectPath) -Filter '*.cs' -Recurse |
+        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+        Select-String -Pattern '\[IdeFact\b').Count
+    $reported = 0
+    foreach ($trx in Get-ChildItem $Directory -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue) {
+        $run = ([xml](Get-Content $trx.FullName -Raw)).TestRun
+        if ($run.PSObject.Properties['Results']) {
+            # The harness adds one result for the Visual Studio instance itself.
+            $reported += @($run.Results.ChildNodes | Where-Object { $_.testName -notlike 'Xunit.Instances.*' }).Count
+        }
+    }
+    [Math]::Max(0, $declared - $reported)
+}
+
 function Get-TargetFrameworks([string] $ProjectPath) {
     $doc = [xml](Get-Content $ProjectPath -Raw)
     $value = @($doc.SelectNodes('/Project/PropertyGroup/TargetFrameworks | /Project/PropertyGroup/TargetFramework') |
@@ -240,14 +259,18 @@ $summary = foreach ($cat in $categories) {
             )
             if ($collectCoverage) { $testArgs += '--collect', 'XPlat Code Coverage', '--settings', $runSettings }
             & dotnet @testArgs | Out-Host
-            [pscustomobject]@{ Project = $proj.BaseName; Tfm = $tfm; ExitCode = $LASTEXITCODE; Counters = Get-TrxCounters $runDir }
+            $exitCode = $LASTEXITCODE
+            $missing = if ($cat -eq 'Integration') { Get-IdeTestShortfall $proj.FullName $runDir } else { 0 }
+            [pscustomobject]@{ Project = $proj.BaseName; Tfm = $tfm; ExitCode = $exitCode; Counters = Get-TrxCounters $runDir; Missing = $missing }
         }
     }
 
     $coverageNote = if ($collectCoverage) { Merge-Coverage $outDir } else { '' }
 
     $c = Get-TrxCounters $outDir
-    $status = if ($c.Failed -gt 0 -or ($runs | Where-Object { $_.ExitCode -ne 0 })) { 'FAILED' }
+    $lost = ($runs | Measure-Object -Property Missing -Sum).Sum
+    if ($lost -gt 0) { $problems.Add("$cat lost the results of $lost test(s): the test host or Visual Studio stopped reporting") }
+    $status = if ($c.Failed -gt 0 -or $lost -gt 0 -or ($runs | Where-Object { $_.ExitCode -ne 0 })) { 'FAILED' }
               elseif ($c.Executed -eq 0) { 'N/A' }
               else { 'PASSED' }
     if ($status -eq 'FAILED') { $problems.Add("$cat has failing tests") }
@@ -260,6 +283,7 @@ $summary = foreach ($cat in $categories) {
         }
     }
     $note = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed), skipped $($c.Skipped), trx $($c.Files)$coverageNote"
+    if ($lost -gt 0) { $note += ", missing $lost" }
     if ($pending.ContainsKey($cat)) {
         if ($c.Executed -gt 0) { $problems.Add("$cat is pending in $Milestone but now has tests; move it to Required in test-gates.psd1") }
         $note += "; pending: $($pending[$cat])"

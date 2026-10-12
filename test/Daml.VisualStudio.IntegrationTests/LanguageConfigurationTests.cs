@@ -19,6 +19,7 @@ namespace Daml.VisualStudio.IntegrationTests;
 public class LanguageConfigurationTests
 {
     private const string Text = "module Scratch where\n\nanswer : Int\nanswer = 42\n";
+    private const int VariantSize = 24;
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
     public async Task Comment_selection_prefixes_the_selected_lines_with_double_dashes()
@@ -97,8 +98,9 @@ public class LanguageConfigurationTests
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var group = VSConstants.VSStd2K;
-        // Room for one VARIANT.
-        var variant = Marshal.AllocCoTaskMem(16);
+        // A VARIANT is 24 bytes in a 64-bit process; writing one into less corrupts the heap and
+        // the CLR takes Visual Studio down some time later.
+        var variant = Marshal.AllocCoTaskMem(VariantSize);
         try
         {
             Marshal.GetNativeVariantForObject(c, variant);
