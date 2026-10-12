@@ -10,7 +10,8 @@ namespace Daml.TestFakes.LanguageServer;
 /// <summary>
 /// Fake Daml language server speaking LSP (Content-Length framing) over stdin/stdout.
 /// FAKE_LS_SCENARIO points at a JSON file:
-/// <c>{ "capabilities": { ... }, "stderrLines": [...], "exitCodeAtStart": 1, "hangOnInitialize": true }</c>
+/// <c>{ "capabilities": { ... }, "stderrLines": [...], "exitCodeAtStart": 1, "hangOnInitialize": true,</c>
+/// <c>"notificationsAfterInitialized": [ { "method": "...", "params": { ... } } ] }</c>
 /// (all but capabilities optional): lines written to stderr at start, an immediate exit, and an
 /// initialize that never gets a reply.
 /// FAKE_LS_CALLS, when set, receives every incoming method name as one JSON line.
@@ -36,6 +37,7 @@ internal static class Program
 
         var handler = new HeaderDelimitedMessageHandler(Console.OpenStandardOutput(), Console.OpenStandardInput(), new JsonMessageFormatter());
         using var rpc = new JsonRpc(handler, server);
+        server.Rpc = rpc;
         rpc.StartListening();
 
         var finished = await Task.WhenAny(server.Exited, rpc.Completion).ConfigureAwait(false);
@@ -64,6 +66,8 @@ internal static class Program
 
         public Task<int> Exited => _exited.Task;
 
+        public JsonRpc? Rpc { get; set; }
+
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public async Task<JObject> Initialize(JToken? parameters)
         {
@@ -80,7 +84,17 @@ internal static class Program
         }
 
         [JsonRpcMethod("initialized", UseSingleObjectParameterDeserialization = true)]
-        public void Initialized(JToken? parameters) => Record("initialized");
+        public async Task Initialized(JToken? parameters)
+        {
+            Record("initialized");
+            foreach (var notification in _scenario["notificationsAfterInitialized"] ?? new JArray())
+            {
+                await Rpc!.NotifyWithParameterObjectAsync((string)notification["method"]!, notification["params"]).ConfigureAwait(false);
+            }
+        }
+
+        [JsonRpcMethod("daml/sdkInstallCancel", UseSingleObjectParameterDeserialization = true)]
+        public void SdkInstallCancel(JToken? parameters) => Record("daml/sdkInstallCancel:" + (string?)parameters?["sdkVersionIdentifier"]);
 
         [JsonRpcMethod("shutdown")]
         public object? Shutdown()

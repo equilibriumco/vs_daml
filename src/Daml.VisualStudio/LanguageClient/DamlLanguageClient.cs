@@ -12,6 +12,7 @@ using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
 using Daml.VisualStudio.Core.Server;
 using Daml.VisualStudio.LanguageServer.Hosting;
+using Daml.VisualStudio.LanguageServer.Messages;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.LanguageServer.Client;
 using Microsoft.VisualStudio.Shell;
@@ -56,6 +57,11 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
         _host.ProblemRaised += OnProblemRaised;
         MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
+        var installs = new SdkInstallProgressTracker(
+            new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
+            id => _host.Channel.CancelSdkInstallAsync(id),
+            logger);
+        CustomMessageTarget = new DamlCustomMessageTarget(new LoggingVirtualResourceSink(logger), installs, logger);
         _sequence = new ClientRestartSequence(_host, DiscoverAsync, () => RaiseAsync(StopAsync), () => RaiseAsync(StartAsync));
     }
 
@@ -79,8 +85,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     public object MiddleLayer { get; }
 
-    // The daml/* notification handlers arrive with the custom message target.
-    public object? CustomMessageTarget => null;
+    // Receives damlc's own daml/* notifications.
+    public object CustomMessageTarget { get; }
 
     /// <summary>The host behind this client, for commands such as Restart.</summary>
     public LanguageServerHost Host => _host;
