@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.TestHelpers;
@@ -36,7 +37,7 @@ public class DamlcContractTests
     {
         using var sample = SampleCopy.Create("single-package", sdk);
         var main = sample.File(@"daml\Main.daml");
-        await using var damlc = await RealDamlcSession.StartAsync(sample.Root, main, Mode(mode));
+        await using var damlc = await RealDamlcSession.StartAsync(sample, main, Mode(mode));
 
         // Features the extension takes from the server, and ones it was decided to live without.
         foreach (var provided in new[] { "hoverProvider", "definitionProvider", "documentSymbolProvider", "codeActionProvider", "completionProvider", "codeLensProvider" })
@@ -65,7 +66,7 @@ public class DamlcContractTests
     {
         using var sample = SampleCopy.Create("broken", sdk);
         var file = sample.File(@"daml\TypeError.daml");
-        await using var damlc = await RealDamlcSession.StartAsync(sample.Root, file, Mode(mode));
+        await using var damlc = await RealDamlcSession.StartAsync(sample, file, Mode(mode));
 
         await damlc.OpenAsync(file);
         var diagnostics = await damlc.WaitForDiagnosticsAsync(file, d => d.Count > 0);
@@ -74,6 +75,19 @@ public class DamlcContractTests
         var error = diagnostics.FirstOrDefault(d => (int?)d["severity"] == 1).ShouldNotBeNull("no error among the diagnostics");
         _output.WriteLine(error.ToString());
         ((int)error["range"]!["start"]!["line"]!).ShouldBe(Line(file, "\"forty-two\""));
+
+        // The error names the file by its full path; the transcript must not.
+        var transcript = string.Join("\n", damlc.Transcript);
+        transcript.ShouldContain("${ROOT}/daml/TypeError.daml");
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var forward = home.Replace('\\', '/');
+        foreach (var spelling in new[] { home, forward, forward.Replace(":", "%3A") })
+        {
+            // JSON doubles backslashes, so look for that form too.
+            transcript.IndexOf(spelling.Replace("\\", "\\\\"), StringComparison.OrdinalIgnoreCase).ShouldBe(-1, spelling);
+            transcript.IndexOf(spelling, StringComparison.OrdinalIgnoreCase).ShouldBe(-1, spelling);
+        }
+        transcript.ShouldNotContain("total = \"forty-two\"", Case.Sensitive, "document text stays out of the transcript");
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
@@ -168,7 +182,7 @@ public class DamlcContractTests
     {
         using var sample = SampleCopy.Create("single-package", sdk);
         var main = sample.File(@"daml\Main.daml");
-        await using var damlc = await RealDamlcSession.StartAsync(sample.Root, main, Mode(mode));
+        await using var damlc = await RealDamlcSession.StartAsync(sample, main, Mode(mode));
 
         for (var i = 0; i < 2; i++)
         {
@@ -180,9 +194,9 @@ public class DamlcContractTests
 
     // ide sends no diagnostics at all for a clean file, so there's nothing to wait for; the
     // requests themselves are retried until damlc has checked the file.
-    private static async Task<RealDamlcSession> OpenedAsync(SampleCopy sample, string file, string mode)
+    private static async Task<RealDamlcSession> OpenedAsync(SampleCopy sample, string file, string mode, [CallerMemberName] string scenario = "")
     {
-        var damlc = await RealDamlcSession.StartAsync(sample.Root, file, Mode(mode));
+        var damlc = await RealDamlcSession.StartAsync(sample, file, Mode(mode), scenario);
         await damlc.OpenAsync(file);
         return damlc;
     }

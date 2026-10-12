@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.TestHelpers;
@@ -23,18 +24,26 @@ namespace Daml.VisualStudio.LanguageServer.Tests.Contract;
 
 // A real damlc started the way the extension starts it: workspace discovery, SDK resolution and
 // the command builder pick the command, the process runs in a job, and the protocol adapter
-// sits between the server and a JSON-RPC client that talks like Visual Studio.
+// sits between the server and a JSON-RPC client that talks like Visual Studio. Every message is
+// recorded, redacted, to artifacts/test/lsp-transcripts; with DAML_RECORD_TRANSCRIPTS=1 the
+// transcripts also replace the ones under test/fixtures/lsp-transcripts.
 internal sealed class RealDamlcSession : IAsyncDisposable
 {
     public static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
 
     private readonly IRunningProcess _process;
+    private readonly LspTranscriptRecorder _transcript;
+    private readonly string _scenario;
+    private readonly string _sdkVersion;
     private readonly Task _stderr;
     private readonly Dictionary<string, List<JArray>> _diagnostics = new(StringComparer.OrdinalIgnoreCase);
 
-    private RealDamlcSession(IRunningProcess process, JsonRpc rpc, SdkResolution sdk, WorkspaceContext workspace)
+    private RealDamlcSession(IRunningProcess process, JsonRpc rpc, SdkResolution sdk, WorkspaceContext workspace, LspTranscriptRecorder transcript, string scenario, string sdkVersion)
     {
+        _sdkVersion = sdkVersion;
         _process = process;
+        _transcript = transcript;
+        _scenario = scenario;
         Rpc = rpc;
         Sdk = sdk;
         Workspace = workspace;
@@ -49,8 +58,12 @@ internal sealed class RealDamlcSession : IAsyncDisposable
 
     public JObject Capabilities { get; private set; } = new();
 
-    public static async Task<RealDamlcSession> StartAsync(string root, string activeFile, ServerMode mode)
+    /// <summary>The redacted transcript so far, one JSON message per line.</summary>
+    public IReadOnlyList<string> Transcript => _transcript.Lines();
+
+    public static async Task<RealDamlcSession> StartAsync(SampleCopy sample, string activeFile, ServerMode mode, [CallerMemberName] string scenario = "")
     {
+        var root = sample.Root;
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var files = new PhysicalFileSystem();
         var runner = new ProcessRunner();
@@ -64,11 +77,17 @@ internal sealed class RealDamlcSession : IAsyncDisposable
         var settings = new LspAdapterSettings();
         var tracker = new InitializeTracker();
         var documents = new OpenDocuments();
+        var transcript = new LspTranscriptRecorder(new TranscriptRedactor(
+        [
+            (root, "${ROOT}"),
+            (Path.GetTempPath(), "${TEMP}"),
+            (Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "${HOME}"),
+        ]));
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
-            new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents),
-            new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents),
+            transcript.Outgoing(new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents)),
+            transcript.Incoming(new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents)),
             new JsonMessageFormatter()));
-        var session = new RealDamlcSession(process, rpc, sdk, workspace);
+        var session = new RealDamlcSession(process, rpc, sdk, workspace, transcript, scenario, sample.SdkVersion);
         rpc.AddLocalRpcMethod("textDocument/publishDiagnostics", new Action<JToken>(session.OnDiagnostics));
         rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
         rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));
@@ -143,6 +162,18 @@ internal sealed class RealDamlcSession : IAsyncDisposable
         Rpc.Dispose();
         await Task.WhenAny(_stderr, Task.Delay(TimeSpan.FromSeconds(5)));
         _process.Dispose();
+        SaveTranscript();
+    }
+
+    private void SaveTranscript()
+    {
+        var sdk = _sdkVersion;
+        var name = $"{(Workspace.Mode == ServerMode.Ide ? "ide" : "multi-ide")}-{_scenario}.jsonl";
+        _transcript.Save(Path.Combine(Repository.Root, "artifacts", "test", "lsp-transcripts", sdk, name));
+        if (Environment.GetEnvironmentVariable("DAML_RECORD_TRANSCRIPTS") == "1")
+        {
+            _transcript.Save(Path.Combine(Repository.Root, "test", "fixtures", "lsp-transcripts", sdk, name));
+        }
     }
 
     private static async Task<JToken?> WithPatienceAsync(Task<JToken?> request, string method)

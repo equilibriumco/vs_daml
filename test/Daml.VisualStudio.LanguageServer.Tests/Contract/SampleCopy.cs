@@ -9,15 +9,21 @@ namespace Daml.VisualStudio.LanguageServer.Tests.Contract;
 // into the repository and the same sources run on every SDK of the matrix.
 internal sealed class SampleCopy : IDisposable
 {
-    private SampleCopy(string root) => Root = root;
+    private SampleCopy(string root, string sdkVersion)
+    {
+        Root = root;
+        SdkVersion = sdkVersion;
+    }
 
     public string Root { get; }
+
+    public string SdkVersion { get; }
 
     public static SampleCopy Create(string sample, string sdkVersion)
     {
         var root = Path.Combine(Path.GetTempPath(), "daml-contract", $"{sample}-{sdkVersion}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
         Copy(Repository.Sample(sample), root, sdkVersion);
-        return new SampleCopy(root);
+        return new SampleCopy(root, sdkVersion);
     }
 
     public string File(string relativePath) => Path.Combine(Root, relativePath);
