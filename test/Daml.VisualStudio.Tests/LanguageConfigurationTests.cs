@@ -28,12 +28,22 @@ public class LanguageConfigurationTests
         comments["blockComment"]!.Values<string>().ShouldBe(["{-", "-}"]);
     }
 
+    // Without a grammar VS never closes a quote from the language configuration; the native
+    // brace completion does that instead (see the export test), so the two never both insert.
     [Fact, Trait("Category", "Editor")]
-    public void Brackets_and_double_quotes_close_automatically()
+    public void Brackets_close_automatically_and_quotes_are_left_to_native_completion()
     {
         var opens = Configuration()["autoClosingPairs"]!.Select(p => (string)p["open"]!).ToList();
 
-        opens.ShouldBe(["(", "[", "{", "\""], ignoreOrder: true);
+        opens.ShouldBe(["(", "[", "{"], ignoreOrder: true);
+    }
+
+    // Scopes such as "string" come from a TextMate grammar, which Daml doesn't register, so a
+    // notIn condition would keep the pair from ever closing.
+    [Fact, Trait("Category", "Editor")]
+    public void Pairs_close_without_scope_conditions()
+    {
+        Configuration()["autoClosingPairs"]!.ShouldAllBe(p => p["notIn"] == null);
     }
 
     // x' and foldl' are ordinary names; closing the apostrophe would break every one of them.
@@ -79,7 +89,8 @@ public class LanguageConfigurationTests
         pkgdef.ShouldBe(
         [
             @"[$RootKey$\TextMate\LanguageConfiguration\ContentTypeMapping]",
-            @"""daml""=""$PackageFolder$\LanguageConfiguration\daml-language-configuration.json""",
+            // $PackageFolder$ is the pkgdef's own folder, which already is LanguageConfiguration.
+            @"""daml""=""$PackageFolder$\daml-language-configuration.json""",
         ]);
     }
 

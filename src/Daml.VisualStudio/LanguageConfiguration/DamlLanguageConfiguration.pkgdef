@@ -1,5 +1,6 @@
 ; Comments, brackets and word boundaries for the "daml" content type, from a language
 ; configuration file. Only the configuration is registered, never a TextMate grammar: colouring
 ; comes from our own classifier and a grammar would paint over it.
+; $PackageFolder$ is the folder of this pkgdef, which is where the json sits too.
 [$RootKey$\TextMate\LanguageConfiguration\ContentTypeMapping]
-"daml"="$PackageFolder$\LanguageConfiguration\daml-language-configuration.json"
+"daml"="$PackageFolder$\daml-language-configuration.json"

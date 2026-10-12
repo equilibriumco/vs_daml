@@ -389,13 +389,13 @@ public static class DamlLexer
         _ => c is >= '0' and <= '9',
     };
 
-    private static bool IsNameStart(char c) => c == '_' || char.IsLetter(c);
+    internal static bool IsNameStart(char c) => c == '_' || char.IsLetter(c);
 
-    private static bool IsNameChar(char c) => c == '_' || c == '\'' || char.IsLetterOrDigit(c);
+    internal static bool IsNameChar(char c) => c == '_' || c == '\'' || char.IsLetterOrDigit(c);
 
     private static bool IsUpper(char c) => char.IsUpper(c) || char.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter;
 
-    private static bool IsSymbol(char c) =>
+    internal static bool IsSymbol(char c) =>
         c < 128 ? AsciiSymbols.IndexOf(c) >= 0 : char.GetUnicodeCategory(c) is UnicodeCategory.MathSymbol or UnicodeCategory.CurrencySymbol
             or UnicodeCategory.ModifierSymbol or UnicodeCategory.OtherSymbol;
 

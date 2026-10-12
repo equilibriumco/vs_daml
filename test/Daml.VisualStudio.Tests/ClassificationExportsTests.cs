@@ -41,6 +41,24 @@ public class ClassificationExportsTests
         TypeNames(export.Metadata["TagTypes"]).ShouldBe([typeof(IClassificationTag).FullName]);
     }
 
+    [Fact, Trait("Category", "Editor")]
+    public async Task Daml_buffers_get_their_own_word_navigator()
+    {
+        var export = (await ExportsAsync(typeof(Microsoft.VisualStudio.Text.Operations.ITextStructureNavigatorProvider))).Single();
+
+        ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
+    }
+
+    [Fact, Trait("Category", "Editor")]
+    public async Task Double_quotes_get_native_brace_completion_in_daml_buffers()
+    {
+        var export = (await ExportsAsync(typeof(Microsoft.VisualStudio.Text.BraceCompletion.IBraceCompletionDefaultProvider))).Single();
+
+        ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
+        ((IEnumerable<char>)export.Metadata["OpeningBraces"]!).ShouldBe(['"']);
+        ((IEnumerable<char>)export.Metadata["ClosingBraces"]!).ShouldBe(['"']);
+    }
+
     [Theory, Trait("Category", "Editor")]
     [MemberData(nameof(ClassificationBases))]
     public async Task Each_daml_classification_derives_from_a_predefined_one(string name, string baseType)
