@@ -1,0 +1,81 @@
+{
+  "callHierarchyProvider": false,
+  "codeActionProvider": true,
+  "codeLensProvider": {
+    "resolveProvider": false,
+    "workDoneProgress": false
+  },
+  "colorProvider": false,
+  "completionProvider": {
+    "resolveProvider": false
+  },
+  "declarationProvider": false,
+  "definitionProvider": true,
+  "documentFormattingProvider": false,
+  "documentHighlightProvider": false,
+  "documentRangeFormattingProvider": false,
+  "documentSymbolProvider": true,
+  "executeCommandProvider": {
+    "commands": [
+      "typesignature.add"
+    ]
+  },
+  "foldingRangeProvider": false,
+  "hoverProvider": true,
+  "implementationProvider": false,
+  "referencesProvider": false,
+  "renameProvider": false,
+  "selectionRangeProvider": false,
+  "semanticTokensProvider": {
+    "legend": {
+      "tokenModifiers": [
+        "declaration",
+        "definition",
+        "readonly",
+        "static",
+        "deprecated",
+        "abstract",
+        "async",
+        "modification",
+        "documentation",
+        "defaultLibrary"
+      ],
+      "tokenTypes": [
+        "type",
+        "class",
+        "enum",
+        "interface",
+        "struct",
+        "typeParameter",
+        "parameter",
+        "variable",
+        "property",
+        "enumMember",
+        "event",
+        "function",
+        "method",
+        "macro",
+        "keyword",
+        "modifier",
+        "comment",
+        "string",
+        "number",
+        "regexp",
+        "operator"
+      ]
+    }
+  },
+  "textDocumentSync": {
+    "change": 2,
+    "openClose": true,
+    "save": {}
+  },
+  "typeDefinitionProvider": false,
+  "workspace": {
+    "workspaceFolders": {
+      "changeNotifications": true,
+      "supported": true
+    }
+  },
+  "workspaceSymbolProvider": false
+}
