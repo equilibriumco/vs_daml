@@ -21,7 +21,6 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
     private readonly FakeDpm _fake;
     private readonly string _dpm;
     private readonly string _package;
-    private readonly BuildDiagnosticStore _store = new();
     private readonly RecordingLogger _logger = new();
 
     public DamlBuildCoordinatorTests()
@@ -49,58 +48,56 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
     public void Dispose() => _fake.Dispose();
 
     private DamlBuildCoordinator Coordinator(Func<string?>? findDpm = null) =>
-        new(new DpmRunner(new ProcessRunner()), findDpm ?? (() => _dpm), _store, _logger);
+        new(new DpmRunner(new ProcessRunner()), findDpm ?? (() => _dpm), _logger);
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_failed_build_fills_the_store_with_zero_based_diagnostics_and_logs_the_output()
+    public async Task A_failed_build_returns_zero_based_diagnostics_and_logs_the_output_one_entry_per_line()
     {
-        var succeeded = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
+        var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
 
-        succeeded.ShouldBeFalse();
-        _store.Current.ShouldNotBeEmpty();
-        var typeError = _store.Current.First(d => d.FilePath.EndsWith("TypeError.daml", StringComparison.Ordinal));
+        run.Succeeded.ShouldBeFalse();
+        run.Diagnostics.ShouldNotBeEmpty();
+        var typeError = run.Diagnostics.First(d => d.FilePath.EndsWith("TypeError.daml", StringComparison.Ordinal));
         typeError.FilePath.ShouldBe(Path.Combine(_package, "daml", "TypeError.daml"));
         typeError.Line.ShouldBeGreaterThanOrEqualTo(0);
         _logger.Lines.ShouldContain(l => l.Level == DamlLogLevel.Information && l.Message.StartsWith("Build", StringComparison.Ordinal) && l.Message.Contains(_package));
         _logger.Lines.ShouldContain(l => l.Message.Contains("File:"));
         _logger.Lines.ShouldContain(l => l.Message.Contains("failed") && l.Message.Contains("exit code 1"));
+        // damlc's own log entries arrive as one line each, without its timestamp.
+        _logger.Lines.ShouldContain(l => l.Message == "[build] Compiling broken to a DAR.");
+        _logger.Lines.ShouldNotContain(l => l.Message.Trim().Length == 0);
         _logger.Lines.ShouldAllBe(l => l.Category == DamlLogCategory.Build);
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task The_next_command_clears_what_the_previous_build_reported()
+    public async Task A_clean_reports_no_diagnostics()
     {
-        var coordinator = Coordinator();
-        await coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
-        var versionAfterBuild = _store.Version;
+        var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Clean, _package, false), CancellationToken.None);
 
-        var succeeded = await coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Clean, _package, false), CancellationToken.None);
-
-        succeeded.ShouldBeTrue();
-        _store.Current.ShouldBeEmpty();
-        _store.Version.ShouldBeGreaterThan(versionAfterBuild);
+        run.Succeeded.ShouldBeTrue();
+        run.Diagnostics.ShouldBeEmpty();
         _logger.Lines.ShouldContain(l => l.Message == "Removed build artifacts."); // ANSI colour codes gone
     }
 
     [Fact, Trait("Category", "Unit")]
     public async Task Without_dpm_nothing_runs_and_the_log_says_why()
     {
-        var succeeded = await Coordinator(() => null).RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
+        var run = await Coordinator(() => null).RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
 
-        succeeded.ShouldBeFalse();
+        run.ShouldBe(DamlBuildRun.NotStarted);
         _logger.Lines.ShouldContain(l => l.Level == DamlLogLevel.Error && l.Message.Contains("DAML0101") && l.Message.Contains("dpm"));
         _fake.ReadCalls().ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Cancelling_all_runs_stops_a_run_without_touching_the_store()
+    public async Task A_cancelled_run_never_starts_dpm()
     {
         var coordinator = Coordinator();
         var cancelled = new CancellationToken(canceled: true);
 
         await Should.ThrowAsync<OperationCanceledException>(() => coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), cancelled));
 
-        _store.Current.ShouldBeEmpty();
+        _fake.ReadCalls().ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -108,7 +105,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
     {
         var gate = Path.Combine(_fake.RootDirectory, "hang.cmd");
         File.WriteAllText(gate, "@echo off\r\nping -n 120 127.0.0.1 >nul\r\n", Encoding.ASCII);
-        var coordinator = new DamlBuildCoordinator(new DpmRunner(new ProcessRunner()), () => gate, _store, _logger);
+        var coordinator = new DamlBuildCoordinator(new DpmRunner(new ProcessRunner()), () => gate, _logger);
 
         var run = coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
         await Task.Delay(500);
@@ -119,24 +116,6 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         await Should.ThrowAsync<OperationCanceledException>(() => run);
 #pragma warning restore VSTHRD003
         _logger.Lines.ShouldContain(l => l.Message.Contains("cancelled"));
-    }
-
-    [Fact, Trait("Category", "Unit")]
-    public void The_store_clears_one_file_and_tells_listeners()
-    {
-        var changes = 0;
-        _store.Changed += (_, _) => changes++;
-        _store.Replace(
-        [
-            new BuildDiagnostic(@"C:\repo\a.daml", 0, 0, 0, 1, DamlDiagnosticSeverity.Error, "a", null),
-            new BuildDiagnostic(@"C:\repo\b.daml", 0, 0, 0, 1, DamlDiagnosticSeverity.Warning, "b", null),
-        ]);
-
-        _store.ClearFile(@"C:\REPO\A.daml").ShouldBeTrue();
-        _store.ClearFile(@"C:\repo\a.daml").ShouldBeFalse();
-
-        _store.Current.ShouldHaveSingleItem().Message.ShouldBe("b");
-        changes.ShouldBe(2);
     }
 
     private sealed class RecordingLogger : IDamlLogger

@@ -14,9 +14,9 @@ namespace Daml.VisualStudio.Build;
 /// </summary>
 internal sealed class DamlBuildConfigurationContext : IBuildFileContext
 {
-    private readonly Func<DamlBuildAction, CancellationToken, Task<bool>> _run;
+    private readonly Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> _run;
 
-    public DamlBuildConfigurationContext(DamlBuildAction action, Func<DamlBuildAction, CancellationToken, Task<bool>> run)
+    public DamlBuildConfigurationContext(DamlBuildAction action, Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> run)
     {
         Action = action;
         _run = run;
@@ -28,6 +28,17 @@ internal sealed class DamlBuildConfigurationContext : IBuildFileContext
     /// <inheritdoc />
     public string? BuildConfiguration => null;
 
-    /// <inheritdoc />
-    public Task<bool> ExecuteBuildAsync(IBuildActionProgress progress, CancellationToken cancellationToken) => _run(Action, cancellationToken);
+    /// <summary>Runs the command and reports its diagnostics as build messages.</summary>
+    public async Task<bool> ExecuteBuildAsync(IBuildActionProgress progress, CancellationToken cancellationToken)
+    {
+        var run = await _run(Action, cancellationToken).ConfigureAwait(false);
+        if (progress is not null)
+        {
+            foreach (var message in BuildMessages.From(run.Diagnostics, Action.ManifestPath))
+            {
+                await progress.ReportAsync(message, null).ConfigureAwait(false);
+            }
+        }
+        return run.Succeeded;
+    }
 }

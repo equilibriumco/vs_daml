@@ -10,9 +10,6 @@ using Daml.VisualStudio.Build;
 using Daml.VisualStudio.Core.Build;
 using Daml.VisualStudio.Core.Project;
 using Microsoft.VisualStudio.Composition;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell.TableManager;
-using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
 using Microsoft.VisualStudio.Workspace.Indexing;
@@ -105,15 +102,6 @@ public class BuildIntegrationTests
         actionTypes.ShouldNotContain(BuildContextTypes.CleanContextTypeGuid);
     }
 
-    [Fact, Trait("Category", "Editor")]
-    public async Task The_edit_listener_watches_daml_documents()
-    {
-        var export = Exports(await DiscoverAsync(), typeof(IWpfTextViewCreationListener))
-            .Single(e => Flatten(e.Metadata.Values).Contains("daml"));
-
-        Flatten(export.Metadata.Values).ShouldContain(PredefinedTextViewRoles.Document);
-    }
-
     [Theory, Trait("Category", "Editor")]
     [InlineData(@"C:\repo\app\daml.yaml", 3)]
     [InlineData(@"C:\repo\multi-package.yaml", 2)]
@@ -143,7 +131,7 @@ public class BuildIntegrationTests
     public async Task Test_answers_our_menu_command_and_nothing_else_gets_an_action()
     {
         var ran = new List<DamlBuildAction>();
-        var factory = new DamlFileContextActionProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(true); });
+        var factory = new DamlFileContextActionProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(new DamlBuildRun(true, [])); });
         var provider = factory.CreateProvider(null!);
         var test = Context(BuildIds.TestContextType, DpmCommandKind.Test, @"C:\repo\app", false, @"C:\repo\app\daml.yaml");
         var build = Context(BuildContextTypes.BuildContextTypeGuid, DpmCommandKind.Build, @"C:\repo\app", false, @"C:\repo\app\daml.yaml");
@@ -169,7 +157,7 @@ public class BuildIntegrationTests
     public async Task Build_and_clean_contexts_are_run_by_the_folder_views_own_commands(string manifest, DpmCommandKind kind, bool all)
     {
         var ran = new List<DamlBuildAction>();
-        var provider = new DamlFileContextProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(true); }).CreateProvider(null!);
+        var provider = new DamlFileContextProviderFactory((action, _) => { ran.Add(action); return Task.FromResult(new DamlBuildRun(true, [])); }).CreateProvider(null!);
         var context = (await provider.GetContextsForFileAsync(manifest, CancellationToken.None))
             .Single(c => c.ContextType == DamlFileContextProviderFactory.ContextTypeFor(kind));
 
@@ -181,38 +169,61 @@ public class BuildIntegrationTests
         action.AllPackages.ShouldBe(all);
     }
 
-    private static Task<bool> NoRun(DamlBuildAction action, CancellationToken cancellationToken) => Task.FromResult(false);
+    [Fact, Trait("Category", "Editor")]
+    public async Task A_build_reports_its_diagnostics_as_build_messages_with_one_based_positions()
+    {
+        var typeError = new BuildDiagnostic(@"C:\repo\app\daml\TypeError.daml", 4, 8, 4, 19, DamlDiagnosticSeverity.Error, "Couldn't match expected type", "typecheck");
+        var unused = new BuildDiagnostic(@"C:\repo\app\daml", 0, 0, 1, 0, DamlDiagnosticSeverity.Warning, "Unused dependency", "Daml-LF typechecker");
+        var context = new DamlBuildConfigurationContext(
+            new DamlBuildAction(DpmCommandKind.Build, @"C:\repo\app", false),
+            (_, _) => Task.FromResult(new DamlBuildRun(false, [typeError, unused])));
+        var progress = new RecordingProgress();
+
+        var built = await context.ExecuteBuildAsync(progress, CancellationToken.None);
+
+        built.ShouldBeFalse();
+        progress.Messages.Count.ShouldBe(2);
+        var error = progress.Messages[0];
+        error.Type.ShouldBe(BuildMessage.TaskType.Error);
+        error.Code.ShouldBe("DAML0001");
+        error.File.ShouldBe(@"C:\repo\app\daml\TypeError.daml");
+        (error.LineNumber, error.ColumnNumber).ShouldBe((5, 9)); // damlc's 5:9
+        error.TaskText.ShouldBe("Couldn't match expected type");
+        progress.Messages[1].Type.ShouldBe(BuildMessage.TaskType.Warning);
+        progress.Messages[1].Code.ShouldBe("DAML0002");
+    }
+
+    // Visual Studio writes every message's LogMessage into its Build pane and crashes the whole
+    // IDE (access violation in OutputStringThreadSafe) when it is null.
+    [Fact, Trait("Category", "Editor")]
+    public void Every_build_message_carries_a_log_line_and_its_project()
+    {
+        var message = BuildMessages.From(
+            new BuildDiagnostic(@"C:\repo\app\daml\TypeError.daml", 4, 8, 4, 19, DamlDiagnosticSeverity.Error, "Couldn't match\n  expected type", "typecheck"),
+            @"C:\repo\app\daml.yaml");
+
+        message.LogMessage.ShouldBe("C:\\repo\\app\\daml\\TypeError.daml(5,9): error DAML0001: Couldn't match\n  expected type\n");
+        message.ProjectFile.ShouldBe(@"C:\repo\app\daml.yaml");
+    }
+
+    private sealed class RecordingProgress : IBuildActionProgress
+    {
+        public List<BuildMessage> Messages { get; } = new();
+
+        public Task ReportAsync(BuildMessage buildMessage, object? context)
+        {
+            Messages.Add(buildMessage);
+            return Task.CompletedTask;
+        }
+
+        // The context must report through ReportAsync only.
+        public void Report(IFileContextActionProgressUpdate value) => throw new NotSupportedException();
+    }
+
+    private static Task<DamlBuildRun> NoRun(DamlBuildAction action, CancellationToken cancellationToken) => Task.FromResult(DamlBuildRun.NotStarted);
 
     private static FileContext Context(Guid type, DpmCommandKind kind, string folder, bool all, string manifest) =>
         new(BuildIds.FileContextProvider, type, new DamlBuildConfigurationContext(new DamlBuildAction(kind, folder, all), NoRun), [manifest], kind.ToString());
-
-    [Fact, Trait("Category", "Editor")]
-    public void The_error_list_gets_zero_based_entries_tagged_as_daml_build_and_follows_the_store()
-    {
-        var store = new BuildDiagnosticStore();
-        using var source = new BuildErrorListSource(store);
-        var sink = new RecordingSink();
-        using var subscription = source.Subscribe(sink);
-
-        store.Replace([new BuildDiagnostic(@"C:\repo\app\daml\Main.daml", 4, 8, 4, 19, DamlDiagnosticSeverity.Warning, "Unused import", "typecheck")]);
-        store.ClearFile(@"C:\repo\app\daml\Main.daml");
-
-        sink.Snapshots.Count.ShouldBe(3); // empty, one entry, empty again
-        var snapshot = sink.Snapshots[1];
-        snapshot.Count.ShouldBe(1);
-        Value(snapshot, StandardTableKeyNames.Line).ShouldBe(4);
-        Value(snapshot, StandardTableKeyNames.Column).ShouldBe(8);
-        Value(snapshot, StandardTableKeyNames.DocumentName).ShouldBe(@"C:\repo\app\daml\Main.daml");
-        Value(snapshot, StandardTableKeyNames.ErrorSeverity).ShouldBe(__VSERRORCATEGORY.EC_WARNING);
-        Value(snapshot, StandardTableKeyNames.BuildTool).ShouldBe("Daml Build");
-        Value(snapshot, StandardTableKeyNames.ErrorSource).ShouldBe(ErrorSource.Build);
-        Value(snapshot, StandardTableKeyNames.Text).ShouldBe("Unused import");
-        sink.Snapshots[2].Count.ShouldBe(0);
-        source.SourceTypeIdentifier.ShouldBe(StandardTableDataSources.ErrorTableDataSource);
-    }
-
-    private static object? Value(ITableEntriesSnapshot snapshot, string key) =>
-        snapshot.TryGetValue(0, key, out var value) ? value : null;
 
     private static async Task<DiscoveredParts> DiscoverAsync()
     {
@@ -252,38 +263,5 @@ public class BuildIntegrationTests
                 yield return value;
             }
         }
-    }
-
-    private sealed class RecordingSink : ITableDataSink
-    {
-        public List<ITableEntriesSnapshot> Snapshots { get; } = new();
-
-        public bool IsStable { get; set; } = true;
-
-        public void AddSnapshot(ITableEntriesSnapshot newSnapshot, bool removeAllSnapshots = false) => Snapshots.Add(newSnapshot);
-
-        public void ReplaceSnapshot(ITableEntriesSnapshot oldSnapshot, ITableEntriesSnapshot newSnapshot) => Snapshots.Add(newSnapshot);
-
-        public void AddEntries(IReadOnlyList<ITableEntry> newEntries, bool removeAllEntries = false) => throw new NotSupportedException();
-
-        public void RemoveEntries(IReadOnlyList<ITableEntry> oldEntries) => throw new NotSupportedException();
-
-        public void ReplaceEntries(IReadOnlyList<ITableEntry> oldEntries, IReadOnlyList<ITableEntry> newEntries) => throw new NotSupportedException();
-
-        public void RemoveAllEntries() => throw new NotSupportedException();
-
-        public void RemoveSnapshot(ITableEntriesSnapshot oldSnapshot) => throw new NotSupportedException();
-
-        public void RemoveAllSnapshots() => throw new NotSupportedException();
-
-        public void AddFactory(ITableEntriesSnapshotFactory newFactory, bool removeAllFactories = false) => throw new NotSupportedException();
-
-        public void RemoveFactory(ITableEntriesSnapshotFactory oldFactory) => throw new NotSupportedException();
-
-        public void ReplaceFactory(ITableEntriesSnapshotFactory oldFactory, ITableEntriesSnapshotFactory newFactory) => throw new NotSupportedException();
-
-        public void FactorySnapshotChanged(ITableEntriesSnapshotFactory? factory) => throw new NotSupportedException();
-
-        public void RemoveAllFactories() => throw new NotSupportedException();
     }
 }

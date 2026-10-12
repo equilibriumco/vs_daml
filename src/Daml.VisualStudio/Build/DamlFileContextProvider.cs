@@ -18,7 +18,7 @@ namespace Daml.VisualStudio.Build;
 [ExportFileContextProvider(BuildIds.FileContextProviderString, BuildContextTypes.BuildContextType, BuildContextTypes.CleanContextType, BuildIds.TestContextTypeString)]
 internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory<IFileContextProvider>
 {
-    private readonly Func<DamlBuildAction, CancellationToken, Task<bool>> _run;
+    private readonly Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> _run;
 
     [ImportingConstructor]
     public DamlFileContextProviderFactory(DamlBuildService service)
@@ -26,7 +26,7 @@ internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory
     {
     }
 
-    internal DamlFileContextProviderFactory(Func<DamlBuildAction, CancellationToken, Task<bool>> run) => _run = run;
+    internal DamlFileContextProviderFactory(Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> run) => _run = run;
 
     public IFileContextProvider CreateProvider(IWorkspace workspaceContext) => new Provider(_run);
 
@@ -39,9 +39,9 @@ internal sealed class DamlFileContextProviderFactory : IWorkspaceProviderFactory
 
     private sealed class Provider : IFileContextProvider
     {
-        private readonly Func<DamlBuildAction, CancellationToken, Task<bool>> _run;
+        private readonly Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> _run;
 
-        public Provider(Func<DamlBuildAction, CancellationToken, Task<bool>> run) => _run = run;
+        public Provider(Func<DamlBuildAction, CancellationToken, Task<DamlBuildRun>> run) => _run = run;
 
         public Task<IReadOnlyCollection<FileContext>> GetContextsForFileAsync(string filePath, CancellationToken cancellationToken)
         {

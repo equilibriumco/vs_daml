@@ -2,9 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
-using Daml.VisualStudio.Core.Logging;
 
-namespace Daml.VisualStudio.LanguageServer.Supervision;
+namespace Daml.VisualStudio.Core.Logging;
 
 /// <summary>One damlc log entry, ready for the Output window.</summary>
 /// <param name="Level">damlc's own level for it.</param>
@@ -51,6 +50,17 @@ public sealed class DamlcLogAssembler
             _hasMessage = false;
             return completed;
         }
+        // dpm build prints a diagnostic block (File:, Hidden:, Range: ...) right after an entry,
+        // without a blank line in between; the block isn't part of the entry.
+        if (line.StartsWith("File:", StringComparison.Ordinal))
+        {
+            if (Flush() is { } previous)
+            {
+                completed.Add(previous);
+            }
+            completed.Add(new DamlcLogRecord(DamlLogLevel.Information, line));
+            return completed;
+        }
         if (string.IsNullOrWhiteSpace(line))
         {
             if (Flush() is { } previous)
@@ -86,8 +96,13 @@ public sealed class DamlcLogAssembler
         {
             return null;
         }
-        var record = new DamlcLogRecord(_level, _text.ToString());
+        var text = _text.ToString();
         _text = null;
+        // The script service's JVM warnings come through at ERROR level; they're only warnings.
+        var level = _level == DamlLogLevel.Error && text.IndexOf("SCRIPT SERVICE STDERR: WARNING:", StringComparison.Ordinal) >= 0
+            ? DamlLogLevel.Warning
+            : _level;
+        var record = new DamlcLogRecord(level, text);
         return record.Text.Length == 0 ? null : record;
     }
 

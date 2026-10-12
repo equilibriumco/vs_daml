@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,15 +9,24 @@ using Daml.VisualStudio.Core.Sdk;
 
 namespace Daml.VisualStudio.Core.Build;
 
+/// <summary>How one dpm command run from the IDE ended.</summary>
+/// <param name="Succeeded">dpm exited with 0.</param>
+/// <param name="Diagnostics">What damlc reported, in editor positions; hidden ones left out.</param>
+public sealed record DamlBuildRun(bool Succeeded, IReadOnlyList<BuildDiagnostic> Diagnostics)
+{
+    /// <summary>A run that never started, e.g. because dpm is missing.</summary>
+    public static DamlBuildRun NotStarted { get; } = new(false, []);
+}
+
 /// <summary>
 /// Runs the dpm commands the IDE offers, one at a time: output goes to the build log as it
-/// arrives, and the diagnostics replace whatever the previous command left in the store.
+/// arrives, one line per damlc log entry, and the diagnostics come back to the caller, which
+/// hands them to Visual Studio's build reporting.
 /// </summary>
 public sealed class DamlBuildCoordinator : IDisposable
 {
     private readonly DpmRunner _runner;
     private readonly Func<string?> _findDpm;
-    private readonly BuildDiagnosticStore _store;
     private readonly IDamlLogger _logger;
     private readonly SemaphoreSlim _oneAtATime = new(1, 1);
     private readonly object _gate = new();
@@ -25,25 +35,17 @@ public sealed class DamlBuildCoordinator : IDisposable
     /// <summary>Creates a coordinator.</summary>
     /// <param name="runner">Runs dpm.</param>
     /// <param name="findDpm">Finds dpm for each run; <c>null</c> when it isn't installed.</param>
-    /// <param name="store">Where the diagnostics go.</param>
     /// <param name="logger">Where the output goes (the build category).</param>
-    public DamlBuildCoordinator(DpmRunner runner, Func<string?> findDpm, BuildDiagnosticStore store, IDamlLogger logger)
+    public DamlBuildCoordinator(DpmRunner runner, Func<string?> findDpm, IDamlLogger logger)
     {
         _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         _findDpm = findDpm ?? throw new ArgumentNullException(nameof(findDpm));
-        _store = store ?? throw new ArgumentNullException(nameof(store));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    /// <summary>The store the coordinator fills.</summary>
-    public BuildDiagnosticStore Store => _store;
-
-    /// <summary>
-    /// Runs <paramref name="action"/> after any command already running. Returns whether dpm
-    /// succeeded.
-    /// </summary>
+    /// <summary>Runs <paramref name="action"/> after any command already running.</summary>
     /// <exception cref="OperationCanceledException">Cancelled, here or by <see cref="CancelAll"/>.</exception>
-    public async Task<bool> RunAsync(DamlBuildAction action, CancellationToken cancellationToken)
+    public async Task<DamlBuildRun> RunAsync(DamlBuildAction action, CancellationToken cancellationToken)
     {
         if (action is null)
         {
@@ -64,31 +66,43 @@ public sealed class DamlBuildCoordinator : IDisposable
             {
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Error,
                     $"{SdkResolutionException.MissingToolCode}: dpm wasn't found on PATH or in %APPDATA%\\dpm\\bin. Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
-                return false;
+                return DamlBuildRun.NotStarted;
             }
 
-            _store.Clear();
             _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"{action.DisplayName} started in {action.WorkingDirectory}");
+            // damlc writes its own log entries over several lines; each stream is put back together on its own.
+            var assemblers = new Dictionary<DpmOutputChannel, DamlcLogAssembler>
+            {
+                [DpmOutputChannel.Stdout] = new(),
+                [DpmOutputChannel.Stderr] = new(),
+            };
             DpmRunResult result;
             try
             {
                 result = await _runner.RunAsync(dpm, action.Kind, action.WorkingDirectory, action.AllPackages,
-                    line => _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, DamlDiagnosticParser.StripAnsi(line.Text)),
+                    line =>
+                    {
+                        foreach (var entry in assemblers[line.Channel].Add(DamlDiagnosticParser.StripAnsi(line.Text)))
+                        {
+                            Write(entry);
+                        }
+                    },
                     linked.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
+                Flush(assemblers.Values);
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, $"{action.DisplayName} cancelled.");
                 throw;
             }
+            Flush(assemblers.Values);
 
             var diagnostics = result.Diagnostics.Where(d => !d.Hidden).Select(d => BuildDiagnostic.From(d, action.WorkingDirectory)).ToList();
-            _store.Replace(diagnostics);
             var errors = diagnostics.Count(d => d.Severity == DamlDiagnosticSeverity.Error);
             var warnings = diagnostics.Count(d => d.Severity == DamlDiagnosticSeverity.Warning);
             _logger.Log(DamlLogCategory.Build, result.Succeeded ? DamlLogLevel.Information : DamlLogLevel.Warning,
                 $"{action.DisplayName} {(result.Succeeded ? "succeeded" : "failed")} (exit code {result.ExitCode}, {errors} error(s), {warnings} warning(s)).");
-            return result.Succeeded;
+            return new DamlBuildRun(result.Succeeded, diagnostics);
         }
         finally
         {
@@ -119,4 +133,17 @@ public sealed class DamlBuildCoordinator : IDisposable
         }
         _oneAtATime.Dispose();
     }
+
+    private void Flush(IEnumerable<DamlcLogAssembler> assemblers)
+    {
+        foreach (var assembler in assemblers)
+        {
+            if (assembler.Flush() is { } entry)
+            {
+                Write(entry);
+            }
+        }
+    }
+
+    private void Write(DamlcLogRecord entry) => _logger.Log(DamlLogCategory.Build, entry.Level, entry.Text);
 }

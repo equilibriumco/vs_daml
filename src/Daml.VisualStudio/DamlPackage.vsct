@@ -3,10 +3,10 @@
 
   <Commands package="guidDamlPackage">
     <Groups>
-      <!-- Open Folder: the Solution Explorer folder view's context menu. -->
-      <Group guid="guidDamlCommandSet" id="FolderViewBuildGroup" priority="0x0600">
-        <Parent guid="guidWorkspaceExplorerCommandSet" id="idmWorkspaceContextMenu" />
-      </Group>
+      <!-- No parent: Open Folder puts commands its action providers name (IVsCommandItem) into
+           the folder view's context menu by itself; placing the group there as well listed
+           Test twice. -->
+      <Group guid="guidDamlCommandSet" id="FolderViewBuildGroup" priority="0x0600" />
     </Groups>
 
     <Buttons>

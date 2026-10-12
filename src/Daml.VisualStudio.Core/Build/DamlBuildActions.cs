@@ -14,6 +14,10 @@ public sealed record DamlBuildAction(DpmCommandKind Kind, string WorkingDirector
 {
     /// <summary>Name for menus and logs: "Build", "Test", "Clean", or "Build All" and "Clean All".</summary>
     public string DisplayName => Kind + (AllPackages ? " All" : "");
+
+    /// <summary>The manifest the command was offered for: multi-package.yaml for the "All" commands, else daml.yaml.</summary>
+    public string ManifestPath =>
+        Path.Combine(WorkingDirectory, AllPackages ? WorkspaceLocator.MultiPackageManifestName : WorkspaceLocator.PackageManifestName);
 }
 
 /// <summary>Which dpm commands a Daml manifest offers.</summary>

@@ -1,11 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Daml.VisualStudio.Core.Logging;
-using Daml.VisualStudio.LanguageServer.Supervision;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.LanguageServer.Tests.Supervision;
+namespace Daml.VisualStudio.Core.Tests.Logging;
 
 public class DamlcLogAssemblerTests
 {
@@ -56,8 +55,40 @@ public class DamlcLogAssemblerTests
             "SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called",
             "WARNING: sun.misc.Unsafe::objectFieldOffset has been called").ShouldHaveSingleItem();
 
-        record.Level.ShouldBe(DamlLogLevel.Error);
+        record.Level.ShouldBe(DamlLogLevel.Warning); // a JVM warning, despite damlc's ERROR
         record.Text.ShouldBe("[LanguageServer ScriptService] SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called\nWARNING: sun.misc.Unsafe::objectFieldOffset has been called");
+    }
+
+    // As dpm build writes it: a diagnostic block follows an entry without a blank line.
+    [Fact, Trait("Category", "Unit")]
+    public void A_diagnostic_block_ends_the_entry_before_it_and_passes_through_line_by_line()
+    {
+        Assemble(
+            "Running single package build of broken as no multi-package.yaml was found.",
+            "",
+            "2026-10-11 18:52:14.45 [INFO]  [build] ",
+            "Compiling broken to a DAR.",
+            "File:     daml/SyntaxError.daml",
+            "Hidden:   no").Select(r => r.Text).ShouldBe([
+                "Running single package build of broken as no multi-package.yaml was found.",
+                "[build] Compiling broken to a DAR.",
+                "File:     daml/SyntaxError.daml",
+                "Hidden:   no",
+            ]);
+    }
+
+    // damlc relays the script service's JVM warnings at ERROR level; they're warnings.
+    [Fact, Trait("Category", "Unit")]
+    public void Jvm_warnings_relayed_by_the_script_service_are_warnings()
+    {
+        Assemble(
+            "",
+            "2026-10-11 21:48:19.59 [ERROR]  [test ScriptService] ",
+            "SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called",
+            "",
+            "2026-10-11 21:48:19.60 [ERROR]  [test ScriptService] ",
+            "SCRIPT SERVICE STDERR: Exception in thread main")
+            .Select(r => r.Level).ShouldBe([DamlLogLevel.Warning, DamlLogLevel.Error]);
     }
 
     [Fact, Trait("Category", "Unit")]
