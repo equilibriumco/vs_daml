@@ -151,8 +151,11 @@ public sealed class LanguageServerHostTests
         host.SetWorkspace(Single(package), new LanguageServerOptions { DpmPath = server.ExecutablePath });
         var ready = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         host.SessionReady += (_, e) => ready.TrySetResult(e.SessionId);
+        var readiness = new List<bool>();
+        host.ReadinessChanged += (_, _) => { lock (readiness) { readiness.Add(host.IsReady); } };
 
         var connection = (await host.ActivateAsync(CancellationToken.None)).ShouldNotBeNull();
+        host.IsReady.ShouldBeFalse("nothing has answered initialize yet");
         using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(connection.ToServer, connection.FromServer, new JsonMessageFormatter()));
         rpc.StartListening();
         host.AttachRpc(rpc);
@@ -165,11 +168,17 @@ public sealed class LanguageServerHostTests
         attached.ShouldBeSameAs(rpc);
         sessionId.ShouldBe(connection.SessionId);
         host.LastResolution.ShouldNotBeNull().ContextSdkVersion.ShouldBe("3.6.0");
+        host.IsReady.ShouldBeTrue();
 
         await rpc.InvokeAsync<object?>("shutdown");
         await rpc.NotifyAsync("exit");
         await host.StopAsync(CancellationToken.None);
         host.Channel.TryGet(out _, out _).ShouldBeFalse();
+        host.IsReady.ShouldBeFalse();
+        lock (readiness)
+        {
+            readiness.ShouldBe([true, false], "each change is announced once");
+        }
     }
 
     [Theory, Trait("Category", "Unit")]

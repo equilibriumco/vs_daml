@@ -61,6 +61,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _discovery = new WorkspaceDiscovery(files, manifests);
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
         _host.ProblemRaised += OnProblemRaised;
+        _host.ReadinessChanged += OnReadinessChanged;
         _settings.Changed += OnSettingsChanged;
         MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
         var installs = new SdkInstallProgressTracker(
@@ -238,6 +239,14 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             await handler.InvokeAsync(this, EventArgs.Empty).ConfigureAwait(false);
         }
     }
+
+    private void OnReadinessChanged(object? sender, EventArgs e) =>
+        _joinableTaskFactory.RunAsync(async () =>
+        {
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            // Read again on the UI thread, so a quick ready-then-stopped can't leave it stale.
+            UIContext.FromUIContextGuid(PackageGuids.LanguageServerReady).IsActive = _host.IsReady;
+        }).FileAndForget("daml/languageClient/readiness");
 
     private void OnProblemRaised(object? sender, LanguageServerProblemEventArgs e) =>
         _joinableTaskFactory.RunAsync(() => ShowProblemAsync(e.Problem)).FileAndForget("daml/languageClient/showProblem");

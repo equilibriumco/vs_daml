@@ -83,6 +83,7 @@ public sealed class LanguageServerHost : IDisposable
     private int _initializedSession;
     private int _attachedSession;
     private int _unresponsiveSession;
+    private bool _ready;
     private int _activations;
 
     /// <summary>Creates a host.</summary>
@@ -109,6 +110,24 @@ public sealed class LanguageServerHost : IDisposable
 
     /// <summary>A session answered <c>initialize</c> and its connection is attached: dependent services may start.</summary>
     public event EventHandler<SessionReadyEventArgs>? SessionReady;
+
+    /// <summary><see cref="IsReady"/> changed.</summary>
+    public event EventHandler? ReadinessChanged;
+
+    /// <summary>
+    /// Whether a session is serving right now: true from the moment it is ready until the
+    /// server leaves the Ready state (stopping, crashing, restarting).
+    /// </summary>
+    public bool IsReady
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _ready;
+            }
+        }
+    }
 
     /// <summary>Process ownership, backoff and restarts.</summary>
     public LanguageServerSupervisor Supervisor { get; }
@@ -371,6 +390,7 @@ public sealed class LanguageServerHost : IDisposable
             }
         }
         KeepAlive.Watch(session);
+        SetReady(true);
         SessionReady?.Invoke(this, new SessionReadyEventArgs(session));
     }
 
@@ -391,6 +411,10 @@ public sealed class LanguageServerHost : IDisposable
 
     private void OnStateChanged(object? sender, LanguageServerStateChangedEventArgs e)
     {
+        if (e.NewState != LanguageServerState.Ready)
+        {
+            SetReady(false);
+        }
         if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted)
         {
             int session;
@@ -401,6 +425,19 @@ public sealed class LanguageServerHost : IDisposable
             KeepAlive.Stop();
             _channel.Detach(session);
         }
+    }
+
+    private void SetReady(bool ready)
+    {
+        lock (_gate)
+        {
+            if (_ready == ready)
+            {
+                return;
+            }
+            _ready = ready;
+        }
+        ReadinessChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void Raise(LanguageServerProblemKind kind, string message)
