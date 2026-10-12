@@ -1,0 +1,5 @@
+; Comments, brackets and word boundaries for the "daml" content type, from a language
+; configuration file. Only the configuration is registered, never a TextMate grammar: colouring
+; comes from our own classifier and a grammar would paint over it.
+[$RootKey$\TextMate\LanguageConfiguration\ContentTypeMapping]
+"daml"="$PackageFolder$\LanguageConfiguration\daml-language-configuration.json"

@@ -34,6 +34,13 @@
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
   </ItemGroup>
 
+  <!-- Comment toggling, auto-closing and word boundaries for .daml files; the pkgdef points
+       Visual Studio at the json by content type. -->
+  <ItemGroup>
+    <Content Include="LanguageConfiguration\daml-language-configuration.json" IncludeInVSIX="true" />
+    <Content Include="LanguageConfiguration\DamlLanguageConfiguration.pkgdef" IncludeInVSIX="true" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
