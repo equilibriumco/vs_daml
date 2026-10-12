@@ -22,8 +22,11 @@ public sealed class WorkspaceDiscovery
         _locator = new WorkspaceLocator(fileSystem, manifests ?? throw new ArgumentNullException(nameof(manifests)));
     }
 
-    /// <summary>The context for <paramref name="workspaceRoot"/> and <paramref name="activeFile"/>, either of which may be unknown.</summary>
-    public WorkspaceContext? Discover(string? workspaceRoot, string? activeFile, int version)
+    /// <summary>
+    /// The context for <paramref name="workspaceRoot"/> and <paramref name="activeFile"/>, either of
+    /// which may be unknown, for the kind of server in <paramref name="mode"/>.
+    /// </summary>
+    public WorkspaceContext? Discover(string? workspaceRoot, string? activeFile, int version, ServerMode mode = ServerMode.MultiIde)
     {
         // With no Daml file active, start from a manifest at the root, as if it had been opened.
         var startFrom = activeFile;
@@ -51,6 +54,6 @@ public sealed class WorkspaceDiscovery
         }
         var root = workspaceRoot
             ?? (location.MultiPackage is { } multiPackage ? Path.GetDirectoryName(multiPackage.ManifestPath)! : location.Package!.PackageRoot);
-        return _locator.Resolve(root, startFrom, ServerMode.MultiIde, version).Context;
+        return _locator.Resolve(root, startFrom, mode, version).Context;
     }
 }

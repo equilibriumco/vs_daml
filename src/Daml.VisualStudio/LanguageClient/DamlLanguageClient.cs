@@ -7,12 +7,14 @@ using System.Threading.Tasks;
 using Community.VisualStudio.Toolkit;
 using Daml.VisualStudio.Core.FileSystem;
 using Daml.VisualStudio.Core.Logging;
+using Daml.VisualStudio.Core.Options;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
 using Daml.VisualStudio.Core.Server;
 using Daml.VisualStudio.LanguageServer.Hosting;
 using Daml.VisualStudio.LanguageServer.Messages;
+using Daml.VisualStudio.Options;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.LanguageServer.Client;
 using Microsoft.VisualStudio.Shell;
@@ -34,12 +36,14 @@ namespace Daml.VisualStudio.LanguageClient;
 internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCustomMessage2, IDisposable
 {
     private const string RestartAction = "Restart";
+    private const string ApplySettingsAction = "Restart now";
 
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly IDamlLogger _logger;
     private readonly LanguageServerHost _host;
     private readonly ClientRestartSequence _sequence;
     private readonly WorkspaceDiscovery _discovery;
+    private readonly DamlSettingsMonitor _settings = new();
     private readonly object _gate = new();
     private FileSystemWatcher? _watcher;
     private string? _watchedRoot;
@@ -56,6 +60,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _discovery = new WorkspaceDiscovery(files, manifests);
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
         _host.ProblemRaised += OnProblemRaised;
+        _settings.Changed += OnSettingsChanged;
         MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
         var installs = new SdkInstallProgressTracker(
             new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
@@ -124,6 +129,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             _watcher?.Dispose();
             _watcher = null;
         }
+        _settings.Dispose();
         _sequence.Dispose();
         _host.Dispose(); // closes the job, so the server can't outlive VS
     }
@@ -140,15 +146,60 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         }
         var view = await VS.Documents.GetActiveDocumentViewAsync();
         var activeFile = view?.FilePath is { } path && path.EndsWith(".daml", StringComparison.OrdinalIgnoreCase) ? path : null;
+        var settings = await DamlOptions.GetSettingsAsync();
         await TaskScheduler.Default;
 
-        var workspace = _discovery.Discover(root, activeFile, Interlocked.Increment(ref _version));
+        ApplyKeepAlive(settings);
+        var workspace = _discovery.Discover(root, activeFile, Interlocked.Increment(ref _version), settings.ServerMode);
         Watch(workspace?.WorkspaceRoot ?? root);
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, workspace is null
             ? $"No Daml workspace in {root ?? "(no folder)"}."
             : $"Daml workspace {workspace.WorkspaceRoot}; server runs in {workspace.ServerWorkingDirectory}.");
-        // Real settings arrive with the options page; until then the defaults apply.
-        return (workspace, new LanguageServerOptions());
+        _settings.MarkApplied(settings);
+        return (workspace, settings.ToLanguageServerOptions());
+    }
+
+    private void ApplyKeepAlive(DamlSettings settings)
+    {
+        if (_host.KeepAliveSettings.Enabled != settings.KeepAliveEnabled)
+        {
+            _host.KeepAliveSettings = _host.KeepAliveSettings with { Enabled = settings.KeepAliveEnabled };
+        }
+    }
+
+    // The keep-alive check follows the page at once; anything that changes the server's command
+    // line waits for the user to restart it.
+    private void OnSettingsChanged(object? sender, DamlSettingsChangedEventArgs e)
+    {
+        ApplyKeepAlive(e.Settings);
+        if (e.RestartRequired)
+        {
+            _joinableTaskFactory.RunAsync(() => ShowRestartRequiredAsync(e.ChangesNeedingRestart)).FileAndForget("daml/options/restartRequired");
+        }
+    }
+
+    private async Task ShowRestartRequiredAsync(IReadOnlyList<string> changes)
+    {
+        var model = new InfoBarModel(
+            new[] { new InfoBarTextSpan($"Daml settings changed ({string.Join(", ", changes)}). Restart the language server to apply them. ") },
+            new[] { new InfoBarHyperlink(ApplySettingsAction) },
+            KnownMonikers.StatusInformation,
+            isCloseButtonVisible: true);
+        var infoBar = await VS.InfoBar.CreateAsync(model);
+        if (infoBar is null)
+        {
+            return;
+        }
+        infoBar.ActionItemClicked += (_, args) =>
+        {
+            ThreadHelper.ThrowIfNotOnUIThread(); // VS raises it from the info bar's UI
+            if (args.ActionItem.Text == ApplySettingsAction)
+            {
+                args.InfoBarUIElement.Close();
+                _host.Supervisor.RequestRestart("Options changed");
+            }
+        };
+        await infoBar.TryShowInfoBarUIAsync();
     }
 
     // Manifest changes the server won't notice by itself go to the host, which may ask for a restart.

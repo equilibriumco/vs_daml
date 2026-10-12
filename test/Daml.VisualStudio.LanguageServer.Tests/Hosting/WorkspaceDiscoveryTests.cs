@@ -28,6 +28,20 @@ public class WorkspaceDiscoveryTests
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void The_single_package_server_runs_in_the_active_files_package()
+    {
+        _files.AddFile(@"C:\repo\multi-package.yaml", "packages:\n  - app\n");
+        _files.AddFile(@"C:\repo\app\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+        var discovery = new WorkspaceDiscovery(_files, new YamlManifestReader(_files));
+
+        var context = discovery.Discover(@"C:\repo", @"C:\repo\app\daml\Main.daml", version: 1, ServerMode.Ide).ShouldNotBeNull();
+
+        context.Mode.ShouldBe(ServerMode.Ide);
+        context.ServerWorkingDirectory.ShouldBe(@"C:\repo\app");
+        discovery.Discover(@"C:\repo", null, version: 2, ServerMode.Ide).ShouldBeNull("no package to serve without a Daml file");
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void Without_an_active_file_a_manifest_at_the_root_is_enough()
     {
         _files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");

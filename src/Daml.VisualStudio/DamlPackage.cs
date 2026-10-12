@@ -26,6 +26,7 @@ namespace Daml.VisualStudio;
 [Guid(PackageGuids.PackageString)]
 [ProvideBindingPath]
 [ProvideMenuResource("Menus.ctmenu", 1)]
+[ProvideOptionPage(typeof(Options.DamlOptionPages.General), "Daml", "General", 0, 0, true, SupportsProfiles = true)]
 [ProvideAutoLoad(PackageGuids.DamlActiveString, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideUIContextRule(
     PackageGuids.DamlActiveString,
