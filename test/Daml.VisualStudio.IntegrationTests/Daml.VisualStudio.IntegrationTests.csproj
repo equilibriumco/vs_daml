@@ -18,6 +18,8 @@
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace.VSIntegration" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
+    <!-- WMI, to find which damlc processes belong to this Visual Studio. -->
+    <Reference Include="System.Management" />
   </ItemGroup>
 
   <!-- No shadow copies: when a test fails, the harness writes its failure log next to the test

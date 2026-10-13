@@ -15,7 +15,7 @@ public class StructureTests
     public async Task Collapse_to_definitions_folds_the_template_and_shows_its_name()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var view = Ide.OpenFile(Path.Combine(Ide.RepoRoot(), "samples", "single-package", "daml", "Main.daml"));
+        var view = Ide.OpenFile(Path.Combine(Ide.CopySample("single-package"), "daml", "Main.daml"));
         var outlining = Ide.ComponentModel().GetService<IOutliningManagerService>().GetOutliningManager(view);
         Assert.NotNull(outlining);
         bool IsTemplate(ICollapsible region) =>
@@ -41,6 +41,7 @@ public class StructureTests
         finally
         {
             outlining.ExpandAll(Whole(), _ => true);
+            Ide.CloseAllDocuments();
         }
     }
 }

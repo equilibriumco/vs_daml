@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -48,7 +49,10 @@ internal static class Ide
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = file.Substring(source.Length + 1);
-            if (relative.Split(Path.DirectorySeparatorChar).Contains(".daml"))
+            // Build output, and Visual Studio's own per-user state (.vs with its startup item
+            // and document layout) which must come from this instance, not from a session that
+            // happened to open the sample in the repository.
+            if (relative.Split(Path.DirectorySeparatorChar).Any(part => part.StartsWith(".", StringComparison.Ordinal)))
             {
                 continue;
             }
@@ -61,6 +65,66 @@ internal static class Ide
             }
         }
         return target;
+    }
+
+    /// <summary>A copy of a file under <c>test/fixtures</c> in a fresh temp folder, so edits never touch the repository.</summary>
+    public static string CopyFixture(string relativePath)
+    {
+        var source = Path.Combine(RepoRoot(), "test", "fixtures", relativePath);
+        var target = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8), Path.GetFileName(source));
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(source, target);
+        return target;
+    }
+
+    /// <summary>Closes every open document without saving, so the next test starts from an empty editor.</summary>
+    public static void CloseAllDocuments()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        Dte().Documents.CloseAll(vsSaveChanges.vsSaveChangesNo);
+    }
+
+    /// <summary>
+    /// Kills the damlc processes this Visual Studio started (through dpm), and only those: a
+    /// server of another instance, or of a parallel test run, is left alone. Returns how many.
+    /// </summary>
+    public static int KillLanguageServersOfThisInstance()
+    {
+        var parents = new Dictionary<int, int>();
+        using (var searcher = new System.Management.ManagementObjectSearcher("SELECT ProcessId, ParentProcessId FROM Win32_Process"))
+        {
+            foreach (var row in searcher.Get())
+            {
+                parents[Convert.ToInt32(row["ProcessId"], System.Globalization.CultureInfo.InvariantCulture)] = Convert.ToInt32(row["ParentProcessId"], System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+        var self = System.Diagnostics.Process.GetCurrentProcess().Id;
+        var killed = 0;
+        foreach (var process in System.Diagnostics.Process.GetProcessesByName("damlc"))
+        {
+            using (process)
+            {
+                if (DescendsFrom(process.Id, self))
+                {
+                    process.Kill();
+                    killed++;
+                }
+            }
+        }
+        return killed;
+
+        bool DescendsFrom(int pid, int ancestor)
+        {
+            for (var hops = 0; hops < 16 && parents.TryGetValue(pid, out var parent); hops++)
+            {
+                if (parent == ancestor)
+                {
+                    return true;
+                }
+                pid = parent;
+            }
+            return false;
+        }
     }
 
     public static void OpenFolder(string folder)

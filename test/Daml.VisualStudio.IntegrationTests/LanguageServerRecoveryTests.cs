@@ -20,27 +20,13 @@ public class LanguageServerRecoveryTests
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var folder = Ide.CopySample("broken");
-        var started = DateTime.Now;
         Ide.OpenFolder(folder);
         try
         {
             Ide.OpenFile(Path.Combine(folder, "daml", "TypeError.daml"));
             await Ide.WaitForServerAsync(ready: true, ServerStart);
 
-            // Only what this test started: a damlc of another Visual Studio is left alone.
-            var killed = 0;
-            foreach (var process in System.Diagnostics.Process.GetProcessesByName("damlc"))
-            {
-                using (process)
-                {
-                    if (process.StartTime >= started)
-                    {
-                        process.Kill();
-                        killed++;
-                    }
-                }
-            }
-            Assert.True(killed > 0, "No damlc process of this test was running.");
+            Assert.True(Ide.KillLanguageServersOfThisInstance() > 0, "No damlc process of this Visual Studio was running.");
 
             await Ide.WaitForServerAsync(ready: false, TimeSpan.FromSeconds(30));
             await Ide.WaitForServerAsync(ready: true, ServerStart);

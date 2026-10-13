@@ -27,11 +27,24 @@ public class BuildTests
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         // A copy, so dpm's .daml output doesn't land in the repository.
-        var folder = CopySample("broken");
+        var folder = Ide.CopySample("broken");
+        Ide.OpenFolder(folder);
+        try
+        {
+            await BuildAsync(folder);
+        }
+        finally
+        {
+            await Ide.CloseFolderAsync();
+        }
+    }
 
-        var solution = ServiceProvider.GlobalProvider.GetService(typeof(SVsSolution)) as IVsSolution7 ?? throw new InvalidOperationException("SVsSolution is not available.");
-        solution.OpenFolder(folder);
-        var dte = ServiceProvider.GlobalProvider.GetService(typeof(DTE)) as DTE ?? throw new InvalidOperationException("DTE is not available.");
+    private static async Task BuildAsync(string folder)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var dte = Ide.Dte();
+        // Build commands appear once Open Folder has indexed the manifests.
+        await WaitForIndexAsync(TimeSpan.FromMinutes(1));
         // In Open Folder, building everything runs every build context, ours for daml.yaml
         // included. It only becomes available once the folder's build index is ready, and which
         // command carries it isn't the same as with a solution, so take the first that's offered.
@@ -70,12 +83,26 @@ public class BuildTests
         Assert.True(count >= 1, "No DAML0001 build errors reached the Error List.");
     }
 
+    private static async Task WaitForIndexAsync(TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var workspace = Ide.ComponentModel().GetService<IVsFolderWorkspaceService>()?.CurrentWorkspace;
+            var index = workspace is null ? null : await workspace.GetIndexWorkspaceServiceAsync();
+            if (index?.State == IndexWorkspaceState.Completed)
+            {
+                return;
+            }
+            await Task.Delay(250);
+        }
+    }
+
     // What Open Folder knows about the folder: how far indexing got, and the build contexts it
     // has for daml.yaml. Without those, Visual Studio has nothing to build.
     private static async Task<string> OpenFolderStateAsync(string folder)
     {
-        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel;
-        var workspace = componentModel?.GetService<IVsFolderWorkspaceService>()?.CurrentWorkspace;
+        var workspace = Ide.ComponentModel().GetService<IVsFolderWorkspaceService>()?.CurrentWorkspace;
         if (workspace is null)
         {
             return "Open Folder has no current workspace.";
@@ -98,32 +125,5 @@ public class BuildTests
             // Not a command this Visual Studio knows.
             return false;
         }
-    }
-
-    private static string CopySample(string name)
-    {
-        var source = Path.Combine(RepoRoot(), "samples", name);
-        var target = Path.Combine(Path.GetTempPath(), "daml-ide-build-" + Guid.NewGuid().ToString("N"), name);
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-        {
-            var relative = file.Substring(source.Length + 1);
-            if (relative.StartsWith(".daml", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(target, relative))!);
-            File.Copy(file, Path.Combine(target, relative));
-        }
-        return target;
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(Path.GetDirectoryName(typeof(BuildTests).Assembly.Location)!);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Daml.VisualStudio.sln")))
-        {
-            dir = dir.Parent;
-        }
-        return dir?.FullName ?? throw new InvalidOperationException("Repository root not found above the test assembly.");
     }
 }

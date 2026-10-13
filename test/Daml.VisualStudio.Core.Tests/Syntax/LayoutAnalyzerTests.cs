@@ -201,7 +201,7 @@ public class LayoutAnalyzerTests
         root.Children.Count(c => c.Kind == DamlBlockKind.Template).ShouldBeGreaterThan(10);
     }
 
-    [Property(Arbitrary = [typeof(LayoutArbitraries)], MaxTest = 500)]
+    [Property(Arbitrary = [typeof(LayoutArbitraries)], MaxTest = 500), Trait("Category", "Unit")]
     public bool Any_text_gives_a_well_formed_tree(LayoutText text)
     {
         var lines = LineTokens.Lex(text.Value);
