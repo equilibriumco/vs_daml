@@ -15,7 +15,9 @@ using Daml.VisualStudio.Core.Server;
 using Daml.VisualStudio.LanguageServer.Hosting;
 using Daml.VisualStudio.LanguageServer.Messages;
 using Daml.VisualStudio.LanguageServer.Protocol;
+using Daml.VisualStudio.LanguageServer.VirtualResources;
 using Daml.VisualStudio.Options;
+using Daml.VisualStudio.ScriptResults;
 using Microsoft.VisualStudio.LanguageServer.Client;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -49,7 +51,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private string? _openedFolder;
 
     [ImportingConstructor]
-    public DamlLanguageClient(JoinableTaskContext joinableTaskContext, IDamlLogger logger)
+    public DamlLanguageClient(JoinableTaskContext joinableTaskContext, IDamlLogger logger, ScriptResultsWindows scriptResults)
     {
         _joinableTaskFactory = joinableTaskContext.Factory;
         _logger = logger;
@@ -80,7 +82,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
             id => _host.Channel.CancelSdkInstallAsync(id),
             logger);
-        CustomMessageTarget = new DamlCustomMessageTarget(new LoggingVirtualResourceSink(logger), installs, logger);
+        VirtualResources = new VirtualResourceManager(_host.Channel, scriptResults, logger);
+        _host.SessionReady += (_, e) => VirtualResources.OnSessionReady(e.SessionId);
+        CustomMessageTarget = new DamlCustomMessageTarget(VirtualResources, installs, logger);
         _sequence = new ClientRestartSequence(_host, DiscoverAsync, () => RaiseAsync(StopAsync), () => RaiseAsync(StartAsync));
     }
 
@@ -106,6 +110,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     // Receives damlc's own daml/* notifications.
     public object CustomMessageTarget { get; }
+
+    /// <summary>Script results: what a lens or a command opens.</summary>
+    public VirtualResourceManager VirtualResources { get; }
 
     /// <summary>The host behind this client, for commands such as Restart.</summary>
     public LanguageServerHost Host => _host;
@@ -160,6 +167,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _watcher.Dispose();
         _settings.Dispose();
         _sequence.Dispose();
+        VirtualResources.Dispose();
         _host.Dispose(); // closes the job, so the server can't outlive VS
     }
 

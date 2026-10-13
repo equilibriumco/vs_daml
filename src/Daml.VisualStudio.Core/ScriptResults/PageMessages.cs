@@ -29,11 +29,19 @@ public static class PageMessages
     /// <summary>Checks a message from the page.</summary>
     /// <param name="source">The URL of the document that sent it.</param>
     /// <param name="json">The message as JSON.</param>
-    public static PageMessage Parse(string source, string json)
+    /// <param name="currentPage">
+    /// The address of the page load now shown. A message from an earlier load, still on its way
+    /// when the page was replaced, is about a view that no longer exists and is dropped.
+    /// </param>
+    public static PageMessage Parse(string source, string json, string? currentPage = null)
     {
-        if (source is null || !source.StartsWith(ScriptResultsPage.Origin, StringComparison.OrdinalIgnoreCase))
+        if (!ResultsNavigation.IsOwnPage(source))
         {
             return PageMessage.Refused($"a message from {Shorten(source)}");
+        }
+        if (currentPage is not null && !string.Equals(WithoutAnchor(source), WithoutAnchor(currentPage), StringComparison.OrdinalIgnoreCase))
+        {
+            return PageMessage.Refused($"a message from an earlier load of the page ({Shorten(source)})");
         }
         if (json is null || json.Length > MaxLength)
         {
@@ -94,6 +102,12 @@ public static class PageMessages
     /// </summary>
     public static string AddNote(string text) =>
         new JObject { ["command"] = "add_note", ["value"] = WebUtility.HtmlEncode(text ?? "") }.ToString(Formatting.None);
+
+    private static string WithoutAnchor(string uri)
+    {
+        var hash = uri.IndexOf('#');
+        return hash < 0 ? uri : uri.Substring(0, hash);
+    }
 
     private static string Shorten(string? text) => text is null ? "nowhere" : text.Length <= 120 ? text : text.Substring(0, 120) + "…";
 }

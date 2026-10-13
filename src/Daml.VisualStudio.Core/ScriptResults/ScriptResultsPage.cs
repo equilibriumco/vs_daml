@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 
 namespace Daml.VisualStudio.Core.ScriptResults;
@@ -51,6 +52,22 @@ public static class ScriptResultsPage
             .Replace("$webviewCss", Origin + "webview.css");
         var head = page.IndexOf("<head>", StringComparison.OrdinalIgnoreCase);
         return head >= 0 ? page.Insert(head + "<head>".Length, Head) : Head + page;
+    }
+
+    /// <summary>
+    /// The page shown instead of results whose HTML lacks what the shipped page script relies
+    /// on: such a page would load but not work, so it isn't loaded at all.
+    /// </summary>
+    /// <param name="missing">What the results lack, from <see cref="ResultsPageFormat.MissingParts"/>.</param>
+    public static string Unsupported(IEnumerable<string> missing)
+    {
+        if (missing is null)
+        {
+            throw new ArgumentNullException(nameof(missing));
+        }
+        return Message(
+            "These script results come from a Daml SDK whose results page this version of the extension doesn't know " +
+            $"(missing: {string.Join(", ", missing)}). Update the Daml extension, or use the SDK version the project was set up with.");
     }
 
     /// <summary>A page that only says <paramref name="text"/>, e.g. while results are on their way.</summary>

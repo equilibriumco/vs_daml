@@ -41,8 +41,10 @@ public class LanguageClientExportsTests
 
         var client = parts.Parts.Single(p => p.ExportedTypes.Any(e => e.ContractName == typeof(ILanguageClient).FullName));
 
+        // VS's own services, plus parts this extension exports itself, which are always there.
         client.ImportingConstructorImports!.Select(i => i.ImportDefinition.ContractName)
-            .ShouldBe(["Microsoft.VisualStudio.Threading.JoinableTaskContext", "Daml.VisualStudio.Core.Logging.IDamlLogger"]);
+            .ShouldBe(["Microsoft.VisualStudio.Threading.JoinableTaskContext", "Daml.VisualStudio.Core.Logging.IDamlLogger", "Daml.VisualStudio.ScriptResults.ScriptResultsWindows"]);
+        parts.Parts.ShouldContain(p => p.ExportedTypes.Any(e => e.ContractName == "Daml.VisualStudio.ScriptResults.ScriptResultsWindows"));
     }
 
 }

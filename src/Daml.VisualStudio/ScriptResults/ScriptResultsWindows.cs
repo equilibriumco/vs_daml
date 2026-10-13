@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.ScriptResults;
+using Daml.VisualStudio.Core.Server;
+using Daml.VisualStudio.LanguageServer.VirtualResources;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -22,13 +24,14 @@ namespace Daml.VisualStudio.ScriptResults;
 /// </summary>
 [Export(typeof(ScriptResultsWindows))]
 [PartCreationPolicy(CreationPolicy.Shared)]
-internal sealed class ScriptResultsWindows : IDisposable
+internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposable
 {
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly IDamlLogger _logger;
     private readonly IAsyncServiceProvider _services;
-    private readonly ScriptResultsWindowIds _ids = new();
-    private readonly Dictionary<string, ScriptResultsToolWindow> _open = new(StringComparer.Ordinal);
+    // Two spellings of one results address are one window.
+    private readonly ScriptResultsWindowIds _ids = new(VirtualResourceAddressComparer.Instance);
+    private readonly Dictionary<string, ScriptResultsToolWindow> _open = new(VirtualResourceAddressComparer.Instance);
     private readonly ViewStateStore _views;
     private AsyncLazy<CoreWebView2Environment>? _environment;
 
@@ -106,10 +109,11 @@ internal sealed class ScriptResultsWindows : IDisposable
         var id = _ids.GetOrAdd(resource);
         var window = (ScriptResultsToolWindow)await package.FindToolWindowAsync(typeof(ScriptResultsToolWindow), id, create: true, cancellationToken);
         _open[resource] = window;
-        var state = await _views.GetAsync(await WorkspaceFolderAsync(), resource);
+        var workspace = await WorkspaceFolderAsync();
+        var state = await _views.GetAsync(workspace, resource);
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
 
-        var view = new ScriptResultsView(resource, state, GetEnvironmentAsync, changed => _views.Set(resource, changed), _logger, _joinableTaskFactory);
+        var view = new ScriptResultsView(resource, state, GetEnvironmentAsync, changed => _views.Set(resource, changed), _logger, _joinableTaskFactory, SourcesFor(workspace).Contains);
         window.Attach(view);
         if (window.Frame is IVsWindowFrame frame)
         {
@@ -172,6 +176,13 @@ internal sealed class ScriptResultsWindows : IDisposable
         return null;
     }
 
+    // Links in the results may open the workspace's own files and the short copies of library
+    // sources that Go To Definition uses; nothing else on the disk.
+    private static AllowedSources SourcesFor(string? workspace)
+    {
+        var libraryCopies = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daml", "VisualStudio", "library");
+        return new AllowedSources(workspace is null ? [libraryCopies] : [workspace, libraryCopies]);
+    }
     private sealed class FrameEvents(Action closed) : IVsWindowFrameNotify3
     {
         public int OnShow(int fShow)

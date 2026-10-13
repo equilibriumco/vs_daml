@@ -13,6 +13,7 @@ using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
 using Daml.VisualStudio.Core.Server;
 using Daml.VisualStudio.LanguageServer.Hosting;
+using Daml.VisualStudio.LanguageServer.Messages;
 using Daml.VisualStudio.LanguageServer.Protocol;
 using Newtonsoft.Json.Linq;
 using StreamJsonRpc;
@@ -92,6 +93,9 @@ internal sealed class RealDamlcSession : IAsyncDisposable
         rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
         rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));
         rpc.AddLocalRpcMethod("workspace/configuration", new Func<JToken, object?>(_ => new JArray()));
+        // The extension's own handler for daml/* notifications, passing virtual resources on to
+        // whatever a test plugs in.
+        rpc.AddLocalRpcTarget(new DamlCustomMessageTarget(session.VirtualResources, new NoInstalls(), NullDamlLogger.Instance));
         rpc.StartListening();
 
         var initialize = rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new
@@ -222,4 +226,25 @@ internal sealed class RealDamlcSession : IAsyncDisposable
         workspace = new { configuration = true, didChangeWatchedFiles = new { dynamicRegistration = true } },
         window = new { workDoneProgress = true },
     };
+
+    /// <summary>Where the session's virtual resource notifications go; nowhere until a test sets <see cref="ForwardingVirtualResources.Target"/>.</summary>
+    public ForwardingVirtualResources VirtualResources { get; } = new();
+
+    internal sealed class ForwardingVirtualResources : IVirtualResourceSink
+    {
+        public IVirtualResourceSink? Target { get; set; }
+
+        public void Changed(VirtualResourceChangedParams change) => Target?.Changed(change);
+
+        public void Noted(VirtualResourceNoteParams note) => Target?.Noted(note);
+
+        public void Progressed(VirtualResourceProgressParams progress) => Target?.Progressed(progress);
+    }
+
+    private sealed class NoInstalls : ISdkInstallProgressSink
+    {
+        public void Report(SdkInstallProgressParams progress)
+        {
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,9 +9,11 @@ using System.Threading.Tasks;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
+using Daml.VisualStudio.LanguageServer.Hosting;
 using Daml.VisualStudio.LanguageServer.Lenses;
 using Daml.VisualStudio.LanguageServer.Messages;
 using Daml.VisualStudio.LanguageServer.Protocol;
+using Daml.VisualStudio.LanguageServer.VirtualResources;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using Xunit;
@@ -236,6 +239,70 @@ public class DamlcContractTests
         lens.Resource.TopLevelDecl.ShouldBe("setup");
         lens.Resource.File.ShouldBe(main, StringCompareShould.IgnoreCase);
         File.ReadAllLines(main)[lens.Range.StartLine].ShouldStartWith("setup");
+    }
+
+    // From the lens to the window: the manager opens the lens's resource on the session, damlc
+    // runs the script and sends its results, the extension's message target hands them back to
+    // the manager, and the window gets the page with the placeholders the results host fills in.
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [MemberData(nameof(Matrix))]
+    public async Task Opening_a_lens_resource_brings_the_script_results(string sdk, string mode)
+    {
+        using var sample = SampleCopy.Create("single-package", sdk);
+        var main = sample.File(@"daml\Main.daml");
+        await using var damlc = await OpenedAsync(sample, main, mode);
+        var lenses = await EventuallyAsync(
+            () => damlc.RequestAsync("textDocument/codeLens", new { textDocument = new { uri = RealDamlcSession.Uri(main) } }),
+            r => ScriptLensParser.Parse(r).Count > 0);
+        var lens = ScriptLensParser.Parse(lenses).Single();
+        var channel = new DamlRpcChannel();
+        channel.Attach(damlc.Rpc, sessionId: 1);
+        var windows = new CapturingWindows();
+        using var manager = new VirtualResourceManager(channel, windows, new RecordingLogger());
+        damlc.VirtualResources.Target = manager;
+
+        await manager.ShowAsync(lens.Title, lens.Resource.ToString(), CancellationToken.None);
+
+        var deadline = DateTime.UtcNow + RealDamlcSession.Patience;
+        while (windows.Pages.IsEmpty && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(200);
+        }
+        await manager.IdleAsync();
+        windows.Shown.ShouldBe([lens.Title]);
+        var page = windows.Pages.ShouldHaveSingleItem();
+        page.ShouldContain("$webviewSrc");
+        page.ShouldContain("$webviewCss");
+        page.ShouldContain("Asset", Case.Sensitive, "the setup script creates an Asset");
+    }
+
+    private sealed class CapturingWindows : IVirtualResourceWindows
+    {
+        public ConcurrentQueue<string> Pages { get; } = new();
+
+        public List<string> Shown { get; } = [];
+
+        public event EventHandler<string>? Closed;
+
+        public Task ShowAsync(string resource, string title, CancellationToken cancellationToken)
+        {
+            Shown.Add(title);
+            return Task.CompletedTask;
+        }
+
+        public Task UpdateAsync(string resource, string html)
+        {
+            // Progress messages come before the results on a slow machine; only pages count.
+            if (html.Contains("$webviewSrc"))
+            {
+                Pages.Enqueue(html);
+            }
+            return Task.CompletedTask;
+        }
+
+        public Task AddNoteAsync(string resource, string text) => Task.CompletedTask;
+
+        public void Close(string resource) => Closed?.Invoke(this, resource);
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]

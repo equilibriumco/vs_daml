@@ -28,6 +28,10 @@ internal sealed class ScriptResultsView : IDisposable
 {
     private static readonly TimeSpan Quiet = TimeSpan.FromMilliseconds(300);
 
+    // The browser normally starts in a second or two; a runtime that hangs mustn't leave the
+    // window saying "Loading" forever.
+    private static readonly TimeSpan StartLimit = TimeSpan.FromSeconds(30);
+
     private readonly string _resource;
     private readonly Func<Task<CoreWebView2Environment>> _environment;
     private readonly Action<ScriptResultsViewState> _viewChanged;
@@ -38,7 +42,11 @@ internal sealed class ScriptResultsView : IDisposable
     private readonly Debouncer _themeChanges = new(Quiet, TimeProvider.System);
     private readonly string _folder;
     private readonly object _pageGate = new();
+    private readonly Func<string, bool> _isAllowedSource;
+    private string? _shownResults;
     private WebView2? _browser;
+    private CoreWebView2Environment? _browserEnvironment;
+    private string? _currentPage;
     private ScriptResultsViewState _view;
     private ScriptResultsTheme? _theme;
     private int _pageVersion;
@@ -50,9 +58,12 @@ internal sealed class ScriptResultsView : IDisposable
         Func<Task<CoreWebView2Environment>> environment,
         Action<ScriptResultsViewState> viewChanged,
         IDamlLogger logger,
-        JoinableTaskFactory joinableTaskFactory)
+        JoinableTaskFactory joinableTaskFactory,
+        Func<string, bool>? isAllowedSource = null)
     {
         _resource = resource;
+        // Without a say on which sources may open, none do.
+        _isAllowedSource = isAllowedSource ?? (_ => false);
         _view = view;
         _environment = environment;
         _viewChanged = viewChanged;
@@ -64,51 +75,92 @@ internal sealed class ScriptResultsView : IDisposable
 
     public FrameworkElement Element => _host;
 
-    /// <summary>Starts the browser and shows a waiting page; a missing runtime is reported in the window.</summary>
+    /// <summary>
+    /// Starts the browser and shows a waiting page. A missing or outdated runtime, or one that
+    /// doesn't start in time, is reported in the window instead.
+    /// </summary>
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         var theme = CurrentTheme();
         await TaskScheduler.Default;
         PrepareFolder(theme);
+        var runtime = WebViewRuntime.Check(InstalledRuntime());
 
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         if (_disposed)
         {
             return;
         }
-        try
+        if (runtime.Status != RuntimeStatus.Ready)
         {
-            var environment = await _environment();
-            var browser = new WebView2();
-            _host.Content = browser;
-            await browser.EnsureCoreWebView2Async(environment);
-            if (_disposed)
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results can't be shown for {_resource}: {runtime.Message}");
+            _host.Content = Text(runtime.Message);
+            return;
+        }
+
+        var browser = new WebView2();
+        _host.Content = browser;
+        var start = StartAsync(browser);
+        using (var limit = new CancellationTokenSource())
+        {
+            var first = await Task.WhenAny(start, Task.Delay(StartLimit, limit.Token));
+            limit.Cancel();
+            if (first != start)
             {
-                browser.Dispose();
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results: the browser control didn't start within {StartLimit.TotalSeconds:0} s for {_resource}.");
+                _host.Content = Text(WebViewRuntime.TimedOut(StartLimit));
+                DisposeWhenStarted(start, browser);
                 return;
             }
-            _browser = browser;
-            Configure(browser.CoreWebView2);
-            _theme = theme;
-            VSColorTheme.ThemeChanged += OnThemeChanged;
-            await LoadAsync(ScriptResultsPage.Message("Waiting for results…"));
         }
-        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or FileNotFoundException or COMException or InvalidOperationException)
+
+        CoreWebView2Environment environment;
+        try
+        {
+            environment = await start;
+        }
+        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or FileNotFoundException or COMException or InvalidOperationException
+            or NotImplementedException or InvalidCastException)
         {
             _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results can't be shown: the browser control didn't start for {_resource}.", ex);
-            _host.Content = Text("Script results need the Microsoft Edge WebView2 Runtime, which didn't start: " + ex.Message);
+            _host.Content = Text(WebViewRuntime.Failed(ex.Message));
+            browser.Dispose();
+            return;
         }
+        if (_disposed)
+        {
+            browser.Dispose();
+            return;
+        }
+        _browser = browser;
+        _browserEnvironment = environment;
+        Configure(browser.CoreWebView2);
+        _theme = theme;
+        VSColorTheme.ThemeChanged += OnThemeChanged;
+        await LoadAsync(ScriptResultsPage.Message("Waiting for results…"));
     }
 
-    /// <summary>New results. Shown once a burst of them is over and only if they changed.</summary>
+    /// <summary>
+    /// New results. Shown once a burst of them is over and only if they changed; results the
+    /// shipped page script can't drive are replaced by a message saying so.
+    /// </summary>
     public async Task UpdateAsync(string html)
     {
         var shown = await _updates.SubmitAsync(html).ConfigureAwait(false);
-        if (shown is not null)
+        if (shown is null)
         {
-            await LoadAsync(ScriptResultsPage.Compose(shown));
+            return;
         }
+        var missing = ResultsPageFormat.MissingParts(shown);
+        if (missing.Count > 0)
+        {
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Script results for {_resource} are in a format this extension doesn't know (missing: {string.Join(", ", missing)}).");
+            await LoadAsync(ScriptResultsPage.Unsupported(missing));
+            return;
+        }
+        Volatile.Write(ref _shownResults, shown);
+        await LoadAsync(ScriptResultsPage.Compose(shown));
     }
 
     /// <summary>A note from the server above the results, e.g. how long the script has been running.</summary>
@@ -137,6 +189,9 @@ internal sealed class ScriptResultsView : IDisposable
             if (browser.CoreWebView2 is { } core)
             {
                 core.WebMessageReceived -= OnWebMessage;
+                core.WebResourceRequested -= OnWebResourceRequested;
+                core.FrameNavigationStarting -= OnFrameNavigationStarting;
+                core.PermissionRequested -= OnPermissionRequested;
                 core.NavigationStarting -= OnNavigationStarting;
                 core.NavigationCompleted -= OnNavigationCompleted;
                 core.NewWindowRequested -= OnNewWindowRequested;
@@ -170,6 +225,12 @@ internal sealed class ScriptResultsView : IDisposable
         core.Settings.IsZoomControlEnabled = false;
         core.Settings.IsWebMessageEnabled = true;
         core.SetVirtualHostNameToFolderMapping(ScriptResultsPage.HostName, _folder, CoreWebView2HostResourceAccessKind.Deny);
+        // Every request passes the allowlist, the page's own files included: nothing else
+        // from the folder and nothing from the network.
+        core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+        core.WebResourceRequested += OnWebResourceRequested;
+        core.FrameNavigationStarting += OnFrameNavigationStarting;
+        core.PermissionRequested += OnPermissionRequested;
         core.WebMessageReceived += OnWebMessage;
         core.NavigationStarting += OnNavigationStarting;
         core.NavigationCompleted += OnNavigationCompleted;
@@ -198,7 +259,8 @@ internal sealed class ScriptResultsView : IDisposable
         {
             return;
         }
-        core.Navigate(ScriptResultsPage.Origin + ScriptResultsPage.PageName + "?v=" + version);
+        _currentPage = ScriptResultsPage.Origin + ScriptResultsPage.PageName + "?v=" + version;
+        core.Navigate(_currentPage);
     }
 
     private void OnWebMessage(object sender, CoreWebView2WebMessageReceivedEventArgs e)
@@ -207,7 +269,7 @@ internal sealed class ScriptResultsView : IDisposable
         {
             return;
         }
-        var message = PageMessages.Parse(e.Source, e.WebMessageAsJson);
+        var message = PageMessages.Parse(e.Source, e.WebMessageAsJson, _currentPage);
         if (message.Rejection is { } rejection)
         {
             _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Script results page: refused {rejection}");
@@ -217,25 +279,64 @@ internal sealed class ScriptResultsView : IDisposable
         _viewChanged(_view);
     }
 
-    // Only our own page may load; links, command: and the rest are dealt with elsewhere or not at all.
+    // Only the results page loads in the window. A clicked source link opens the source and a
+    // clicked web link the browser; everything else is stopped.
     private void OnNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
     {
-        if (!e.Uri.StartsWith(ScriptResultsPage.Origin + ScriptResultsPage.PageName, StringComparison.OrdinalIgnoreCase))
+        var decision = ResultsNavigation.Classify(e.Uri, e.IsUserInitiated);
+        if (decision.Kind == NavigationKind.OwnPage)
         {
-            e.Cancel = true;
-            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Script results page: navigation to {Shorten(e.Uri)} not followed.");
+            return;
         }
+        e.Cancel = true;
+        switch (decision.Kind)
+        {
+            case NavigationKind.RevealLocation when _isAllowedSource(decision.Reveal!.File):
+                _joinableTaskFactory.RunAsync(() => SourceReveal.RevealAsync(decision.Reveal, _logger, _joinableTaskFactory))
+                    .FileAndForget("daml/scriptResults/reveal");
+                break;
+            case NavigationKind.RevealLocation:
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Script results page: {decision.Reveal!.File} is outside the workspace and the library sources; not opened.");
+                break;
+            case NavigationKind.External:
+                VsShellUtilities.OpenSystemBrowser(decision.External!.AbsoluteUri);
+                break;
+            default:
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Script results page: {decision.Rejection} not followed.");
+                break;
+        }
+    }
+
+    // The page has no frames; any that it tries to load stay empty.
+    private void OnFrameNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e) => e.Cancel = true;
+
+    private void OnPermissionRequested(object sender, CoreWebView2PermissionRequestedEventArgs e)
+    {
+        e.State = CoreWebView2PermissionState.Deny;
+        e.Handled = true;
+    }
+
+    private void OnWebResourceRequested(object sender, CoreWebView2WebResourceRequestedEventArgs e)
+    {
+        if (ResultsResources.IsAllowed(e.Request.Uri) || _browserEnvironment is not { } environment)
+        {
+            return;
+        }
+        e.Response = environment.CreateWebResourceResponse(null, 403, "Forbidden", "");
+        _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Debug, $"Script results page: request for {Shorten(e.Request.Uri)} refused.");
     }
 
     private void OnNavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
     {
-        if (_disposed || _browser?.CoreWebView2 is not { } core)
+        // A navigation stopped on purpose (a clicked link) ends here too; the page is unchanged.
+        if (_disposed || _browser?.CoreWebView2 is not { } core || e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled)
         {
             return;
         }
         if (e.IsSuccess)
         {
-            core.PostWebMessageAsJson(PageMessages.SetView(_view));
+            // Results with no contracts open on the transactions; the choice itself is kept.
+            core.PostWebMessageAsJson(PageMessages.SetView(ResultsPageView.For(_view, Volatile.Read(ref _shownResults))));
         }
         else
         {
@@ -302,6 +403,44 @@ internal sealed class ScriptResultsView : IDisposable
         var family = resources?.TryFindResource(VsFonts.EnvironmentFontFamilyKey) as FontFamily;
         var size = resources?.TryFindResource(VsFonts.EnvironmentFontSizeKey) is double pixels && pixels > 0 ? pixels : 12.0;
         return new ScriptResultsTheme(Hex(background), Hex(foreground), family?.Source ?? "Segoe UI", size * 72 / 96);
+    }
+
+    private async Task<CoreWebView2Environment> StartAsync(WebView2 browser)
+    {
+        var environment = await _environment();
+        await browser.EnsureCoreWebView2Async(environment);
+        return environment;
+    }
+
+    // A start that took too long may still finish; the browser it made is then let go of.
+    private void DisposeWhenStarted(Task<CoreWebView2Environment> start, WebView2 browser) =>
+        _joinableTaskFactory.RunAsync(async () =>
+        {
+            try
+            {
+#pragma warning disable VSTHRD003 // started on the UI thread by InitializeAsync, which gave up waiting for it
+                await start;
+#pragma warning restore VSTHRD003
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Debug, $"Script results: the late browser start failed: {ex.Message}");
+            }
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            browser.Dispose();
+        }).FileAndForget("daml/scriptResults/lateStart");
+
+    // The installed runtime's version, or null when there is none.
+    private static string? InstalledRuntime()
+    {
+        try
+        {
+            return CoreWebView2Environment.GetAvailableBrowserVersionString(null);
+        }
+        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or FileNotFoundException or DllNotFoundException or COMException)
+        {
+            return null;
+        }
     }
 
     private static string Hex(System.Drawing.Color color) => $"#{color.R:x2}{color.G:x2}{color.B:x2}";
