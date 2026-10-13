@@ -1,6 +1,12 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using Microsoft.VisualStudio.ComponentModelHost;
+using Microsoft.VisualStudio.Workspace;
+using Microsoft.VisualStudio.Workspace.Build;
+using Microsoft.VisualStudio.Workspace.Indexing;
+using Microsoft.VisualStudio.Workspace.VSIntegration.Contracts;
 using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.VisualStudio;
@@ -40,7 +46,10 @@ public class BuildTests
                 await Task.Delay(500);
             }
         }
-        Assert.True(available is not null, $"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}");
+        if (available is null)
+        {
+            Assert.Fail($"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}. {await OpenFolderStateAsync(folder)}");
+        }
         dte.ExecuteCommand(available);
 
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
@@ -59,6 +68,22 @@ public class BuildTests
         }
 
         Assert.True(count >= 1, "No DAML0001 build errors reached the Error List.");
+    }
+
+    // What Open Folder knows about the folder: how far indexing got, and the build contexts it
+    // has for daml.yaml. Without those, Visual Studio has nothing to build.
+    private static async Task<string> OpenFolderStateAsync(string folder)
+    {
+        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel;
+        var workspace = componentModel?.GetService<IVsFolderWorkspaceService>()?.CurrentWorkspace;
+        if (workspace is null)
+        {
+            return "Open Folder has no current workspace.";
+        }
+        var index = await workspace.GetIndexWorkspaceServiceAsync();
+        var contexts = await workspace.GetFileContextsAsync(Path.Combine(folder, "daml.yaml"), [BuildContextTypes.BuildContextTypeGuid, BuildContextTypes.CleanContextTypeGuid], CancellationToken.None);
+        return $"Workspace {workspace.Location}, index {index?.State}; build contexts for daml.yaml: "
+            + (contexts.Count == 0 ? "none" : string.Join(", ", contexts.SelectMany(g => g).Select(c => $"{c.DisplayName} ({c.ProviderType})")));
     }
 
     private static bool IsAvailable(DTE dte, string command)

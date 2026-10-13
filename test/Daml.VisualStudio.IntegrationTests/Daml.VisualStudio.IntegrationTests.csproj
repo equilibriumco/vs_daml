@@ -14,6 +14,10 @@
     <PackageReference Include="Microsoft.VisualStudio.Extensibility.Testing.Xunit" />
     <PackageReference Include="Microsoft.VisualStudio.SDK" />
     <PackageReference Include="MessagePack" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.VSIntegration" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
   </ItemGroup>
 
   <!-- No shadow copies: when a test fails, the harness writes its failure log next to the test

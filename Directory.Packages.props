@@ -21,6 +21,7 @@
          17.0.0.0, the version VS 2026 still binds Workspace references to. -->
     <PackageVersion Include="Microsoft.VisualStudio.Workspace" Version="17.12.19" />
     <PackageVersion Include="Microsoft.VisualStudio.Workspace.Extensions.VS" Version="17.12.19" />
+    <PackageVersion Include="Microsoft.VisualStudio.Workspace.VSIntegration" Version="17.12.19" />
     <PackageVersion Include="StreamJsonRpc" Version="2.22.11" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="System.Memory" Version="4.6.0" />
