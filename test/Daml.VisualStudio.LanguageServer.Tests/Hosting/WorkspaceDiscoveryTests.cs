@@ -65,4 +65,21 @@ public class WorkspaceDiscoveryTests
     [InlineData(null, null)]
     public void No_manifest_anywhere_means_no_workspace(string? root, string? activeFile) =>
         Discover(root, activeFile).ShouldBeNull();
+
+    // The real sample, with the importing package's file active, the way Visual Studio asks.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"main\daml\Main.daml")]
+    [InlineData(@"interfaces\daml\Asset.daml")]
+    [InlineData(null)]
+    public void A_file_of_the_multi_package_sample_is_served_from_its_root(string? activeFile)
+    {
+        var files = new Daml.VisualStudio.Core.FileSystem.PhysicalFileSystem();
+        var root = Repository.Sample("multi-package");
+
+        var context = new WorkspaceDiscovery(files, new YamlManifestReader(files))
+            .Discover(root, activeFile is null ? null : System.IO.Path.Combine(root, activeFile), version: 1);
+
+        context.ShouldNotBeNull();
+        context.ServerWorkingDirectory.ShouldBe(root);
+    }
 }

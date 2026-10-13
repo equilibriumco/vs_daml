@@ -187,6 +187,18 @@ public sealed class LanguageServerHost : IDisposable
         }
     }
 
+    /// <summary>The workspace the next (or current) session serves; <c>null</c> when there is none.</summary>
+    public WorkspaceContext? Workspace
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _workspace;
+            }
+        }
+    }
+
     /// <summary>Sets what the next start runs: the workspace (<c>null</c> when there is no daml.yaml) and the options.</summary>
     public void SetWorkspace(WorkspaceContext? workspace, LanguageServerOptions options)
     {

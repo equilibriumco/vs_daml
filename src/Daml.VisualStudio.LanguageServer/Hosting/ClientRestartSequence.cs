@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.VisualStudio.Core.FileSystem;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Server;
@@ -52,6 +53,12 @@ public sealed class ClientRestartSequence : IDisposable
     /// <summary>Restart (or first start, if there was no workspace before).</summary>
     public Task RestartAsync(CancellationToken cancellationToken) => RunAsync(restart: true, cancellationToken);
 
+    /// <summary>
+    /// Another folder or solution opened: serve it if it has a Daml workspace, otherwise stop
+    /// the old server without telling the user there's no daml.yaml.
+    /// </summary>
+    public Task FolderChangedAsync(CancellationToken cancellationToken) => RunAsync(restart: true, cancellationToken, quiet: true);
+
     /// <summary>Stops listening for restart requests.</summary>
     public void Dispose()
     {
@@ -59,13 +66,23 @@ public sealed class ClientRestartSequence : IDisposable
         _runs.Dispose();
     }
 
-    private async Task RunAsync(bool restart, CancellationToken cancellationToken)
+    private async Task RunAsync(bool restart, CancellationToken cancellationToken, bool quiet = false)
     {
         await _runs.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            var served = _host.Workspace;
             var (workspace, options) = await _discover(cancellationToken).ConfigureAwait(false);
             _host.SetWorkspace(workspace, options);
+
+            // Visual Studio activates the server for a newly opened folder by itself; when that
+            // is the workspace already being served, there is nothing to restart.
+            if (quiet && _clientStarted && workspace is not null && served is not null
+                && DamlPath.Comparer.Equals(workspace.WorkspaceRoot, served.WorkspaceRoot)
+                && DamlPath.Comparer.Equals(workspace.ServerWorkingDirectory, served.ServerWorkingDirectory))
+            {
+                return;
+            }
 
             if (restart && _clientStarted)
             {
@@ -80,7 +97,10 @@ public sealed class ClientRestartSequence : IDisposable
 
             if (workspace is null)
             {
-                _host.ReportNoWorkspace();
+                if (!quiet)
+                {
+                    _host.ReportNoWorkspace();
+                }
                 return;
             }
             await _raiseStart().ConfigureAwait(false);

@@ -49,6 +49,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private FileSystemWatcher? _watcher;
     private string? _watchedRoot;
     private int _version;
+    private string? _openedFolder;
 
     [ImportingConstructor]
     public DamlLanguageClient(JoinableTaskContext joinableTaskContext, IDamlLogger logger)
@@ -62,6 +63,15 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
         _host.ProblemRaised += OnProblemRaised;
         _host.ReadinessChanged += OnReadinessChanged;
+        // Solution events have to be subscribed on the UI thread; nothing waits for it.
+        _joinableTaskFactory.RunAsync(async () =>
+        {
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            VS.Events.SolutionEvents.OnAfterOpenFolder += OnFolderOpened;
+            VS.Events.SolutionEvents.OnAfterOpenSolution += OnSolutionOpened;
+            VS.Events.SolutionEvents.OnAfterCloseFolder += OnFolderClosed;
+            VS.Events.SolutionEvents.OnAfterCloseSolution += OnWorkspaceClosed;
+        }).FileAndForget("daml/languageClient/solutionEvents");
         _settings.Changed += OnSettingsChanged;
         MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
         var installs = new SdkInstallProgressTracker(
@@ -132,6 +142,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             _watcher = null;
         }
         _settings.Dispose();
+        VS.Events.SolutionEvents.OnAfterOpenFolder -= OnFolderOpened;
+        VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
+        VS.Events.SolutionEvents.OnAfterCloseFolder -= OnFolderClosed;
+        VS.Events.SolutionEvents.OnAfterCloseSolution -= OnWorkspaceClosed;
         _sequence.Dispose();
         _host.Dispose(); // closes the job, so the server can't outlive VS
     }
@@ -146,6 +160,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         {
             root = DamlPath.Normalize(directory);
         }
+        // Right after Open Folder, Visual Studio may still report the previous folder or none;
+        // the folder from the event is the one being opened.
+        root = Volatile.Read(ref _openedFolder) ?? root;
         var view = await VS.Documents.GetActiveDocumentViewAsync();
         var activeFile = view?.FilePath is { } path && path.EndsWith(".daml", StringComparison.OrdinalIgnoreCase) ? path : null;
         var settings = await DamlOptions.GetSettingsAsync();
@@ -239,6 +256,37 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             await handler.InvokeAsync(this, EventArgs.Empty).ConfigureAwait(false);
         }
     }
+
+    // VS doesn't ask this client for a new session when another folder or solution opens after
+    // the last one had no Daml in it, and a running server would keep serving the old folder.
+    private void OnFolderOpened(string? folder)
+    {
+        if (string.IsNullOrEmpty(folder))
+        {
+            return;
+        }
+        Volatile.Write(ref _openedFolder, DamlPath.Normalize(folder!));
+        OnWorkspaceOpened();
+    }
+
+    private void OnSolutionOpened(Solution? solution)
+    {
+        Volatile.Write(ref _openedFolder, null);
+        OnWorkspaceOpened();
+    }
+
+    private void OnFolderClosed(string? folder) => OnWorkspaceClosed();
+
+    // Nothing left to serve: the server of the closed folder stops instead of idling until the
+    // next folder opens.
+    private void OnWorkspaceClosed()
+    {
+        Volatile.Write(ref _openedFolder, null);
+        OnWorkspaceOpened();
+    }
+
+    private void OnWorkspaceOpened() =>
+        _joinableTaskFactory.RunAsync(() => _sequence.FolderChangedAsync(CancellationToken.None)).FileAndForget("daml/languageClient/folderChanged");
 
     private void OnReadinessChanged(object? sender, EventArgs e) =>
         _joinableTaskFactory.RunAsync(async () =>

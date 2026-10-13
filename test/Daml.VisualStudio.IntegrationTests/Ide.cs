@@ -34,8 +34,11 @@ internal static class Ide
         return dir?.FullName ?? throw new InvalidOperationException("Repository root not found.");
     }
 
-    /// <summary>A copy of a sample without build output, so nothing lands in the repository.</summary>
-    public static string CopySample(string name)
+    /// <summary>
+    /// A copy of a sample without build output, so nothing lands in the repository; with
+    /// <paramref name="sdkVersion"/>, its manifests are pinned to that SDK instead.
+    /// </summary>
+    public static string CopySample(string name, string? sdkVersion = null)
     {
         var source = Path.Combine(RepoRoot(), "samples", name);
         var target = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8), name);
@@ -48,6 +51,11 @@ internal static class Ide
             }
             Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(target, relative))!);
             File.Copy(file, Path.Combine(target, relative));
+            if (sdkVersion is not null && Path.GetFileName(file) is "daml.yaml" or "multi-package.yaml")
+            {
+                var manifest = Path.Combine(target, relative);
+                File.WriteAllText(manifest, System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(manifest), @"(?m)^sdk-version:\s*\S+", "sdk-version: " + sdkVersion));
+            }
         }
         return target;
     }
@@ -59,11 +67,13 @@ internal static class Ide
         solution.OpenFolder(folder);
     }
 
-    public static void CloseFolder()
+    /// <summary>Closes the folder and waits for its server to stop, so the next test starts clean.</summary>
+    public static async Task CloseFolderAsync()
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var solution = Service<SVsSolution, IVsSolution>();
         ErrorHandler.ThrowOnFailure(solution.CloseSolutionElement((uint)__VSSLNSAVEOPTIONS.SLNSAVEOPT_NoSave, null, 0));
+        await WaitForServerAsync(ready: false, TimeSpan.FromSeconds(60));
     }
 
     public static IWpfTextView OpenFile(string path)
@@ -104,7 +114,35 @@ internal static class Ide
             await Task.Delay(200);
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         }
-        Assert.True(context.IsActive == ready, ready ? "The Daml language server never became ready." : "The Daml language server never stopped serving.");
+        Assert.True(context.IsActive == ready, (ready ? "The Daml language server never became ready." : "The Daml language server never stopped serving.")
+            + Environment.NewLine + "Daml Language Server pane (end):" + Environment.NewLine + PaneText("Daml Language Server", 12000));
+    }
+
+    private static readonly string[] LineBreaks = ["\r\n", "\n"];
+
+    /// <summary>The last <paramref name="maxLength"/> characters of an Output pane's log entries, for failure messages.</summary>
+    public static string PaneText(string title, int maxLength)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            foreach (OutputWindowPane pane in ((EnvDTE80.DTE2)Dte()).ToolWindows.OutputWindow.OutputWindowPanes)
+            {
+                if (pane.Name == title)
+                {
+                    var document = pane.TextDocument;
+                    // Stack traces push out the lines that tell what happened; keep only log entries.
+                    var lines = document.StartPoint.CreateEditPoint().GetText(document.EndPoint).Split(LineBreaks, StringSplitOptions.None);
+                    var text = string.Join(Environment.NewLine, lines.Where(l => l.StartsWith("[", StringComparison.Ordinal)));
+                    return text.Length <= maxLength ? text : text.Substring(text.Length - maxLength);
+                }
+            }
+            return $"(no '{title}' pane)";
+        }
+        catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
+        {
+            return $"(couldn't read the '{title}' pane: {ex.Message})";
+        }
     }
 
     public static void RunDamlCommand(int id)

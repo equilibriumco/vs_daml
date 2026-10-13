@@ -48,12 +48,16 @@ public sealed class WorkspaceDiscovery
         }
 
         var location = _locator.FindForFile(startFrom);
-        if (location.Package is null && location.MultiPackage is null)
+        // Starting from a multi-package.yaml itself (no Daml file active yet) finds no package
+        // above it, but that manifest is the workspace.
+        var startsAtMultiPackage = Path.GetFileName(startFrom).Equals(WorkspaceLocator.MultiPackageManifestName, StringComparison.OrdinalIgnoreCase);
+        if (location.Package is null && location.MultiPackage is null && !startsAtMultiPackage)
         {
             return null;
         }
         var root = workspaceRoot
-            ?? (location.MultiPackage is { } multiPackage ? Path.GetDirectoryName(multiPackage.ManifestPath)! : location.Package!.PackageRoot);
+            ?? (location.MultiPackage is { } multiPackage ? Path.GetDirectoryName(multiPackage.ManifestPath)!
+                : location.Package?.PackageRoot ?? Path.GetDirectoryName(startFrom)!);
         return _locator.Resolve(root, startFrom, mode, version).Context;
     }
 }

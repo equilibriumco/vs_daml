@@ -100,10 +100,56 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _steps.ShouldBe(["discover", "start", "discover", "stop (server already gone)", "start"]);
     }
 
+    // Opening some other folder or solution is not a Daml problem worth an info bar.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_new_folder_without_daml_stops_the_old_server_quietly()
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+        _discovered = null;
+
+        await sequence.FolderChangedAsync(CancellationToken.None);
+
+        _steps.ShouldBe(["discover", "start", "discover", "stop"]);
+        _problems.ShouldBeEmpty();
+        _host.Supervisor.State.ShouldBe(LanguageServerState.Stopped);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_new_folder_with_a_workspace_restarts_the_server_there()
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+        _discovered = Workspace() with { WorkspaceRoot = @"C:\other", ServerWorkingDirectory = @"C:\other" };
+
+        await sequence.FolderChangedAsync(CancellationToken.None);
+
+        _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
+    }
+
+    // Visual Studio activates the server for the new folder by itself; the late folder event
+    // must not tear that session down again.
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_folder_already_served_is_left_running()
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+
+        await sequence.FolderChangedAsync(CancellationToken.None);
+
+        _steps.ShouldBe(["discover", "start", "discover"]);
+        _host.Supervisor.State.ShouldBe(LanguageServerState.Ready);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Without_a_workspace_the_server_is_stopped_and_not_started_again()
     {
         var sequence = Sequence();
+        var states = new List<string>();
+        _host.Supervisor.StateChanged += (_, e) => states.Add($"{e.OldState}->{e.NewState}");
         await sequence.StartAsync(CancellationToken.None);
         _host.Supervisor.MarkReady(1);
         _discovered = null;
@@ -112,7 +158,7 @@ public sealed class ClientRestartSequenceTests : IDisposable
 
         _steps.ShouldBe(["discover", "start", "discover", "stop"]);
         _problems.ShouldContain(LanguageServerProblemKind.NoWorkspace);
-        _host.Supervisor.State.ShouldBe(LanguageServerState.Stopped);
+        _host.Supervisor.State.ShouldBe(LanguageServerState.Stopped, string.Join(", ", states));
     }
 
     [Fact, Trait("Category", "Unit")]

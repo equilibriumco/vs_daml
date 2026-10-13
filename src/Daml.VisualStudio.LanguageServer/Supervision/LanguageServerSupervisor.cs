@@ -297,6 +297,7 @@ public sealed class LanguageServerSupervisor : IDisposable
 
     private void OnExited(Session session, int exitCode)
     {
+        Crash crash;
         lock (_gate)
         {
             if (!ReferenceEquals(_current, session))
@@ -304,10 +305,13 @@ public sealed class LanguageServerSupervisor : IDisposable
                 return; // replaced or stopped: not a crash
             }
             _current = null;
+            // Under the same lock: a stop arriving now finds the crash already recorded, so it
+            // can't end up Stopped and then be overwritten by this crash.
+            crash = RecordCrashLocked();
         }
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"The language server (session {session.Id}) exited with code {exitCode}.");
         session.End();
-        RecordCrash();
+        Announce(crash);
     }
 
     // VS waits for the reply to initialize forever; a server stuck there is treated as crashed.
@@ -445,22 +449,37 @@ public sealed class LanguageServerSupervisor : IDisposable
 
     private void RecordCrash()
     {
-        RestartDecision decision;
+        Crash crash;
         lock (_gate)
         {
-            decision = _policy.RecordCrash(_time.GetUtcNow());
-            _backoff = decision.Delay;
+            crash = RecordCrashLocked();
         }
-        if (decision.OpenCircuit)
+        Announce(crash);
+    }
+
+    // Callers hold _gate.
+    private Crash RecordCrashLocked()
+    {
+        var decision = _policy.RecordCrash(_time.GetUtcNow());
+        _backoff = decision.Delay;
+        var old = _state;
+        _state = decision.OpenCircuit ? LanguageServerState.Faulted : LanguageServerState.Crashed;
+        return new Crash(old, _state, _sessionId, decision.OpenCircuit);
+    }
+
+    private void Announce(Crash crash)
+    {
+        if (crash.OpenCircuit)
         {
             _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server keeps crashing; it won't be restarted until you restart it.");
-            SetState(LanguageServerState.Faulted);
         }
-        else
+        if (crash.Old != crash.New)
         {
-            SetState(LanguageServerState.Crashed);
+            StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(crash.Old, crash.New, crash.SessionId));
         }
     }
+
+    private readonly record struct Crash(LanguageServerState Old, LanguageServerState New, int SessionId, bool OpenCircuit);
 
     // Returns the state it replaced.
     private LanguageServerState SetState(LanguageServerState state)
