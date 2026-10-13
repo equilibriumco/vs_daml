@@ -31,6 +31,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     private LanguageServerState _state = LanguageServerState.Stopped;
     private int _sessionId;
     private Session? _current;
+    private StartAttempt? _start;
     private TimeSpan _backoff;
     private bool _disposed;
     private int _exitsHandled;
@@ -118,6 +119,8 @@ public sealed class LanguageServerSupervisor : IDisposable
     /// </summary>
     public async Task<LanguageServerSession?> StartAsync(CancellationToken cancellationToken)
     {
+        StartAttempt? previous;
+        StartAttempt attempt;
         lock (_gate)
         {
             ThrowIfDisposed();
@@ -125,90 +128,119 @@ public sealed class LanguageServerSupervisor : IDisposable
             {
                 return null;
             }
-            // This start answers the restarts asked for so far, whether or not it succeeds:
-            // a request made after a failed start (say, once the dpm path is fixed) is new.
             _pendingReasons.Clear();
+            previous = _start;
+            _start = attempt = new StartAttempt(cancellationToken);
         }
-
-        // Resolving the tool runs dpm; it happens before anything is locked, so a stop asked for
-        // meanwhile doesn't have to wait for it. A failure here is the user's setup, not a crash.
-        var command = await _buildCommand(cancellationToken).ConfigureAwait(false);
-
-        await _transitions.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        previous?.Cancel();
+        using (attempt)
         {
-            Session? superseded;
-            TimeSpan backoff;
-            lock (_gate)
-            {
-                ThrowIfDisposed();
-                if (_state == LanguageServerState.Faulted)
-                {
-                    return null;
-                }
-                // Forgetting it first means its exit no longer counts as a crash.
-                superseded = _current;
-                _current = null;
-                backoff = _backoff;
-            }
-            superseded?.End();
-
-            if (backoff > TimeSpan.Zero)
-            {
-                var before = SetState(LanguageServerState.Restarting);
-                try
-                {
-                    await _time.Delay(backoff, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    SetState(before);
-                    throw;
-                }
-            }
-
-            SetState(LanguageServerState.Starting);
-            int id;
-            lock (_gate)
-            {
-                id = ++_sessionId;
-            }
-            IRunningProcess process;
             try
             {
-                _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information,
-                    $"Starting {command.FileName} {string.Join(" ", command.Arguments)} in {command.WorkingDirectory}");
-                process = _runner.Start(command);
-            }
-            catch (Exception ex)
-            {
-                // A process that can't be created (missing program, bad arguments) is a setup
-                // problem, not a crash: no backoff, and the next attempt may well succeed.
-                if (ex is not OperationCanceledException)
+                // Resolution stays outside the transition lock so Stop can invalidate it promptly.
+                var command = await _buildCommand(attempt.Token).ConfigureAwait(false);
+                await _transitions.WaitAsync(attempt.Token).ConfigureAwait(false);
+                try
                 {
-                    _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server couldn't be started.", ex);
+                    Session? superseded;
+                    TimeSpan backoff;
+                    lock (_gate)
+                    {
+                        CheckStartLocked(attempt);
+                        if (_state == LanguageServerState.Faulted)
+                        {
+                            return null;
+                        }
+                        superseded = _current;
+                        _current = null;
+                        backoff = _backoff;
+                    }
+                    superseded?.Dispose();
+                    if (backoff > TimeSpan.Zero)
+                    {
+                        var before = SetStartState(attempt, LanguageServerState.Restarting);
+                        try
+                        {
+                            await _time.Delay(backoff, attempt.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            SetStartState(attempt, before);
+                            throw;
+                        }
+                    }
+                    SetStartState(attempt, LanguageServerState.Starting);
+                    int id;
+                    lock (_gate)
+                    {
+                        CheckStartLocked(attempt);
+                        id = ++_sessionId;
+                    }
+                    IRunningProcess process;
+                    try
+                    {
+                        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information,
+                            $"Starting {command.FileName} {string.Join(" ", command.Arguments)} in {command.WorkingDirectory}");
+                        process = _runner.Start(command);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is not OperationCanceledException)
+                        {
+                            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server couldn't be started.", ex);
+                        }
+                        SetStartState(attempt, LanguageServerState.Stopped);
+                        throw;
+                    }
+                    var session = new Session(id, process);
+                    LanguageServerSession connection;
+                    LanguageServerState old;
+                    try
+                    {
+                        lock (_gate)
+                        {
+                            CheckStartLocked(attempt);
+                            connection = new LanguageServerSession(id, process.StandardInput, process.StandardOutput, session.EndingToken);
+                            _current = session;
+                            _backoff = TimeSpan.Zero;
+                            old = _state;
+                            _state = LanguageServerState.Initializing;
+                        }
+                    }
+                    catch
+                    {
+                        session.Dispose();
+                        throw;
+                    }
+                    StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(old, LanguageServerState.Initializing, id));
+                    _ = process.Exited.ContinueWith(exited => OnExited(session, exited.Result), CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    lock (_gate)
+                    {
+                        if (!ReferenceEquals(_current, session))
+                        {
+                            return null;
+                        }
+                    }
+                    _ = PumpStderrAsync(session);
+                    _ = WatchInitializeAsync(session);
+                    return connection;
                 }
-                SetState(LanguageServerState.Stopped);
-                throw;
+                finally
+                {
+                    _transitions.Release();
+                }
             }
-
-            Session session;
-            lock (_gate)
+            finally
             {
-                session = new Session(id, process);
-                _current = session;
-                _backoff = TimeSpan.Zero;
+                lock (_gate)
+                {
+                    if (ReferenceEquals(_start, attempt))
+                    {
+                        _start = null;
+                    }
+                }
             }
-            _ = process.Exited.ContinueWith(exited => OnExited(session, exited.Result), CancellationToken.None,
-                TaskContinuationOptions.OnlyOnRanToCompletion | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
-            _ = PumpStderrAsync(session);
-            SetState(LanguageServerState.Initializing);
-            _ = WatchInitializeAsync(session);
-            return new LanguageServerSession(session.Id, process.StandardInput, process.StandardOutput, session.Ending.Token);
-        }
-        finally
-        {
-            _transitions.Release();
         }
     }
 
@@ -226,11 +258,16 @@ public sealed class LanguageServerSupervisor : IDisposable
     public async Task StopAsync(CancellationToken cancellationToken, TimeSpan? gracePeriod = null)
     {
         var grace = gracePeriod ?? _settings.StopGracePeriod;
+        StartAttempt? start;
         lock (_gate)
         {
             ThrowIfDisposed();
+            start = _start;
+            _start = null;
         }
-        await _transitions.WaitAsync(cancellationToken).ConfigureAwait(false);
+        start?.Cancel();
+        // Cancellation shortens the grace period, but must not leave a session running.
+        await _transitions.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try
         {
             Session? session;
@@ -249,7 +286,7 @@ public sealed class LanguageServerSupervisor : IDisposable
             }
 
             SetState(LanguageServerState.Stopping);
-            session.Ending.Cancel();
+            session.CancelEnding();
             try
             {
                 if (grace > TimeSpan.Zero && !await ExitsWithinAsync(session.Process, grace, cancellationToken).ConfigureAwait(false))
@@ -261,7 +298,7 @@ public sealed class LanguageServerSupervisor : IDisposable
             finally
             {
                 // Also when the caller stopped waiting: the session is over either way.
-                session.End();
+                session.Dispose();
                 SetState(LanguageServerState.Stopped);
             }
         }
@@ -296,7 +333,7 @@ public sealed class LanguageServerSupervisor : IDisposable
             crash = RecordCrashLocked();
         }
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"The connection to the language server (session {sessionId}) was closed: {error?.Message}");
-        session.End();
+        session.Dispose();
         Announce(crash);
     }
 
@@ -357,6 +394,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     public void Dispose()
     {
         Session? session;
+        StartAttempt? start;
         lock (_gate)
         {
             if (_disposed)
@@ -364,16 +402,46 @@ public sealed class LanguageServerSupervisor : IDisposable
                 return;
             }
             _disposed = true;
+            start = _start;
+            _start = null;
             session = _current;
             _current = null;
         }
-        session?.End();
+        start?.Cancel();
+        session?.Dispose();
         if (State != LanguageServerState.Faulted)
         {
             SetState(LanguageServerState.Stopped);
         }
         // The semaphore stays: a restart still in flight on another thread releases it on its
         // way out, and disposing it under that thread would turn the release into a crash.
+    }
+
+    private void CheckStartLocked(StartAttempt attempt)
+    {
+        if (_disposed || !ReferenceEquals(_start, attempt))
+        {
+            throw new OperationCanceledException(attempt.Token);
+        }
+        attempt.Token.ThrowIfCancellationRequested();
+    }
+
+    private LanguageServerState SetStartState(StartAttempt attempt, LanguageServerState next)
+    {
+        LanguageServerState old;
+        int id;
+        lock (_gate)
+        {
+            old = _state;
+            if (_disposed || !ReferenceEquals(_start, attempt) || old == next)
+            {
+                return old;
+            }
+            _state = next;
+            id = _sessionId;
+        }
+        StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(old, next, id));
+        return old;
     }
 
     // Callers hold _gate.
@@ -401,7 +469,7 @@ public sealed class LanguageServerSupervisor : IDisposable
             crash = RecordCrashLocked();
         }
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"The language server (session {session.Id}) exited with code {exitCode}.");
-        session.End();
+        session.Dispose();
         Announce(crash);
     }
 
@@ -410,7 +478,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     {
         try
         {
-            await _time.Delay(_settings.InitializeTimeout, session.Ending.Token).ConfigureAwait(false);
+            await _time.Delay(_settings.InitializeTimeout, session.EndingToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -617,8 +685,54 @@ public sealed class LanguageServerSupervisor : IDisposable
         return old;
     }
 
-    private sealed class Session
+    // Cancellation callbacks run outside the lock. Disposal is deferred until concurrent
+    // Cancel calls finish, so neither invalidation nor cleanup races with CTS.Dispose.
+    private sealed class StartAttempt : IDisposable
     {
+        private readonly object _gate = new();
+        private readonly CancellationTokenSource _cancel;
+        private bool _disposed;
+        private int _cancellers;
+
+        public StartAttempt(CancellationToken caller)
+        {
+            _cancel = CancellationTokenSource.CreateLinkedTokenSource(caller);
+            Token = _cancel.Token;
+        }
+
+        public CancellationToken Token { get; }
+
+        public void Cancel()
+        {
+            lock (_gate)
+            {
+                if (_disposed) { return; }
+                _cancellers++;
+            }
+            try { _cancel.Cancel(); }
+            finally
+            {
+                lock (_gate)
+                {
+                    if (--_cancellers == 0 && _disposed) { _cancel.Dispose(); }
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_disposed) { return; }
+                _disposed = true;
+                if (_cancellers == 0) { _cancel.Dispose(); }
+            }
+        }
+    }
+
+    private sealed class Session : IDisposable
+    {
+        private readonly StartAttempt _ending = new(CancellationToken.None);
         private int _ended;
 
         public Session(int id, IRunningProcess process)
@@ -628,21 +742,19 @@ public sealed class LanguageServerSupervisor : IDisposable
         }
 
         public int Id { get; }
-
         public IRunningProcess Process { get; }
+        public CancellationToken EndingToken => _ending.Token;
+        public void CancelEnding() => _ending.Cancel();
 
-        // Cancelled when the session ends for any reason, before the process is closed.
-        public CancellationTokenSource Ending { get; } = new();
-
-        public void End()
+        public void Dispose()
         {
-            if (Interlocked.Exchange(ref _ended, 1) != 0)
+            if (Interlocked.Exchange(ref _ended, 1) != 0) { return; }
+            try { _ending.Cancel(); }
+            finally
             {
-                return;
+                try { Process.Dispose(); }
+                finally { _ending.Dispose(); }
             }
-            Ending.Cancel();
-            Process.Dispose(); // closes the job: the whole tree goes
-            Ending.Dispose();
         }
     }
 }

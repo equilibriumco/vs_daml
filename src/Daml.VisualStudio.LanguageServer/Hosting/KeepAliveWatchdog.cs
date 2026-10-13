@@ -93,7 +93,7 @@ public sealed class KeepAliveWatchdog : IDisposable
             previous = _watching;
             if (_settings.Enabled)
             {
-                run = new Run(_settings);
+                run = new Run(_settings, sessionId);
             }
             _watching = run;
             _ended = previous ?? _ended;
@@ -109,11 +109,13 @@ public sealed class KeepAliveWatchdog : IDisposable
     }
 
     /// <summary>Stops watching; a request still in flight is abandoned and can't report anything.</summary>
-    public void Stop()
+    /// <param name="sessionId">Stop only this session; null to stop whichever session is watched.</param>
+    public void Stop(int? sessionId = null)
     {
         Run? watching;
         lock (_gate)
         {
+            if (sessionId is not null && _watching?.SessionId != sessionId) { return; }
             watching = _watching;
             _watching = null;
             _ended = watching ?? _ended;
@@ -213,8 +215,10 @@ public sealed class KeepAliveWatchdog : IDisposable
         }
     }
 
-    private sealed class Run(KeepAliveSettings settings)
+    private sealed class Run(KeepAliveSettings settings, int sessionId)
     {
+        public int SessionId { get; } = sessionId;
+
         public KeepAliveSettings Settings { get; } = settings;
 
         public CancellationTokenSource Cancellation { get; } = new();

@@ -3,17 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using EnvDTE;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.ComponentModelHost;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Shell.TableManager;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
 using Microsoft.VisualStudio.Workspace.Indexing;
 using Microsoft.VisualStudio.Workspace.VSIntegration.Contracts;
-using System.Threading.Tasks;
-using EnvDTE;
-using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.VisualStudio.Shell.TableManager;
 using Xunit;
 
 namespace Daml.VisualStudio.IntegrationTests;
@@ -40,50 +40,76 @@ public class BuildTests
         }
     }
 
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 6 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public async Task The_manifest_build_context_runs_without_an_active_document_and_reports_exact_locations()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var folder = Ide.CopySample("broken");
+        Ide.OpenFolder(folder);
+        try
+        {
+            Ide.CloseAllDocuments();
+            await WaitForIndexAsync(TimeSpan.FromMinutes(1));
+            var workspace = Ide.ComponentModel().GetService<IVsFolderWorkspaceService>()!.CurrentWorkspace;
+            Assert.NotNull(workspace);
+            var contexts = await workspace!.GetFileContextsAsync(Path.Combine(folder, "daml.yaml"), [BuildContextTypes.BuildContextTypeGuid], CancellationToken.None);
+            var context = Assert.Single(contexts.SelectMany(group => group), item => item.ProviderType == new Guid("202da85d-ff38-4820-b89e-d9f8db6d85b3"));
+            var build = Assert.IsAssignableFrom<IBuildFileContext>(context.Context);
+            var progress = new RecordingProgress();
+            using var timeout = new CancellationTokenSource(BuildTimeout);
+            Assert.False(await build.ExecuteBuildAsync(progress, timeout.Token));
+            Assert.Contains(progress.Messages, message => message.Code == "DAML0001"
+                && string.Equals(message.File, Path.Combine(folder, "daml", "TypeError.daml"), StringComparison.OrdinalIgnoreCase)
+                && message.LineNumber == 5 && message.ColumnNumber == 9);
+        }
+        finally { await Ide.CloseFolderAsync(); }
+    }
+
+    private sealed class RecordingProgress : IBuildActionProgress
+    {
+        public List<BuildMessage> Messages { get; } = new();
+        public Task ReportAsync(BuildMessage buildMessage, object? context)
+        {
+            Messages.Add(buildMessage);
+            return Task.CompletedTask;
+        }
+        public void Report(IFileContextActionProgressUpdate value) => throw new NotSupportedException();
+    }
+
     private static async Task BuildAsync(string folder)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var dte = Ide.Dte();
         // Build commands appear once Open Folder has indexed the manifests.
         await WaitForIndexAsync(TimeSpan.FromMinutes(1));
-        // Open Folder offers Build for the active document when the index holds a build context
-        // for it, and Build All once it knows of anything buildable; which of the two carries it
-        // isn't the same as with a solution, so the manifest is opened and the first offered is taken.
+        // This test covers the active-manifest Build Selection command; the file-context test
+        // separately verifies the folder action without an active document.
         Ide.OpenFile(Path.Combine(folder, "daml.yaml"));
-        string[] candidates = ["Build.BuildSelection", "Build.BuildSolution", "Build.BuildAll"];
-        string? available = null;
+        const string BuildSelectionCommand = "Build.BuildSelection";
         var ready = DateTime.UtcNow + TimeSpan.FromMinutes(1);
-        while (available is null && DateTime.UtcNow < ready)
-        {
-            available = candidates.FirstOrDefault(name => IsAvailable(dte, name));
-            if (available is null)
-            {
-                await Task.Delay(500);
-            }
-        }
-        if (available is null)
-        {
-            Assert.Fail($"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}. "
-                + $"Available Build.* commands: {AvailableBuildCommands(dte)}. {await OpenFolderStateAsync(folder)}");
-        }
-        dte.ExecuteCommand(available);
+        while (!IsAvailable(dte, BuildSelectionCommand) && DateTime.UtcNow < ready) { await Task.Delay(500); }
+        Assert.True(IsAvailable(dte, BuildSelectionCommand), $"{BuildSelectionCommand} is unavailable for daml.yaml: {await OpenFolderStateAsync(folder)}");
+        dte.ExecuteCommand(BuildSelectionCommand);
 
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
         var deadline = DateTime.UtcNow + BuildTimeout;
-        var count = 0;
+        var found = false;
+        var expected = Path.Combine(folder, "daml", "TypeError.daml");
         while (DateTime.UtcNow < deadline)
         {
             await errorList.TableControl.ForceUpdateAsync();
             // Build errors reach the Error List through Visual Studio's build messages, under our codes.
-            count = errorList.TableControl.Entries.Count(e => e.TryGetValue(StandardTableKeyNames.ErrorCode, out var code) && Equals(code, "DAML0001"));
-            if (count > 0)
-            {
-                break;
-            }
+            found = errorList.TableControl.Entries.Any(entry =>
+                entry.TryGetValue(StandardTableKeyNames.ErrorCode, out var code) && Equals(code, "DAML0001")
+                && entry.TryGetValue(StandardTableKeyNames.DocumentName, out var document) && document is string path
+                && string.Equals(path, expected, StringComparison.OrdinalIgnoreCase)
+                && entry.TryGetValue(StandardTableKeyNames.Line, out var line) && Equals(line, 4)
+                && entry.TryGetValue(StandardTableKeyNames.Column, out var column) && Equals(column, 8));
+            if (found) { break; }
             await Task.Delay(1000);
         }
 
-        Assert.True(count >= 1, "No DAML0001 build errors reached the Error List.");
+        Assert.True(found, $"No DAML0001 build error for {expected}:5:9 reached the Error List. {Ide.PaneText("Daml Build", 12000)}");
     }
 
     private static async Task WaitForIndexAsync(TimeSpan timeout)
@@ -99,6 +125,7 @@ public class BuildTests
             }
             await Task.Delay(250);
         }
+        Assert.Fail("Open Folder indexing did not finish within the build test timeout.");
     }
 
     // What Open Folder knows about the folder: how far indexing got, and the build contexts it

@@ -14,6 +14,9 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Import-Module Pester -ErrorAction Stop
 $result = Invoke-Pester -Path (Join-Path $root 'test\scripts.Tests') -PassThru
+if ($result.PassedCount -eq 0 -or $result.SkippedCount -gt 0 -or $result.PendingCount -gt 0 -or $result.InconclusiveCount -gt 0) {
+    throw "Script tests need executed, unskipped evidence (passed=$($result.PassedCount), skipped=$($result.SkippedCount), pending=$($result.PendingCount), inconclusive=$($result.InconclusiveCount))."
+}
 if ($result.FailedCount -gt 0) {
     Write-Error "$($result.FailedCount) script test(s) failed."
     exit 1

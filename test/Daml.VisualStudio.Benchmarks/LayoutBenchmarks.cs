@@ -26,7 +26,7 @@ public class LayoutBenchmarks
         {
             _text = reader.ReadToEnd().TrimEnd('\n').Split('\n');
         }
-        _lines = LineTokens.Lex(_text);
+        _lines = new LineTokensCache().Reset(new ArrayLines(_text));
     }
 
     /// <summary>The tree from lexed lines.</summary>
@@ -36,4 +36,10 @@ public class LayoutBenchmarks
     /// <summary>Lexing and the tree together.</summary>
     [Benchmark]
     public DamlBlock LexAndAnalyzeFile() => LayoutAnalyzer.Analyze(LineTokens.Lex(_text));
+    private sealed class ArrayLines(string[] lines) : ILineSource
+    {
+        public int LineCount => lines.Length;
+        public string GetLineText(int line) => lines[line];
+    }
+
 }

@@ -11,11 +11,14 @@ namespace Daml.VisualStudio.Core.Syntax;
 /// </summary>
 public sealed class LineTokensCache
 {
-    private List<LineTokens> _lines = [];
+    private TokenLines _lines = TokenLines.Empty;
     private readonly List<DamlToken> _scratch = [];
 
     /// <summary>The lines as of the last <see cref="Reset"/> or <see cref="Update"/>; empty before either.</summary>
     public IReadOnlyList<LineTokens> Lines => _lines;
+
+    /// <summary>Creates an independent cache sharing the immutable current snapshot.</summary>
+    public LineTokensCache Fork() => new() { _lines = _lines };
 
     /// <summary>Lexes all of <paramref name="text"/> and returns its lines.</summary>
     public IReadOnlyList<LineTokens> Reset(ILineSource text)
@@ -32,8 +35,8 @@ public sealed class LineTokensCache
             lines.Add(lexed);
             state = lexed.EndState;
         }
-        _lines = lines;
-        return lines;
+        _lines = TokenLines.From(lines);
+        return _lines;
     }
 
     /// <summary>
@@ -56,15 +59,11 @@ public sealed class LineTokensCache
         if (edit.FirstLine >= text.LineCount)
         {
             // Lines were removed from the end; everything that's left is unchanged.
-            _lines = old.GetRange(0, text.LineCount);
+            _lines = old.Replace(text.LineCount, old.Count - text.LineCount, []);
             return LineRange.Empty;
         }
 
-        var updated = new List<LineTokens>(text.LineCount);
-        for (var line = 0; line < edit.FirstLine; line++)
-        {
-            updated.Add(old[line]);
-        }
+        var updated = new List<LineTokens>();
         var state = edit.FirstLine > 0 ? old[edit.FirstLine - 1].EndState : default;
         var last = text.LineCount - 1;
         for (var line = edit.FirstLine; line < text.LineCount; line++)
@@ -87,15 +86,12 @@ public sealed class LineTokensCache
             var oldStart = oldNext > 0 ? old[oldNext - 1].EndState : default;
             if (oldStart == state)
             {
-                for (var rest = oldNext; rest < old.Count; rest++)
-                {
-                    updated.Add(old[rest]);
-                }
                 last = line;
                 break;
             }
         }
-        _lines = updated;
+        var removed = Math.Min(old.Count - edit.FirstLine, updated.Count - edit.LineDelta);
+        _lines = old.Replace(edit.FirstLine, removed, updated);
         return new LineRange(edit.FirstLine, Math.Max(edit.FirstLine, last));
     }
 

@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
 using System.Threading;
+using Daml.VisualStudio.Core.Concurrency;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Syntax;
 using Daml.VisualStudio.Editing;
 using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Threading;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Adornments;
 using Microsoft.VisualStudio.Text.Tagging;
+using Microsoft.VisualStudio.Threading;
 using Microsoft.VisualStudio.Utilities;
 
 namespace Daml.VisualStudio.Structure;
@@ -37,7 +38,9 @@ internal sealed class DamlStructureTaggerProvider : ITaggerProvider
 
     public ITagger<T>? CreateTagger<T>(ITextBuffer buffer)
         where T : ITag =>
-        new DamlStructureTagger(DamlStructureRegions.For(buffer, _logger, _joinableTaskContext.Factory)) as ITagger<T>;
+        typeof(T).IsAssignableFrom(typeof(IStructureTag))
+            ? new DamlStructureTagger(DamlStructureRegions.For(buffer, _logger, _joinableTaskContext.Factory)) as ITagger<T>
+            : null;
 }
 
 /// <summary>
@@ -53,7 +56,9 @@ internal sealed class DamlStructureRegions : IDisposable
     private readonly IDamlLogger _logger;
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly Timer _timer;
-    private Regions? _regions;
+    private readonly LatestResult<Regions> _results = new();
+    private readonly object _timerGate = new();
+    private readonly object _workGate = new();
     private int _users;
     private int _stopped;
 
@@ -67,46 +72,70 @@ internal sealed class DamlStructureRegions : IDisposable
     }
 
     /// <summary>The regions kept for <paramref name="buffer"/>, created on first use.</summary>
-    public static DamlStructureRegions For(ITextBuffer buffer, IDamlLogger logger, JoinableTaskFactory joinableTaskFactory) =>
-        buffer.Properties.GetOrCreateSingletonProperty(() => new DamlStructureRegions(buffer, logger, joinableTaskFactory));
+    public static DamlStructureRegions For(ITextBuffer buffer, IDamlLogger logger, JoinableTaskFactory joinableTaskFactory)
+    {
+        while (true)
+        {
+            var regions = buffer.Properties.GetOrCreateSingletonProperty(() => new DamlStructureRegions(buffer, logger, joinableTaskFactory));
+            lock (regions._timerGate)
+            {
+                if (Volatile.Read(ref regions._stopped) == 0)
+                {
+                    regions._users++;
+                    return regions;
+                }
+            }
+        }
+    }
 
     /// <summary>Raised on the UI thread after the regions have been worked out again.</summary>
     public event EventHandler<SnapshotSpanEventArgs>? Changed;
 
     /// <summary>The latest regions, with the snapshot they were computed on; null before the first pass.</summary>
-    public Regions? Current => Volatile.Read(ref _regions);
+    public Regions? Current => _results.Current;
 
-    public void AddUser() => Interlocked.Increment(ref _users);
-
-    /// <summary>The last tagger is gone: stops the timer and lets the buffer forget this instance.</summary>
+    /// <summary>Releases the reference acquired by For; the last consumer stops the worker.</summary>
     public void RemoveUser()
     {
-        if (Interlocked.Decrement(ref _users) == 0)
+        lock (_timerGate)
         {
-            Dispose();
+            if (--_users == 0) { Dispose(); }
         }
     }
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref _stopped, 1) != 0)
+        lock (_timerGate)
         {
-            return;
+            if (Interlocked.Exchange(ref _stopped, 1) != 0) { return; }
+            _buffer.Changed -= OnBufferChanged;
+            _results.Dispose();
+            _timer.Dispose();
+            _buffer.Properties.RemoveProperty(typeof(DamlStructureRegions));
         }
-        _buffer.Changed -= OnBufferChanged;
-        _timer.Dispose();
-        _buffer.Properties.RemoveProperty(typeof(DamlStructureRegions));
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
     {
-        if (Volatile.Read(ref _stopped) == 0)
+        lock (_timerGate)
         {
-            _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
+            if (Volatile.Read(ref _stopped) == 0)
+            {
+                _results.Invalidate();
+                _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
+            }
         }
     }
 
     private void Update()
+    {
+        lock (_workGate)
+        {
+            UpdateCurrent();
+        }
+    }
+
+    private void UpdateCurrent()
     {
         if (Volatile.Read(ref _stopped) != 0)
         {
@@ -114,16 +143,22 @@ internal sealed class DamlStructureRegions : IDisposable
         }
         try
         {
+            var generation = _results.Generation;
             var snapshot = _buffer.CurrentSnapshot;
+            if (_results.Current?.Snapshot == snapshot) { return; }
             var tokens = DamlTokenCache.For(_buffer).Get(snapshot);
             var specs = StructureRules.FromBlocks(LayoutAnalyzer.Analyze(tokens), tokens.Select(l => l.Text).ToList());
             var spans = specs.Select(spec => (spec, Whole(spec, snapshot))).ToList();
-            Volatile.Write(ref _regions, new Regions(snapshot, spans));
+            var result = new Regions(snapshot, spans);
+            if (!_results.TryPublish(generation, result)) { return; }
             _joinableTaskFactory.RunAsync(async () =>
             {
                 // The outlining manager expects to hear about changes on the UI thread.
                 await _joinableTaskFactory.SwitchToMainThreadAsync();
-                Changed?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
+                if (Volatile.Read(ref _stopped) == 0 && _results.Generation == generation && ReferenceEquals(_results.Current, result))
+                {
+                    Changed?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
+                }
             }).FileAndForget("daml/structure/tagsChanged");
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -159,7 +194,6 @@ internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
     public DamlStructureTagger(DamlStructureRegions regions)
     {
         _regions = regions;
-        regions.AddUser();
         regions.Changed += OnRegionsChanged;
     }
 

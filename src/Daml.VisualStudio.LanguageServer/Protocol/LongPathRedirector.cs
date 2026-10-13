@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -12,7 +13,7 @@ public interface ILibraryCopier
 {
     /// <summary>
     /// Makes <paramref name="target"/> a read-only copy of <paramref name="source"/>, refreshed
-    /// when the source is newer. Returns false when there is nothing to copy or the copy failed.
+    /// when its content changes. Returns false when there is nothing to copy or the copy failed.
     /// </summary>
     bool CopyReadOnly(string source, string target);
 }
@@ -30,6 +31,7 @@ public sealed class LongPathRedirector
 
     private readonly string _copyRoot;
     private readonly ILibraryCopier _copier;
+    private readonly ConcurrentDictionary<string, string> _originals = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Creates a redirector that keeps its copies under <paramref name="copyRoot"/>.</summary>
     public LongPathRedirector(string copyRoot, ILibraryCopier copier)
@@ -54,6 +56,21 @@ public sealed class LongPathRedirector
             default:
                 return result;
         }
+    }
+
+    /// <summary>Maps document requests for a short library copy back to its server-side source URI.</summary>
+    /// <param name="parameters">Request or notification parameters; left unchanged when no mapping exists.</param>
+    public JToken OriginalDocument(JToken parameters)
+    {
+        if (parameters is null) { throw new ArgumentNullException(nameof(parameters)); }
+        if (parameters is not JObject || (string?)parameters["textDocument"]?["uri"] is not { } uri
+            || LspUri.ToLocalPath(uri) is not { } path || !_originals.TryGetValue(path, out var original))
+        {
+            return parameters;
+        }
+        var copy = parameters.DeepClone();
+        copy["textDocument"]!["uri"] = original;
+        return copy;
     }
 
     private JToken RedirectItem(JToken item)
@@ -86,7 +103,9 @@ public sealed class LongPathRedirector
             return null;
         }
         var target = Path.Combine(_copyRoot, Hash(path), Path.GetFileName(path));
-        return _copier.CopyReadOnly(path, target) ? new Uri(target).AbsoluteUri : null;
+        if (!_copier.CopyReadOnly(path, target)) { return null; }
+        _originals[target] = new Uri(path).AbsoluteUri;
+        return new Uri(target).AbsoluteUri;
     }
 
     // One folder per source path, so equally named modules of different packages don't collide.
@@ -120,9 +139,8 @@ public sealed class LibraryCopier : ILibraryCopier
                 return false;
             }
             var written = File.GetLastWriteTimeUtc(from);
-            // Archive timestamps can make a re-extracted source look older than its copy; a
-            // different size still tells them apart.
-            if (File.Exists(target) && File.GetLastWriteTimeUtc(target) >= written && new FileInfo(target).Length == new FileInfo(from).Length)
+            // Archive timestamps and size alone cannot distinguish successive library versions.
+            if (File.Exists(target) && new FileInfo(target).Length == new FileInfo(from).Length && SameContents(from, target))
             {
                 return true;
             }
@@ -143,6 +161,15 @@ public sealed class LibraryCopier : ILibraryCopier
         }
     }
 
-    private static string Extended(string path) =>
-        path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.Length < LongPathRedirector.MaxPath ? path : @"\\?\" + path;
+    private static bool SameContents(string source, string target)
+    {
+        using var hash = SHA256.Create();
+        using var from = File.OpenRead(source);
+        using var to = File.OpenRead(target);
+        return hash.ComputeHash(from).SequenceEqual(hash.ComputeHash(to));
+    }
+
+    internal static string Extended(string path) =>
+        path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.Length < LongPathRedirector.MaxPath ? path
+            : path.StartsWith(@"\\", StringComparison.Ordinal) ? @"\\?\UNC\" + path.Substring(2) : @"\\?\" + path;
 }

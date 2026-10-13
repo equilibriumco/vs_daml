@@ -24,6 +24,8 @@ public sealed class ClientRestartSequence : IDisposable
     private readonly Func<Task> _raiseStop;
     private readonly Func<Task> _raiseStart;
     private readonly SemaphoreSlim _runs = new(1, 1);
+    private readonly CancellationTokenSource _ending = new();
+    private int _disposed;
     private bool _clientStarted;
 
     /// <summary>Creates the sequence.</summary>
@@ -62,17 +64,31 @@ public sealed class ClientRestartSequence : IDisposable
     /// <summary>Stops listening for restart requests.</summary>
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
         _host.Supervisor.RestartRequested -= OnRestartRequested;
-        _runs.Dispose();
+        _ending.Cancel();
+        // Runs that already entered still release _runs and may link to _ending. Their managed
+        // synchronization objects are collected after the last participant leaves.
     }
 
     private async Task RunAsync(bool restart, CancellationToken cancellationToken, bool quiet = false)
     {
+        if (Volatile.Read(ref _disposed) != 0)
+        {
+            throw new ObjectDisposedException(nameof(ClientRestartSequence));
+        }
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _ending.Token);
+        cancellationToken = linked.Token;
         await _runs.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var served = _host.Workspace;
             var (workspace, options) = await _discover(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             _host.SetWorkspace(workspace, options);
 
             // Visual Studio activates the server for a newly opened folder by itself; when that
@@ -90,6 +106,7 @@ public sealed class ClientRestartSequence : IDisposable
                 {
                     await _host.StopAsync(cancellationToken, immediately: true).ConfigureAwait(false);
                 }
+                cancellationToken.ThrowIfCancellationRequested();
                 await _raiseStop().ConfigureAwait(false);
                 await _host.StopAsync(cancellationToken).ConfigureAwait(false);
                 _clientStarted = false;
@@ -103,13 +120,15 @@ public sealed class ClientRestartSequence : IDisposable
                 }
                 return;
             }
+            cancellationToken.ThrowIfCancellationRequested();
             await _raiseStart().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             _clientStarted = true;
         }
         finally
         {
             _runs.Release();
-            if (restart)
+            if (restart && Volatile.Read(ref _disposed) == 0)
             {
                 RestartCompleted?.Invoke(this, EventArgs.Empty);
             }
@@ -125,6 +144,10 @@ public sealed class ClientRestartSequence : IDisposable
         {
             await RestartAsync(CancellationToken.None).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (Volatile.Read(ref _disposed) != 0)
+        {
+            // The extension is closing; cancellation is the expected end of a restart.
+        }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _host.Log(DamlLogLevel.Error, $"Restarting the language server ({reasons}) failed.", ex);
@@ -133,7 +156,10 @@ public sealed class ClientRestartSequence : IDisposable
         {
             // Also when the run started nothing (no workspace yet): the next reason must be
             // heard, or the user's own Restart would be silently queued behind this one.
-            _host.Supervisor.AcknowledgeRestart();
+            if (Volatile.Read(ref _disposed) == 0)
+            {
+                _host.Supervisor.AcknowledgeRestart();
+            }
         }
     }
 }

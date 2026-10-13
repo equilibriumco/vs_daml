@@ -74,7 +74,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _settings.Changed += OnSettingsChanged;
         // Library sources sit under paths longer than Visual Studio opens; F12 goes to short copies.
         var libraryCopies = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daml", "VisualStudio", "library");
-        MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed, new LongPathRedirector(libraryCopies, new LibraryCopier()).Redirect);
+        var libraryPaths = new LongPathRedirector(libraryCopies, new LibraryCopier());
+        MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed, libraryPaths.Redirect, libraryPaths.OriginalDocument);
         var installs = new SdkInstallProgressTracker(
             new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
             id => _host.Channel.CancelSdkInstallAsync(id),

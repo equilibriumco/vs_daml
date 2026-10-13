@@ -77,4 +77,19 @@ public sealed class LibraryCopierTests : IDisposable
 
         File.ReadAllText(target).ShouldBe("module Library where\nlonger = 1\n");
     }
+    [Fact, Trait("Category", "Unit")]
+    public void Same_size_content_with_an_older_timestamp_refreshes_the_copy()
+    {
+        var source = LongSource();
+        var target = Path.Combine(_root, "copies", "Library.daml");
+        var copier = new LibraryCopier();
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+        File.WriteAllText(@"\\?\" + source, "module Changed where\n");
+        File.SetLastWriteTimeUtc(@"\\?\" + source, File.GetLastWriteTimeUtc(target).AddMinutes(-5));
+
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+
+        File.ReadAllText(target).ShouldBe("module Changed where\n");
+    }
+
 }

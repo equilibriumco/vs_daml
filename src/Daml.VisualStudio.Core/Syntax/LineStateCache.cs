@@ -88,6 +88,26 @@ public sealed class LineStateCache
             return LineRange.Empty;
         }
 
+        if (edit.LineDelta == 0)
+        {
+            // Ordinary typing does not shift line indexes. Update the private state array in
+            // place instead of copying every known line; no reader retains this list.
+            for (var line = edit.FirstLine; line < text.LineCount; line++)
+            {
+                var end = LexToEnd(text, line, _starts[line]);
+                var next = line + 1;
+                if (next >= _starts.Count)
+                {
+                    _starts.Add(end);
+                    return new LineRange(edit.FirstLine, line);
+                }
+                var agrees = _starts[next] == end;
+                _starts[next] = end;
+                if (line >= edit.LastLine && agrees) { return new LineRange(edit.FirstLine, line); }
+            }
+            return new LineRange(edit.FirstLine, text.LineCount - 1);
+        }
+
         var updated = _starts.GetRange(0, edit.FirstLine + 1);
         var lastAffected = text.LineCount - 1;
         for (var line = edit.FirstLine; line < text.LineCount; line++)

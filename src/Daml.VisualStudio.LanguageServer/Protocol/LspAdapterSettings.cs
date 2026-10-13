@@ -11,6 +11,12 @@ public sealed record LspAdapterSettings
     /// </summary>
     public int MaxFrameBytes { get; init; } = 32 * 1024 * 1024;
 
+    /// <summary>Maximum number of messages waiting for the client. Overflow ends the connection.</summary>
+    public int MaxQueuedFrames { get; init; } = 256;
+
+    /// <summary>Maximum queued payload bytes, excluding the frame currently being read or delivered.</summary>
+    public int MaxQueuedBytes { get; init; } = 64 * 1024 * 1024;
+
     /// <summary>Largest header block accepted.</summary>
     public int MaxHeaderBytes { get; init; } = 8 * 1024;
 }

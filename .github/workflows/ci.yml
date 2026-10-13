@@ -45,6 +45,14 @@ jobs:
 
       # The PR profile in scripts/test-gates.psd1: every required project must run tests on each
       # of its frameworks without skips; coverage is reported, not enforced.
+      - name: Verify formatting
+        run: dotnet format Daml.VisualStudio.sln --verify-no-changes --no-restore
+
+      - name: Test gate scripts
+        run: |
+          Install-Module Pester -RequiredVersion 4.10.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          ./scripts/test-scripts.ps1
+
       - name: Tests (PR gate)
         run: ./scripts/test.ps1 -Category All -Milestone PR -RequiredTools -Configuration Release -NoBuild
 

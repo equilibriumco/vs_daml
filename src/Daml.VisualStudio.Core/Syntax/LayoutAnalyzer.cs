@@ -61,20 +61,23 @@ public static class LayoutAnalyzer
         public DamlBlock Run()
         {
             _stack.Add(new OpenBlock(DamlBlockKind.Module, null, 0, -1, isLayout: true) { BodyIndent = 0 });
-            for (var number = 0; number < lines.Count; number++)
+            var number = 0;
+            foreach (var tokens in lines)
             {
-                var line = new LayoutLine(lines[number], tabSize);
+                var line = new LayoutLine(tokens, tabSize);
                 if (line.Count > 0)
                 {
                     Read(line, number);
                 }
+                number++;
             }
             while (_stack.Count > 1)
             {
                 Pop();
             }
             var root = Root.Close();
-            return root with { EndLine = LastLineWithText(), HeaderEndLine = Math.Min(root.HeaderEndLine, LastLineWithText()) };
+            var lastLine = LastLineWithText();
+            return root with { EndLine = lastLine, HeaderEndLine = Math.Min(root.HeaderEndLine, lastLine) };
         }
 
         private void Read(LayoutLine line, int number)

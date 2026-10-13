@@ -23,16 +23,19 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
     private readonly IDamlLogger _logger;
     private readonly Func<string?, bool> _isServed;
     private readonly Func<JToken?, JToken?> _redirectDefinitions;
+    private readonly Func<JToken, JToken> _originalDocument;
     private readonly ConcurrentDictionary<string, bool> _reportedOutside = new(StringComparer.OrdinalIgnoreCase);
 
     /// <param name="logger">Where skipped documents and Debug traffic are logged.</param>
     /// <param name="isServed">Whether a document URI belongs to the workspace the server runs.</param>
     /// <param name="redirectDefinitions">Rewrites definition answers, e.g. to files Visual Studio can open; none if null.</param>
-    public DamlMiddleLayer(IDamlLogger logger, Func<string?, bool> isServed, Func<JToken?, JToken?>? redirectDefinitions = null)
+    /// <param name="originalDocument">Maps library-copy document URIs back to the source before scope checks and forwarding.</param>
+    public DamlMiddleLayer(IDamlLogger logger, Func<string?, bool> isServed, Func<JToken?, JToken?>? redirectDefinitions = null, Func<JToken, JToken>? originalDocument = null)
     {
         _logger = logger;
         _isServed = isServed;
         _redirectDefinitions = redirectDefinitions ?? (result => result);
+        _originalDocument = originalDocument ?? (parameters => parameters);
     }
 
     public bool CanHandle(string methodName) =>
@@ -42,6 +45,7 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
 
     public Task HandleNotificationAsync(string methodName, JToken methodParam, Func<JToken, Task> sendNotification)
     {
+        methodParam = _originalDocument(methodParam);
         // damlc answers it with an error in its log; its settings come on the command line.
         if (methodName == DidChangeConfiguration || !Served(methodParam))
         {
@@ -56,6 +60,7 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
 
     public async Task<JToken?> HandleRequestAsync(string methodName, JToken methodParam, Func<JToken, Task<JToken?>> sendRequest)
     {
+        methodParam = _originalDocument(methodParam);
         if (!Served(methodParam))
         {
             return null;

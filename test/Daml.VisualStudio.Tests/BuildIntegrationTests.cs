@@ -12,8 +12,8 @@ using Daml.VisualStudio.Core.Project;
 using Microsoft.VisualStudio.Composition;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
-using Microsoft.VisualStudio.Workspace.Indexing;
 using Microsoft.VisualStudio.Workspace.Extensions.VS;
+using Microsoft.VisualStudio.Workspace.Indexing;
 using Shouldly;
 using Xunit;
 

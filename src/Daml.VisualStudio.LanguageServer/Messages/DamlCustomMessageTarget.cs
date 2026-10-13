@@ -1,6 +1,6 @@
 using System;
-using System.Linq;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using Daml.VisualStudio.Core.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;

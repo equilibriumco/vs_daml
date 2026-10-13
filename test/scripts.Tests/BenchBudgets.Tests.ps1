@@ -60,5 +60,31 @@ Describe 'Test-BenchBudgets' {
         ($names -contains 'LayoutBenchmarks.AnalyzeLexedFile') | Should Be $true
     }
 
+    It 'rejects a regression over ten percent even when the absolute budget is met' {
+        New-BriefReport (Join-Path $results 'baseline') 'Lexer' @{ Whole = 10 }
+        New-BriefReport (Join-Path $results 'regressed') 'Lexer' @{ Whole = 11.01 }
+        $checked = Test-BenchBudgets -ResultsPath (Join-Path $results 'regressed') -BaselineResultsPath (Join-Path $results 'baseline') -Budgets @{ 'Lexer.Whole' = 30 }
+        $checked.Passed | Should Be $false
+    }
+
+    It 'accepts exactly ten percent regression and fails a missing baseline measurement' {
+        New-BriefReport (Join-Path $results 'edge') 'Lexer' @{ Whole = 11 }
+        $checked = Test-BenchBudgets -ResultsPath (Join-Path $results 'edge') -BaselineResultsPath (Join-Path $results 'baseline') -Budgets @{ 'Lexer.Whole' = 30 }
+        $checked.Passed | Should Be $true
+        $missing = Test-BenchBudgets -ResultsPath (Join-Path $results 'edge') -BaselineResultsPath (Join-Path $results 'missing') -Budgets @{ 'Lexer.Whole' = 30 }
+        $missing.Passed | Should Be $false
+    }
+
+    It 'rejects duplicate measurements instead of silently selecting a report' {
+        New-BriefReport (Join-Path $results 'duplicate') 'Lexer' @{ Whole = 10 }
+        Copy-Item (Join-Path $results 'duplicate\Daml.VisualStudio.Benchmarks.Lexer-report-brief.json') (Join-Path $results 'duplicate\another-report-brief.json')
+        { Test-BenchBudgets -ResultsPath (Join-Path $results 'duplicate') -Budgets @{ 'Lexer.Whole' = 30 } } | Should Throw
+    }
+
+    It 'requires net48 x64 Release evidence for the VS budgets' {
+        New-BriefReport (Join-Path $results 'wrong-host') 'Lexer' @{ Whole = 10 }
+        { Test-BenchBudgets -ResultsPath (Join-Path $results 'wrong-host') -Budgets @{ 'Lexer.Whole' = 30 } -ValidateHost } | Should Throw
+    }
+
     Remove-Item -Recurse -Force $results -ErrorAction SilentlyContinue
 }

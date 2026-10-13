@@ -1,50 +1,61 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json.Linq;
 
 namespace Daml.VisualStudio.LanguageServer.Protocol;
 
 /// <summary>
-/// Hides document closes from damlc, which stops serving a document that is closed and opened
-/// again. Shared by the two adapter streams of one session: the client side drops
-/// <c>didClose</c> and turns a later <c>didOpen</c> into a full-text <c>didChange</c>; the server
-/// side remembers the last diagnostics damlc sent for each document and hands them back on
-/// reopen, because Visual Studio drops them on close while damlc thinks they are still shown.
+/// Keeps file documents open in damlc, which stops serving files after close/reopen. A reopen
+/// becomes a full-text change. Diagnostics are replayed only when their text fingerprint matches.
+/// Virtual resources retain their normal open/close lifecycle.
 /// </summary>
 public sealed class OpenDocuments
 {
     private static readonly byte[] DidOpen = Encoding.UTF8.GetBytes("\"textDocument/didOpen\"");
     private static readonly byte[] DidClose = Encoding.UTF8.GetBytes("\"textDocument/didClose\"");
+    private static readonly byte[] DidChange = Encoding.UTF8.GetBytes("\"textDocument/didChange\"");
     private static readonly byte[] PublishDiagnostics = Encoding.UTF8.GetBytes("\"textDocument/publishDiagnostics\"");
-
     private readonly object _gate = new();
     private readonly HashSet<string> _closedByClient = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, byte[]> _lastDiagnostics = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Document> _documents = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CachedDiagnostics> _lastDiagnostics = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Queue<string> _retentionOrder = new();
+    private readonly int _maxDocuments;
+    private readonly int _maxBytes;
+    private int _retainedBytes;
 
-    // Raised with a diagnostics message for the client to see again.
+    /// <summary>Creates a session's document tracker with a bounded diagnostics cache.</summary>
+    /// <param name="maxDocuments">Maximum number of retained diagnostics messages.</param>
+    /// <param name="maxBytes">Maximum retained diagnostic payload bytes.</param>
+    public OpenDocuments(int maxDocuments = 256, int maxBytes = 16 * 1024 * 1024)
+    {
+        if (maxDocuments <= 0 || maxBytes <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDocuments), "Cache limits must be positive.");
+        }
+        _maxDocuments = maxDocuments;
+        _maxBytes = maxBytes;
+    }
+
     internal event Action<byte[]>? Redeliver;
 
-    // What to send the server instead of a client message: the same body, another body, or nothing.
     internal byte[]? FromClient(byte[] body)
     {
-        var isOpen = ClientMessageSanitizer.Contains(body, DidOpen);
-        if (!isOpen && !ClientMessageSanitizer.Contains(body, DidClose))
+        if (!ClientMessageSanitizer.Contains(body, DidOpen) && !ClientMessageSanitizer.Contains(body, DidClose)
+            && !ClientMessageSanitizer.Contains(body, DidChange))
         {
             return body;
         }
-        if (Parse(body) is not { } message || (string?)message["method"] is not { } method)
-        {
-            return body;
-        }
-
-        var document = message["params"]?["textDocument"];
-        if ((string?)document?["uri"] is not { } uri)
+        var message = LspJson.Parse(body);
+        var document = message?["params"]?["textDocument"];
+        if ((string?)document?["uri"] is not { } uri || !IsFile(uri))
         {
             return body;
         }
         var key = Key(uri);
-
+        var method = (string?)message?["method"];
         if (method == "textDocument/didClose")
         {
             lock (_gate)
@@ -53,101 +64,145 @@ public sealed class OpenDocuments
             }
             return null;
         }
-        if (method != "textDocument/didOpen")
+        if (method is not ("textDocument/didOpen" or "textDocument/didChange") || document?["version"]?.Type != JTokenType.Integer)
         {
             return body;
         }
-
-        if (document["version"] is not { Type: JTokenType.Integer })
+        var version = (long)document["version"]!;
+        string? text = null;
+        if (method == "textDocument/didOpen")
         {
-            return body; // a change needs a version to carry; without one the open goes as is
+            text = (string?)document["text"];
         }
-        byte[]? cached;
+        else if (message?["params"]?["contentChanges"] is JArray { Count: 1 } changes && changes[0]?["range"] is null)
+        {
+            text = (string?)changes[0]?["text"];
+        }
+        // An incremental edit invalidates replay until the next full text arrives. This avoids
+        // retaining an extra document copy or treating diagnostics for old text as current.
+        var fingerprint = text is null ? null : Fingerprint(text);
+        byte[]? replay = null;
+        bool reopen;
         lock (_gate)
         {
-            if (!_closedByClient.Remove(key))
+            _documents[key] = new Document(version, fingerprint);
+            reopen = method == "textDocument/didOpen" && _closedByClient.Remove(key);
+            if (_lastDiagnostics.TryGetValue(key, out var cached))
             {
-                return body;
+                if (fingerprint is not null && fingerprint == cached.Fingerprint)
+                {
+                    if (reopen)
+                    {
+                        replay = Restamped(cached.Body, version);
+                    }
+                }
+                else
+                {
+                    RemoveCached(key);
+                }
             }
-            _lastDiagnostics.TryGetValue(key, out cached);
         }
-
+        if (!reopen)
+        {
+            return body;
+        }
         var change = new JObject
         {
             ["jsonrpc"] = "2.0",
             ["method"] = "textDocument/didChange",
             ["params"] = new JObject
             {
-                ["textDocument"] = new JObject { ["uri"] = uri, ["version"] = document!["version"]?.DeepClone() },
+                ["textDocument"] = new JObject { ["uri"] = uri, ["version"] = version },
                 ["contentChanges"] = new JArray { new JObject { ["text"] = document["text"]?.DeepClone() } },
             },
         };
-        if (cached is not null)
+        if (replay is not null)
         {
-            Redeliver?.Invoke(Restamped(cached, document["version"]));
+            Redeliver?.Invoke(replay);
         }
         return LspJson.ToBytes(change);
     }
 
-    // Remembers diagnostics damlc sent, so they can be shown again after a reopen. Returns false
-    // for a message the client must not see.
-    //
-    // Only versioned diagnostics are real results: the package's server stamps them with the
-    // document version they were computed for. damlc multi-ide's coordinator also sends an empty,
-    // unversioned list for every file it knows whenever another file opens, and the package's
-    // server never sends the errors again after it, so that clear would wipe errors that still
-    // hold. It is dropped when the last real result had errors.
     internal bool FromServer(byte[] body)
     {
-        if (!ClientMessageSanitizer.Contains(body, PublishDiagnostics) || Parse(body) is not { } message)
+        if (!ClientMessageSanitizer.Contains(body, PublishDiagnostics) || LspJson.Parse(body) is not { } message
+            || (string?)message["method"] != "textDocument/publishDiagnostics"
+            || (string?)message["params"]?["uri"] is not { } uri || !IsFile(uri))
         {
             return true;
         }
-        if ((string?)message["method"] != "textDocument/publishDiagnostics" || (string?)message["params"]?["uri"] is not { } uri)
-        {
-            return true;
-        }
-
         var parameters = message["params"]!;
-        var versioned = parameters["version"] is { Type: not JTokenType.Null };
-        var empty = parameters["diagnostics"] is not JArray { Count: > 0 };
+        var version = parameters["version"];
+        var hasErrors = parameters["diagnostics"] is JArray { Count: > 0 };
         var key = Key(uri);
         lock (_gate)
         {
-            if (versioned)
+            if (version is { Type: JTokenType.Integer })
             {
-                _lastDiagnostics[key] = body;
+                if (!_documents.TryGetValue(key, out var document))
+                {
+                    return true;
+                }
+                if ((long)version != document.Version)
+                {
+                    return false;
+                }
+                RemoveCached(key);
+                if (body.Length <= _maxBytes)
+                {
+                    while (_lastDiagnostics.Count >= _maxDocuments || _retainedBytes > _maxBytes - body.Length)
+                    {
+                        RemoveCached(_retentionOrder.Dequeue());
+                    }
+                    _lastDiagnostics[key] = new CachedDiagnostics(body, document.Fingerprint, hasErrors);
+                    _retainedBytes += body.Length;
+                    _retentionOrder.Enqueue(key);
+                }
                 return true;
             }
-            return !(empty && _lastDiagnostics.TryGetValue(key, out var last) && HasErrors(last));
+            // multi-ide sends an unversioned blanket clear when another file opens. Suppress
+            // it only while we have an error result associated with the current known text.
+            return hasErrors || !_lastDiagnostics.TryGetValue(key, out var last) || !last.HasErrors;
         }
     }
 
-    private static bool HasErrors(byte[] diagnostics) =>
-        Parse(diagnostics)?["params"]?["diagnostics"] is JArray { Count: > 0 };
-
-    // damlc stamps diagnostics with the document version they were computed for, and VS ignores
-    // them for an older version than the one it has open. The text is unchanged since then, so
-    // they hold for the reopened version too.
-    private static byte[] Restamped(byte[] diagnostics, JToken? version)
+    private void RemoveCached(string key)
     {
-        if (Parse(diagnostics) is not { } message || message["params"] is not JObject parameters)
+        if (_lastDiagnostics.TryGetValue(key, out var old))
         {
-            return diagnostics;
+            _retainedBytes -= old.Body.Length;
+            _lastDiagnostics.Remove(key);
+            // The cache is small; removal keeps its FIFO metadata bounded as well as payloads.
+            var count = _retentionOrder.Count;
+            while (count-- > 0)
+            {
+                var retained = _retentionOrder.Dequeue();
+                if (!string.Equals(retained, key, StringComparison.OrdinalIgnoreCase))
+                {
+                    _retentionOrder.Enqueue(retained);
+                }
+            }
         }
-        if (version is null || version.Type == JTokenType.Null)
-        {
-            parameters.Remove("version");
-        }
-        else
-        {
-            parameters["version"] = version.DeepClone();
-        }
+    }
+
+    private static byte[] Restamped(byte[] diagnostics, long version)
+    {
+        var message = LspJson.Parse(diagnostics)!;
+        message["params"]!["version"] = version;
         return LspJson.ToBytes(message);
     }
 
-    // damlc and VS spell the same file differently (escaped drive colon, letter case).
+    private static bool IsFile(string uri) => LspUri.ToLocalPath(uri) is not null;
+
     private static string Key(string uri) => Uri.UnescapeDataString(uri);
 
-    private static JObject? Parse(byte[] body) => LspJson.Parse(body);
+    private static string Fingerprint(string text)
+    {
+        using var hash = SHA256.Create();
+        return Convert.ToBase64String(hash.ComputeHash(Encoding.UTF8.GetBytes(text)));
+    }
+
+    private sealed record Document(long Version, string? Fingerprint);
+
+    private sealed record CachedDiagnostics(byte[] Body, string? Fingerprint, bool HasErrors);
 }

@@ -171,4 +171,23 @@ public class LongPathRedirectorTests
         _copier.Copies.Select(c => c.Target).Distinct().Count().ShouldBe(2);
         _copier.Copies.Select(c => Path.GetFileName(c.Target)).ShouldBe(["PartyIdHint.daml", "PartyIdHints.daml"]);
     }
+    [Fact, Trait("Category", "Unit")]
+    public void A_library_copy_document_maps_back_to_its_source_without_mutating_the_request()
+    {
+        var redirector = Redirector();
+        var copy = (JObject)redirector.Redirect(Location(LongPath))!;
+        var parameters = JObject.FromObject(new { textDocument = new { uri = (string)copy["uri"]! }, position = new { line = 5, character = 2 } });
+        var result = redirector.OriginalDocument(parameters);
+        ((string)result["textDocument"]!["uri"]!).ShouldBe(Uri(LongPath));
+        JToken.DeepEquals(result["position"], parameters["position"]).ShouldBeTrue();
+        ((string)parameters["textDocument"]!["uri"]!).ShouldBe((string)copy["uri"]!);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Long_unc_paths_use_the_unc_extended_prefix()
+    {
+        var path = @"\\server\share\" + new string('a', 250) + @"\Library.daml";
+        LibraryCopier.Extended(path).ShouldBe(@"\\?\UNC\server\share\" + new string('a', 250) + @"\Library.daml");
+    }
+
 }

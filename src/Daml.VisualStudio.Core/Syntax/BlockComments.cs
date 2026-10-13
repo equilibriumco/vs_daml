@@ -28,10 +28,11 @@ internal static class BlockComments
     private static IEnumerable<(int First, int Last)> Find(IReadOnlyList<LineTokens> lines)
     {
         var first = -1;
-        for (var number = 0; number < lines.Count; number++)
+        var number = 0;
+        foreach (var current in lines)
         {
-            var inside = IsInside(lines[number].EndState.Mode);
-            if (inside && first >= 0 && HasCodeBetweenComments(lines[number]))
+            var inside = IsInside(current.EndState.Mode);
+            if (inside && first >= 0 && HasCodeBetweenComments(current))
             {
                 yield return (first, number);
                 first = number;
@@ -45,6 +46,7 @@ internal static class BlockComments
                 yield return (first, number);
                 first = -1;
             }
+            number++;
         }
         if (first >= 0)
         {

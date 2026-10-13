@@ -45,4 +45,16 @@ function Get-IdeTestShortfall {
     [Math]::Max(0, $declared - $reported)
 }
 
-Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall
+# Only categories selected for this invocation can supply coverage evidence. Merged reports and
+# projects that executed no tests are excluded; reports are kept separate by runtime.
+function Get-RunCoverageReports {
+    param([string] $ResultsRoot, [string[]] $Categories, [string] $Framework)
+    foreach ($category in $Categories) {
+        $tfmDir = Join-Path $ResultsRoot "$category\$Framework"
+        Get-ChildItem -LiteralPath $tfmDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne 'coverage' -and (Get-TrxCounters $_.FullName).Executed -gt 0 } |
+            ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Recurse -Filter 'coverage.cobertura.xml' }
+    }
+}
+
+Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports

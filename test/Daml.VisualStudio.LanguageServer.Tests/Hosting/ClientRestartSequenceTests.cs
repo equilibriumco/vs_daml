@@ -51,6 +51,26 @@ public sealed class ClientRestartSequenceTests : IDisposable
         Version = 1,
     };
 
+    // Deliberately pause discovery; the task is owned by this test.
+#pragma warning disable VSTHRD003
+    [Fact, Trait("Category", "Unit")]
+    public async Task Disposal_during_discovery_cancels_the_run_without_raising_start_or_breaking_cleanup()
+    {
+        var discovered = new TaskCompletionSource<(WorkspaceContext?, LanguageServerOptions)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var starts = 0;
+        var sequence = new ClientRestartSequence(_host, _ => discovered.Task, () => Task.CompletedTask,
+            () => { starts++; return Task.CompletedTask; });
+        var running = sequence.StartAsync(CancellationToken.None);
+        sequence.Dispose();
+        sequence.Dispose();
+        discovered.SetResult((Workspace(), new LanguageServerOptions()));
+
+        await Should.ThrowAsync<OperationCanceledException>(() => running);
+        starts.ShouldBe(0);
+        await Should.ThrowAsync<ObjectDisposedException>(() => sequence.StartAsync(CancellationToken.None));
+    }
+#pragma warning restore VSTHRD003
+
     private ClientRestartSequence Sequence() => new(
         _host,
         _ =>

@@ -149,4 +149,35 @@ public class LineTokensCacheTests
         Enumerable.Range(0, text.LineCount).Count(i => ReferenceEquals(cache.Lines[i], before[i])).ShouldBe(text.LineCount - 1);
         Flat(cache.Lines).ShouldBe(Fresh(text));
     }
+    [Fact, Trait("Category", "Unit")]
+    public void Old_snapshots_remain_unchanged_after_many_insertions_deletions_and_replacements()
+    {
+        var text = new TextLines(Enumerable.Range(0, 5000).Select(i => $"x{i} = {i}").ToArray());
+        var cache = Lexed(text);
+        var original = cache.Lines;
+        var expectedOriginal = Flat(original);
+        for (var i = 0; i < 600; i++)
+        {
+            var line = (i * 79) % (text.LineCount - 2);
+            cache.Update(text, text.Replace(line, i % 3, $"added{i} = {i}", "tail = 1"));
+        }
+        Flat(cache.Lines).ShouldBe(Fresh(text));
+        Flat(original).ShouldBe(expectedOriginal);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Forked_readers_can_apply_different_edits_without_mutating_each_other()
+    {
+        var text = TenLines();
+        var original = Lexed(text);
+        var fork = original.Fork();
+        var forkText = TenLines();
+        fork.Update(forkText, forkText.Replace(2, 1, "other = 2"));
+        original.Update(text, text.Replace(6, 1, "mine = 6"));
+        Flat(fork.Lines).ShouldBe(Fresh(forkText));
+        Flat(original.Lines).ShouldBe(Fresh(text));
+        fork.Lines[6].Text.ShouldBe("x6 = 6");
+        original.Lines[2].Text.ShouldBe("x2 = 2");
+    }
+
 }

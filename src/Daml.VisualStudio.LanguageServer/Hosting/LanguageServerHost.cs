@@ -253,12 +253,20 @@ public sealed class LanguageServerHost : IDisposable
         }
         if (session is null)
         {
-            Raise(LanguageServerProblemKind.CircuitOpen, "The Daml language server keeps crashing and was stopped. Use Restart to try again; the Output window has its log.");
+            if (Supervisor.State == LanguageServerState.Faulted)
+            {
+                Raise(LanguageServerProblemKind.CircuitOpen, "The Daml language server keeps crashing and was stopped. Use Restart to try again; the Output window has its log.");
+            }
+            else if (Supervisor.State == LanguageServerState.Crashed)
+            {
+                Raise(LanguageServerProblemKind.CannotStart, "The Daml language server exited during startup; the Output window has its log.");
+            }
             return null;
         }
 
         lock (_gate)
         {
+            if (session.Ending.IsCancellationRequested || session.Id < _currentSession) { return null; }
             _currentSession = session.Id;
         }
         var tracker = new InitializeTracker();
@@ -487,17 +495,12 @@ public sealed class LanguageServerHost : IDisposable
     {
         lock (_gate)
         {
-            if (session != _currentSession || _initializedSession != session || _attachedSession != session)
-            {
-                return;
-            }
+            if (session != _currentSession || _initializedSession != session || _attachedSession != session
+                || _ready || Supervisor.State != LanguageServerState.Ready) { return; }
+            _ready = true;
+            KeepAlive.Watch(session);
         }
-        if (Supervisor.State != LanguageServerState.Ready)
-        {
-            return; // gone (crashed, stopped) between its initialize reply and now
-        }
-        KeepAlive.Watch(session);
-        SetReady(true);
+        ReadinessChanged?.Invoke(this, EventArgs.Empty);
         SessionReady?.Invoke(this, new SessionReadyEventArgs(session));
     }
 
@@ -518,29 +521,28 @@ public sealed class LanguageServerHost : IDisposable
 
     private void OnStateChanged(object? sender, LanguageServerStateChangedEventArgs e)
     {
-        if (e.NewState != LanguageServerState.Ready)
+        var readinessChanged = false;
+        lock (_gate)
         {
-            SetReady(false);
+            if (e.SessionId < _currentSession || e.NewState != Supervisor.State) { return; }
+            if (e.NewState != LanguageServerState.Ready && _ready)
+            {
+                _ready = false;
+                readinessChanged = true;
+            }
+            if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted)
+            {
+                if (_initializedSession == e.SessionId) { _initializedSession = 0; }
+                if (_attachedSession == e.SessionId) { _attachedSession = 0; }
+            }
         }
         if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted)
         {
-            int session;
-            lock (_gate)
-            {
-                session = _currentSession;
-                // Whatever this session still reports (its initialize reply, its attach) is too late.
-                if (_initializedSession == session)
-                {
-                    _initializedSession = 0;
-                }
-                if (_attachedSession == session)
-                {
-                    _attachedSession = 0;
-                }
-            }
-            KeepAlive.Stop();
-            _channel.Detach(session);
+            // Both consumers check ownership again: a newer session may attach after the lock.
+            KeepAlive.Stop(e.SessionId);
+            _channel.Detach(e.SessionId);
         }
+        if (readinessChanged) { ReadinessChanged?.Invoke(this, EventArgs.Empty); }
     }
 
     private void SetReady(bool ready)

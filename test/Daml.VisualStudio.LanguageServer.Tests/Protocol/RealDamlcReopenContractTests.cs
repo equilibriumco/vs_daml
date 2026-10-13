@@ -60,6 +60,38 @@ public class RealDamlcReopenContractTests
         cleared.ShouldBeTrue("damlc didn't react to an edit after the reopen");
     }
 
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [InlineData("multi-ide")]
+    [InlineData("ide")]
+    public async Task Reopening_with_shorter_fixed_text_clears_errors_and_returns_hover_ranges_in_the_new_text(string mode)
+    {
+        var package = Repository.Sample("broken");
+        var file = Path.Combine(package, "daml", "TypeError.daml");
+        var uri = new Uri(file).AbsoluteUri;
+        await using var session = await StartAsync(mode, package, uri);
+        await session.Rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", new { textDocument = new { uri, languageId = "daml", version = 1, text = File.ReadAllText(file) } });
+        (await WaitForAsync(session.Published, 0, count => count > 0)).ShouldBeTrue();
+        await session.Rpc.NotifyWithParameterObjectAsync("textDocument/didClose", new { textDocument = new { uri } });
+        var before = Snapshot(session.Published).Count;
+        const string ReopenedText = "module TypeError where\n\ntotal : Int\ntotal = 42\n";
+        await session.Rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", new { textDocument = new { uri, languageId = "daml", version = 2, text = ReopenedText } });
+        (await WaitForAsync(session.Published, before, count => count == 0)).ShouldBeTrue("errors for the discarded text must clear");
+        var hoverTask = session.Rpc.InvokeWithParameterObjectAsync<JObject>("textDocument/hover", new { textDocument = new { uri }, position = new { line = 3, character = 1 } });
+        (await Task.WhenAny(hoverTask, Task.Delay(TimeSpan.FromSeconds(60)))).ShouldBe(hoverTask);
+        var hover = (await hoverTask).ShouldNotBeNull();
+        hover["contents"].ShouldNotBeNull();
+        if (hover["range"] is { } range)
+        {
+            var lines = ReopenedText.Split('\n');
+            foreach (var end in new[] { "start", "end" })
+            {
+                var line = (int)range[end]!["line"]!;
+                line.ShouldBeInRange(0, lines.Length - 1);
+                ((int)range[end]!["character"]!).ShouldBeInRange(0, lines[line].Length);
+            }
+        }
+    }
+
     // multi-ide's coordinator sends an empty, unversioned list for every known file whenever
     // another file opens, and the package's server never sends the error again.
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]

@@ -17,30 +17,30 @@ public class StructureTests
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var view = Ide.OpenFile(Path.Combine(Ide.CopySample("single-package"), "daml", "Main.daml"));
         var outlining = Ide.ComponentModel().GetService<IOutliningManagerService>().GetOutliningManager(view);
-        Assert.NotNull(outlining);
-        bool IsTemplate(ICollapsible region) =>
-            region.Extent.GetStartPoint(view.TextBuffer.CurrentSnapshot).GetContainingLine().GetText().StartsWith("template Asset", StringComparison.Ordinal);
-        SnapshotSpan Whole() => new(view.TextBuffer.CurrentSnapshot, 0, view.TextBuffer.CurrentSnapshot.Length);
-
-        // Regions are worked out in the background once the file has been quiet for a moment.
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
-        while (!outlining!.GetAllRegions(Whole()).Any(IsTemplate) && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(200);
-        }
-        Assert.Contains(outlining.GetAllRegions(Whole()), IsTemplate);
-
-        Ide.CollapseToDefinitions(view);
-
-        var template = outlining.GetCollapsedRegions(Whole()).FirstOrDefault(IsTemplate);
         try
         {
+            Assert.NotNull(outlining);
+            bool IsTemplate(ICollapsible region) =>
+                region.Extent.GetStartPoint(view.TextBuffer.CurrentSnapshot).GetContainingLine().GetText().StartsWith("template Asset", StringComparison.Ordinal);
+            SnapshotSpan Whole() => new(view.TextBuffer.CurrentSnapshot, 0, view.TextBuffer.CurrentSnapshot.Length);
+
+            // Regions are worked out in the background once the file has been quiet for a moment.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+            while (!outlining!.GetAllRegions(Whole()).Any(IsTemplate) && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(200);
+            }
+            Assert.Contains(outlining.GetAllRegions(Whole()), IsTemplate);
+
+            Ide.CollapseToDefinitions(view);
+
+            var template = outlining.GetCollapsedRegions(Whole()).FirstOrDefault(IsTemplate);
             Assert.NotNull(template);
             Assert.Equal("template Asset …", template!.CollapsedForm);
         }
         finally
         {
-            outlining.ExpandAll(Whole(), _ => true);
+            outlining?.ExpandAll(new SnapshotSpan(view.TextBuffer.CurrentSnapshot, 0, view.TextBuffer.CurrentSnapshot.Length), _ => true);
             Ide.CloseAllDocuments();
         }
     }

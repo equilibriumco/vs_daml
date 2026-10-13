@@ -62,9 +62,9 @@ public class TranscriptRedactorTests
     [Fact, Trait("Category", "Unit")]
     public void Ordinary_messages_stay_as_they_are()
     {
-        const string json = """{"jsonrpc":"2.0","id":3,"result":{"contents":{"kind":"markdown","value":"template Asset"},"range":{"start":{"line":6,"character":9}}}}""";
+        const string Json = """{"jsonrpc":"2.0","id":3,"result":{"contents":{"kind":"markdown","value":"template Asset"},"range":{"start":{"line":6,"character":9}}}}""";
 
-        Redacted(json).ShouldBe(json);
+        Redacted(Json).ShouldBe(Json);
     }
 
     [Fact, Trait("Category", "Unit")]

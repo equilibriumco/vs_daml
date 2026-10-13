@@ -83,6 +83,7 @@ public class OpenDocumentsTests
         var documents = new OpenDocuments();
         using var server = new QueueStream();
         using var fromServer = new ServerToClientStream(server, Settings, new InitializeTracker(), NullDamlLogger.Instance, documents);
+        await SentToServerAsync(documents, Open(1, "x"));
         server.Push(Frame(Diagnostics));
         Encoding.UTF8.GetString(await ReadFrameAsync(fromServer)).ShouldBe(Diagnostics);
 
@@ -104,6 +105,7 @@ public class OpenDocumentsTests
         using var fromServer = new ServerToClientStream(server, Settings, new InitializeTracker(), NullDamlLogger.Instance, documents);
         var versioned = JObject.Parse(Diagnostics);
         versioned["params"]!["version"] = 1;
+        await SentToServerAsync(documents, Open(1, "x"));
         server.Push(Frame(versioned.ToString(Newtonsoft.Json.Formatting.None)));
         await ReadFrameAsync(fromServer);
 
@@ -126,6 +128,7 @@ public class OpenDocumentsTests
         versioned["params"]!["version"] = 1;
         var blanketClear = """{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///M:/repo/daml/TypeError.daml","diagnostics":[]}}""";
         var other = """{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///M:/repo/daml/Other.daml","version":1,"diagnostics":[]}}""";
+        await SentToServerAsync(documents, Open(1, "x"));
         server.Push(Frame(versioned.ToString(Newtonsoft.Json.Formatting.None)));
         server.Push(Frame(blanketClear));
         server.Push(Frame(other));
@@ -164,6 +167,86 @@ public class OpenDocumentsTests
         // Anything handed back on the reopen would be read before what the server sends next.
         server.Push(Frame("""{"jsonrpc":"2.0","method":"window/logMessage","params":{"type":3,"message":"hi"}}"""));
         ((string)JObject.Parse(Encoding.UTF8.GetString(await next))["method"]!).ShouldBe("window/logMessage");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Virtual_resources_keep_their_open_close_open_protocol()
+    {
+        var documents = new OpenDocuments();
+        foreach (var method in new[] { "textDocument/didOpen", "textDocument/didClose", "textDocument/didOpen" })
+        {
+            var body = Encoding.UTF8.GetBytes(new JObject
+            {
+                ["method"] = method,
+                ["params"] = new JObject { ["textDocument"] = new JObject { ["uri"] = "daml://compiler?file=C:/a.daml&top-level-decl=test", ["version"] = 0, ["text"] = "" } },
+            }.ToString());
+            documents.FromClient(body).ShouldBeSameAs(body);
+        }
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Changed_text_on_reopen_does_not_receive_restamped_errors()
+    {
+        var documents = new OpenDocuments();
+        await SentToServerAsync(documents, Open(1, "old text"));
+        documents.FromServer(Encoding.UTF8.GetBytes(Diagnostics));
+        var replayed = new List<byte[]>();
+        documents.Redeliver += replayed.Add;
+
+        await SentToServerAsync(documents, Close, Open(2, ""));
+
+        replayed.ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Diagnostics_for_an_old_text_version_are_dropped_after_an_edit()
+    {
+        var documents = new OpenDocuments();
+        await SentToServerAsync(documents, Open(1, "old"), Change(2, "new"));
+
+        documents.FromServer(Encoding.UTF8.GetBytes(Diagnostics)).ShouldBeFalse();
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(1, 4096)]
+    [InlineData(256, 1)]
+    public async Task Evicted_diagnostics_are_not_replayed_or_used_to_suppress_clears(int maxDocuments, int maxBytes)
+    {
+        var documents = new OpenDocuments(maxDocuments, maxBytes);
+        await SentToServerAsync(documents, Open(1, "x"));
+        documents.FromServer(Encoding.UTF8.GetBytes(Diagnostics)).ShouldBeTrue();
+        var otherOpen = new JObject
+        {
+            ["method"] = "textDocument/didOpen",
+            ["params"] = new JObject
+            {
+                ["textDocument"] = new JObject { ["uri"] = "file:///M:/repo/daml/Other.daml", ["version"] = 1, ["text"] = "x" },
+            }
+        };
+        documents.FromClient(Encoding.UTF8.GetBytes(otherOpen.ToString()));
+        documents.FromServer(Encoding.UTF8.GetBytes(Diagnostics.Replace("TypeError.daml", "Other.daml"))).ShouldBeTrue();
+        var replay = new List<byte[]>();
+        documents.Redeliver += replay.Add;
+
+        await SentToServerAsync(documents, Close, Open(2, "x"));
+
+        replay.ShouldBeEmpty();
+        documents.FromServer(Encoding.UTF8.GetBytes("{\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":\"file:///M:/repo/daml/TypeError.daml\",\"diagnostics\":[]}}")).ShouldBeTrue();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Current_errors_after_an_incremental_edit_are_protected_without_unsafe_replay()
+    {
+        var documents = new OpenDocuments();
+        await SentToServerAsync(documents, Open(1, "x"), Frame("{\"method\":\"textDocument/didChange\",\"params\":{\"textDocument\":{\"uri\":\"file:///M:/repo/daml/TypeError.daml\",\"version\":2},\"contentChanges\":[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}},\"text\":\"y\"}]}}"));
+        var errors = JObject.Parse(Diagnostics);
+        errors["params"]!["version"] = 2;
+        documents.FromServer(Encoding.UTF8.GetBytes(errors.ToString())).ShouldBeTrue();
+        documents.FromServer(Encoding.UTF8.GetBytes("{\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":\"file:///M:/repo/daml/TypeError.daml\",\"diagnostics\":[]}}")).ShouldBeFalse();
+        var replay = new List<byte[]>();
+        documents.Redeliver += replay.Add;
+        await SentToServerAsync(documents, Close, Open(3, "y"));
+        replay.ShouldBeEmpty("incremental text was not fingerprinted, so old ranges cannot be certified");
     }
 
     private static async Task<byte[]> ReadFrameAsync(Stream stream)

@@ -88,40 +88,40 @@ public static class DamlLexer
         {
             case LexMode.BlockComment:
             case LexMode.Pragma:
-            {
-                var depth = Math.Max(1, state.CommentDepth);
-                var end = SkipNestedComment(line, 0, ref depth);
-                Add(output, 0, end, state.Mode == LexMode.Pragma ? DamlTokenKind.Pragma : DamlTokenKind.BlockComment);
-                if (depth > 0)
                 {
-                    return new LexState(state.Mode, depth);
-                }
-                i = end;
-                break;
-            }
-            case LexMode.StringGap:
-            {
-                var indent = SkipWhitespace(line, 0);
-                if (indent == line.Length)
-                {
-                    Add(output, 0, indent, DamlTokenKind.String);
-                    return state;
-                }
-                if (line[indent] == '\\')
-                {
-                    var (end, gapOpen) = ScanStringBody(line, indent + 1);
-                    Add(output, 0, end, DamlTokenKind.String);
-                    if (gapOpen)
+                    var depth = Math.Max(1, state.CommentDepth);
+                    var end = SkipNestedComment(line, 0, ref depth);
+                    Add(output, 0, end, state.Mode == LexMode.Pragma ? DamlTokenKind.Pragma : DamlTokenKind.BlockComment);
+                    if (depth > 0)
                     {
-                        return new LexState(LexMode.StringGap, 0);
+                        return new LexState(state.Mode, depth);
                     }
                     i = end;
+                    break;
                 }
+            case LexMode.StringGap:
+                {
+                    var indent = SkipWhitespace(line, 0);
+                    if (indent == line.Length)
+                    {
+                        Add(output, 0, indent, DamlTokenKind.String);
+                        return state;
+                    }
+                    if (line[indent] == '\\')
+                    {
+                        var (end, gapOpen) = ScanStringBody(line, indent + 1);
+                        Add(output, 0, end, DamlTokenKind.String);
+                        if (gapOpen)
+                        {
+                            return new LexState(LexMode.StringGap, 0);
+                        }
+                        i = end;
+                    }
 
-                // Anything else means the gap was never closed; carry on as code rather than
-                // colouring the rest of the file as a string.
-                break;
-            }
+                    // Anything else means the gap was never closed; carry on as code rather than
+                    // colouring the rest of the file as a string.
+                    break;
+                }
         }
 
         while (i < line.Length)

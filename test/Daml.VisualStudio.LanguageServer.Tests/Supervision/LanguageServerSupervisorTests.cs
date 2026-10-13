@@ -185,41 +185,36 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         var second = await StartAsync();
 
         _runner.Started[0].Disposed.ShouldBeTrue();
+        // Disposal cancels Exited, so a late synthetic exit cannot complete it again.
+        _runner.Started[0].Exited.IsCanceled.ShouldBeTrue();
         _runner.Started[0].Exit(1);
-        // The exit is looked at on a continuation; wait for it to have been, then judge.
-        var deadline = DateTime.UtcNow + Generous;
-        while (_supervisor.ExitsHandled < 1 && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(10);
-        }
-        _supervisor.ExitsHandled.ShouldBeGreaterThanOrEqualTo(1);
+        _supervisor.MarkReady(1);
+        _supervisor.ReportConnectionFailure(1, new IOException("stale connection"));
 
         second.ShouldNotBeNull().Id.ShouldBe(2);
         _supervisor.State.ShouldBe(LanguageServerState.Initializing);
         _transitions.ShouldNotContain(t => t.To == LanguageServerState.Crashed);
     }
 
-    // Resolving the tool (dpm versions, damlc --help) doesn't hold the other start up; the
-    // process creation and the hand-over still happen one at a time, the earlier session giving
-    // way to the later one.
+    // Resolution tasks are owned by this test and have no UI-thread dependency.
+#pragma warning disable VSTHRD003
     [Fact, Trait("Category", "Unit")]
-    public async Task Concurrent_starts_resolve_at_once_but_create_sessions_one_after_the_other()
+    public async Task A_newer_start_wins_even_when_an_older_resolver_finishes_last()
     {
         var gate = new TaskCompletionSource<ProcessSpec>(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
         using var supervisor = new LanguageServerSupervisor(_runner, _ => Interlocked.Increment(ref calls) == 1 ? gate.Task : Task.FromResult(Command), NullDamlLogger.Instance, _time);
-
         var first = supervisor.StartAsync(CancellationToken.None);
-        var second = supervisor.StartAsync(CancellationToken.None);
-        calls.ShouldBe(2, "both resolved before either waited for the other");
+        var second = await supervisor.StartAsync(CancellationToken.None);
         gate.SetResult(Command);
 
-        var sessions = new[] { (await first).ShouldNotBeNull(), (await second).ShouldNotBeNull() };
-        sessions.Select(s => s.Id).OrderBy(id => id).ShouldBe([1, 2]);
-        _runner.Started.Count.ShouldBe(2);
-        _runner.Started[0].Disposed.ShouldBeTrue("the earlier session was superseded");
-        _runner.Started[1].Disposed.ShouldBeFalse();
+        await Should.ThrowAsync<OperationCanceledException>(async () => await first);
+        second.ShouldNotBeNull().Id.ShouldBe(1);
+        _runner.Started.Count.ShouldBe(1);
+        _runner.Started[0].Disposed.ShouldBeFalse();
     }
+
+#pragma warning restore VSTHRD003
 
     [Fact, Trait("Category", "Unit")]
     public async Task Restart_requests_are_merged_until_the_next_start()

@@ -29,9 +29,9 @@ public static class Occurrences
         }
         var text = lines[line].Text.Substring(name.Start, name.Length);
         var result = new List<TextSpan>();
-        for (var number = 0; number < lines.Count; number++)
+        var number = 0;
+        foreach (var current in lines)
         {
-            var current = lines[number];
             foreach (var token in current.Tokens)
             {
                 if (token.Kind == name.Kind && token.Length == text.Length && string.CompareOrdinal(current.Text, token.Start, text, 0, text.Length) == 0)
@@ -39,6 +39,7 @@ public static class Occurrences
                     result.Add(new TextSpan(number, token.Start, token.Length));
                 }
             }
+            number++;
         }
         return result;
     }

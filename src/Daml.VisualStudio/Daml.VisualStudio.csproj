@@ -11,6 +11,7 @@
     <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
     <!-- Symbols travel with a Debug VSIX only; the Marketplace artefact ships without them. -->
     <IncludeDebugSymbolsInVSIXContainer Condition="'$(Configuration)' == 'Debug'">true</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer Condition="'$(Configuration)' != 'Debug'">false</IncludeDebugSymbolsInVSIXContainer>
     <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
     <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
     <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
@@ -66,10 +67,11 @@
   <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
   <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
 
-  <!-- The XML documentation files are for the compiler, not for the IDE. -->
-  <Target Name="DropDocumentationFromVsix" AfterTargets="GetVsixSourceItems">
+  <!-- Documentation never ships; Release also excludes referenced-project symbols. -->
+  <Target Name="DropDevelopmentFilesFromVsix" AfterTargets="GetVsixSourceItems">
     <ItemGroup>
       <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'%(Extension)' == '.xml'" />
+      <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'$(Configuration)' != 'Debug' and '%(Extension)' == '.pdb'" />
     </ItemGroup>
   </Target>
 

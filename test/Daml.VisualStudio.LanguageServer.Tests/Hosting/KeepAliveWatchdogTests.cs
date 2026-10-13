@@ -55,6 +55,19 @@ public sealed class KeepAliveWatchdogTests : IDisposable
         SpinWait.SpinUntil(() => _watchdog?.IsSettled ?? true, TimeSpan.FromSeconds(10)).ShouldBeTrue("the watchdog didn't settle");
 
     [Fact, Trait("Category", "Unit")]
+    public void A_late_stop_of_an_old_session_does_not_stop_the_new_watchdog()
+    {
+        using var watchdog = Watchdog();
+        watchdog.Watch(1);
+        _channel.Attach(_rpc, 2);
+        watchdog.Watch(2);
+        watchdog.Stop(1);
+        Advance(60);
+        _pings.Count.ShouldBe(1);
+        _pings[0].Rpc.ShouldBeSameAs(_rpc);
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void The_first_ping_goes_out_a_minute_after_watching_starts_and_each_next_one_a_minute_after_the_answer()
     {
         using var watchdog = Watchdog();

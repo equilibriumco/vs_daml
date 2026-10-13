@@ -25,9 +25,8 @@ namespace Daml.VisualStudio.Core.Processes;
 // as long as the pipe is open, which for a language server is forever.
 internal sealed class JobProcess : IRunningProcess
 {
-    // Inheritable copies of the child's pipe ends exist only while this is held, so a process
-    // that something else in the host starts at the same moment can't inherit them and keep
-    // the pipes open after the child is gone.
+    // Serializes this runner's creation windows. The explicit handle list restricts our child;
+    // unrelated process launchers in the host do not take this lock.
     private static readonly object CreateLock = new();
 
     private const int PipeBufferSize = 64 * 1024;
@@ -237,8 +236,8 @@ internal sealed class JobProcess : IRunningProcess
         }
     }
 
-    // Our end, overlapped, and the child's end, plain, of a pipe nobody else can reach: the name
-    // can't be guessed, there's a single instance, and we connect to it before anyone could.
+    // Our end supports overlapped I/O; the child's end is plain. A random pipe name and one
+    // instance reduce collisions, and both ends are connected before creating the child.
     private static (NamedPipeServerStream Ours, NamedPipeClientStream Child) CreatePipe(PipeDirection ourDirection)
     {
         var name = "daml-vs-" + Guid.NewGuid().ToString("N");

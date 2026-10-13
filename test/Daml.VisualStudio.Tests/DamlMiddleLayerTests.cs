@@ -92,4 +92,35 @@ public class DamlMiddleLayerTests
 
         result.ShouldBeSameAs(answer);
     }
+    [Theory, Trait("Category", "Editor")]
+    [InlineData("textDocument/hover")]
+    [InlineData("textDocument/definition")]
+    public async Task Library_requests_are_mapped_before_scope_checks_and_forwarding(string method)
+    {
+        var layer = new DamlMiddleLayer(NullDamlLogger.Instance, uri => uri == Inside, originalDocument: parameters => Params(Inside));
+        string? requestedUri = null;
+        await layer.HandleRequestAsync(method, Params(Outside), parameters =>
+        {
+            requestedUri = (string?)parameters["textDocument"]?["uri"];
+            return Task.FromResult<JToken?>(new JObject());
+        });
+        requestedUri.ShouldBe(Inside);
+    }
+
+    [Fact, Trait("Category", "Editor")]
+    public async Task Library_open_and_close_notifications_use_the_original_uri()
+    {
+        var layer = new DamlMiddleLayer(NullDamlLogger.Instance, uri => uri == Inside, originalDocument: parameters => Params(Inside));
+        var sent = new List<string>();
+        foreach (var method in new[] { "textDocument/didOpen", "textDocument/didClose" })
+        {
+            await layer.HandleNotificationAsync(method, Params(Outside), parameters =>
+            {
+                sent.Add((string)parameters["textDocument"]!["uri"]!);
+                return Task.CompletedTask;
+            });
+        }
+        sent.ShouldBe([Inside, Inside]);
+    }
+
 }

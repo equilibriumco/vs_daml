@@ -204,6 +204,10 @@ public sealed class ServerToClientStream : Stream
     private readonly OpenDocuments? _documents;
     private readonly Action<Exception>? _onFailure;
     private readonly ConcurrentQueue<byte[]> _frames = new();
+    private readonly LspAdapterSettings _settings;
+    private int _queuedBytes;
+    private bool _ended;
+    private int _disposed;
     private readonly SemaphoreSlim _available = new(0);
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
@@ -225,7 +229,12 @@ public sealed class ServerToClientStream : Stream
     {
         _onFailure = onFailure;
         _server = server ?? throw new ArgumentNullException(nameof(server));
-        _reader = new LspFrameReader(server, settings ?? throw new ArgumentNullException(nameof(settings)));
+        _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        if (settings.MaxQueuedBytes <= 0 || settings.MaxQueuedFrames <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(settings), "Queue limits must be positive.");
+        }
+        _reader = new LspFrameReader(server, settings);
         _tracker = tracker ?? throw new ArgumentNullException(nameof(tracker));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _documents = documents;
@@ -284,22 +293,63 @@ public sealed class ServerToClientStream : Stream
     /// <inheritdoc />
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && Interlocked.Exchange(ref _disposed, 1) == 0)
         {
             if (_documents is not null)
             {
                 _documents.Redeliver -= Enqueue;
             }
+            lock (_gate)
+            {
+                _ended = true;
+                ClearQueue();
+            }
             _stop.Cancel();
             _server.Dispose();
+            _available.Release();
         }
         base.Dispose(disposing);
     }
 
     private void Enqueue(byte[] body)
     {
-        _frames.Enqueue(body);
+        IOException? overflow = null;
+        lock (_gate)
+        {
+            if (_ended)
+            {
+                return;
+            }
+            if (_frames.Count >= _settings.MaxQueuedFrames || body.Length > _settings.MaxQueuedBytes - _queuedBytes)
+            {
+                overflow = new IOException("The language server filled the client's bounded message queue; closing the connection.");
+                _failure = overflow;
+                _ended = true;
+                ClearQueue();
+            }
+            else
+            {
+                _frames.Enqueue(body);
+                _queuedBytes += body.Length;
+            }
+        }
         _available.Release();
+        if (overflow is not null)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, overflow.Message);
+            _stop.Cancel();
+            _server.Dispose();
+            _onFailure?.Invoke(overflow);
+        }
+    }
+
+    // Callers hold _gate.
+    private void ClearQueue()
+    {
+        while (_frames.TryDequeue(out _))
+        {
+        }
+        _queuedBytes = 0;
     }
 
     private void StartPump()
@@ -334,6 +384,10 @@ public sealed class ServerToClientStream : Stream
         {
             // The server went away.
         }
+        lock (_gate)
+        {
+            _ended = true;
+        }
         _available.Release();
     }
 
@@ -356,7 +410,15 @@ public sealed class ServerToClientStream : Stream
             {
                 _available.Wait(cancellationToken);
             }
-            if (!_frames.TryDequeue(out var body))
+            byte[]? body;
+            lock (_gate)
+            {
+                if (_frames.TryDequeue(out body))
+                {
+                    _queuedBytes -= body.Length;
+                }
+            }
+            if (body is null)
             {
                 // The end: let any later read see it too.
                 _available.Release();

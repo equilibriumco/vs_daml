@@ -46,27 +46,27 @@ public class VersionOutputTests
     [Fact, Trait("Category", "Unit")]
     public void The_daml_assistant_version_prefers_the_env_var_then_the_project_then_the_default()
     {
-        const string all = """
+        const string All = """
             SDK versions:
               2.10.0  (selected by env var DAML_SDK_VERSION)
               2.9.4   (project SDK version from daml.yaml)
               2.8.0   (default SDK version for new projects)
               2.7.1
             """;
-        const string project = """
+        const string Project = """
             SDK versions:
               2.9.4   (project SDK version from daml.yaml, default SDK version for new projects)
               2.8.0
             """;
-        const string fallback = """
+        const string Fallback = """
             SDK versions:
               2.8.0   (default SDK version for new projects)
               2.7.1   (not installed)
             """;
 
-        DamlAssistantSdkResolver.ParseSelectedVersion(all).ShouldBe("2.10.0");
-        DamlAssistantSdkResolver.ParseSelectedVersion(project).ShouldBe("2.9.4");
-        DamlAssistantSdkResolver.ParseSelectedVersion(fallback).ShouldBe("2.8.0");
+        DamlAssistantSdkResolver.ParseSelectedVersion(All).ShouldBe("2.10.0");
+        DamlAssistantSdkResolver.ParseSelectedVersion(Project).ShouldBe("2.9.4");
+        DamlAssistantSdkResolver.ParseSelectedVersion(Fallback).ShouldBe("2.8.0");
         DamlAssistantSdkResolver.ParseSelectedVersion("SDK versions:\n  2.7.1\n").ShouldBeNull();
     }
 

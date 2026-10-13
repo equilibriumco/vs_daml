@@ -31,6 +31,7 @@ public sealed class DamlBuildCoordinator : IDisposable
     private readonly SemaphoreSlim _oneAtATime = new(1, 1);
     private readonly object _gate = new();
     private CancellationTokenSource _all = new();
+    private bool _disposed;
 
     /// <summary>Creates a coordinator.</summary>
     /// <param name="runner">Runs dpm.</param>
@@ -55,6 +56,10 @@ public sealed class DamlBuildCoordinator : IDisposable
         CancellationToken all;
         lock (_gate)
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(DamlBuildCoordinator));
+            }
             all = _all.Token;
         }
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, all);
@@ -121,6 +126,10 @@ public sealed class DamlBuildCoordinator : IDisposable
         CancellationTokenSource old;
         lock (_gate)
         {
+            if (_disposed)
+            {
+                return;
+            }
             old = _all;
             _all = new CancellationTokenSource();
         }
@@ -132,12 +141,19 @@ public sealed class DamlBuildCoordinator : IDisposable
     /// <summary>Cancels whatever is running.</summary>
     public void Dispose()
     {
+        CancellationTokenSource all;
         lock (_gate)
         {
-            _all.Cancel();
-            _all.Dispose();
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
+            all = _all;
         }
-        _oneAtATime.Dispose();
+        all.Cancel();
+        // In-flight runs still link to this source and release the semaphore. Neither owns an
+        // unmanaged wait handle; let them be collected after those runs have drained.
     }
 
     private void Flush(IEnumerable<DamlcLogAssembler> assemblers)

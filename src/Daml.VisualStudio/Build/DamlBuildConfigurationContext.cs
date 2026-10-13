@@ -9,8 +9,8 @@ namespace Daml.VisualStudio.Build;
 /// <summary>
 /// The context of a Daml manifest's file contexts. For Build and Clean it is what the folder
 /// view's own Build and Clean commands run: Open Folder enables them only for a build file
-/// context whose configuration matches one indexed for the file. Daml packages have no
-/// configurations, so it's "not applicable" (<c>null</c>) here and in the index alike.
+/// context whose configuration matches one indexed for the file. Both sides use Default
+/// for the package's single configuration.
 /// </summary>
 internal sealed class DamlBuildConfigurationContext : IBuildFileContext
 {

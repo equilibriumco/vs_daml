@@ -254,7 +254,7 @@ $summary | Format-Table -AutoSize -Wrap | Out-Host
 
 if ($RequiredTools -and $gate.Coverage.Count -gt 0) {
     $rows = foreach ($tfm in $gate.Coverage.Keys | Sort-Object) {
-        $reports = @($coverageCategories | ForEach-Object { Get-CoverageReports (Join-Path $resultsRoot "$_\$tfm") })
+        $reports = @(Get-RunCoverageReports -ResultsRoot $resultsRoot -Categories @($categories | Where-Object { $_ -in $coverageCategories }) -Framework $tfm)
         $measured = Measure-AssemblyCoverage $reports
         foreach ($assembly in $gate.Coverage[$tfm].Keys | Sort-Object) {
             $threshold = $gate.Coverage[$tfm][$assembly]

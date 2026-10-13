@@ -221,7 +221,8 @@ public sealed class LanguageServerHostTests
             TimeProvider.System);
         host.SetWorkspace(Single(package), new LanguageServerOptions { DpmPath = server.ExecutablePath });
         var ready = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        host.SessionReady += (_, e) => ready.TrySetResult(e.SessionId);
+        var readyEvents = 0;
+        host.SessionReady += (_, e) => { Interlocked.Increment(ref readyEvents); ready.TrySetResult(e.SessionId); };
         var readiness = new List<bool>();
         host.ReadinessChanged += (_, _) => { lock (readiness) { readiness.Add(host.IsReady); } };
 
@@ -240,6 +241,8 @@ public sealed class LanguageServerHostTests
         sessionId.ShouldBe(connection.SessionId);
         host.LastResolution.ShouldNotBeNull().ContextSdkVersion.ShouldBe("3.6.0");
         host.IsReady.ShouldBeTrue();
+        host.AttachRpc(rpc);
+        readyEvents.ShouldBe(1, "attaching the same connection again must not resubscribe session features");
 
         await rpc.InvokeAsync<object?>("shutdown");
         await rpc.NotifyAsync("exit");

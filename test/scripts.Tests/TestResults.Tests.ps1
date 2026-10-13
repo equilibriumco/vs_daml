@@ -106,3 +106,28 @@ public class A
         Get-IdeTestShortfall $script:project (Join-Path $script:dir 'results') | Should Be 0
     }
 }
+
+Describe 'Get-RunCoverageReports' {
+    BeforeEach {
+        $script:dir = Join-Path ([IO.Path]::GetTempPath()) ("coverage-" + [guid]::NewGuid().ToString('N'))
+        foreach ($category in @('Unit', 'Contract')) {
+            $folder = Join-Path $script:dir "$category\net10.0\Tests"
+            New-Item -ItemType Directory -Path $folder -Force | Out-Null
+            New-Trx (Join-Path $folder 'run.trx') @('Passed')
+            Set-Content (Join-Path $folder 'coverage.cobertura.xml') '<coverage />'
+        }
+    }
+    AfterEach { Remove-Item -LiteralPath $script:dir -Recurse -Force }
+
+    It 'excludes earlier results of categories not selected for this run' {
+        $reports = @(Get-RunCoverageReports -ResultsRoot $script:dir -Categories @('Unit') -Framework 'net10.0')
+        $reports.Count | Should Be 1
+        $reports[0].FullName | Should Match 'Unit'
+    }
+
+    It 'does not mix runtimes or count reports from zero-test runs' {
+        New-Trx (Join-Path $script:dir 'Unit\net10.0\Tests\run.trx') @()
+        @(Get-RunCoverageReports -ResultsRoot $script:dir -Categories @('Unit') -Framework 'net10.0').Count | Should Be 0
+        @(Get-RunCoverageReports -ResultsRoot $script:dir -Categories @('Contract') -Framework 'net48').Count | Should Be 0
+    }
+}

@@ -59,6 +59,9 @@ public sealed class FakeRunningProcess : IRunningProcess
     public void Dispose()
     {
         Disposed = true;
-        Exit(1);
+        _exited.TrySetCanceled();
+        StandardInput.Dispose();
+        StandardOutput.Dispose();
+        StandardError.Dispose();
     }
 }
