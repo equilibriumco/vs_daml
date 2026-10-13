@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -347,4 +349,30 @@ public sealed class ProcessRunnerTests : IDisposable
         result.Stderr.ShouldEndWith("ü");
         result.Stderr.Length.ShouldBe(700_001);
     }
+
+    // The streams must read without parking a thread (overlapped pipes), and once the child is
+    // running nothing inheritable may be left in this process, or a process started elsewhere
+    // at the wrong moment would inherit the child's pipe ends and keep them open.
+    [Fact, Trait("Category", "Process")]
+    public async Task The_pipes_are_overlapped_and_nothing_inheritable_stays_behind()
+    {
+        using var process = _runner.Start(Spec(_fake.ExecutablePath, "anything"));
+
+        foreach (var stream in new[] { process.StandardInput, process.StandardOutput, process.StandardError })
+        {
+            var pipe = stream.ShouldBeOfType<NamedPipeServerStream>();
+            pipe.IsAsync.ShouldBeTrue();
+            GetHandleInformation(pipe.SafePipeHandle.DangerousGetHandle(), out var flags).ShouldBeTrue();
+            (flags & HandleFlagInherit).ShouldBe(0u, "our end of the pipe isn't inheritable");
+        }
+        (await process.Exited).ShouldBe(3);
+        (await new StreamReader(process.StandardOutput).ReadToEndAsync()).ShouldBe("out ");
+    }
+
+    private const uint HandleFlagInherit = 0x1;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetHandleInformation(IntPtr handle, out uint flags);
 }

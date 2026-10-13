@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using Daml.VisualStudio.Core.Syntax;
+using Daml.VisualStudio.Editing;
 using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Classification;
 using Microsoft.VisualStudio.Text.Tagging;
@@ -44,7 +45,7 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
         _registry = registry;
         _snapshot = buffer.CurrentSnapshot;
         // Kept on the buffer so other features can reuse the same line states.
-        _syntax = buffer.Properties.GetOrCreateSingletonProperty<IDamlSyntaxProvider>(() => new LexerSyntaxProvider(new SnapshotLines(_snapshot)));
+        _syntax = buffer.Properties.GetOrCreateSingletonProperty<IDamlSyntaxProvider>(() => new LexerSyntaxProvider(SnapshotText.Lines(_snapshot)));
         buffer.Changed += OnBufferChanged;
     }
 
@@ -69,7 +70,7 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
             {
                 // An older snapshot than ours: the editor will ask again for the current one, but
                 // this paint shouldn't go uncoloured, so it is lexed on its own.
-                Collect(snapshot, spans, new LexerSyntaxProvider(new SnapshotLines(snapshot)), result);
+                Collect(snapshot, spans, new LexerSyntaxProvider(SnapshotText.Lines(snapshot)), result);
             }
         }
         return result;
@@ -110,7 +111,7 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
             }
             else
             {
-                changed = _syntax.ApplyEdit(new SnapshotLines(e.After), ToLineEdit(e));
+                changed = _syntax.ApplyEdit(SnapshotText.Lines(e.After), SnapshotText.Edit(e));
                 _snapshot = e.After;
             }
         }
@@ -141,19 +142,10 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
 
     private void Reset(ITextSnapshot snapshot)
     {
-        _syntax.Reset(new SnapshotLines(snapshot));
+        _syntax.Reset(SnapshotText.Lines(snapshot));
         _snapshot = snapshot;
     }
 
-    // All of one version's changes as a single line edit: from the first changed line to the
-    // last, with the line count difference for matching up the lines below.
-    private static LineEdit ToLineEdit(TextContentChangedEventArgs e)
-    {
-        var changes = e.Changes;
-        var firstLine = e.Before.GetLineNumberFromPosition(changes[0].OldPosition);
-        var lastLine = e.After.GetLineNumberFromPosition(changes[changes.Count - 1].NewEnd);
-        return new LineEdit(firstLine, lastLine, e.After.LineCount - e.Before.LineCount);
-    }
 
     private IClassificationTag Tag(string classification)
     {
@@ -165,14 +157,4 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
         return tag;
     }
 
-    private sealed class SnapshotLines : ILineSource
-    {
-        private readonly ITextSnapshot _snapshot;
-
-        public SnapshotLines(ITextSnapshot snapshot) => _snapshot = snapshot;
-
-        public int LineCount => _snapshot.LineCount;
-
-        public string GetLineText(int line) => _snapshot.GetLineFromLineNumber(line).GetText();
-    }
 }

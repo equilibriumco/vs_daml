@@ -12,6 +12,7 @@ internal static class JobNativeMethods
     public const int StartfUseStdHandles = 0x00000100;
     public const uint JobObjectLimitKillOnJobClose = 0x00002000;
     public const int JobObjectExtendedLimitInformationClass = 9;
+    public const uint DuplicateSameAccess = 0x00000002;
     public static readonly IntPtr ProcThreadAttributeHandleList = (IntPtr)0x00020002;
     public static readonly IntPtr ProcThreadAttributeJobList = (IntPtr)0x0002000D;
 
@@ -142,6 +143,15 @@ internal static class JobNativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool CloseHandle(IntPtr handle);
+
+    [DllImport("kernel32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    public static extern IntPtr GetCurrentProcess();
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DuplicateHandle(IntPtr sourceProcess, IntPtr source, IntPtr targetProcess, out IntPtr target, uint desiredAccess, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint options);
 }
 
 internal sealed class SafeJobHandle : SafeHandleZeroOrMinusOneIsInvalid

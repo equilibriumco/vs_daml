@@ -1,0 +1,64 @@
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+Import-Module (Join-Path $here '..\..\scripts\lib\BenchBudgets.psm1') -Force
+
+# A brief BenchmarkDotNet report with the given medians, in milliseconds, for one class.
+function New-BriefReport([string] $Folder, [string] $Type, [hashtable] $MediansMs) {
+    New-Item -ItemType Directory -Force -Path $Folder | Out-Null
+    $benchmarks = @()
+    foreach ($method in $MediansMs.Keys) {
+        $benchmarks += @{ Type = $Type; Method = $method; Statistics = @{ Median = $MediansMs[$method] * 1e6 } }
+    }
+    $report = @{ Title = $Type; Benchmarks = $benchmarks } | ConvertTo-Json -Depth 5
+    Set-Content -LiteralPath (Join-Path $Folder "Daml.VisualStudio.Benchmarks.$Type-report-brief.json") -Value $report
+}
+
+Describe 'Test-BenchBudgets' {
+    $results = Join-Path ([IO.Path]::GetTempPath()) ("bench-budgets-" + [Guid]::NewGuid().ToString('N'))
+    $budgets = @{ 'Lexer.Whole' = 30; 'Lexer.Relex' = 1; 'Layout.Analyze' = 40 }
+
+    It 'passes every benchmark whose median is within its budget' {
+        New-BriefReport (Join-Path $results 'a') 'Lexer' @{ Whole = 12.5; Relex = 0.4 }
+        New-BriefReport (Join-Path $results 'a') 'Layout' @{ Analyze = 40 }
+
+        $checked = Test-BenchBudgets -ResultsPath (Join-Path $results 'a') -Budgets $budgets
+
+        @($checked).Count | Should Be 3
+        @($checked | Where-Object { -not $_.Passed }).Count | Should Be 0
+        ($checked | Where-Object Benchmark -eq 'Lexer.Whole').MedianMs | Should Be 12.5
+    }
+
+    It 'fails the benchmark that is over budget and names it' {
+        New-BriefReport (Join-Path $results 'b') 'Lexer' @{ Whole = 31; Relex = 0.4 }
+        New-BriefReport (Join-Path $results 'b') 'Layout' @{ Analyze = 10 }
+
+        $failed = Test-BenchBudgets -ResultsPath (Join-Path $results 'b') -Budgets $budgets | Where-Object { -not $_.Passed }
+
+        @($failed).Count | Should Be 1
+        $failed.Benchmark | Should Be 'Lexer.Whole'
+        $failed.BudgetMs | Should Be 30
+    }
+
+    It 'fails a budgeted benchmark the run did not report' {
+        New-BriefReport (Join-Path $results 'c') 'Lexer' @{ Whole = 5; Relex = 0.4 }
+
+        $missing = Test-BenchBudgets -ResultsPath (Join-Path $results 'c') -Budgets $budgets | Where-Object Benchmark -eq 'Layout.Analyze'
+
+        $missing.Passed | Should Be $false
+        $missing.MedianMs | Should Be $null
+    }
+
+    It 'fails everything when there are no results' {
+        $checked = Test-BenchBudgets -ResultsPath (Join-Path $results 'none') -Budgets $budgets
+
+        @($checked | Where-Object Passed).Count | Should Be 0
+    }
+
+    It 'has a budget for every benchmark the strategy names' {
+        $names = @((Get-BenchBudgets).Keys)
+        ($names -contains 'LexerBenchmarks.LexWholeFile') | Should Be $true
+        ($names -contains 'LexerBenchmarks.RelexAfterOneLineEdit') | Should Be $true
+        ($names -contains 'LayoutBenchmarks.AnalyzeLexedFile') | Should Be $true
+    }
+
+    Remove-Item -Recurse -Force $results -ErrorAction SilentlyContinue
+}

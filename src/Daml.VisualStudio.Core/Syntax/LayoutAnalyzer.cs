@@ -138,7 +138,7 @@ public static class LayoutAnalyzer
             {
                 return false;
             }
-            if (column > Top.Indent && (Top.HeaderBrackets > 0 || HeaderContinuations.Any(text => line.Is(0, text))))
+            if (column > Top.Indent && (Top.HeaderBrackets > 0 || line.IsAnyOf(0, HeaderContinuations)))
             {
                 return true;
             }
@@ -294,20 +294,22 @@ public static class LayoutAnalyzer
             }
         }
 
+        // Compared in place by length first: this runs for every code token of the file.
         private static DamlBlockKind? OpenerAt(LayoutLine line, int index)
         {
-            if (line[index].Kind is DamlTokenKind.String or DamlTokenKind.Char)
+            var token = line[index];
+            if (token.Kind is DamlTokenKind.String or DamlTokenKind.Char)
             {
                 return null;
             }
-            return line.Text(index) switch
+            return token.Length switch
             {
-                "where" => DamlBlockKind.WhereBlock,
-                "with" => DamlBlockKind.WithBlock,
-                "do" => DamlBlockKind.DoBlock,
-                "of" => DamlBlockKind.CaseBlock,
-                "let" => DamlBlockKind.LetBlock,
-                "case" when index > 0 && line.Is(index - 1, "\\") => DamlBlockKind.CaseBlock,
+                2 when line.Is(index, "do") => DamlBlockKind.DoBlock,
+                2 when line.Is(index, "of") => DamlBlockKind.CaseBlock,
+                3 when line.Is(index, "let") => DamlBlockKind.LetBlock,
+                4 when line.Is(index, "with") => DamlBlockKind.WithBlock,
+                4 when line.Is(index, "case") && index > 0 && line.Is(index - 1, "\\") => DamlBlockKind.CaseBlock,
+                5 when line.Is(index, "where") => DamlBlockKind.WhereBlock,
                 _ => null,
             };
         }

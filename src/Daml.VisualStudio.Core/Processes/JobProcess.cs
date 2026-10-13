@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,18 +19,29 @@ namespace Daml.VisualStudio.Core.Processes;
 // CreateProcess itself, so there's no window in which it, or anything it starts, runs outside;
 // assigning a process to a job after Process.Start lets a fast child (dpm.cmd -> dpm.exe) escape.
 // Closing the job handle - on Dispose, or when this process dies - ends the whole tree.
+//
+// Its standard streams are named pipes opened for overlapped I/O: an anonymous pipe can't be,
+// and reading one asynchronously on .NET Framework parks a thread-pool thread in ReadFile for
+// as long as the pipe is open, which for a language server is forever.
 internal sealed class JobProcess : IRunningProcess
 {
+    // Inheritable copies of the child's pipe ends exist only while this is held, so a process
+    // that something else in the host starts at the same moment can't inherit them and keep
+    // the pipes open after the child is gone.
+    private static readonly object CreateLock = new();
+
+    private const int PipeBufferSize = 64 * 1024;
+
     private readonly SafeJobHandle _job;
     private readonly SafeProcessHandle _process;
-    private readonly AnonymousPipeServerStream _stdin;
-    private readonly AnonymousPipeServerStream _stdout;
-    private readonly AnonymousPipeServerStream _stderr;
+    private readonly NamedPipeServerStream _stdin;
+    private readonly NamedPipeServerStream _stdout;
+    private readonly NamedPipeServerStream _stderr;
     private readonly TaskCompletionSource<int> _exited = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly ManualResetEvent _exitSignal;
     private readonly RegisteredWaitHandle _exitWait;
 
-    private JobProcess(int id, SafeJobHandle job, SafeProcessHandle process, AnonymousPipeServerStream stdin, AnonymousPipeServerStream stdout, AnonymousPipeServerStream stderr)
+    private JobProcess(int id, SafeJobHandle job, SafeProcessHandle process, NamedPipeServerStream stdin, NamedPipeServerStream stdout, NamedPipeServerStream stderr)
     {
         Id = id;
         _job = job;
@@ -80,62 +92,31 @@ internal sealed class JobProcess : IRunningProcess
         var commandLine = ("\"" + application + "\" " + arguments + "\0").ToCharArray();
 
         var job = CreateKillOnCloseJob();
-        AnonymousPipeServerStream? stdin = null, stdout = null, stderr = null;
+        NamedPipeServerStream? stdin = null, stdout = null, stderr = null;
+        NamedPipeClientStream? childIn = null, childOut = null, childErr = null;
         SafeProcessHandle? process = null;
-        var attributeList = IntPtr.Zero;
-        var handleList = IntPtr.Zero;
-        var jobList = IntPtr.Zero;
         var environment = IntPtr.Zero;
         try
         {
             hook?.Invoke(ProcessRunner.StartStage.JobCreated, 0);
 
-            stdin = new AnonymousPipeServerStream(PipeDirection.Out, HandleInheritability.Inheritable);
-            stdout = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
-            stderr = new AnonymousPipeServerStream(PipeDirection.In, HandleInheritability.Inheritable);
-            var childHandles = new[]
-            {
-                stdin.ClientSafePipeHandle.DangerousGetHandle(),
-                stdout.ClientSafePipeHandle.DangerousGetHandle(),
-                stderr.ClientSafePipeHandle.DangerousGetHandle(),
-            };
-
-            // Only the three pipe ends are inherited, not every inheritable handle in the host.
-            handleList = Marshal.AllocHGlobal(IntPtr.Size * childHandles.Length);
-            Marshal.Copy(childHandles, 0, handleList, childHandles.Length);
-            jobList = Marshal.AllocHGlobal(IntPtr.Size);
-            Marshal.WriteIntPtr(jobList, job.DangerousGetHandle());
-            attributeList = CreateAttributeList(
-                (ProcThreadAttributeHandleList, handleList, IntPtr.Size * childHandles.Length),
-                (ProcThreadAttributeJobList, jobList, IntPtr.Size));
-
+            (stdin, childIn) = CreatePipe(PipeDirection.Out);
+            (stdout, childOut) = CreatePipe(PipeDirection.In);
+            (stderr, childErr) = CreatePipe(PipeDirection.In);
             environment = Marshal.StringToHGlobalUni(EnvironmentBlock(spec.Environment));
-            var startupInfo = new StartupInfoEx
+
+            ProcessInformation info;
+            lock (CreateLock)
             {
-                StartupInfo = new StartupInfo
-                {
-                    Size = Marshal.SizeOf<StartupInfoEx>(),
-                    Flags = StartfUseStdHandles,
-                    StdInput = childHandles[0],
-                    StdOutput = childHandles[1],
-                    StdError = childHandles[2],
-                },
-                AttributeList = attributeList,
-            };
-            if (!CreateProcess(application, commandLine, IntPtr.Zero, IntPtr.Zero, inheritHandles: true,
-                    ExtendedStartupInfoPresent | CreateUnicodeEnvironment | CreateNoWindow, environment,
-                    string.IsNullOrEmpty(spec.WorkingDirectory) ? null : spec.WorkingDirectory, ref startupInfo, out var info))
-            {
-                throw new Win32Exception(Marshal.GetLastWin32Error(),
-                    string.IsNullOrEmpty(spec.WorkingDirectory) ? $"Couldn't start {spec.FileName}" : $"Couldn't start {spec.FileName} in {spec.WorkingDirectory}");
+                info = Create(application, commandLine, environment, spec, job, [childIn.SafePipeHandle, childOut.SafePipeHandle, childErr.SafePipeHandle]);
             }
             CloseHandle(info.Thread);
             process = new SafeProcessHandle(info.Process, ownsHandle: true);
 
-            // The child has its own copies now; holding ours would keep its output pipes open forever.
-            stdin.DisposeLocalCopyOfClientHandle();
-            stdout.DisposeLocalCopyOfClientHandle();
-            stderr.DisposeLocalCopyOfClientHandle();
+            // The child has its own handles now; holding ours would keep its output pipes open forever.
+            childIn.Dispose();
+            childOut.Dispose();
+            childErr.Dispose();
 
             hook?.Invoke(ProcessRunner.StartStage.Created, info.ProcessId);
             return new JobProcess(info.ProcessId, job, process, stdin, stdout, stderr);
@@ -146,6 +127,9 @@ internal sealed class JobProcess : IRunningProcess
             TerminateJobObject(job, 1);
             job.Dispose();
             process?.Dispose();
+            childIn?.Dispose();
+            childOut?.Dispose();
+            childErr?.Dispose();
             stdin?.Dispose();
             stdout?.Dispose();
             stderr?.Dispose();
@@ -153,13 +137,6 @@ internal sealed class JobProcess : IRunningProcess
         }
         finally
         {
-            if (attributeList != IntPtr.Zero)
-            {
-                DeleteProcThreadAttributeList(attributeList);
-                Marshal.FreeHGlobal(attributeList);
-            }
-            Marshal.FreeHGlobal(handleList);
-            Marshal.FreeHGlobal(jobList);
             Marshal.FreeHGlobal(environment);
         }
     }
@@ -194,6 +171,105 @@ internal sealed class JobProcess : IRunningProcess
         {
             // Lost the race with Dispose.
         }
+    }
+
+    // Creates the process with inheritable copies of the child's three pipe ends, which only
+    // live for the duration of the call. Callers hold CreateLock.
+    private static ProcessInformation Create(string application, char[] commandLine, IntPtr environment, ProcessSpec spec, SafeJobHandle job, SafePipeHandle[] childEnds)
+    {
+        var inheritable = new IntPtr[childEnds.Length];
+        var attributeList = IntPtr.Zero;
+        var handleList = IntPtr.Zero;
+        var jobList = IntPtr.Zero;
+        try
+        {
+            for (var i = 0; i < childEnds.Length; i++)
+            {
+                inheritable[i] = InheritableCopy(childEnds[i]);
+            }
+
+            // Only the three pipe ends are inherited, not every inheritable handle in the host.
+            handleList = Marshal.AllocHGlobal(IntPtr.Size * inheritable.Length);
+            Marshal.Copy(inheritable, 0, handleList, inheritable.Length);
+            jobList = Marshal.AllocHGlobal(IntPtr.Size);
+            Marshal.WriteIntPtr(jobList, job.DangerousGetHandle());
+            attributeList = CreateAttributeList(
+                (ProcThreadAttributeHandleList, handleList, IntPtr.Size * inheritable.Length),
+                (ProcThreadAttributeJobList, jobList, IntPtr.Size));
+
+            var startupInfo = new StartupInfoEx
+            {
+                StartupInfo = new StartupInfo
+                {
+                    Size = Marshal.SizeOf<StartupInfoEx>(),
+                    Flags = StartfUseStdHandles,
+                    StdInput = inheritable[0],
+                    StdOutput = inheritable[1],
+                    StdError = inheritable[2],
+                },
+                AttributeList = attributeList,
+            };
+            if (!CreateProcess(application, commandLine, IntPtr.Zero, IntPtr.Zero, inheritHandles: true,
+                    ExtendedStartupInfoPresent | CreateUnicodeEnvironment | CreateNoWindow, environment,
+                    string.IsNullOrEmpty(spec.WorkingDirectory) ? null : spec.WorkingDirectory, ref startupInfo, out var info))
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error(),
+                    string.IsNullOrEmpty(spec.WorkingDirectory) ? $"Couldn't start {spec.FileName}" : $"Couldn't start {spec.FileName} in {spec.WorkingDirectory}");
+            }
+            return info;
+        }
+        finally
+        {
+            foreach (var handle in inheritable)
+            {
+                if (handle != IntPtr.Zero)
+                {
+                    CloseHandle(handle);
+                }
+            }
+            if (attributeList != IntPtr.Zero)
+            {
+                DeleteProcThreadAttributeList(attributeList);
+                Marshal.FreeHGlobal(attributeList);
+            }
+            Marshal.FreeHGlobal(handleList);
+            Marshal.FreeHGlobal(jobList);
+        }
+    }
+
+    // Our end, overlapped, and the child's end, plain, of a pipe nobody else can reach: the name
+    // can't be guessed, there's a single instance, and we connect to it before anyone could.
+    private static (NamedPipeServerStream Ours, NamedPipeClientStream Child) CreatePipe(PipeDirection ourDirection)
+    {
+        var name = "daml-vs-" + Guid.NewGuid().ToString("N");
+        // With no buffer of its own a write waits for a reader; a child that prints a little and
+        // exits before anyone reads must not.
+        var ours = new NamedPipeServerStream(name, ourDirection, maxNumberOfServerInstances: 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, PipeBufferSize, PipeBufferSize);
+        NamedPipeClientStream? child = null;
+        try
+        {
+            child = new NamedPipeClientStream(".", name, ourDirection == PipeDirection.In ? PipeDirection.Out : PipeDirection.In,
+                PipeOptions.None, TokenImpersonationLevel.None, HandleInheritability.None);
+            child.Connect(timeout: 5000); // the instance is there, waiting; this doesn't actually wait
+            ours.WaitForConnection();
+            return (ours, child);
+        }
+        catch
+        {
+            child?.Dispose();
+            ours.Dispose();
+            throw;
+        }
+    }
+
+    private static IntPtr InheritableCopy(SafePipeHandle handle)
+    {
+        var self = GetCurrentProcess();
+        if (!DuplicateHandle(self, handle.DangerousGetHandle(), self, out var copy, 0, inheritHandle: true, DuplicateSameAccess))
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Couldn't make a pipe handle for the child");
+        }
+        return copy;
     }
 
     private static SafeJobHandle CreateKillOnCloseJob()

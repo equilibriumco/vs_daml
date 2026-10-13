@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Syntax;
+using Daml.VisualStudio.Editing;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.VisualStudio.Text;
@@ -114,8 +115,8 @@ internal sealed class DamlStructureRegions : IDisposable
         try
         {
             var snapshot = _buffer.CurrentSnapshot;
-            var lines = snapshot.Lines.Select(l => l.GetText()).ToList();
-            var specs = StructureRules.FromBlocks(LayoutAnalyzer.Analyze(LineTokens.Lex(lines)), lines);
+            var tokens = DamlTokenCache.For(_buffer).Get(snapshot);
+            var specs = StructureRules.FromBlocks(LayoutAnalyzer.Analyze(tokens), tokens.Select(l => l.Text).ToList());
             var spans = specs.Select(spec => (spec, Whole(spec, snapshot))).ToList();
             Volatile.Write(ref _regions, new Regions(snapshot, spans));
             _joinableTaskFactory.RunAsync(async () =>

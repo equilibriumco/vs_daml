@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+using System;
 
 namespace Daml.VisualStudio.Core.Syntax;
 
@@ -13,22 +13,32 @@ internal sealed class LayoutLine
 
     private readonly LineTokens _line;
     private readonly int _tabSize;
-    private readonly List<DamlToken> _tokens = new();
+    private readonly DamlToken[] _tokens;
 
     public LayoutLine(LineTokens line, int tabSize = DefaultTabSize)
     {
         _line = line;
         _tabSize = tabSize;
+        var count = 0;
         foreach (var token in line.Tokens)
         {
             if (IsCode(token.Kind))
             {
-                _tokens.Add(token);
+                count++;
+            }
+        }
+        _tokens = count == 0 ? Array.Empty<DamlToken>() : new DamlToken[count];
+        var next = 0;
+        foreach (var token in line.Tokens)
+        {
+            if (IsCode(token.Kind))
+            {
+                _tokens[next++] = token;
             }
         }
     }
 
-    public int Count => _tokens.Count;
+    public int Count => _tokens.Length;
 
     public DamlToken this[int index] => _tokens[index];
 
@@ -36,7 +46,7 @@ internal sealed class LayoutLine
 
     public bool Has(string text)
     {
-        for (var i = 0; i < _tokens.Count; i++)
+        for (var i = 0; i < _tokens.Length; i++)
         {
             if (Is(i, text))
             {
@@ -47,7 +57,19 @@ internal sealed class LayoutLine
     }
 
     public bool Is(int index, string text) =>
-        index < _tokens.Count && _tokens[index].Length == text.Length && string.CompareOrdinal(_line.Text, _tokens[index].Start, text, 0, text.Length) == 0;
+        index < _tokens.Length && _tokens[index].Length == text.Length && string.CompareOrdinal(_line.Text, _tokens[index].Start, text, 0, text.Length) == 0;
+
+    public bool IsAnyOf(int index, string[] texts)
+    {
+        foreach (var text in texts)
+        {
+            if (Is(index, text))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     public int Column(int index)
     {
@@ -69,8 +91,8 @@ internal sealed class LayoutLine
     public string? TextBetween(int afterIndex, int beforeIndex)
     {
         var start = _tokens[afterIndex].Start + _tokens[afterIndex].Length;
-        var end = beforeIndex < _tokens.Count ? _tokens[beforeIndex].Start : _line.Text.Length;
-        var words = _line.Text.Substring(start, end - start).Split([' ', '\t'], System.StringSplitOptions.RemoveEmptyEntries);
+        var end = beforeIndex < _tokens.Length ? _tokens[beforeIndex].Start : _line.Text.Length;
+        var words = _line.Text.Substring(start, end - start).Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
         return words.Length == 0 ? null : string.Join(" ", words);
     }
 

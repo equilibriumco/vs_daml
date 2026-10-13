@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -45,10 +46,11 @@ public class BuildTests
         var dte = Ide.Dte();
         // Build commands appear once Open Folder has indexed the manifests.
         await WaitForIndexAsync(TimeSpan.FromMinutes(1));
-        // In Open Folder, building everything runs every build context, ours for daml.yaml
-        // included. It only becomes available once the folder's build index is ready, and which
-        // command carries it isn't the same as with a solution, so take the first that's offered.
-        string[] candidates = ["Build.BuildAll", "Build.BuildSolution", "Build.BuildSelection"];
+        // Open Folder offers Build for the active document when the index holds a build context
+        // for it, and Build All once it knows of anything buildable; which of the two carries it
+        // isn't the same as with a solution, so the manifest is opened and the first offered is taken.
+        Ide.OpenFile(Path.Combine(folder, "daml.yaml"));
+        string[] candidates = ["Build.BuildSelection", "Build.BuildSolution", "Build.BuildAll"];
         string? available = null;
         var ready = DateTime.UtcNow + TimeSpan.FromMinutes(1);
         while (available is null && DateTime.UtcNow < ready)
@@ -61,7 +63,8 @@ public class BuildTests
         }
         if (available is null)
         {
-            Assert.Fail($"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}. {await OpenFolderStateAsync(folder)}");
+            Assert.Fail($"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}. "
+                + $"Available Build.* commands: {AvailableBuildCommands(dte)}. {await OpenFolderStateAsync(folder)}");
         }
         dte.ExecuteCommand(available);
 
@@ -111,6 +114,22 @@ public class BuildTests
         var contexts = await workspace.GetFileContextsAsync(Path.Combine(folder, "daml.yaml"), [BuildContextTypes.BuildContextTypeGuid, BuildContextTypes.CleanContextTypeGuid], CancellationToken.None);
         return $"Workspace {workspace.Location}, index {index?.State}; build contexts for daml.yaml: "
             + (contexts.Count == 0 ? "none" : string.Join(", ", contexts.SelectMany(g => g).Select(c => $"{c.DisplayName} ({c.ProviderType})")));
+    }
+
+    // Every Build.* command Visual Studio would run right now: when none of the expected ones is
+    // offered, this says which are, which is the next thing to know.
+    private static string AvailableBuildCommands(DTE dte)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var names = new List<string>();
+        foreach (Command command in dte.Commands)
+        {
+            if (command.Name is { } name && name.StartsWith("Build.", StringComparison.Ordinal) && IsAvailable(dte, name))
+            {
+                names.Add(name);
+            }
+        }
+        return names.Count == 0 ? "none" : string.Join(", ", names);
     }
 
     private static bool IsAvailable(DTE dte, string command)
