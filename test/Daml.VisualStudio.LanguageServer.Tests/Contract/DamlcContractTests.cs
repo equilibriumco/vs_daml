@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
+using Daml.VisualStudio.LanguageServer.Lenses;
 using Daml.VisualStudio.LanguageServer.Messages;
 using Daml.VisualStudio.LanguageServer.Protocol;
 using Newtonsoft.Json.Linq;
@@ -213,6 +214,28 @@ public class DamlcContractTests
         _output.WriteLine(string.Join(", ", names));
         names.ShouldContain("Asset");
         names.ShouldContain("setup");
+    }
+
+    // Visual Studio never asks for code lenses, so the extension does; the answer must still be
+    // the "Script results" lens shape the extension reads.
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [MemberData(nameof(Matrix))]
+    public async Task The_script_gets_a_results_lens(string sdk, string mode)
+    {
+        using var sample = SampleCopy.Create("single-package", sdk);
+        var main = sample.File(@"daml\Main.daml");
+        await using var damlc = await OpenedAsync(sample, main, mode);
+
+        var result = await EventuallyAsync(
+            () => damlc.RequestAsync("textDocument/codeLens", new { textDocument = new { uri = RealDamlcSession.Uri(main) } }),
+            r => ScriptLensParser.Parse(r).Count > 0);
+
+        _output.WriteLine(result?.ToString() ?? "null");
+        var lens = ScriptLensParser.Parse(result).ShouldHaveSingleItem();
+        lens.Title.ShouldBe("Script: setup");
+        lens.Resource.TopLevelDecl.ShouldBe("setup");
+        lens.Resource.File.ShouldBe(main, StringCompareShould.IgnoreCase);
+        File.ReadAllLines(main)[lens.Range.StartLine].ShouldStartWith("setup");
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]

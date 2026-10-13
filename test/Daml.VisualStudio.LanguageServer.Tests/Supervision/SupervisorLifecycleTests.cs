@@ -94,7 +94,9 @@ public sealed class SupervisorLifecycleTests
 
         (await ReachesAsync(supervisor, LanguageServerState.Crashed)).ShouldBeTrue();
         runner.Started[0].Killed.ShouldBeTrue();
-        session.Ending.IsCancellationRequested.ShouldBeTrue();
+        // The crash is recorded first and the session ended right after, outside the lock;
+        // whoever is told about the crash is told after both.
+        SpinWait.SpinUntil(() => session.Ending.IsCancellationRequested, TimeSpan.FromSeconds(10)).ShouldBeTrue();
     }
 
     [Fact, Trait("Category", "Unit")]

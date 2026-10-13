@@ -10,6 +10,7 @@ using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
 using Daml.VisualStudio.Core.Server;
+using Daml.VisualStudio.LanguageServer.Lenses;
 using Daml.VisualStudio.LanguageServer.Protocol;
 using Daml.VisualStudio.LanguageServer.Supervision;
 using StreamJsonRpc;
@@ -113,6 +114,7 @@ public sealed class LanguageServerHost : IDisposable
         Supervisor = new LanguageServerSupervisor(runner, BuildCommandAsync, logger, time, policy, supervisorSettings);
         Supervisor.StateChanged += OnStateChanged;
         KeepAlive = new KeepAliveWatchdog(_channel, OnUnresponsive, logger, time, keepAlive);
+        ScriptLenses = new ScriptLensService(_channel, logger, time);
     }
 
     /// <summary>Something keeps the server from running.</summary>
@@ -155,6 +157,9 @@ public sealed class LanguageServerHost : IDisposable
     }
 
     internal KeepAliveWatchdog KeepAlive { get; }
+
+    /// <summary>The "Script results" lenses of the documents open in the current session.</summary>
+    public ScriptLensService ScriptLenses { get; }
 
     /// <summary>
     /// Whether, and how often, the server is checked for hangs. Takes effect at once: turning it
@@ -275,6 +280,7 @@ public sealed class LanguageServerHost : IDisposable
         tracker.Failed += (_, e) => _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, $"The language server refused to initialize (session {id}): {e.Message}");
         // Per session: damlc of a new session has never seen any document.
         var documents = new OpenDocuments();
+        documents.Activity += ScriptLenses.OnDocumentActivity;
         void OnConnectionFailed(Exception error) => Supervisor.ReportConnectionFailure(id, error);
         return new ServerConnection(
             session.Id,
@@ -419,6 +425,7 @@ public sealed class LanguageServerHost : IDisposable
             _fileChangeTimer = null;
         }
         KeepAlive.Dispose();
+        ScriptLenses.Dispose();
         Supervisor.Dispose();
     }
 

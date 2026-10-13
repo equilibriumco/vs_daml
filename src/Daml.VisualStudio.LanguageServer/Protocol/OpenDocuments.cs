@@ -16,6 +16,7 @@ public sealed class OpenDocuments
     private static readonly byte[] DidOpen = Encoding.UTF8.GetBytes("\"textDocument/didOpen\"");
     private static readonly byte[] DidClose = Encoding.UTF8.GetBytes("\"textDocument/didClose\"");
     private static readonly byte[] DidChange = Encoding.UTF8.GetBytes("\"textDocument/didChange\"");
+    private static readonly byte[] DidSave = Encoding.UTF8.GetBytes("\"textDocument/didSave\"");
     private static readonly byte[] PublishDiagnostics = Encoding.UTF8.GetBytes("\"textDocument/publishDiagnostics\"");
     private readonly object _gate = new();
     private readonly HashSet<string> _closedByClient = new(StringComparer.OrdinalIgnoreCase);
@@ -41,10 +42,16 @@ public sealed class OpenDocuments
 
     internal event Action<byte[]>? Redeliver;
 
+    /// <summary>
+    /// A file document was opened or saved by Visual Studio, or got diagnostics from the server:
+    /// the moments its script lenses can have changed. Raised with the document's URI.
+    /// </summary>
+    internal event Action<string>? Activity;
+
     internal byte[]? FromClient(byte[] body)
     {
         if (!ClientMessageSanitizer.Contains(body, DidOpen) && !ClientMessageSanitizer.Contains(body, DidClose)
-            && !ClientMessageSanitizer.Contains(body, DidChange))
+            && !ClientMessageSanitizer.Contains(body, DidChange) && !ClientMessageSanitizer.Contains(body, DidSave))
         {
             return body;
         }
@@ -56,6 +63,10 @@ public sealed class OpenDocuments
         }
         var key = Key(uri);
         var method = (string?)message?["method"];
+        if (method is "textDocument/didOpen" or "textDocument/didSave")
+        {
+            Activity?.Invoke(uri);
+        }
         if (method == "textDocument/didClose")
         {
             lock (_gate)
@@ -131,6 +142,7 @@ public sealed class OpenDocuments
         {
             return true;
         }
+        Activity?.Invoke(uri);
         var parameters = message["params"]!;
         var version = parameters["version"];
         var hasErrors = parameters["diagnostics"] is JArray { Count: > 0 };

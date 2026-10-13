@@ -369,4 +369,22 @@ public class OpenDocumentsTests
 
         documents.FromServer(body).ShouldBeTrue();
     }
+
+    // The moments a documents script lenses can change: VS opened or saved it, or damlc sent
+    // diagnostics for it. Edits alone dont count; the diagnostics that follow them do.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Opening_saving_and_diagnostics_are_reported_as_activity_but_edits_and_closes_are_not()
+    {
+        var documents = new OpenDocuments();
+        var activity = new List<string>();
+        documents.Activity += activity.Add;
+        var save = Frame("""{"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":"file:///M:/repo/daml/TypeError.daml"}}}""");
+
+        await SentToServerAsync(documents, Open(1, "x"), Change(2, "y"), save, Close);
+        documents.FromServer(Encoding.UTF8.GetBytes(Diagnostics));
+        documents.FromServer(Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"daml://compiler?file=x&top-level-decl=s","diagnostics":[]}}"""));
+
+        activity.Count.ShouldBe(3);
+        activity.ShouldAllBe(uri => uri.EndsWith("TypeError.daml"));
+    }
 }
