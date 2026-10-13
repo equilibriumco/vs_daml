@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Daml.VisualStudio.Core.Tests.Project;
 
-// The checked-in samples on disk, read through the real file system: the same layouts S-08 used.
+// The checked-in samples on disk, read through the real file system: the layouts damlc was tried against.
 public class SampleWorkspaceTests
 {
     private readonly WorkspaceLocator _locator;

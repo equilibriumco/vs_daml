@@ -4,6 +4,9 @@
     # when a test project under test/ is listed nowhere, so a new project can't silently drop out.
     Projects = @{
         Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
+        # Tests that start real processes (the fake dpm, the fake language server, cmd.exe) and
+        # wait on them: kept out of Unit, which stays fast and deterministic.
+        Process     = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
         Editor      = @('Daml.VisualStudio.Tests')
         Contract    = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
         MSBuild     = @('Daml.Build.Tests')
@@ -23,13 +26,13 @@
     # PR is the pull-request/CI profile: required tests are enforced, coverage is only reported.
     Gates = @{
         PR = @{
-            Required = @('Unit', 'Editor')
+            Required = @('Unit', 'Process', 'Editor')
             Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
             Tools    = @()
             Coverage = @{}
         }
         M0 = @{
-            Required = @('Unit', 'Editor', 'Integration')
+            Required = @('Unit', 'Process', 'Editor', 'Integration')
             Pending  = @{}
             Tools    = @()
             Coverage = @{
@@ -43,7 +46,7 @@
         # M1: the language server against the real damlc (Contract, SDK 3.6 and 3.5) and the
         # extension inside Visual Studio (Integration) join the gate; both need dpm.
         M1 = @{
-            Required = @('Unit', 'Editor', 'Contract', 'Integration')
+            Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
             Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
             Tools    = @('dpm')
             Coverage = @{

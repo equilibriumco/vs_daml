@@ -17,7 +17,7 @@ public class MefExportsTests
     [Fact, Trait("Category", "Editor")]
     public async Task Extension_assembly_has_no_mef_discovery_errors()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         parts.DiscoveryErrors.ShouldBeEmpty();
     }
@@ -43,29 +43,22 @@ public class MefExportsTests
     [Fact, Trait("Category", "Editor")]
     public async Task Logger_is_exported_once_and_only_needs_the_joinable_task_context()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
-        var loggerParts = parts.Parts.Where(p => p.ExportedTypes.Any(e => e.ContractName == ContractNameOf(typeof(IDamlLogger)))).ToList();
+        var loggerParts = parts.Parts.Where(p => p.ExportedTypes.Any(e => e.ContractName == MefParts.ContractName(typeof(IDamlLogger)))).ToList();
         loggerParts.Count.ShouldBe(1);
         loggerParts[0].ImportingConstructorImports!.Select(i => i.ImportDefinition.ContractName)
             .ShouldBe(new[] { "Microsoft.VisualStudio.Threading.JoinableTaskContext" });
     }
 
-    private static async Task<DiscoveredParts> DiscoverAsync()
-    {
-        var discovery = PartDiscovery.Combine(
-            new AttributedPartDiscoveryV1(Resolver.DefaultInstance),
-            new AttributedPartDiscovery(Resolver.DefaultInstance, isNonPublicSupported: true));
-        return await discovery.CreatePartsAsync(typeof(DamlPackage).Assembly);
-    }
 
     private static async Task<ExportDefinition> SingleExportAsync(System.Type contract)
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
         return parts.Parts
             .SelectMany(p => p.ExportingMembers.SelectMany(m => m.Value).Concat(p.ExportedTypes))
-            .Single(e => e.ContractName == ContractNameOf(contract));
+            .Single(e => e.ContractName == MefParts.ContractName(contract));
     }
 
-    private static string ContractNameOf(System.Type type) => type.FullName!;
+
 }

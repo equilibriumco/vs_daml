@@ -64,10 +64,9 @@ public sealed class SupervisorLifecycleTests
         await supervisor.StartAsync(CancellationToken.None);
 
         var stop = supervisor.StopAsync(CancellationToken.None);
-        await Task.Delay(50);
+        supervisor.State.ShouldBe(LanguageServerState.Stopping, "the process hasn't left and the clock hasn't moved");
         stop.IsCompleted.ShouldBeFalse();
-        _time.Advance(TimeSpan.FromSeconds(5));
-        await stop;
+        await RunOutTheGracePeriodAsync(stop);
 
         runner.Started[0].Disposed.ShouldBeTrue();
         supervisor.State.ShouldBe(LanguageServerState.Stopped);
@@ -112,7 +111,7 @@ public sealed class SupervisorLifecycleTests
         supervisor.State.ShouldBe(LanguageServerState.Ready);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_normal_server_initializes_and_stops_without_a_crash()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario());
@@ -132,7 +131,7 @@ public sealed class SupervisorLifecycleTests
             LanguageServerState.Ready, LanguageServerState.Stopping, LanguageServerState.Stopped]);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_server_exiting_right_after_start_is_a_crash()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario { ExitCodeAtStart = 1 });
@@ -144,7 +143,7 @@ public sealed class SupervisorLifecycleTests
         _logger.Entries.ShouldContain(e => e.Message.Contains("exited with code 1"));
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_hanging_server_is_killed_by_the_initialize_watchdog()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario { HangOnInitialize = true });
@@ -162,7 +161,7 @@ public sealed class SupervisorLifecycleTests
         _logger.Entries.ShouldContain(e => e.Level == DamlLogLevel.Error && e.Message.Contains("didn't answer initialize"));
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Stderr_is_kept_raised_and_logged_within_the_rate_limit()
     {
         var scenario = new FakeLanguageServerScenario { HangOnInitialize = true };
@@ -179,9 +178,7 @@ public sealed class SupervisorLifecycleTests
             await Task.Delay(20);
         }
         // The server is stuck in initialize and never leaves, so the grace period has to run out.
-        var stop = supervisor.StopAsync(CancellationToken.None);
-        _time.Advance(TimeSpan.FromSeconds(5));
-        await stop;
+        await RunOutTheGracePeriodAsync(supervisor.StopAsync(CancellationToken.None));
 
         raised.ShouldBe(120);
         supervisor.RecentStderr.Count.ShouldBe(100);
@@ -190,6 +187,21 @@ public sealed class SupervisorLifecycleTests
         _logger.Entries.Count(e => e.Message.StartsWith("line ", StringComparison.Ordinal)).ShouldBe(10);
         (await WaitForEntryAsync(e => e.Message.StartsWith("110 stderr line(s)", StringComparison.Ordinal))).ShouldBeTrue();
     }
+
+    // The grace timer is registered on the fake clock somewhere after the stop started; moving
+    // the clock a second at a time, yielding in between, reaches it whenever that was.
+    // The stop isn't tied to any synchronization context, so awaiting it here can't deadlock.
+#pragma warning disable VSTHRD003
+    private async Task RunOutTheGracePeriodAsync(Task stop)
+    {
+        for (var seconds = 0; seconds < 30 && !stop.IsCompleted; seconds++)
+        {
+            _time.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+        await stop;
+    }
+#pragma warning restore VSTHRD003
 
     private LanguageServerSupervisor Real(FakeLanguageServer server, out List<LanguageServerState> states, SupervisorSettings? settings = null, TimeProvider? time = null)
     {
@@ -214,7 +226,7 @@ public sealed class SupervisorLifecycleTests
         return rpc;
     }
 
-    private async Task<bool> WaitForEntryAsync(Func<(DamlLogLevel Level, string Message), bool> match)
+    private async Task<bool> WaitForEntryAsync(Func<LogEntry, bool> match)
     {
         var deadline = DateTime.UtcNow + Generous;
         while (!_logger.Entries.Any(match) && DateTime.UtcNow < deadline)
@@ -224,29 +236,5 @@ public sealed class SupervisorLifecycleTests
         return _logger.Entries.Any(match);
     }
 
-    private sealed class RecordingLogger : IDamlLogger
-    {
-        private readonly List<(DamlLogLevel Level, string Message)> _entries = new();
 
-        public IReadOnlyList<(DamlLogLevel Level, string Message)> Entries
-        {
-            get
-            {
-                lock (_entries)
-                {
-                    return _entries.ToArray();
-                }
-            }
-        }
-
-        public bool IsEnabled(DamlLogLevel level) => true;
-
-        public void Log(DamlLogCategory category, DamlLogLevel level, string message, Exception? exception = null)
-        {
-            lock (_entries)
-            {
-                _entries.Add((level, message));
-            }
-        }
-    }
 }

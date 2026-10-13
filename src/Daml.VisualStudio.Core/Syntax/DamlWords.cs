@@ -33,6 +33,14 @@ public static class DamlWords
         }
 
         var c = line[position];
+        // A character literal ('a', '\n') is one word, wherever in it the caret is.
+        for (var start = Math.Max(0, position - 3); start <= position; start++)
+        {
+            if (line[start] == '\'' && DamlLexer.CharLiteralLength(line.AsSpan(), start) is var length and > 0 && start + length > position)
+            {
+                return new DamlWord(start, length, true);
+            }
+        }
         if (char.IsSurrogate(c))
         {
             // A character outside the BMP is two units; selecting half of it would corrupt it.

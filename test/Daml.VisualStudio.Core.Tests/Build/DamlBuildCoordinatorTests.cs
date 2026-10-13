@@ -50,7 +50,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
     private DamlBuildCoordinator Coordinator(Func<string?>? findDpm = null) =>
         new(new DpmRunner(new ProcessRunner()), findDpm ?? (() => _dpm), _logger);
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_failed_build_returns_zero_based_diagnostics_and_logs_the_output_one_entry_per_line()
     {
         var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
@@ -60,36 +60,36 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         var typeError = run.Diagnostics.First(d => d.FilePath.EndsWith("TypeError.daml", StringComparison.Ordinal));
         typeError.FilePath.ShouldBe(Path.Combine(_package, "daml", "TypeError.daml"));
         (typeError.Line, typeError.Column).ShouldBe((4, 8), "5:9 in damlc's 1-based output");
-        _logger.Lines.ShouldContain(l => l.Level == DamlLogLevel.Information && l.Message.StartsWith("Build", StringComparison.Ordinal) && l.Message.Contains(_package));
-        _logger.Lines.ShouldContain(l => l.Message.Contains("File:"));
-        _logger.Lines.ShouldContain(l => l.Message.Contains("failed") && l.Message.Contains("exit code 1"));
+        _logger.Entries.ShouldContain(l => l.Level == DamlLogLevel.Information && l.Message.StartsWith("Build", StringComparison.Ordinal) && l.Message.Contains(_package));
+        _logger.Entries.ShouldContain(l => l.Message.Contains("File:"));
+        _logger.Entries.ShouldContain(l => l.Message.Contains("failed") && l.Message.Contains("exit code 1"));
         // damlc's own log entries arrive as one line each, without its timestamp.
-        _logger.Lines.ShouldContain(l => l.Message == "[build] Compiling broken to a DAR.");
-        _logger.Lines.ShouldNotContain(l => l.Message.Trim().Length == 0);
-        _logger.Lines.ShouldAllBe(l => l.Category == DamlLogCategory.Build);
+        _logger.Entries.ShouldContain(l => l.Message == "[build] Compiling broken to a DAR.");
+        _logger.Entries.ShouldNotContain(l => l.Message.Trim().Length == 0);
+        _logger.Entries.ShouldAllBe(l => l.Category == DamlLogCategory.Build);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_clean_reports_no_diagnostics()
     {
         var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Clean, _package, false), CancellationToken.None);
 
         run.Succeeded.ShouldBeTrue();
         run.Diagnostics.ShouldBeEmpty();
-        _logger.Lines.ShouldContain(l => l.Message == "Removed build artifacts."); // ANSI colour codes gone
+        _logger.Entries.ShouldContain(l => l.Message == "Removed build artifacts."); // ANSI colour codes gone
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Without_dpm_nothing_runs_and_the_log_says_why()
     {
         var run = await Coordinator(() => null).RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
 
         run.ShouldBe(DamlBuildRun.NotStarted);
-        _logger.Lines.ShouldContain(l => l.Level == DamlLogLevel.Error && l.Message.Contains("DAML0101") && l.Message.Contains("dpm"));
+        _logger.Entries.ShouldContain(l => l.Level == DamlLogLevel.Error && l.Message.Contains("DAML0101") && l.Message.Contains("dpm"));
         _fake.ReadCalls().ShouldBeEmpty();
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_cancelled_run_never_starts_dpm()
     {
         var coordinator = Coordinator();
@@ -100,7 +100,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         _fake.ReadCalls().ShouldBeEmpty();
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task CancelAll_cancels_a_run_in_progress()
     {
         var gate = Path.Combine(_fake.RootDirectory, "hang.cmd");
@@ -115,32 +115,8 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
 #pragma warning disable VSTHRD003
         await Should.ThrowAsync<OperationCanceledException>(() => run);
 #pragma warning restore VSTHRD003
-        _logger.Lines.ShouldContain(l => l.Message.Contains("cancelled"));
+        _logger.Entries.ShouldContain(l => l.Message.Contains("cancelled"));
     }
 
-    private sealed class RecordingLogger : IDamlLogger
-    {
-        private readonly List<(DamlLogCategory Category, DamlLogLevel Level, string Message)> _lines = new();
 
-        public IReadOnlyList<(DamlLogCategory Category, DamlLogLevel Level, string Message)> Lines
-        {
-            get
-            {
-                lock (_lines)
-                {
-                    return _lines.ToArray();
-                }
-            }
-        }
-
-        public bool IsEnabled(DamlLogLevel level) => true;
-
-        public void Log(DamlLogCategory category, DamlLogLevel level, string message, Exception? exception = null)
-        {
-            lock (_lines)
-            {
-                _lines.Add((category, level, message));
-            }
-        }
-    }
 }

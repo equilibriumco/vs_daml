@@ -10,4 +10,9 @@
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- The exit codes the helpers in TestHelpers look for; one source for both. -->
+  <ItemGroup>
+    <Compile Include="..\TestHelpers\FakeDpmExitCodes.cs" Link="FakeDpmExitCodes.cs" />
+  </ItemGroup>
+
 </Project>

@@ -21,10 +21,10 @@ namespace Daml.TestHelpers;
 public sealed class FakeDpm : IDisposable
 {
     /// <summary>Exit code for a command the scenario doesn't cover.</summary>
-    public const int UnscriptedExitCode = 97;
+    public const int UnscriptedExitCode = FakeDpmExitCodes.Unscripted;
 
     /// <summary>Exit code when the scenario file is missing or invalid.</summary>
-    public const int ScenarioErrorExitCode = 98;
+    public const int ScenarioErrorExitCode = FakeDpmExitCodes.ScenarioError;
 
     private static readonly JsonSerializerSettings ScenarioJson = new()
     {

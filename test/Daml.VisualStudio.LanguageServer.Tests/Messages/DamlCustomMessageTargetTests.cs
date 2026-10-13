@@ -27,7 +27,7 @@ public sealed class DamlCustomMessageTargetTests
         new() { ["method"] = method, ["params"] = JObject.FromObject(parameters) };
 
     // damlc's own notifications, sent by the fake server the way damlc sends them, arrive typed.
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Every_daml_notification_reaches_its_sink_with_its_fields()
     {
         var scenario = new FakeLanguageServerScenario();
@@ -80,7 +80,7 @@ public sealed class DamlCustomMessageTargetTests
         _sinks.Count.ShouldBe(0);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Cancelling_an_install_is_sent_to_the_server()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario());

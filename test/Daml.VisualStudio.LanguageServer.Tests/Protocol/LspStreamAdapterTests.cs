@@ -22,7 +22,7 @@ public class LspStreamAdapterTests
 {
     private static readonly LspAdapterSettings Settings = new() { MaxFrameBytes = 4096, MaxHeaderBytes = 256 };
 
-    // Shape of what VS 18.11 sent in S-01, trimmed to the parts the rules touch.
+    // Shape of what VS 18.11 sends, trimmed to the parts the rules touch.
     private const string VsInitialize = """
         {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":1,"capabilities":{"textDocument":{
           "completion":{"completionItemKind":{"valueSet":[0,1,2,25,26,118115,118126]},"completionItem":{"snippetSupport":true}},

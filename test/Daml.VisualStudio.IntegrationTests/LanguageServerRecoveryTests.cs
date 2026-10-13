@@ -50,8 +50,14 @@ public class LanguageServerRecoveryTests
         try
         {
             Ide.OpenFile(Path.Combine(folder, "daml", "Main.daml"));
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            // The client looks for a workspace when the file opens and says so in its pane.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            while (!Ide.PaneText("Daml Language Server", 20000).Contains("No Daml workspace") && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(250);
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            }
+            Assert.Contains("No Daml workspace", Ide.PaneText("Daml Language Server", 20000));
             await Ide.WaitForServerAsync(ready: false, TimeSpan.Zero);
 
             File.WriteAllText(manifest, content);

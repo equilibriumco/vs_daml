@@ -39,29 +39,5 @@ public class RealDamlcLogContractTests
         logger.Entries.ShouldNotContain(e => e.Message.StartsWith("20", StringComparison.Ordinal) && e.Message.Contains("[INFO]"));
     }
 
-    private sealed class RecordingLogger : IDamlLogger
-    {
-        private readonly List<(DamlLogLevel Level, string Message)> _entries = new();
 
-        public IReadOnlyList<(DamlLogLevel Level, string Message)> Entries
-        {
-            get
-            {
-                lock (_entries)
-                {
-                    return _entries.ToArray();
-                }
-            }
-        }
-
-        public bool IsEnabled(DamlLogLevel level) => true;
-
-        public void Log(DamlLogCategory category, DamlLogLevel level, string message, Exception? exception = null)
-        {
-            lock (_entries)
-            {
-                _entries.Add((level, message));
-            }
-        }
-    }
 }

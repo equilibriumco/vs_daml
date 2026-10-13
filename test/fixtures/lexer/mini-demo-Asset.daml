@@ -1,0 +1,201 @@
+-- Copyright (c) 2026 Peaceful Studio OÜ. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MiniDemo.Asset where
+
+import DA.Assert (assertDeadlineExceeded, assertWithinDeadline)
+import DA.ContractKeys (lookupAllByKey)
+import DA.Map qualified as Map
+import DA.Optional (catOptionals, isNone, optionalToList)
+import Splice.Api.Token.HoldingV2 qualified as HoldingV2
+import Splice.Api.Token.MetadataV1 (emptyMetadata)
+import Splice.Api.Token.TransferInstructionV2 qualified as TransferInstructionV2
+
+template Instrument
+  with
+    issuer : Party
+    name : Text
+  where
+    signatory issuer
+
+    key (issuer, name) : (Party, Text)
+    maintainer key._1
+
+    nonconsuming choice Mint : ContractId Asset
+      with
+        owner : Party
+        amount : Decimal
+      controller issuer
+      do
+        create Asset with issuer; owner; name; amount; lock = None
+
+    nonconsuming choice TotalSupply : Decimal
+      controller issuer
+      do
+        holdings <- lookupAllByKey @Asset (issuer, name)
+        pure $ sum $ map (\(_, holding) -> holding.amount) holdings
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    name : Text
+    amount : Decimal
+    lock : Optional HoldingV2.Lock
+  where
+    signatory issuer
+    observer owner
+    ensure amount > 0.0
+
+    key (issuer, name) : (Party, Text)
+    maintainer key._1
+
+    interface instance HoldingV2.Holding for Asset where
+      view = HoldingV2.HoldingView with
+        account = ownerAccount owner
+        instrumentId = HoldingV2.InstrumentId with
+          admin = issuer
+          id = name
+        amount
+        lock
+        meta = emptyMetadata
+
+template AssetTransferFactory
+  with
+    issuer : Party
+    users : [Party]
+  where
+    signatory issuer
+    observer users
+
+    interface instance TransferInstructionV2.TransferFactory for AssetTransferFactory where
+      view = TransferInstructionV2.TransferFactoryView with
+        admin = issuer
+        meta = emptyMetadata
+
+      transferFactory_transferExtraObservers _ = []
+
+      transferFactory_publicFetchImpl _ _ = pure $ view $ toInterface @TransferInstructionV2.TransferFactory this
+
+      transferFactory_transferImpl _ TransferInstructionV2.TransferFactory_Transfer{transfer, actors} = do
+        sender <- accountOwner "sender" transfer.sender
+        receiver <- accountOwner "receiver" transfer.receiver
+        require "the actors are exactly the sender" (actors == [sender])
+        require "the instrument admin is the factory's issuer" (transfer.instrumentId.admin == issuer)
+        require "the amount is positive" (transfer.amount > 0.0)
+        assertDeadlineExceeded "transfer.requestedAt" transfer.requestedAt
+        assertWithinDeadline "transfer.executeBefore" transfer.executeBefore
+
+        inputAmounts <- forA transfer.inputHoldingCids $ \holdingCid -> do
+          let assetCid = fromInterfaceContractId @Asset holdingCid
+          input <- fetch assetCid
+          require "every input holding is issued by the factory's issuer" (input.issuer == issuer)
+          require "every input holding is owned by the sender" (input.owner == sender)
+          require "every input holding is of the transferred instrument" (input.name == transfer.instrumentId.id)
+          require "every input holding is unlocked" (isNone input.lock)
+          archive assetCid
+          pure input.amount
+        let funded = sum inputAmounts
+        require "the input holdings cover the amount" (funded >= transfer.amount)
+
+        let unlocked = Asset with
+              issuer
+              owner = sender
+              name = transfer.instrumentId.id
+              amount = transfer.amount
+              lock = None
+        lockedHoldingCid <- create unlocked with
+          lock = Some HoldingV2.Lock with
+            holders = [issuer]
+            expiresAt = Some transfer.executeBefore
+            expiresAfter = None
+            context = Some ("transfer to " <> partyToText receiver)
+        senderChangeCids <-
+          if funded > transfer.amount
+            then (\changeCid -> [toInterfaceContractId @HoldingV2.Holding changeCid])
+              <$> create unlocked with amount = funded - transfer.amount
+            else pure []
+
+        instructionCid <- create AssetTransferInstruction with issuer; transfer; lockedHoldingCid
+        pure TransferInstructionV2.TransferInstructionResult with
+          output = TransferInstructionV2.TransferInstructionResult_Pending with
+            transferInstructionCid = toInterfaceContractId instructionCid
+          senderChangeCids
+          meta = emptyMetadata
+
+template AssetTransferInstruction
+  with
+    issuer : Party
+    transfer : TransferInstructionV2.Transfer
+    lockedHoldingCid : ContractId Asset
+  where
+    signatory issuer
+    observer catOptionals [transfer.sender.owner, transfer.receiver.owner]
+
+    interface instance TransferInstructionV2.TransferInstruction for AssetTransferInstruction where
+      view = TransferInstructionV2.TransferInstructionView with
+        originalInstructionCid = None
+        transfer
+        expiresAt = Some transfer.executeBefore
+        availableActions = Map.fromList
+          [ (TransferInstructionV2.TIA_Accept, soleActor transfer.receiver)
+          , (TransferInstructionV2.TIA_Reject, soleActor transfer.receiver)
+          , (TransferInstructionV2.TIA_Withdraw, soleActor transfer.sender)
+          ]
+        meta = emptyMetadata
+
+      transferInstruction_acceptExtraObservers _ = []
+      transferInstruction_rejectExtraObservers _ = []
+      transferInstruction_withdrawExtraObservers _ = []
+
+      transferInstruction_acceptImpl instructionCid TransferInstructionV2.TransferInstruction_Accept{actors} = do
+        receiver <- accountOwner "receiver" transfer.receiver
+        require "the actors are exactly the receiver" (actors == [receiver])
+        assertWithinDeadline "transfer.executeBefore" transfer.executeBefore
+        archive $ fromInterfaceContractId @AssetTransferInstruction instructionCid
+        locked <- fetch lockedHoldingCid
+        archive lockedHoldingCid
+        receiverHoldingCid <- create locked with owner = receiver; lock = None
+        pure TransferInstructionV2.TransferInstructionResult with
+          output = TransferInstructionV2.TransferInstructionResult_Completed with
+            receiverHoldingCids = [toInterfaceContractId receiverHoldingCid]
+          senderChangeCids = []
+          meta = emptyMetadata
+
+      transferInstruction_rejectImpl instructionCid TransferInstructionV2.TransferInstruction_Reject{actors} = do
+        receiver <- accountOwner "receiver" transfer.receiver
+        require "the actors are exactly the receiver" (actors == [receiver])
+        returnToSender instructionCid lockedHoldingCid
+
+      transferInstruction_withdrawImpl instructionCid TransferInstructionV2.TransferInstruction_Withdraw{actors} = do
+        sender <- accountOwner "sender" transfer.sender
+        require "the actors are exactly the sender" (actors == [sender])
+        returnToSender instructionCid lockedHoldingCid
+
+returnToSender : ContractId TransferInstructionV2.TransferInstruction -> ContractId Asset -> Update TransferInstructionV2.TransferInstructionResult
+returnToSender instructionCid lockedHoldingCid = do
+  archive $ fromInterfaceContractId @AssetTransferInstruction instructionCid
+  locked <- fetch lockedHoldingCid
+  archive lockedHoldingCid
+  unlockedCid <- create locked with lock = None
+  pure TransferInstructionV2.TransferInstructionResult with
+    output = TransferInstructionV2.TransferInstructionResult_Failed
+    senderChangeCids = [toInterfaceContractId unlockedCid]
+    meta = emptyMetadata
+
+ownerAccount : Party -> HoldingV2.Account
+ownerAccount owner = HoldingV2.Account with
+  owner = Some owner
+  provider = None
+  id = ""
+
+soleActor : HoldingV2.Account -> [[Party]]
+soleActor account = map (\owner -> [owner]) $ optionalToList account.owner
+
+accountOwner : Text -> HoldingV2.Account -> Update Party
+accountOwner role account = case account.owner of
+  Some owner | isNone account.provider && account.id == "" -> pure owner
+  _ -> abort $ "the " <> role <> " account must be a plain owner account: " <> show account
+
+require : Text -> Bool -> Update ()
+require = assertMsg

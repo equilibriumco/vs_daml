@@ -31,37 +31,12 @@ public class RealDamlcReopenContractTests
     [InlineData("ide")]
     public async Task A_reopened_file_gets_its_diagnostics_back_and_is_still_served(string mode)
     {
-        var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var package = Repository.Sample("broken");
         var file = Path.Combine(package, "daml", "TypeError.daml");
         var uri = new Uri(file).AbsoluteUri;
-        using var process = new ProcessRunner().Start(new ProcessSpec(dpm, ["damlc", mode]) { WorkingDirectory = package });
-        var stderr = process.StandardError.CopyToAsync(Stream.Null);
-        var settings = new LspAdapterSettings();
-        var tracker = new InitializeTracker();
-        var documents = new OpenDocuments();
-        var published = new List<int>();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
-            new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents),
-            new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents),
-            new JsonMessageFormatter()));
-        rpc.AddLocalRpcMethod("textDocument/publishDiagnostics", new Action<JToken>(p =>
-        {
-            if (string.Equals(Uri.UnescapeDataString((string?)p["uri"] ?? ""), Uri.UnescapeDataString(uri), StringComparison.OrdinalIgnoreCase))
-            {
-                lock (published)
-                {
-                    published.Add(((JArray?)p["diagnostics"])?.Count ?? 0);
-                }
-            }
-        }));
-        rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
-        rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));
-        rpc.StartListening();
-
-        var initialize = rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, rootUri = new Uri(package).AbsoluteUri, capabilities = new { } });
-        (await Task.WhenAny(initialize, Task.Delay(TimeSpan.FromMinutes(2)))).ShouldBe(initialize, "damlc didn't answer initialize");
-        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        await using var session = await StartAsync(mode, package, uri);
+        var rpc = session.Rpc;
+        var published = session.Published;
         var text = File.ReadAllText(file);
         object Opened(int version) => new { textDocument = new { uri, languageId = "daml", version, text } };
 
@@ -83,8 +58,6 @@ public class RealDamlcReopenContractTests
 
         _output.WriteLine($"{mode}: diagnostics counts in order: {string.Join(", ", Snapshot(published))}");
         cleared.ShouldBeTrue("damlc didn't react to an edit after the reopen");
-        await rpc.NotifyAsync("exit");
-        GC.KeepAlive(stderr);
     }
 
     // multi-ide's coordinator sends an empty, unversioned list for every known file whenever
@@ -96,36 +69,12 @@ public class RealDamlcReopenContractTests
     [InlineData("ide", false)]
     public async Task Opening_another_file_leaves_the_error_in_place(string mode, bool closeFirst)
     {
-        var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var package = Repository.Sample("broken");
         string UriOf(string name) => new Uri(Path.Combine(package, "daml", name)).AbsoluteUri;
         var typeError = UriOf("TypeError.daml");
-        using var process = new ProcessRunner().Start(new ProcessSpec(dpm, ["damlc", mode]) { WorkingDirectory = package });
-        var stderr = process.StandardError.CopyToAsync(Stream.Null);
-        var settings = new LspAdapterSettings();
-        var tracker = new InitializeTracker();
-        var documents = new OpenDocuments();
-        var published = new List<int>();
-        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
-            new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents),
-            new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents),
-            new JsonMessageFormatter()));
-        rpc.AddLocalRpcMethod("textDocument/publishDiagnostics", new Action<JToken>(p =>
-        {
-            if (string.Equals(Uri.UnescapeDataString((string?)p["uri"] ?? ""), Uri.UnescapeDataString(typeError), StringComparison.OrdinalIgnoreCase))
-            {
-                lock (published)
-                {
-                    published.Add(((JArray?)p["diagnostics"])?.Count ?? 0);
-                }
-            }
-        }));
-        rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
-        rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));
-        rpc.StartListening();
-        var initialize = rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, rootUri = new Uri(package).AbsoluteUri, capabilities = new { } });
-        (await Task.WhenAny(initialize, Task.Delay(TimeSpan.FromMinutes(2)))).ShouldBe(initialize, "damlc didn't answer initialize");
-        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        await using var session = await StartAsync(mode, package, typeError);
+        var rpc = session.Rpc;
+        var published = session.Published;
         object Opened(string name, int version) => new { textDocument = new { uri = UriOf(name), languageId = "daml", version, text = File.ReadAllText(Path.Combine(package, "daml", name)) } };
 
         await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", Opened("TypeError.daml", 1));
@@ -146,8 +95,64 @@ public class RealDamlcReopenContractTests
         var all = Snapshot(published);
         _output.WriteLine($"{mode}, close first {closeFirst}: TypeError diagnostics counts in order: {string.Join(", ", all)}");
         all[^1].ShouldBeGreaterThan(0, "the last word on TypeError.daml cleared its error");
-        await rpc.NotifyAsync("exit");
-        GC.KeepAlive(stderr);
+    }
+
+    // damlc through the adapter, the way Visual Studio talks to it, counting the diagnostics
+    // published for one file.
+    private static async Task<Session> StartAsync(string mode, string package, string trackedUri)
+    {
+        var dpm = RequiredTools.Require(ExternalTool.Dpm);
+        var process = new ProcessRunner().Start(new ProcessSpec(dpm, ["damlc", mode]) { WorkingDirectory = package });
+        var stderr = process.StandardError.CopyToAsync(Stream.Null);
+        var settings = new LspAdapterSettings();
+        var tracker = new InitializeTracker();
+        var documents = new OpenDocuments();
+        var published = new List<int>();
+        var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
+            new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents),
+            new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents),
+            new JsonMessageFormatter()));
+        rpc.AddLocalRpcMethod("textDocument/publishDiagnostics", new Action<JToken>(p =>
+        {
+            if (string.Equals(Uri.UnescapeDataString((string?)p["uri"] ?? ""), Uri.UnescapeDataString(trackedUri), StringComparison.OrdinalIgnoreCase))
+            {
+                lock (published)
+                {
+                    published.Add(((JArray?)p["diagnostics"])?.Count ?? 0);
+                }
+            }
+        }));
+        rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
+        rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));
+        rpc.StartListening();
+        var initialize = rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, rootUri = new Uri(package).AbsoluteUri, capabilities = new { } });
+        (await Task.WhenAny(initialize, Task.Delay(TimeSpan.FromMinutes(2)))).ShouldBe(initialize, "damlc didn't answer initialize");
+        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        return new Session(process, rpc, published, stderr);
+    }
+
+    private sealed class Session(IRunningProcess process, JsonRpc rpc, List<int> published, Task stderr) : IAsyncDisposable
+    {
+        public JsonRpc Rpc { get; } = rpc;
+
+        public List<int> Published { get; } = published;
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await Rpc.NotifyAsync("exit");
+            }
+            catch (Exception ex) when (ex is ConnectionLostException or ObjectDisposedException)
+            {
+            }
+            Rpc.Dispose();
+            // The stderr copy isn't tied to any synchronization context; waiting on it can't deadlock.
+#pragma warning disable VSTHRD003
+            await Task.WhenAny(stderr, Task.Delay(TimeSpan.FromSeconds(5)));
+#pragma warning restore VSTHRD003
+            process.Dispose();
+        }
     }
 
     private static List<int> Snapshot(List<int> published)

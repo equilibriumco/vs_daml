@@ -21,8 +21,6 @@ public class DamlLexerSnapshotTests
     private static readonly Dictionary<string, string> ThirdParty = new()
     {
         ["TestGrammar"] = Path.Combine(Repository.Root, "third_party", "daml-extension", "TestGrammar.daml"),
-        ["mini-demo-Asset"] = Repository.Sample(@"mixed-dotnet\daml\daml\MiniDemo\Asset.daml"),
-        ["mini-demo-AssetTest"] = Repository.Sample(@"mixed-dotnet\daml\test\daml\MiniDemo\AssetTest.daml"),
     };
 
     public static TheoryData<string> Fixtures()

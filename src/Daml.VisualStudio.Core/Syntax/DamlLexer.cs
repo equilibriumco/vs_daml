@@ -309,7 +309,7 @@ public static class DamlLexer
 
     // Length of a character literal starting at index, or 0 when the apostrophe is a promotion
     // tick ('[], 'True) or a Template Haskell quote.
-    private static int CharLiteralLength(ReadOnlySpan<char> line, int index)
+    internal static int CharLiteralLength(ReadOnlySpan<char> line, int index)
     {
         if (At(line, index + 1, '\\'))
         {

@@ -39,6 +39,7 @@ public sealed class KeepAliveWatchdog : IDisposable
     private int _answered;
     private KeepAliveSettings _settings;
     private Run? _watching;
+    private Run? _ended;
 
     /// <summary>Creates a watchdog; nothing is sent until <see cref="Watch"/>.</summary>
     /// <param name="channel">The current session's connection.</param>
@@ -95,6 +96,7 @@ public sealed class KeepAliveWatchdog : IDisposable
                 run = new Run(_settings);
             }
             _watching = run;
+            _ended = previous ?? _ended;
         }
         previous?.End();
         if (run is null)
@@ -114,6 +116,7 @@ public sealed class KeepAliveWatchdog : IDisposable
         {
             watching = _watching;
             _watching = null;
+            _ended = watching ?? _ended;
         }
         watching?.End();
     }
@@ -126,16 +129,21 @@ public sealed class KeepAliveWatchdog : IDisposable
 
     // For tests driving a fake clock: the latest run is blocked on a timer or a reply, or is over,
     // so nothing will happen until the clock moves or the reply arrives.
+    // A run that was ended counts only once its loop has really stopped: until then an advance
+    // of the clock could still wake it.
     internal bool IsSettled
     {
         get
         {
             Run? run;
+            Run? ended;
             lock (_gate)
             {
                 run = _watching;
+                ended = _ended;
             }
-            return run is null || run.Loop is not { } loop || loop.IsCompleted || run.WaitingOn is { IsCompleted: false };
+            var endedIsOver = ended?.Loop is not { IsCompleted: false };
+            return endedIsOver && (run is null || run.Loop is not { } loop || loop.IsCompleted || run.WaitingOn is { IsCompleted: false });
         }
     }
 

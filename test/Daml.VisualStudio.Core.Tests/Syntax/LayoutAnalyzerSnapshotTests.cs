@@ -17,13 +17,14 @@ public class LayoutAnalyzerSnapshotTests
 {
     private static readonly string FixtureFolder = Path.Combine(Repository.Root, "test", "fixtures", "layout");
 
-    // The samples are real code worth keeping an eye on as well.
+    // Copies of real code from the samples, kept with the lexer fixtures so that editing a
+    // sample (or opening it in an IDE test) can't change a snapshot behind the test's back.
     private static readonly Dictionary<string, string> Samples = new()
     {
-        ["sample-single-package-Main"] = Repository.Sample(@"single-package\daml\Main.daml"),
+        ["sample-single-package-Main"] = Path.Combine(Repository.Root, "test", "fixtures", "lexer", "sample-single-package-Main.daml"),
         ["sample-multi-package-Asset"] = Path.Combine(Repository.Root, "test", "fixtures", "lexer", "sample-multi-package-Asset.daml"),
-        ["mini-demo-Asset"] = Repository.Sample(@"mixed-dotnet\daml\daml\MiniDemo\Asset.daml"),
-        ["mini-demo-AssetTest"] = Repository.Sample(@"mixed-dotnet\daml\test\daml\MiniDemo\AssetTest.daml"),
+        ["mini-demo-Asset"] = Path.Combine(Repository.Root, "test", "fixtures", "lexer", "mini-demo-Asset.daml"),
+        ["mini-demo-AssetTest"] = Path.Combine(Repository.Root, "test", "fixtures", "lexer", "mini-demo-AssetTest.daml"),
     };
 
     public static TheoryData<string> Fixtures()

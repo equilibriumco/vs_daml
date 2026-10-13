@@ -186,7 +186,13 @@ public sealed class LanguageServerSupervisorTests : IDisposable
 
         _runner.Started[0].Disposed.ShouldBeTrue();
         _runner.Started[0].Exit(1);
-        await Task.Delay(100);
+        // The exit is looked at on a continuation; wait for it to have been, then judge.
+        var deadline = DateTime.UtcNow + Generous;
+        while (_supervisor.ExitsHandled < 1 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+        _supervisor.ExitsHandled.ShouldBeGreaterThanOrEqualTo(1);
 
         second.ShouldNotBeNull().Id.ShouldBe(2);
         _supervisor.State.ShouldBe(LanguageServerState.Initializing);
@@ -205,8 +211,7 @@ public sealed class LanguageServerSupervisorTests : IDisposable
 
         var first = supervisor.StartAsync(CancellationToken.None);
         var second = supervisor.StartAsync(CancellationToken.None);
-        await Task.Delay(50);
-        calls.ShouldBe(2);
+        calls.ShouldBe(2, "both resolved before either waited for the other");
         gate.SetResult(Command);
 
         var sessions = new[] { (await first).ShouldNotBeNull(), (await second).ShouldNotBeNull() };

@@ -51,7 +51,7 @@ public sealed class DpmRunnerTests : IDisposable
         return wrapper;
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_failed_build_reports_its_exit_code_and_the_diagnostics_dpm_printed()
     {
         var result = await _runner.RunAsync(Dpm(), DpmCommandKind.Build, _package, allPackages: false, onOutput: null, CancellationToken.None);
@@ -64,7 +64,7 @@ public sealed class DpmRunnerTests : IDisposable
         call.WorkingDirectory.ShouldBe(_package);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Output_is_handed_over_line_by_line_with_the_stream_it_came_from()
     {
         var lines = new List<DpmOutputLine>();
@@ -77,7 +77,7 @@ public sealed class DpmRunnerTests : IDisposable
         _fake.ReadCalls().Single().Args.ShouldBe(["build", "--all"]);
     }
 
-    [Theory, Trait("Category", "Unit")]
+    [Theory, Trait("Category", "Process")]
     [InlineData(DpmCommandKind.Clean, "clean")]
     [InlineData(DpmCommandKind.Test, "test")]
     public async Task Clean_and_test_run_their_own_commands(DpmCommandKind kind, string argument)
@@ -89,7 +89,7 @@ public sealed class DpmRunnerTests : IDisposable
         _fake.ReadCalls().Single().Args.ShouldBe([argument]);
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Testing_every_package_is_refused_before_anything_starts()
     {
         await Should.ThrowAsync<ArgumentException>(() => _runner.RunAsync(Dpm(), DpmCommandKind.Test, _package, allPackages: true, onOutput: null, CancellationToken.None));
@@ -97,7 +97,7 @@ public sealed class DpmRunnerTests : IDisposable
         _fake.ReadCalls().ShouldBeEmpty();
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Cancelling_stops_the_run()
     {
         var hanging = Path.Combine(_fake.RootDirectory, "hang.cmd");

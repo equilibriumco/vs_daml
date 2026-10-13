@@ -1,3 +1,4 @@
+using Daml.TestHelpers;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -18,9 +19,8 @@ namespace Daml.TestFakes.Dpm;
 /// </summary>
 internal static class Program
 {
-    // Kept in sync with FakeDpm.UnscriptedExitCode / ScenarioErrorExitCode in TestHelpers.
-    private const int UnscriptedExitCode = 97;
-    private const int ScenarioErrorExitCode = 98;
+    private const int UnscriptedExitCode = FakeDpmExitCodes.Unscripted;
+    private const int ScenarioErrorExitCode = FakeDpmExitCodes.ScenarioError;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 

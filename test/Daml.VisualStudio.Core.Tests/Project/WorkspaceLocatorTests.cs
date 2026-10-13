@@ -16,7 +16,7 @@ public class WorkspaceLocatorTests
         _files.AddFile(root + @"\daml.yaml", $"sdk-version: 3.6.0\nname: {name}\nsource: daml\nversion: 1.0.0\n")
               .AddFile(root + @"\daml\Main.daml", "module Main where\n");
 
-    // The layout S-08 ran against: a multi-package tree and an independent package next to it.
+    // A multi-package tree and an independent package next to it, as damlc was tried against.
     private void Samples()
     {
         _files.AddFile(@"C:\repo\samples\multi-package\multi-package.yaml", "packages:\n- ./interfaces\n- ./main\n");
@@ -149,7 +149,7 @@ public class WorkspaceLocatorTests
     [Fact, Trait("Category", "Unit")]
     public void Multi_ide_starts_for_a_file_without_a_daml_yaml()
     {
-        // S-08: multi-ide still gives such a file diagnostics and hover.
+        // multi-ide still gives such a file diagnostics and hover.
         _files.AddFile(@"C:\repo\Lone.daml", "module Lone where\n");
 
         var context = _locator.Resolve(@"C:\repo", @"C:\repo\Lone.daml", ServerMode.MultiIde, 1).Context.ShouldNotBeNull();

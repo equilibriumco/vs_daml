@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.LanguageServer.Messages;
 using Shouldly;
@@ -16,7 +17,8 @@ public class LoggingVirtualResourceSinkTests
 
         new LoggingVirtualResourceSink(logger).Noted(new VirtualResourceNoteParams("daml://compiler?file=Main.daml", "Script failed"));
 
-        logger.Entries.ShouldHaveSingleItem().ShouldBe((DamlLogLevel.Information, "daml://compiler?file=Main.daml: Script failed"));
+        var entry = logger.Entries.ShouldHaveSingleItem();
+        (entry.Level, entry.Message).ShouldBe((DamlLogLevel.Information, "daml://compiler?file=Main.daml: Script failed"));
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -38,17 +40,5 @@ public class LoggingVirtualResourceSinkTests
         verbose.Entries[1].Message.ShouldContain("1500 ms");
     }
 
-    private sealed class RecordingLogger : IDamlLogger
-    {
-        private readonly DamlLogLevel _minimum;
 
-        public RecordingLogger(DamlLogLevel minimum) => _minimum = minimum;
-
-        public List<(DamlLogLevel Level, string Message)> Entries { get; } = new();
-
-        public bool IsEnabled(DamlLogLevel level) => level >= _minimum;
-
-        public void Log(DamlLogCategory category, DamlLogLevel level, string message, Exception? exception = null) =>
-            Entries.Add((level, message));
-    }
 }

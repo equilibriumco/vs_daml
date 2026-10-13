@@ -207,7 +207,7 @@ public sealed class LanguageServerHostTests
 
     // The fake language server stands in for dpm: it ignores its arguments, fails the version
     // and help commands (no stdin), and then serves LSP when started as the server.
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task A_session_is_ready_once_initialize_is_answered_and_the_rpc_channel_belongs_to_it()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario());
@@ -252,7 +252,7 @@ public sealed class LanguageServerHostTests
         }
     }
 
-    [Theory, Trait("Category", "Unit")]
+    [Theory, Trait("Category", "Process")]
     [InlineData(true)]
     [InlineData(false)]
     public async Task A_ready_server_is_asked_whether_it_is_alive_and_restarted_when_it_hangs(bool hangs)
@@ -304,8 +304,8 @@ public sealed class LanguageServerHostTests
             (await EventuallyAsync(() => host.KeepAlive.Answered == 2 && host.KeepAlive.IsSettled)).ShouldBeTrue();
 
             host.KeepAliveSettings = new KeepAliveSettings { Enabled = false };
+            (await EventuallyAsync(() => host.KeepAlive.IsSettled)).ShouldBeTrue("the ended loop has stopped");
             time.Advance(TimeSpan.FromMinutes(10));
-            await Task.Delay(200);
             server.ReadReceivedMethods().Count(m => m == "daml/keepAlive").ShouldBe(2, "switched off");
 
             host.KeepAliveSettings = new KeepAliveSettings();

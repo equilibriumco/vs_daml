@@ -157,9 +157,8 @@ public class OpenDocumentsTests
 
         await SentToServerAsync(documents, Open(1, "x"), Close, Open(2, "x"));
         var next = ReadFrameAsync(fromServer);
-        await Task.Delay(200);
 
-        next.IsCompleted.ShouldBeFalse();
+        // Anything handed back on the reopen would be read before what the server sends next.
         server.Push(Frame("""{"jsonrpc":"2.0","method":"window/logMessage","params":{"type":3,"message":"hi"}}"""));
         ((string)JObject.Parse(Encoding.UTF8.GetString(await next))["method"]!).ShouldBe("window/logMessage");
     }

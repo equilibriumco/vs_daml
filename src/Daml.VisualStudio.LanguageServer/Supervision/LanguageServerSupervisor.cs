@@ -33,6 +33,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     private Session? _current;
     private TimeSpan _backoff;
     private bool _disposed;
+    private int _exitsHandled;
 
     /// <summary>Creates a supervisor.</summary>
     /// <param name="runner">Starts the server process.</param>
@@ -95,6 +96,9 @@ public sealed class LanguageServerSupervisor : IDisposable
             }
         }
     }
+
+    // For tests: how many process exits have been looked at, those of replaced sessions included.
+    internal int ExitsHandled => Volatile.Read(ref _exitsHandled);
 
     /// <summary>The last stderr lines of any session, oldest first, for diagnostics.</summary>
     public IReadOnlyList<string> RecentStderr
@@ -383,6 +387,7 @@ public sealed class LanguageServerSupervisor : IDisposable
 
     private void OnExited(Session session, int exitCode)
     {
+        Interlocked.Increment(ref _exitsHandled);
         Crash crash;
         lock (_gate)
         {

@@ -14,7 +14,7 @@ public class LanguageClientExportsTests
     [Fact, Trait("Category", "Editor")]
     public async Task Exactly_one_language_client_is_exported_for_daml_content()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         var exports = parts.Parts.SelectMany(p => p.ExportedTypes).Where(e => e.ContractName == typeof(ILanguageClient).FullName).ToList();
 
@@ -26,7 +26,7 @@ public class LanguageClientExportsTests
     [Fact, Trait("Category", "Editor")]
     public async Task The_language_client_part_is_also_exported_as_itself_for_commands()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         var client = parts.Parts.Single(p => p.ExportedTypes.Any(e => e.ContractName == typeof(ILanguageClient).FullName));
 
@@ -37,7 +37,7 @@ public class LanguageClientExportsTests
     [Fact, Trait("Category", "Editor")]
     public async Task The_language_client_only_imports_services_every_VS_has()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         var client = parts.Parts.Single(p => p.ExportedTypes.Any(e => e.ContractName == typeof(ILanguageClient).FullName));
 
@@ -45,11 +45,4 @@ public class LanguageClientExportsTests
             .ShouldBe(["Microsoft.VisualStudio.Threading.JoinableTaskContext", "Daml.VisualStudio.Core.Logging.IDamlLogger"]);
     }
 
-    private static async Task<DiscoveredParts> DiscoverAsync()
-    {
-        var discovery = PartDiscovery.Combine(
-            new AttributedPartDiscoveryV1(Resolver.DefaultInstance),
-            new AttributedPartDiscovery(Resolver.DefaultInstance, isNonPublicSupported: true));
-        return await discovery.CreatePartsAsync(typeof(DamlPackage).Assembly);
-    }
 }

@@ -33,19 +33,19 @@ public class BuildIntegrationTests
     [Fact, Trait("Category", "Editor")]
     public async Task The_build_parts_are_discovered_without_errors()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         parts.DiscoveryErrors.ShouldBeEmpty();
-        PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileContextProvider>)).Count.ShouldBe(1);
-        PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileContextActionProvider>)).Count.ShouldBe(1);
-        PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileScanner>)).Count.ShouldBe(1);
-        PartsExporting(parts, typeof(DamlBuildService)).ShouldHaveSingleItem().IsShared.ShouldBeTrue();
+        MefParts.PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileContextProvider>)).Count.ShouldBe(1);
+        MefParts.PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileContextActionProvider>)).Count.ShouldBe(1);
+        MefParts.PartsExporting(parts, typeof(IWorkspaceProviderFactory<IFileScanner>)).Count.ShouldBe(1);
+        MefParts.PartsExporting(parts, typeof(DamlBuildService)).ShouldHaveSingleItem().IsShared.ShouldBeTrue();
     }
 
     [Fact, Trait("Category", "Editor")]
     public async Task The_scanner_indexes_both_manifests_for_build_configurations()
     {
-        var metadata = Flatten(Exports(await DiscoverAsync(), typeof(IWorkspaceProviderFactory<IFileScanner>)).Single().Metadata.Values).ToList();
+        var metadata = Flatten(MefParts.ExportsOf(await MefParts.DiscoverAsync(), typeof(IWorkspaceProviderFactory<IFileScanner>)).Single().Metadata.Values).ToList();
 
         // The attribute turns the names into suffix globs.
         metadata.ShouldContain("*" + WorkspaceLocator.PackageManifestName);
@@ -85,10 +85,10 @@ public class BuildIntegrationTests
     [Fact, Trait("Category", "Editor")]
     public async Task Contexts_cover_build_clean_and_test_while_actions_only_cover_test()
     {
-        var parts = await DiscoverAsync();
+        var parts = await MefParts.DiscoverAsync();
 
         // The attributes take strings; the metadata holds them as Guids.
-        var contextTypes = Flatten(Exports(parts, typeof(IWorkspaceProviderFactory<IFileContextProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
+        var contextTypes = Flatten(MefParts.ExportsOf(parts, typeof(IWorkspaceProviderFactory<IFileContextProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
         foreach (var type in OurContextTypes)
         {
             contextTypes.ShouldContain(new Guid(type));
@@ -96,7 +96,7 @@ public class BuildIntegrationTests
 
         // Build and Clean run through the folder view's own commands; an action of ours mapped
         // onto them as well put a second Build in the menu.
-        var actionTypes = Flatten(Exports(parts, typeof(IWorkspaceProviderFactory<IFileContextActionProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
+        var actionTypes = Flatten(MefParts.ExportsOf(parts, typeof(IWorkspaceProviderFactory<IFileContextActionProvider>)).Single().Metadata.Values).OfType<Guid>().ToList();
         actionTypes.ShouldContain(BuildIds.TestContextType);
         actionTypes.ShouldNotContain(BuildContextTypes.BuildContextTypeGuid);
         actionTypes.ShouldNotContain(BuildContextTypes.CleanContextTypeGuid);
@@ -224,27 +224,6 @@ public class BuildIntegrationTests
 
     private static FileContext Context(Guid type, DpmCommandKind kind, string folder, bool all, string manifest) =>
         new(BuildIds.FileContextProvider, type, new DamlBuildConfigurationContext(new DamlBuildAction(kind, folder, all), NoRun), [manifest], kind.ToString());
-
-    private static async Task<DiscoveredParts> DiscoverAsync()
-    {
-        var discovery = PartDiscovery.Combine(
-            new AttributedPartDiscoveryV1(Resolver.DefaultInstance),
-            new AttributedPartDiscovery(Resolver.DefaultInstance, isNonPublicSupported: true));
-        return await discovery.CreatePartsAsync(typeof(DamlPackage).Assembly);
-    }
-
-    private static List<ComposablePartDefinition> PartsExporting(DiscoveredParts parts, Type contract) =>
-        parts.Parts.Where(p => p.ExportedTypes.Any(e => e.ContractName == ContractName(contract))).ToList();
-
-    private static IEnumerable<ExportDefinition> Exports(DiscoveredParts parts, Type contract) =>
-        parts.Parts.SelectMany(p => p.ExportingMembers.SelectMany(m => m.Value).Concat(p.ExportedTypes))
-            .Where(e => e.ContractName == ContractName(contract));
-
-    // MEF's contract names: the full type name, with generic arguments in parentheses.
-    private static string ContractName(Type type) =>
-        type.IsGenericType
-            ? $"{type.Namespace}.{type.Name.Substring(0, type.Name.IndexOf('`'))}({string.Join(",", type.GetGenericArguments().Select(ContractName))})"
-            : type.FullName!;
 
     // Metadata values may be single values or arrays (several attributes, or params arrays).
     private static IEnumerable<object?> Flatten(IEnumerable<object?> values)

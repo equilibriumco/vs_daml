@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -14,7 +15,9 @@ using Xunit;
 namespace Daml.VisualStudio.Core.Tests.Processes;
 
 // Runs real processes: the fake dpm directly, and through a .cmd wrapper shaped like the
-// dpm.cmd that the dpm installer puts on PATH.
+// dpm.cmd that the dpm installer puts on PATH. Every process is created inside a kill-on-close
+// Job Object, so nothing it starts can outlive it: closing the job (Dispose, or the owning
+// process dying) ends the whole tree.
 public sealed class ProcessRunnerTests : IDisposable
 {
     private static readonly TimeSpan Generous = TimeSpan.FromSeconds(60);
@@ -42,6 +45,11 @@ public sealed class ProcessRunnerTests : IDisposable
         return path;
     }
 
+    // Folder name with a space, an ampersand and non-ASCII letters, like a user profile can have.
+    private string ForwardingWrapper() => Wrapper("bin & zółw", $"\"{_fake.ExecutablePath}\" %*");
+
+    private string HangingWrapper() => Wrapper("hang", "ping -n 120 127.0.0.1");
+
     private ProcessSpec Spec(string fileName, params string[] args) => new(fileName, args)
     {
         WorkingDirectory = _fake.RootDirectory,
@@ -49,8 +57,8 @@ public sealed class ProcessRunnerTests : IDisposable
         Timeout = Generous,
     };
 
-    public static TheoryData<string> AwkwardArguments => new()
-    {
+    private static readonly string[] AwkwardArguments =
+    [
         "plain",
         "",
         "with space",
@@ -67,51 +75,49 @@ public sealed class ProcessRunnerTests : IDisposable
         "%PATH%",
         "!PATH!",
         "zażółć 日本",
-    };
+    ];
 
-    [Theory, Trait("Category", "Unit")]
-    [MemberData(nameof(AwkwardArguments))]
-    public async Task An_executable_receives_each_argument_unchanged(string argument)
+    // Each argument straight to the executable, and once more through cmd's %* forwarding.
+    public static TheoryData<string, bool> AwkwardArgumentsBothWays()
     {
-        await _runner.RunAsync(Spec(_fake.ExecutablePath, "first", argument, "last"), CancellationToken.None);
+        var data = new TheoryData<string, bool>();
+        foreach (var argument in AwkwardArguments)
+        {
+            data.Add(argument, false);
+            data.Add(argument, true);
+        }
+        return data;
+    }
+
+    [Theory, Trait("Category", "Process")]
+    [MemberData(nameof(AwkwardArgumentsBothWays))]
+    public async Task Each_argument_arrives_unchanged(string argument, bool viaCmd)
+    {
+        var program = viaCmd ? ForwardingWrapper() : _fake.ExecutablePath;
+
+        await _runner.RunAsync(Spec(program, "first", argument, "last"), CancellationToken.None);
 
         _fake.ReadCalls().Single().Args.ShouldBe(["first", argument, "last"]);
     }
 
-    [Theory, Trait("Category", "Unit")]
-    [MemberData(nameof(AwkwardArguments))]
-    public async Task A_cmd_wrapper_passes_each_argument_on_unchanged(string argument)
+    [Theory, Trait("Category", "Process")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Output_error_and_exit_code_are_captured(bool viaCmd)
     {
-        // Folder name with a space, an ampersand and non-ASCII letters, like a user profile can have.
-        var wrapper = Wrapper("bin & zółw", $"\"{_fake.ExecutablePath}\" %*");
+        var program = viaCmd ? ForwardingWrapper() : _fake.ExecutablePath;
 
-        await _runner.RunAsync(Spec(wrapper, "first", argument, "last"), CancellationToken.None);
-
-        _fake.ReadCalls().Single().Args.ShouldBe(["first", argument, "last"]);
-    }
-
-    [Fact, Trait("Category", "Unit")]
-    public async Task Output_error_and_exit_code_are_captured()
-    {
-        var result = await _runner.RunAsync(Spec(_fake.ExecutablePath, "anything"), CancellationToken.None);
+        var result = await _runner.RunAsync(Spec(program, "anything"), CancellationToken.None);
 
         result.ShouldBe(new ProcessResult(3, "out ", "err "));
     }
 
-    [Fact, Trait("Category", "Unit")]
-    public async Task Exit_code_and_output_come_back_through_a_cmd_wrapper()
-    {
-        var wrapper = Wrapper("bin", $"\"{_fake.ExecutablePath}\" %*");
-
-        var result = await _runner.RunAsync(Spec(wrapper, "anything"), CancellationToken.None);
-
-        result.ShouldBe(new ProcessResult(3, "out ", "err "));
-    }
-
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Working_directory_and_environment_are_applied()
     {
         var work = Directory.CreateDirectory(Path.Combine(_fake.RootDirectory, "work dir")).FullName;
+        // Inheritance can only be shown with a variable of this process; these two names belong
+        // to this test alone, and no other test asserts on their absence.
         Environment.SetEnvironmentVariable("DAML_INHERITED_BY_TEST", "kept");
         Environment.SetEnvironmentVariable("DPM_REMOVED_BY_TEST", "gone");
         try
@@ -136,46 +142,57 @@ public sealed class ProcessRunnerTests : IDisposable
         }
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Timeout_kills_the_wrapper_and_what_it_started()
     {
         // cmd.exe -> ping.exe: killing only cmd.exe would leave ping running and holding the pipes.
-        var wrapper = Wrapper("hang", "ping -n 120 127.0.0.1");
         var watch = Stopwatch.StartNew();
 
         var timeout = await Should.ThrowAsync<TimeoutException>(
-            () => _runner.RunAsync(Spec(wrapper) with { Timeout = TimeSpan.FromSeconds(2) }, CancellationToken.None));
+            () => _runner.RunAsync(Spec(HangingWrapper()) with { Timeout = TimeSpan.FromSeconds(2) }, CancellationToken.None));
 
         watch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(30));
         timeout.Message.ShouldContain("dpm.cmd");
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Cancellation_stops_the_run()
     {
-        var wrapper = Wrapper("hang", "ping -n 120 127.0.0.1");
         using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(1));
         var watch = Stopwatch.StartNew();
 
-        await Should.ThrowAsync<OperationCanceledException>(() => _runner.RunAsync(Spec(wrapper), cancel.Token));
+        await Should.ThrowAsync<OperationCanceledException>(() => _runner.RunAsync(Spec(HangingWrapper()), cancel.Token));
 
         watch.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(30));
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
     public async Task Killing_the_tree_ends_the_wrapper_and_its_children()
     {
-        var wrapper = Wrapper("hang", "ping -n 120 127.0.0.1");
-        using var running = _runner.Start(Spec(wrapper));
+        using var running = _runner.Start(Spec(HangingWrapper()));
         var children = await WaitForChildrenAsync(running.Id);
 
         running.KillTree();
 
-        (await WithTimeout(running.Exited)).ShouldNotBe(0);
+        (await ExitCodeAsync(running)).ShouldNotBe(0);
         children.ShouldAllBe(c => HasExited(c));
     }
 
-    [Fact, Trait("Category", "Unit")]
+    [Fact, Trait("Category", "Process")]
+    public async Task Disposing_ends_the_process_and_everything_it_started()
+    {
+        var running = _runner.Start(Spec(HangingWrapper()));
+        using var root = Process.GetProcessById(running.Id);
+        var children = await WaitForChildrenAsync(running.Id);
+
+        running.Dispose();
+
+        HasExited(root).ShouldBeTrue();
+        children.ShouldAllBe(c => HasExited(c));
+        running.Exited.IsCanceled.ShouldBeTrue("nobody will learn the exit code of a disposed process");
+    }
+
+    [Fact, Trait("Category", "Process")]
     public async Task A_started_process_exposes_its_standard_streams()
     {
         var sort = Path.Combine(Environment.SystemDirectory, "sort.exe");
@@ -189,15 +206,75 @@ public sealed class ProcessRunnerTests : IDisposable
         var output = await reader.ReadToEndAsync();
 
         output.ShouldBe("apple\r\npear\r\n");
-        (await WithTimeout(running.Exited)).ShouldBe(0);
+        (await ExitCodeAsync(running)).ShouldBe(0);
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_failure_right_after_creation_kills_the_new_process()
+    {
+        var created = 0;
+        var runner = new ProcessRunner((stage, processId) =>
+        {
+            if (stage == ProcessRunner.StartStage.Created)
+            {
+                created = processId;
+                throw new InvalidOperationException("injected");
+            }
+        });
+
+        Should.Throw<InvalidOperationException>(() => runner.Start(Spec(HangingWrapper())));
+
+        created.ShouldNotBe(0);
+        IsGone(created).ShouldBeTrue();
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_failure_before_creation_starts_nothing()
+    {
+        var stages = new List<ProcessRunner.StartStage>();
+        var runner = new ProcessRunner((stage, _) =>
+        {
+            stages.Add(stage);
+            if (stage == ProcessRunner.StartStage.JobCreated)
+            {
+                throw new InvalidOperationException("injected");
+            }
+        });
+
+        Should.Throw<InvalidOperationException>(() => runner.Start(Spec(_fake.ExecutablePath, "anything")));
+
+        stages.ShouldBe([ProcessRunner.StartStage.JobCreated]);
+        _fake.ReadCalls().ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_working_directory_that_does_not_exist_fails_the_start_and_names_it()
+    {
+        var missing = Path.Combine(_fake.RootDirectory, "missing");
+        var spec = Spec(_fake.ExecutablePath, "anything") with { WorkingDirectory = missing };
+
+        Should.Throw<Win32Exception>(() => _runner.Start(spec)).Message.ShouldContain(missing);
+
+        _fake.ReadCalls().ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public async Task A_missing_program_fails_before_anything_is_created()
+    {
+        var stages = new List<ProcessRunner.StartStage>();
+        var runner = new ProcessRunner((stage, _) => stages.Add(stage));
+        var missing = Path.Combine(_fake.RootDirectory, "nope.exe");
+
+        Should.Throw<FileNotFoundException>(() => runner.Start(Spec(missing)));
+        await Should.ThrowAsync<FileNotFoundException>(() => runner.RunAsync(Spec(missing), CancellationToken.None));
+
+        stages.ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_missing_program_fails_to_start()
+    public void A_program_named_without_its_path_is_refused()
     {
-        var missing = Path.Combine(_fake.RootDirectory, "nope.exe");
-
-        await Should.ThrowAsync<FileNotFoundException>(() => _runner.RunAsync(Spec(missing), CancellationToken.None));
+        Should.Throw<ArgumentException>(() => _runner.Start(new ProcessSpec("dpm.exe", [])));
     }
 
     private static async Task<IReadOnlyList<Process>> WaitForChildrenAsync(int parentId)
@@ -217,13 +294,13 @@ public sealed class ProcessRunnerTests : IDisposable
 
     // The process's exit isn't tied to any synchronization context, so awaiting it here can't deadlock.
 #pragma warning disable VSTHRD003
-    private static async Task<T> WithTimeout<T>(Task<T> task)
+    private static async Task<int> ExitCodeAsync(IRunningProcess process)
     {
-        if (await Task.WhenAny(task, Task.Delay(Generous)) != task)
+        if (await Task.WhenAny(process.Exited, Task.Delay(Generous)) != process.Exited)
         {
             throw new TimeoutException("The process didn't exit.");
         }
-        return await task;
+        return await process.Exited;
     }
 #pragma warning restore VSTHRD003
 
@@ -231,5 +308,18 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         process.WaitForExit(10_000);
         return process.HasExited;
+    }
+
+    private static bool IsGone(int processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return HasExited(process);
+        }
+        catch (ArgumentException)
+        {
+            return true;
+        }
     }
 }

@@ -25,7 +25,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('Unit', 'Editor', 'Contract', 'MSBuild', 'Integration', 'Grammar', 'Perf', 'All')]
+    [ValidateSet('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration', 'Grammar', 'Perf', 'All')]
     [string] $Category = 'Unit',
 
     [ValidateSet('Debug', 'Release')]
@@ -49,7 +49,7 @@ Import-Module (Join-Path $PSScriptRoot 'lib\Toolchain.psm1') -Force
 
 $root = Get-RepoRoot
 $resultsRoot = Join-Path $root 'artifacts\test'
-$vstestCategories = 'Unit', 'Editor', 'Contract', 'MSBuild', 'Integration'
+$vstestCategories = 'Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration'
 $layout = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'test-gates.psd1')
 
 $gate = $null
@@ -132,9 +132,11 @@ function Get-TrxCounters {
 function Get-IdeTestShortfall {
     param([string] $ProjectPath, [string] $Directory)
 
+    # One attribute per test; a commented-out one doesn't count.
     $declared = @(Get-ChildItem (Split-Path $ProjectPath) -Filter '*.cs' -Recurse |
         Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
-        Select-String -Pattern '\[IdeFact\b').Count
+        Select-String -Pattern '\[IdeFact\b' |
+        Where-Object { $_.Line -notmatch '^\s*//' }).Count
     $reported = 0
     foreach ($trx in Get-ChildItem $Directory -Filter '*.trx' -Recurse -ErrorAction SilentlyContinue) {
         $run = ([xml](Get-Content $trx.FullName -Raw)).TestRun
@@ -219,7 +221,7 @@ if (-not $NoCoverage) {
     if ($LASTEXITCODE -ne 0) { throw 'dotnet tool restore failed (ReportGenerator).' }
 }
 
-$coverageCategories = 'Unit', 'Editor', 'Contract', 'MSBuild'
+$coverageCategories = 'Unit', 'Process', 'Editor', 'Contract', 'MSBuild'
 $summary = foreach ($cat in $categories) {
     $isRequired = $required -contains $cat
     $outDir = Join-Path $resultsRoot $cat
