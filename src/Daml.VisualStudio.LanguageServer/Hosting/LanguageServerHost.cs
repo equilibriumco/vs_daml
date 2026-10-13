@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.VisualStudio.Core.FileSystem;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
@@ -350,6 +351,35 @@ public sealed class LanguageServerHost : IDisposable
         }
     }
 
+    /// <summary>
+    /// A folder in the workspace was deleted. When it is a package's <c>.daml</c> folder or the
+    /// package database in it (dpm clean), damlc has lost the library sources it navigates into
+    /// and only sets them up again when it starts, so it is restarted.
+    /// </summary>
+    public void OnDirectoryRemoved(string path)
+    {
+        if (path is null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+        var folder = DamlPath.Normalize(path);
+        var name = Path.GetFileName(folder);
+        var isPackageDatabase = name.Equals("package-database", StringComparison.OrdinalIgnoreCase)
+            && Path.GetFileName(Path.GetDirectoryName(folder) ?? "").Equals(".daml", StringComparison.OrdinalIgnoreCase);
+        if (!isPackageDatabase && !name.Equals(".daml", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+        WorkspaceContext? workspace;
+        lock (_gate)
+        {
+            workspace = _workspace;
+        }
+        if (workspace is not null && DamlPath.IsSameOrUnder(folder, workspace.WorkspaceRoot))
+        {
+            Supervisor.RequestRestart("The package database was removed (clean)");
+        }
+    }
     /// <summary>Ends the server process tree.</summary>
     public void Dispose()
     {

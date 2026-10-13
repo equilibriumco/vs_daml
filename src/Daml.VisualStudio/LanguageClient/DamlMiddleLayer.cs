@@ -22,14 +22,17 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
 
     private readonly IDamlLogger _logger;
     private readonly Func<string?, bool> _isServed;
+    private readonly Func<JToken?, JToken?> _redirectDefinitions;
     private readonly ConcurrentDictionary<string, bool> _reportedOutside = new(StringComparer.OrdinalIgnoreCase);
 
     /// <param name="logger">Where skipped documents and Debug traffic are logged.</param>
     /// <param name="isServed">Whether a document URI belongs to the workspace the server runs.</param>
-    public DamlMiddleLayer(IDamlLogger logger, Func<string?, bool> isServed)
+    /// <param name="redirectDefinitions">Rewrites definition answers, e.g. to files Visual Studio can open; none if null.</param>
+    public DamlMiddleLayer(IDamlLogger logger, Func<string?, bool> isServed, Func<JToken?, JToken?>? redirectDefinitions = null)
     {
         _logger = logger;
         _isServed = isServed;
+        _redirectDefinitions = redirectDefinitions ?? (result => result);
     }
 
     public bool CanHandle(string methodName) =>
@@ -61,6 +64,10 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
         try
         {
             var result = await sendRequest(methodParam).ConfigureAwait(false);
+            if (IsDefinitionRequest(methodName))
+            {
+                result = _redirectDefinitions(result);
+            }
             if (_logger.IsEnabled(DamlLogLevel.Debug))
             {
                 _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, $"request {methodName}: {clock.ElapsedMilliseconds} ms");
@@ -73,6 +80,9 @@ internal sealed class DamlMiddleLayer : ILanguageClientMiddleLayer2<JToken>
             throw;
         }
     }
+
+    private static bool IsDefinitionRequest(string methodName) =>
+        methodName is "textDocument/definition" or "textDocument/declaration" or "textDocument/typeDefinition" or "textDocument/implementation";
 
     private bool Served(JToken? methodParam)
     {

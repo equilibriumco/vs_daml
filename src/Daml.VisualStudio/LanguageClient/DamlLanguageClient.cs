@@ -14,6 +14,7 @@ using Daml.VisualStudio.Core.Sdk;
 using Daml.VisualStudio.Core.Server;
 using Daml.VisualStudio.LanguageServer.Hosting;
 using Daml.VisualStudio.LanguageServer.Messages;
+using Daml.VisualStudio.LanguageServer.Protocol;
 using Daml.VisualStudio.Options;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.LanguageServer.Client;
@@ -47,6 +48,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private readonly DamlSettingsMonitor _settings = new();
     private readonly object _gate = new();
     private FileSystemWatcher? _watcher;
+    private FileSystemWatcher? _folderWatcher;
     private string? _watchedRoot;
     private int _version;
     private string? _openedFolder;
@@ -73,7 +75,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             VS.Events.SolutionEvents.OnAfterCloseSolution += OnWorkspaceClosed;
         }).FileAndForget("daml/languageClient/solutionEvents");
         _settings.Changed += OnSettingsChanged;
-        MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed);
+        // Library sources sit under paths longer than Visual Studio opens; F12 goes to short copies.
+        var libraryCopies = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daml", "VisualStudio", "library");
+        MiddleLayer = new DamlMiddleLayer(logger, _host.IsServed, new LongPathRedirector(libraryCopies, new LibraryCopier()).Redirect);
         var installs = new SdkInstallProgressTracker(
             new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
             id => _host.Channel.CancelSdkInstallAsync(id),
@@ -146,6 +150,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         {
             _watcher?.Dispose();
             _watcher = null;
+            _folderWatcher?.Dispose();
+            _folderWatcher = null;
         }
         _settings.Dispose();
         VS.Events.SolutionEvents.OnAfterOpenFolder -= OnFolderOpened;
@@ -252,6 +258,12 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             _watcher.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
             _watcher.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
             _watcher.EnableRaisingEvents = true;
+
+            // dpm clean deletes the package database damlc reads library sources from.
+            _folderWatcher?.Dispose();
+            _folderWatcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName };
+            _folderWatcher.Deleted += (_, e) => _host.OnDirectoryRemoved(e.FullPath);
+            _folderWatcher.EnableRaisingEvents = true;
         }
     }
 

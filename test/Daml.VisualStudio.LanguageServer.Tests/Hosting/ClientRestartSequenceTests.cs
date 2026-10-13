@@ -190,6 +190,40 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
     }
 
+    // Clean deletes the package database a running damlc reads library sources from; it only
+    // builds a new one when it starts.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\repo\.daml\package-database")]
+    [InlineData(@"C:\repo\.daml")]
+    public async Task Removing_the_package_database_restarts_the_server(string removed)
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+        var finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sequence.RestartCompleted += (_, _) => finished.TrySetResult(true);
+
+        _host.OnDirectoryRemoved(removed);
+
+        (await Task.WhenAny(finished.Task, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(finished.Task);
+        _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\elsewhere\.daml\package-database")]
+    [InlineData(@"C:\repo\daml\Generated")]
+    [InlineData(@"C:\repo\.daml\dist")]
+    public async Task Other_removed_folders_change_nothing(string removed)
+    {
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+
+        _host.OnDirectoryRemoved(removed);
+
+        _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+    }
+
     // A hung server wouldn't answer VS's shutdown either, so it goes first.
     [Fact, Trait("Category", "Unit")]
     public async Task A_ready_server_that_stopped_answering_is_killed_before_the_client_is_stopped()

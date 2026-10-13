@@ -9,6 +9,7 @@ using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.LanguageServer.Messages;
+using Daml.VisualStudio.LanguageServer.Protocol;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using Xunit;
@@ -140,8 +141,46 @@ public class DamlcContractTests
         var result = await EventuallyAsync(() => damlc.RequestAsync("textDocument/definition", At(main, "view = Asset.View", "View")), IsLocation);
 
         var location = result is JArray array ? array[0] : result!;
-        _output.WriteLine(location.ToString());
+        _output.WriteLine(result!.ToString());
         Unescaped((string)location["uri"]!).ShouldBe(Unescaped(RealDamlcSession.Uri(asset)), StringCompareShould.IgnoreCase);
+    }
+
+    // Library definitions point into the package's .daml\package-database, which damlc sets up
+    // when it starts; a copy without .daml has none until then.
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [MemberData(nameof(Matrix))]
+    public async Task Definition_of_a_library_name_points_at_a_file_that_exists(string sdk, string mode)
+    {
+        using var sample = SampleCopy.Create("single-package", sdk);
+        var main = sample.File(@"daml\Main.daml");
+        Directory.Exists(sample.File(".daml")).ShouldBeFalse("the copy starts without build output");
+        await using var damlc = await OpenedAsync(sample, main, mode);
+
+        var result = await EventuallyAsync(() => damlc.RequestAsync("textDocument/definition", At(main, "PartyIdHint \"Alice\"", "PartyIdHint")), IsLocation);
+
+        var location = result is JArray array ? array[0] : result!;
+        var path = new Uri((string)location["uri"]!).LocalPath;
+        _output.WriteLine(path);
+        File.Exists(path.Length < LongPathRedirector.MaxPath ? path : @"\\?\" + path).ShouldBeTrue($"damlc points at {path}, which isn't there");
+
+        // What Visual Studio gets: a path short enough to open.
+        var copies = sample.File("library-copies");
+        var redirected = new LongPathRedirector(copies, new LibraryCopier()).Redirect(result);
+        var opened = new Uri((string)(redirected is JArray list ? list[0] : redirected!)["uri"]!).LocalPath;
+        _output.WriteLine(opened);
+        try
+        {
+            opened.Length.ShouldBeLessThan(LongPathRedirector.MaxPath);
+            File.ReadAllText(opened).ShouldContain("PartyIdHint");
+        }
+        finally
+        {
+            // The copy is read-only, which would keep the sample folder from being deleted.
+            if (File.Exists(opened))
+            {
+                File.SetAttributes(opened, FileAttributes.Normal);
+            }
+        }
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]

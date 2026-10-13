@@ -65,6 +65,24 @@ public class DamlMiddleLayerTests
         sent.ShouldBeFalse();
     }
 
+    // Library sources live under paths too long for Visual Studio; their answers are redirected.
+    [Theory, Trait("Category", "Editor")]
+    [InlineData("textDocument/definition", true)]
+    [InlineData("textDocument/declaration", true)]
+    [InlineData("textDocument/typeDefinition", true)]
+    [InlineData("textDocument/implementation", true)]
+    [InlineData("textDocument/hover", false)]
+    public async Task Definition_answers_go_through_the_redirect(string method, bool redirected)
+    {
+        var answer = new JObject { ["uri"] = "file:///C:/long/Library.daml" };
+        var replaced = new JObject { ["uri"] = "file:///C:/short/Library.daml" };
+        var layer = new DamlMiddleLayer(NullDamlLogger.Instance, _ => true, result => replaced);
+
+        var result = await layer.HandleRequestAsync(method, Params(Inside), p => Task.FromResult<JToken?>(answer));
+
+        result.ShouldBeSameAs(redirected ? replaced : answer);
+    }
+
     [Fact, Trait("Category", "Editor")]
     public async Task Requests_about_workspace_files_reach_the_server()
     {
