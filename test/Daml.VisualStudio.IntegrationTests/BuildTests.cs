@@ -40,7 +40,7 @@ public class BuildTests
                 await Task.Delay(500);
             }
         }
-        Assert.True(available is not null, "No build command became available for the opened folder: " + string.Join(", ", candidates));
+        Assert.True(available is not null, $"No build command became available for {folder} (open: {dte.Solution?.FullName}): {string.Join(", ", candidates)}");
         dte.ExecuteCommand(available);
 
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
