@@ -33,12 +33,13 @@ public class ClassificationExportsTests
     };
 
     [Fact, Trait("Category", "Editor")]
-    public async Task The_tagger_provider_serves_classification_tags_for_daml_buffers()
+    public async Task Daml_buffers_get_one_tagger_for_colours_and_one_for_folding()
     {
-        var export = (await ExportsAsync(typeof(ITaggerProvider))).Single();
+        var exports = (await ExportsAsync(typeof(ITaggerProvider))).ToList();
 
-        ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
-        TypeNames(export.Metadata["TagTypes"]).ShouldBe([typeof(IClassificationTag).FullName]);
+        exports.SelectMany(e => TypeNames(e.Metadata["TagTypes"])).OrderBy(n => n, StringComparer.Ordinal)
+            .ShouldBe([typeof(IClassificationTag).FullName, typeof(IStructureTag).FullName]);
+        exports.ShouldAllBe(e => ((IEnumerable<string>)e.Metadata["ContentTypes"]!).SequenceEqual(new[] { "daml" }));
     }
 
     [Fact, Trait("Category", "Editor")]

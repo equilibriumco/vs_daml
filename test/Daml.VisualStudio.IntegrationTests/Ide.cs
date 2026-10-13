@@ -101,6 +101,16 @@ internal static class Ide
             ref group, (uint)VSConstants.VSStd97CmdID.GotoDefn, 0, IntPtr.Zero, IntPtr.Zero);
     }
 
+    /// <summary>Collapse to Definitions (Ctrl+M, O) in <paramref name="view"/>, sent to the editor like <see cref="GoToDefinition"/>.</summary>
+    public static void CollapseToDefinitions(IWpfTextView view)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var adapter = ComponentModel().GetService<IVsEditorAdaptersFactoryService>().GetViewAdapter(view)
+            ?? throw new InvalidOperationException("The view has no adapter.");
+        var group = VSConstants.VSStd2K;
+        ErrorHandler.ThrowOnFailure(((Microsoft.VisualStudio.OLE.Interop.IOleCommandTarget)adapter).Exec(
+            ref group, (uint)VSConstants.VSStd2KCmdID.OUTLN_COLLAPSE_TO_DEF, 0, IntPtr.Zero, IntPtr.Zero));
+    }
     public static DTE Dte() => Service<DTE, DTE>();
 
     /// <summary>Waits for the extension's "language server ready" UI context to be <paramref name="ready"/>.</summary>
