@@ -40,5 +40,19 @@
                 }
             }
         }
+        # M1: the language server against the real damlc (Contract, SDK 3.6 and 3.5) and the
+        # extension inside Visual Studio (Integration) join the gate; both need dpm.
+        M1 = @{
+            Required = @('Unit', 'Editor', 'Contract', 'Integration')
+            Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
+            Tools    = @('dpm')
+            Coverage = @{
+                'net10.0' = @{
+                    'Daml.VisualStudio.Core'           = 85
+                    'Daml.VisualStudio.LanguageServer' = 80
+                    'Daml.Build.Core'                  = 80
+                }
+            }
+        }
     }
 }

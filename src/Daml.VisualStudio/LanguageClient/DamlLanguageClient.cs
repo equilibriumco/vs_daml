@@ -113,7 +113,13 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     public async Task<Connection?> ActivateAsync(CancellationToken token)
     {
         var connection = await _host.ActivateAsync(token).ConfigureAwait(false);
-        return connection is null ? null : new Connection(connection.FromServer, connection.ToServer);
+        if (connection is null)
+        {
+            return null;
+        }
+        // Like any status bar text, the next message from Visual Studio replaces it.
+        _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync("Daml: starting…")).FileAndForget("daml/languageClient/starting");
+        return new Connection(connection.FromServer, connection.ToServer);
     }
 
     public Task AttachForCustomMessageAsync(JsonRpc rpc)
@@ -293,7 +299,12 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         {
             await _joinableTaskFactory.SwitchToMainThreadAsync();
             // Read again on the UI thread, so a quick ready-then-stopped can't leave it stale.
-            UIContext.FromUIContextGuid(PackageGuids.LanguageServerReady).IsActive = _host.IsReady;
+            var ready = _host.IsReady;
+            UIContext.FromUIContextGuid(PackageGuids.LanguageServerReady).IsActive = ready;
+            if (ready)
+            {
+                await VS.StatusBar.ShowMessageAsync("Daml: ready");
+            }
         }).FileAndForget("daml/languageClient/readiness");
 
     private void OnProblemRaised(object? sender, LanguageServerProblemEventArgs e) =>
