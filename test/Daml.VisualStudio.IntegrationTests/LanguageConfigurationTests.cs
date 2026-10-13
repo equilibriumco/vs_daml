@@ -26,7 +26,7 @@ public class LanguageConfigurationTests
     public async Task Comment_selection_prefixes_the_selected_lines_with_double_dashes()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var (textView, view) = OpenScratch();
+        var (textView, view) = Ide.OpenScratch(Text);
         var snapshot = view.TextBuffer.CurrentSnapshot;
         var selected = new SnapshotSpan(snapshot.GetLineFromLineNumber(2).Start, snapshot.GetLineFromLineNumber(3).End);
         view.Selection.Select(selected, isReversed: false);
@@ -51,30 +51,13 @@ public class LanguageConfigurationTests
     public async Task Typing_an_apostrophe_after_a_name_adds_nothing_else()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var (textView, view) = OpenScratch();
+        var (textView, view) = Ide.OpenScratch(Text);
         var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2);
         view.Caret.MoveTo(line.Start + "answer".Length);
 
-        TypeChar(view, '\'');
+        Ide.TypeChar(view, '\'');
 
         Assert.Equal("answer' : Int", view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2).GetText());
-    }
-
-    // A fresh copy per test, so edits never touch a checked-in file.
-    private static (IVsTextView TextView, IWpfTextView View) OpenScratch()
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var folder = Path.Combine(Path.GetTempPath(), "daml-vs-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(folder);
-        var file = Path.Combine(folder, "Scratch.daml");
-        File.WriteAllText(file, Text);
-
-        VsShellUtilities.OpenDocument(ServiceProvider.GlobalProvider, file, Guid.Empty, out _, out _, out _, out IVsTextView textView);
-
-        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel ?? throw new InvalidOperationException("SComponentModel is not available.");
-        var view = componentModel.GetService<IVsEditorAdaptersFactoryService>().GetWpfTextView(textView) ?? throw new InvalidOperationException("No WPF view for the scratch file.");
-        Assert.Equal("daml", view.TextBuffer.ContentType.TypeName);
-        return (textView, view);
     }
 
     private static void Exec(IVsTextView textView, VSConstants.VSStd2KCmdID command)
@@ -83,17 +66,5 @@ public class LanguageConfigurationTests
         var group = VSConstants.VSStd2K;
         var result = ((IOleCommandTarget)textView).Exec(ref group, (uint)command, 0, IntPtr.Zero, IntPtr.Zero);
         Assert.Equal(VSConstants.S_OK, result);
-    }
-
-    // Types the way the keyboard does, through the editor's command handlers; brace completion
-    // lives there and never sees a TYPECHAR sent to the old text view command target.
-    private static void TypeChar(IWpfTextView view, char c)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel ?? throw new InvalidOperationException("SComponentModel is not available.");
-        var commands = componentModel.GetService<IEditorCommandHandlerServiceFactory>().GetService(view);
-        var operations = componentModel.GetService<IEditorOperationsFactoryService>().GetEditorOperations(view);
-        // The last handler in the chain is what puts the character into the buffer.
-        commands.Execute((textView, buffer) => new TypeCharCommandArgs(textView, buffer, c), () => operations.InsertText(c.ToString()));
     }
 }

@@ -10,6 +10,9 @@ using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Text.Operations;
+using Microsoft.VisualStudio.Text.Editor.Commanding.Commands;
+using Microsoft.VisualStudio.Text.Editor.Commanding;
 using Microsoft.VisualStudio.TextManager.Interop;
 using Xunit;
 
@@ -111,6 +114,35 @@ internal static class Ide
         ErrorHandler.ThrowOnFailure(((Microsoft.VisualStudio.OLE.Interop.IOleCommandTarget)adapter).Exec(
             ref group, (uint)VSConstants.VSStd2KCmdID.OUTLN_COLLAPSE_TO_DEF, 0, IntPtr.Zero, IntPtr.Zero));
     }
+    // A fresh copy per test, so edits never touch a checked-in file.
+    public static (IVsTextView TextView, IWpfTextView View) OpenScratch(string text)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var folder = Path.Combine(Path.GetTempPath(), "daml-vs-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        var file = Path.Combine(folder, "Scratch.daml");
+        File.WriteAllText(file, text);
+
+        VsShellUtilities.OpenDocument(ServiceProvider.GlobalProvider, file, Guid.Empty, out _, out _, out _, out IVsTextView textView);
+
+        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel ?? throw new InvalidOperationException("SComponentModel is not available.");
+        var view = componentModel.GetService<IVsEditorAdaptersFactoryService>().GetWpfTextView(textView) ?? throw new InvalidOperationException("No WPF view for the scratch file.");
+        Assert.Equal("daml", view.TextBuffer.ContentType.TypeName);
+        return (textView, view);
+    }
+
+    // Types the way the keyboard does, through the editor's command handlers; brace completion
+    // lives there and never sees a TYPECHAR sent to the old text view command target.
+    public static void TypeChar(IWpfTextView view, char c)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var componentModel = ServiceProvider.GlobalProvider.GetService(typeof(SComponentModel)) as IComponentModel ?? throw new InvalidOperationException("SComponentModel is not available.");
+        var commands = componentModel.GetService<IEditorCommandHandlerServiceFactory>().GetService(view);
+        var operations = componentModel.GetService<IEditorOperationsFactoryService>().GetEditorOperations(view);
+        // The last handler in the chain is what puts the character into the buffer.
+        commands.Execute((textView, buffer) => new TypeCharCommandArgs(textView, buffer, c), () => operations.InsertText(c.ToString()));
+    }
+
     public static DTE Dte() => Service<DTE, DTE>();
 
     /// <summary>Waits for the extension's "language server ready" UI context to be <paramref name="ready"/>.</summary>

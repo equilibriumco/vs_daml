@@ -50,6 +50,16 @@ public class ClassificationExportsTests
         ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
     }
 
+    [Theory, Trait("Category", "Editor")]
+    [InlineData(typeof(Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.IAsyncCompletionSourceProvider))]
+    [InlineData(typeof(Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.IAsyncCompletionCommitManagerProvider))]
+    public async Task Daml_views_get_snippets_in_completion(Type contract)
+    {
+        var export = (await ExportsAsync(contract)).Single();
+
+        ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
+    }
+
     [Fact, Trait("Category", "Editor")]
     public async Task Daml_views_get_smart_indent()
     {
