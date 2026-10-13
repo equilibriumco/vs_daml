@@ -20,6 +20,7 @@ public sealed class ClientToServerStream : Stream
     private readonly IDamlLogger _logger;
     private readonly byte[] _header;
     private readonly OpenDocuments? _documents;
+    private readonly Action<Exception>? _onFailure;
     private int _headerCount;
     private byte[]? _body;
     private int _bodyFilled;
@@ -30,9 +31,11 @@ public sealed class ClientToServerStream : Stream
     /// <param name="tracker">Learns the id of the <c>initialize</c> request.</param>
     /// <param name="logger">Where framing problems are logged.</param>
     /// <param name="documents">Keeps closes away from the server; shared with the session's <see cref="ServerToClientStream"/>.</param>
-    public ClientToServerStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null)
+    /// <param name="onFailure">Told when a framing problem ends the connection.</param>
+    public ClientToServerStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null, Action<Exception>? onFailure = null)
     {
         _documents = documents;
+        _onFailure = onFailure;
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _tracker = tracker ?? throw new ArgumentNullException(nameof(tracker));
@@ -106,7 +109,8 @@ public sealed class ClientToServerStream : Stream
                 // Headers are a few dozen bytes; taking them a byte at a time keeps this simple.
                 _header[_headerCount++] = buffer[offset++];
                 count--;
-                var headerLength = LspHeader.FindEnd(_header, 0, _headerCount, _settings.MaxHeaderBytes);
+                // The header ends with an empty line; only the last four bytes can complete it.
+                var headerLength = LspHeader.EndsWithBlankLine(_header, _headerCount) ? _headerCount : -1;
                 if (headerLength < 0)
                 {
                     if (_headerCount == _header.Length)
@@ -179,6 +183,7 @@ public sealed class ClientToServerStream : Stream
     private LspFramingException Fail(LspFramingException error)
     {
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language client sent a malformed message; closing the connection.", error);
+        _onFailure?.Invoke(error);
         return error;
     }
 }
@@ -197,6 +202,7 @@ public sealed class ServerToClientStream : Stream
     private readonly InitializeTracker _tracker;
     private readonly IDamlLogger _logger;
     private readonly OpenDocuments? _documents;
+    private readonly Action<Exception>? _onFailure;
     private readonly ConcurrentQueue<byte[]> _frames = new();
     private readonly SemaphoreSlim _available = new(0);
     private readonly CancellationTokenSource _stop = new();
@@ -214,8 +220,10 @@ public sealed class ServerToClientStream : Stream
     /// <param name="tracker">Spots the reply to <c>initialize</c>.</param>
     /// <param name="logger">Where framing problems are logged.</param>
     /// <param name="documents">Remembers diagnostics for reopened documents; shared with the session's <see cref="ClientToServerStream"/>.</param>
-    public ServerToClientStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null)
+    /// <param name="onFailure">Told when a framing problem ends the connection.</param>
+    public ServerToClientStream(Stream server, LspAdapterSettings settings, InitializeTracker tracker, IDamlLogger logger, OpenDocuments? documents = null, Action<Exception>? onFailure = null)
     {
+        _onFailure = onFailure;
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _reader = new LspFrameReader(server, settings ?? throw new ArgumentNullException(nameof(settings)));
         _tracker = tracker ?? throw new ArgumentNullException(nameof(tracker));
@@ -320,6 +328,7 @@ public sealed class ServerToClientStream : Stream
         {
             _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "The language server sent a malformed message; closing the connection.", ex);
             _failure = ex;
+            _onFailure?.Invoke(ex);
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or OperationCanceledException)
         {

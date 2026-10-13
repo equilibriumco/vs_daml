@@ -76,7 +76,7 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         session.Input.ShouldBeSameAs(process.StandardInput);
         session.Output.ShouldBeSameAs(process.StandardOutput);
         _supervisor.State.ShouldBe(LanguageServerState.Initializing);
-        _transitions.Select(t => t.To).ShouldBe([LanguageServerState.Starting, LanguageServerState.Running, LanguageServerState.Initializing]);
+        _transitions.Select(t => t.To).ShouldBe([LanguageServerState.Starting, LanguageServerState.Initializing]);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -193,8 +193,11 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         _transitions.ShouldNotContain(t => t.To == LanguageServerState.Crashed);
     }
 
+    // Resolving the tool (dpm versions, damlc --help) doesn't hold the other start up; the
+    // process creation and the hand-over still happen one at a time, the earlier session giving
+    // way to the later one.
     [Fact, Trait("Category", "Unit")]
-    public async Task Concurrent_starts_run_one_after_the_other()
+    public async Task Concurrent_starts_resolve_at_once_but_create_sessions_one_after_the_other()
     {
         var gate = new TaskCompletionSource<ProcessSpec>(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
@@ -203,12 +206,14 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         var first = supervisor.StartAsync(CancellationToken.None);
         var second = supervisor.StartAsync(CancellationToken.None);
         await Task.Delay(50);
-        calls.ShouldBe(1);
+        calls.ShouldBe(2);
         gate.SetResult(Command);
 
-        (await first).ShouldNotBeNull().Id.ShouldBe(1);
-        (await second).ShouldNotBeNull().Id.ShouldBe(2);
-        _runner.Started[0].Disposed.ShouldBeTrue();
+        var sessions = new[] { (await first).ShouldNotBeNull(), (await second).ShouldNotBeNull() };
+        sessions.Select(s => s.Id).OrderBy(id => id).ShouldBe([1, 2]);
+        _runner.Started.Count.ShouldBe(2);
+        _runner.Started[0].Disposed.ShouldBeTrue("the earlier session was superseded");
+        _runner.Started[1].Disposed.ShouldBeFalse();
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -247,19 +252,85 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         failing.Dispose();
     }
 
+    // A program that can't be created is the user's setup, not a crash: no backoff to wait out
+    // once they have fixed it.
     [Fact, Trait("Category", "Unit")]
-    public async Task A_failed_start_counts_as_a_crash_and_is_reported()
+    public async Task A_failed_start_is_not_a_crash_and_the_next_start_is_immediate()
     {
         _runner.FailStarts(new FileNotFoundException("dpm.cmd is gone"));
 
         await Should.ThrowAsync<FileNotFoundException>(() => StartAsync());
 
-        _supervisor.State.ShouldBe(LanguageServerState.Crashed);
+        _supervisor.State.ShouldBe(LanguageServerState.Stopped);
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Crashed);
         _runner.FailStarts(null);
+        (await StartAsync()).ShouldNotBeNull();
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Restarting);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_stop_the_caller_gives_up_on_still_ends_the_session()
+    {
+        await StartAsync();
+        // The grace period runs on the fake clock, so only the caller giving up can end the wait.
+        using var giveUp = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+
+        await Should.ThrowAsync<OperationCanceledException>(() => _supervisor.StopAsync(giveUp.Token));
+        _runner.Started[0].Disposed.ShouldBeTrue("the process tree is ended either way");
+        _supervisor.State.ShouldBe(LanguageServerState.Stopped);
+    }
+
+    // A connection the adapter had to close (a malformed or oversized message) leaves the
+    // process alive; counting it as a crash is what keeps a broken server from restarting in a
+    // tight loop.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_connection_failure_ends_the_session_and_counts_as_a_crash()
+    {
+        var session = (await StartAsync()).ShouldNotBeNull();
+
+        _supervisor.ReportConnectionFailure(session.Id, new IOException("a frame of 33 MB"));
+
+        _supervisor.State.ShouldBe(LanguageServerState.Crashed);
+        _runner.Started[0].Disposed.ShouldBeTrue();
         var restart = StartAsync();
-        _supervisor.State.ShouldBe(LanguageServerState.Restarting);
+        _supervisor.State.ShouldBe(LanguageServerState.Restarting, "the backoff applies");
         _time.Advance(TimeSpan.FromSeconds(1));
         (await restart).ShouldNotBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_connection_failure_of_an_older_session_changes_nothing()
+    {
+        var session = (await StartAsync()).ShouldNotBeNull();
+
+        _supervisor.ReportConnectionFailure(session.Id - 1, new IOException("stale"));
+
+        _supervisor.State.ShouldBe(LanguageServerState.Initializing);
+        _runner.Started[0].Disposed.ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_initialize_reply_that_arrives_after_the_crash_doesnt_make_the_session_ready()
+    {
+        var session = (await StartAsync()).ShouldNotBeNull();
+        await CrashAsync(0);
+
+        _supervisor.MarkReady(session.Id);
+
+        _supervisor.State.ShouldBe(LanguageServerState.Crashed);
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Ready);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_disposed_supervisor_is_stopped_and_refuses_to_start()
+    {
+        await StartAsync();
+
+        _supervisor.Dispose();
+
+        _supervisor.State.ShouldBe(LanguageServerState.Stopped);
+        _runner.Started[0].Disposed.ShouldBeTrue();
+        await Should.ThrowAsync<ObjectDisposedException>(() => StartAsync());
     }
 
     [Fact, Trait("Category", "Unit")]

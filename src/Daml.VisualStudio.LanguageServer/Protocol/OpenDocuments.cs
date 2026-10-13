@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Daml.VisualStudio.LanguageServer.Protocol;
@@ -59,6 +58,10 @@ public sealed class OpenDocuments
             return body;
         }
 
+        if (document["version"] is not { Type: JTokenType.Integer })
+        {
+            return body; // a change needs a version to carry; without one the open goes as is
+        }
         byte[]? cached;
         lock (_gate)
         {
@@ -83,7 +86,7 @@ public sealed class OpenDocuments
         {
             Redeliver?.Invoke(Restamped(cached, document["version"]));
         }
-        return Encoding.UTF8.GetBytes(change.ToString(Formatting.None));
+        return LspJson.ToBytes(change);
     }
 
     // Remembers diagnostics damlc sent, so they can be shown again after a reopen. Returns false
@@ -140,21 +143,11 @@ public sealed class OpenDocuments
         {
             parameters["version"] = version.DeepClone();
         }
-        return Encoding.UTF8.GetBytes(message.ToString(Formatting.None));
+        return LspJson.ToBytes(message);
     }
 
     // damlc and VS spell the same file differently (escaped drive colon, letter case).
     private static string Key(string uri) => Uri.UnescapeDataString(uri);
 
-    private static JObject? Parse(byte[] body)
-    {
-        try
-        {
-            return JObject.Parse(Encoding.UTF8.GetString(body));
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
+    private static JObject? Parse(byte[] body) => LspJson.Parse(body);
 }

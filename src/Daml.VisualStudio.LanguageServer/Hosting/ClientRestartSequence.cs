@@ -129,5 +129,11 @@ public sealed class ClientRestartSequence : IDisposable
         {
             _host.Log(DamlLogLevel.Error, $"Restarting the language server ({reasons}) failed.", ex);
         }
+        finally
+        {
+            // Also when the run started nothing (no workspace yet): the next reason must be
+            // heard, or the user's own Restart would be silently queued behind this one.
+            _host.Supervisor.AcknowledgeRestart();
+        }
     }
 }

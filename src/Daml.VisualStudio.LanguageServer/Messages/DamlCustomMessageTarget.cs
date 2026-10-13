@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Diagnostics.CodeAnalysis;
 using Daml.VisualStudio.Core.Logging;
 using Newtonsoft.Json;
@@ -90,6 +91,12 @@ public sealed class DamlCustomMessageTarget
     private static long? Number(JToken parameters, string name) =>
         parameters is JObject fields && fields[name] is JValue { Type: JTokenType.Integer or JTokenType.Float } value ? (long)(double)value : null;
 
-    private void Malformed(string method, JToken parameters) =>
-        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"Ignored a {method} notification with unexpected parameters: {parameters.ToString(Formatting.None)}");
+    // The shape only: the values may be a rendered script result with ledger data in it.
+    private void Malformed(string method, JToken parameters)
+    {
+        var shape = parameters is JObject fields
+            ? string.Join(", ", fields.Properties().Select(p => $"{p.Name}: {p.Value.Type}"))
+            : parameters.Type.ToString();
+        _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"Ignored a {method} notification with unexpected parameters ({shape}).");
+    }
 }

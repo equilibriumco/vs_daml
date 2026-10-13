@@ -240,6 +240,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         }
     }
 
+    private const int WatcherBufferSize = 64 * 1024;
+
     // Manifest changes the server won't notice by itself go to the host, which may ask for a restart.
     private void Watch(string? root)
     {
@@ -252,17 +254,21 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             _watcher?.Dispose();
             _watchedRoot = root;
             // One filter only on .NET Framework; the host ignores YAML files that aren't manifests.
-            _watcher = new FileSystemWatcher(root, "*.yaml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite };
+            // A build or clean touches thousands of entries under .daml at once, more than the
+            // default 8 KB buffer holds; when events are lost anyway, the host is told.
+            _watcher = new FileSystemWatcher(root, "*.yaml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, InternalBufferSize = WatcherBufferSize };
             _watcher.Changed += (_, e) => _host.OnFileChanged(e.FullPath);
             _watcher.Created += (_, e) => _host.OnFileChanged(e.FullPath);
             _watcher.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
             _watcher.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
+            _watcher.Error += (_, _) => _host.OnWatcherOverflow();
             _watcher.EnableRaisingEvents = true;
 
             // dpm clean deletes the package database damlc reads library sources from.
             _folderWatcher?.Dispose();
-            _folderWatcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName };
+            _folderWatcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = WatcherBufferSize };
             _folderWatcher.Deleted += (_, e) => _host.OnDirectoryRemoved(e.FullPath);
+            _folderWatcher.Error += (_, _) => _host.OnWatcherOverflow();
             _folderWatcher.EnableRaisingEvents = true;
         }
     }

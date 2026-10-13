@@ -128,7 +128,7 @@ public sealed class SupervisorLifecycleTests
 
         reply["serverInfo"]!["name"]!.ToString().ShouldBe("fake-daml-language-server");
         supervisor.State.ShouldBe(LanguageServerState.Stopped);
-        states.ShouldBe([LanguageServerState.Starting, LanguageServerState.Running, LanguageServerState.Initializing,
+        states.ShouldBe([LanguageServerState.Starting, LanguageServerState.Initializing,
             LanguageServerState.Ready, LanguageServerState.Stopping, LanguageServerState.Stopped]);
     }
 

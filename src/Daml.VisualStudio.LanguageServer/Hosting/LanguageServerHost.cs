@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,11 +74,17 @@ public sealed record ServerConnection(int SessionId, Stream FromServer, Stream T
 /// </summary>
 public sealed class LanguageServerHost : IDisposable
 {
+    // A save produces several change events; this long after the last one, they count as one.
+    private static readonly TimeSpan FileChangeWindow = TimeSpan.FromMilliseconds(500);
+
     private readonly SdkResolver _sdkResolver;
     private readonly IDamlLogger _logger;
     private readonly LspAdapterSettings _lspSettings;
+    private readonly TimeProvider _time;
     private readonly DamlRpcChannel _channel = new();
     private readonly object _gate = new();
+    private readonly List<string> _fileChangeReasons = new();
+    private ITimer? _fileChangeTimer;
     private WorkspaceContext? _workspace;
     private LanguageServerOptions _options = new();
     private SdkResolution? _lastResolution;
@@ -101,6 +109,7 @@ public sealed class LanguageServerHost : IDisposable
         _sdkResolver = sdkResolver ?? throw new ArgumentNullException(nameof(sdkResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _lspSettings = lspSettings ?? new LspAdapterSettings();
+        _time = time ?? TimeProvider.System;
         Supervisor = new LanguageServerSupervisor(runner, BuildCommandAsync, logger, time, policy, supervisorSettings);
         Supervisor.StateChanged += OnStateChanged;
         KeepAlive = new KeepAliveWatchdog(_channel, OnUnresponsive, logger, time, keepAlive);
@@ -236,8 +245,9 @@ public sealed class LanguageServerHost : IDisposable
             Raise(LanguageServerProblemKind.ToolMissing, $"{ex.Message} ({ex.Code})");
             return null;
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or Win32Exception or ArgumentException)
         {
+            // The workspace, the tool's path or the extra arguments: the user can fix these.
             Raise(LanguageServerProblemKind.CannotStart, ex.Message);
             return null;
         }
@@ -257,10 +267,11 @@ public sealed class LanguageServerHost : IDisposable
         tracker.Failed += (_, e) => _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, $"The language server refused to initialize (session {id}): {e.Message}");
         // Per session: damlc of a new session has never seen any document.
         var documents = new OpenDocuments();
+        void OnConnectionFailed(Exception error) => Supervisor.ReportConnectionFailure(id, error);
         return new ServerConnection(
             session.Id,
-            new ServerToClientStream(session.Output, _lspSettings, tracker, _logger, documents),
-            new ClientToServerStream(session.Input, _lspSettings, tracker, _logger, documents));
+            new ServerToClientStream(session.Output, _lspSettings, tracker, _logger, documents, OnConnectionFailed),
+            new ClientToServerStream(session.Input, _lspSettings, tracker, _logger, documents, OnConnectionFailed));
     }
 
     /// <summary>
@@ -271,9 +282,7 @@ public sealed class LanguageServerHost : IDisposable
     /// </summary>
     public bool IsServed(string? documentUri)
     {
-        // Some clients escape the drive colon (file:///m%3A/...), which Uri leaves in LocalPath.
-        var unescapedDrive = documentUri?.Replace("%3A", ":").Replace("%3a", ":");
-        if (unescapedDrive is null || !Uri.TryCreate(unescapedDrive, UriKind.Absolute, out var uri) || !uri.IsFile)
+        if (LspUri.ToLocalPath(documentUri) is not { } path)
         {
             return true;
         }
@@ -282,7 +291,7 @@ public sealed class LanguageServerHost : IDisposable
         {
             workspace = _workspace;
         }
-        return workspace is not null && workspace.Contains(uri.LocalPath);
+        return workspace is not null && workspace.Contains(path);
     }
 
     /// <summary>VS handed over the JSON-RPC connection of the session it just activated.</summary>
@@ -316,13 +325,18 @@ public sealed class LanguageServerHost : IDisposable
     /// A file in the workspace changed. The single-package server doesn't notice manifest edits
     /// and the server's folder may depend on multi-package.yaml, so those ask for a restart; the
     /// multi-package server picks up daml.yaml edits by itself. With no workspace yet, a new
-    /// daml.yaml is a reason to try again.
+    /// daml.yaml is a reason to try again. The restart is asked for once the changes have been
+    /// quiet for a moment, so one save means one restart.
     /// </summary>
     public void OnFileChanged(string path)
     {
         if (path is null)
         {
             throw new ArgumentNullException(nameof(path));
+        }
+        if (path.IndexOf(@"\.daml\", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return; // build output, including the manifests of extracted packages
         }
         var name = Path.GetFileName(path);
         var isPackageManifest = name.Equals(WorkspaceLocator.PackageManifestName, StringComparison.OrdinalIgnoreCase);
@@ -337,7 +351,7 @@ public sealed class LanguageServerHost : IDisposable
         {
             if (isPackageManifest || isMultiPackageManifest)
             {
-                Supervisor.RequestRestart($"{name} appeared");
+                RequestRestartAfterQuiet($"{name} appeared");
             }
             return;
         }
@@ -347,9 +361,15 @@ public sealed class LanguageServerHost : IDisposable
         }
         if (isMultiPackageManifest || workspace.MultiPackageManifestPath is null)
         {
-            Supervisor.RequestRestart($"{name} changed");
+            RequestRestartAfterQuiet($"{name} changed");
         }
     }
+
+    /// <summary>
+    /// The file watcher lost events (its buffer overflowed, say under a large clean or build):
+    /// whatever changed, a fresh start sees it.
+    /// </summary>
+    public void OnWatcherOverflow() => Supervisor.RequestRestart("The file watcher lost events");
 
     /// <summary>
     /// A folder in the workspace was deleted. When it is a package's <c>.daml</c> folder or the
@@ -377,15 +397,56 @@ public sealed class LanguageServerHost : IDisposable
         }
         if (workspace is not null && DamlPath.IsSameOrUnder(folder, workspace.WorkspaceRoot))
         {
-            Supervisor.RequestRestart("The package database was removed (clean)");
+            RequestRestartAfterQuiet("The package database was removed (clean)");
         }
     }
+
     /// <summary>Ends the server process tree.</summary>
     public void Dispose()
     {
         Supervisor.StateChanged -= OnStateChanged;
+        lock (_gate)
+        {
+            _fileChangeTimer?.Dispose();
+            _fileChangeTimer = null;
+        }
         KeepAlive.Dispose();
         Supervisor.Dispose();
+    }
+
+    private void RequestRestartAfterQuiet(string reason)
+    {
+        lock (_gate)
+        {
+            if (!_fileChangeReasons.Contains(reason))
+            {
+                _fileChangeReasons.Add(reason);
+            }
+            if (_fileChangeTimer is null)
+            {
+                _fileChangeTimer = _time.CreateTimer(_ => RequestPendingRestart(), null, FileChangeWindow, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                _fileChangeTimer.Change(FileChangeWindow, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    private void RequestPendingRestart()
+    {
+        string[] reasons;
+        lock (_gate)
+        {
+            reasons = _fileChangeReasons.ToArray();
+            _fileChangeReasons.Clear();
+            _fileChangeTimer?.Dispose();
+            _fileChangeTimer = null;
+        }
+        foreach (var reason in reasons)
+        {
+            Supervisor.RequestRestart(reason);
+        }
     }
 
     private async Task<ProcessSpec> BuildCommandAsync(CancellationToken cancellationToken)
@@ -431,6 +492,10 @@ public sealed class LanguageServerHost : IDisposable
                 return;
             }
         }
+        if (Supervisor.State != LanguageServerState.Ready)
+        {
+            return; // gone (crashed, stopped) between its initialize reply and now
+        }
         KeepAlive.Watch(session);
         SetReady(true);
         SessionReady?.Invoke(this, new SessionReadyEventArgs(session));
@@ -463,6 +528,15 @@ public sealed class LanguageServerHost : IDisposable
             lock (_gate)
             {
                 session = _currentSession;
+                // Whatever this session still reports (its initialize reply, its attach) is too late.
+                if (_initializedSession == session)
+                {
+                    _initializedSession = 0;
+                }
+                if (_attachedSession == session)
+                {
+                    _attachedSession = 0;
+                }
             }
             KeepAlive.Stop();
             _channel.Detach(session);

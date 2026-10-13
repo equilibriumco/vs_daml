@@ -105,7 +105,8 @@ public sealed class LanguageServerHostTests
     [InlineData(@"C:\elsewhere\daml.yaml", false, false)]
     public void Manifest_changes_ask_for_a_restart_when_the_server_wont_notice_them(string changed, bool multiPackage, bool restarts)
     {
-        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null);
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
         var workspace = Single(@"C:\repo") with
         {
             Mode = multiPackage ? ServerMode.MultiIde : ServerMode.Ide,
@@ -116,20 +117,90 @@ public sealed class LanguageServerHostTests
         host.Supervisor.RestartRequested += (_, _) => requests++;
 
         host.OnFileChanged(changed);
+        time.Advance(TimeSpan.FromSeconds(1));
 
         requests.ShouldBe(restarts ? 1 : 0);
+    }
+
+    // One save is several change events; they add up to one restart, asked for once the
+    // changes have been quiet for a moment.
+    [Fact, Trait("Category", "Unit")]
+    public void The_change_events_of_one_save_ask_for_one_restart()
+    {
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
+        var requests = 0;
+        host.Supervisor.RestartRequested += (_, _) => requests++;
+
+        host.OnFileChanged(@"C:\repo\daml.yaml");
+        time.Advance(TimeSpan.FromMilliseconds(200));
+        host.OnFileChanged(@"C:\repo\daml.yaml");
+        host.OnFileChanged(@"C:\repo\daml.yaml");
+        time.Advance(TimeSpan.FromMilliseconds(400));
+        requests.ShouldBe(0, "the last change was 400 ms ago");
+        time.Advance(TimeSpan.FromMilliseconds(200));
+
+        requests.ShouldBe(1);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Changes_under_the_build_output_are_ignored()
+    {
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
+
+        host.OnFileChanged(@"C:\repo\.daml\package-database\2.3\lib-1.0.0-abc\daml.yaml");
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_watcher_that_lost_events_asks_for_a_restart_at_once()
+    {
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
+
+        host.OnWatcherOverflow();
+
+        host.Supervisor.PendingRestartReasons.ShouldHaveSingleItem().ShouldContain("lost events");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_program_that_cant_be_created_is_reported_as_a_start_problem()
+    {
+        var files = new InMemoryFileSystem();
+        files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+        files.AddFile(@"C:\dpm\dpm.exe", "");
+        var runner = new FakeProcessRunner();
+        runner.On(@"C:\dpm\dpm.exe", ["versions", "-o", "json"], """[{"version":"3.6.0","installed":true,"active":true}]""");
+        runner.On(@"C:\dpm\dpm.exe", ["damlc", "--help"], new ProcessResult(1, "", "no help today"));
+        runner.FailStarts(new System.IO.FileNotFoundException("dpm.exe vanished"));
+        using var host = Host(runner, files, _ => null);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions { DpmPath = @"C:\dpm\dpm.exe" });
+
+        (await host.ActivateAsync(CancellationToken.None)).ShouldBeNull();
+
+        var problem = _problems.ShouldHaveSingleItem();
+        problem.Kind.ShouldBe(LanguageServerProblemKind.CannotStart);
+        problem.Message.ShouldContain("vanished");
+        host.Supervisor.State.ShouldBe(LanguageServerState.Stopped);
     }
 
     [Fact, Trait("Category", "Unit")]
     public void A_manifest_appearing_while_there_is_no_workspace_asks_for_a_new_start()
     {
-        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null);
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
         host.SetWorkspace(null, new LanguageServerOptions());
         var reasons = new List<string>();
         host.Supervisor.RestartRequested += (_, e) => reasons.AddRange(e.Reasons);
 
         host.OnFileChanged(@"C:\repo\daml.yaml");
         host.OnFileChanged(@"C:\repo\daml\Main.daml");
+        time.Advance(TimeSpan.FromSeconds(1));
 
         reasons.ShouldHaveSingleItem().ShouldContain("daml.yaml");
     }

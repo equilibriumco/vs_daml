@@ -53,22 +53,34 @@ public sealed class SdkInstallProgressTracker : ISdkInstallProgressSink
             throw new ArgumentNullException(nameof(progress));
         }
         var percent = Math.Max(0, Math.Min(100, progress.Progress));
+        var id = progress.SdkVersionIdentifier;
         ISdkInstallView? view;
         lock (_gate)
         {
-            _running.TryGetValue(progress.SdkVersionIdentifier, out view);
+            _running.TryGetValue(id, out view);
             if (progress.Kind == SdkInstallProgressKind.End)
             {
-                _running.Remove(progress.SdkVersionIdentifier);
+                _running.Remove(id);
             }
-            else if (view is null)
+        }
+        if (view is null && progress.Kind != SdkInstallProgressKind.End)
+        {
+            // A report without a begin still means an installation is running. The presenter may
+            // marshal to the UI thread, so it isn't called under the lock; a second report racing
+            // this one keeps the view that got in first.
+            var created = _presenter.Show($"Installing Daml {progress.SdkVersionRendered}", () => CancelAsync(id));
+            lock (_gate)
             {
-                // A report without a begin still means an installation is running.
-                var id = progress.SdkVersionIdentifier;
-                view = _presenter.Show($"Installing Daml {progress.SdkVersionRendered}", () => CancelAsync(id));
-                _running[id] = view;
-                _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"Installing Daml {progress.SdkVersionRendered}.");
+                if (_running.TryGetValue(id, out view))
+                {
+                    created.Complete();
+                }
+                else
+                {
+                    _running[id] = view = created;
+                }
             }
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"Installing Daml {progress.SdkVersionRendered}.");
         }
 
         if (progress.Kind == SdkInstallProgressKind.End)

@@ -77,11 +77,10 @@ public sealed class LongPathRedirector
     // The URI of the short copy, or null to keep the original.
     private string? Map(string uri)
     {
-        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) || !parsed.IsFile)
+        if (LspUri.ToLocalPath(uri) is not { } path)
         {
             return null;
         }
-        var path = parsed.LocalPath;
         if (path.Length < MaxPath)
         {
             return null;
@@ -121,7 +120,9 @@ public sealed class LibraryCopier : ILibraryCopier
                 return false;
             }
             var written = File.GetLastWriteTimeUtc(from);
-            if (File.Exists(target) && File.GetLastWriteTimeUtc(target) >= written)
+            // Archive timestamps can make a re-extracted source look older than its copy; a
+            // different size still tells them apart.
+            if (File.Exists(target) && File.GetLastWriteTimeUtc(target) >= written && new FileInfo(target).Length == new FileInfo(from).Length)
             {
                 return true;
             }

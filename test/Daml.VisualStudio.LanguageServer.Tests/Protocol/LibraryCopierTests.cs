@@ -60,4 +60,21 @@ public sealed class LibraryCopierTests : IDisposable
     {
         new LibraryCopier().CopyReadOnly(Path.Combine(_root, "nothing.daml"), Path.Combine(_root, "copies", "nothing.daml")).ShouldBeFalse();
     }
+
+    // A package re-extracted from an archive can carry an older timestamp than the copy made
+    // from its previous version; the size still gives the change away.
+    [Fact, Trait("Category", "Unit")]
+    public void A_source_of_another_size_refreshes_the_copy_even_when_it_isnt_newer()
+    {
+        var source = LongSource();
+        var target = Path.Combine(_root, "copies", "abc", "Library.daml");
+        var copier = new LibraryCopier();
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+
+        File.WriteAllText(@"\\?\" + source, "module Library where\nlonger = 1\n");
+        File.SetLastWriteTimeUtc(@"\\?\" + source, File.GetLastWriteTimeUtc(target).AddMinutes(-5));
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+
+        File.ReadAllText(target).ShouldBe("module Library where\nlonger = 1\n");
+    }
 }

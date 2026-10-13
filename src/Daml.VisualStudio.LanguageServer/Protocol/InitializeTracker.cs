@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Daml.VisualStudio.LanguageServer.Protocol;
@@ -62,12 +61,7 @@ public sealed class InitializeTracker
             return;
         }
 
-        JObject message;
-        try
-        {
-            message = JObject.Parse(Encoding.UTF8.GetString(body));
-        }
-        catch (JsonException)
+        if (LspJson.Parse(body) is not { } message)
         {
             return;
         }
@@ -87,7 +81,7 @@ public sealed class InitializeTracker
 
         if (message["error"] is JObject error)
         {
-            Failed?.Invoke(this, new InitializeFailedEventArgs((string?)error["message"] ?? error.ToString(Formatting.None)));
+            Failed?.Invoke(this, new InitializeFailedEventArgs((string?)error["message"] ?? error.ToString(Newtonsoft.Json.Formatting.None)));
         }
         else
         {

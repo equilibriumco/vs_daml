@@ -61,6 +61,27 @@ public class LspStreamAdapterTests
         result.InitializeRequestId.ShouldBeNull();
     }
 
+    // The message is written out again after a change; a string that looks like a date must
+    // come out exactly as it went in.
+    [Fact, Trait("Category", "Unit")]
+    public void A_rewritten_message_keeps_date_like_strings_as_they_were()
+    {
+        var result = Sanitize("""
+            {"jsonrpc":"2.0","id":7,"method":"textDocument/codeAction","params":{"context":{"diagnostics":[
+              {"message":"deprecated since 2026-10-13T10:00:00Z","tags":[1,2147483645]}]}}}
+            """);
+
+        Encoding.UTF8.GetString(result.Body).ShouldContain("\"deprecated since 2026-10-13T10:00:00Z\"");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_document_that_merely_mentions_tags_is_passed_on_as_the_same_bytes()
+    {
+        var body = Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"contentChanges":[{"text":"data T = T with \"tags\" : [Int]"}]}}""");
+
+        ClientMessageSanitizer.Sanitize(body).Body.ShouldBeSameAs(body);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void The_clients_own_NotificationReceived_never_reaches_the_server() =>
         Sanitize("""{"jsonrpc":"2.0","method":"NotificationReceived","params":[{"traceparent":"00-ab"}]}""").Action.ShouldBe(SanitizeAction.Drop);
@@ -183,11 +204,14 @@ public class LspStreamAdapterTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Broken_server_framing_ends_the_connection_with_an_IO_error()
+    public async Task Broken_server_framing_ends_the_connection_with_an_IO_error_and_tells_the_owner()
     {
-        using var fromServer = new ServerToClientStream(new MemoryStream(Encoding.ASCII.GetBytes("garbage without headers\r\n\r\n")), Settings, new InitializeTracker(), NullDamlLogger.Instance);
+        Exception? reported = null;
+        using var fromServer = new ServerToClientStream(new MemoryStream(Encoding.ASCII.GetBytes("garbage without headers\r\n\r\n")), Settings, new InitializeTracker(), NullDamlLogger.Instance, onFailure: ex => reported = ex);
 
         await Should.ThrowAsync<IOException>(() => ReadToEndAsync(fromServer, 64));
+
+        reported.ShouldBeOfType<LspFramingException>();
     }
 
     private static async Task<List<JObject>> ReadAllFramesAsync(byte[] data)

@@ -136,6 +136,10 @@ public static class LspFrameWriter
 internal static class LspHeader
 {
     // Length of the header block including its terminating empty line, or -1 if it isn't all there.
+    /// <summary>Whether the first <paramref name="count"/> bytes end with the empty line that closes a header.</summary>
+    public static bool EndsWithBlankLine(byte[] data, int count) =>
+        count >= 4 && data[count - 1] == '\n' && data[count - 2] == '\r' && data[count - 3] == '\n' && data[count - 4] == '\r';
+
     public static int FindEnd(byte[] data, int offset, int count, int maxHeaderBytes)
     {
         var limit = Math.Min(count, maxHeaderBytes + 4);

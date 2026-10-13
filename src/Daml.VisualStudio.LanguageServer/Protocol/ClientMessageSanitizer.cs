@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Text;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Daml.VisualStudio.LanguageServer.Protocol;
@@ -45,24 +44,22 @@ internal static class ClientMessageSanitizer
     private static readonly byte[] NotificationReceived = Encoding.UTF8.GetBytes("\"NotificationReceived\"");
     private static readonly byte[] Initialize = Encoding.UTF8.GetBytes("\"initialize\"");
     private static readonly byte[] Tags = Encoding.UTF8.GetBytes("\"tags\"");
+    private static readonly byte[] Diagnostics = Encoding.UTF8.GetBytes("\"diagnostics\"");
 
     public static SanitizedMessage Sanitize(byte[] body)
     {
-        // Most messages contain none of these, and those go through without being parsed.
+        // Most messages contain none of these, and those go through without being parsed. A
+        // document that merely mentions "tags" in its text isn't parsed either: tags to clamp
+        // sit inside echoed diagnostics.
         var mayBeNotification = Contains(body, NotificationReceived);
         var mayBeInitialize = Contains(body, Initialize);
-        var mayHaveTags = Contains(body, Tags);
+        var mayHaveTags = Contains(body, Tags) && Contains(body, Diagnostics);
         if (!mayBeNotification && !mayBeInitialize && !mayHaveTags)
         {
             return new SanitizedMessage(SanitizeAction.Forward, body, null);
         }
 
-        JObject message;
-        try
-        {
-            message = JObject.Parse(Encoding.UTF8.GetString(body));
-        }
-        catch (JsonException)
+        if (LspJson.Parse(body) is not { } message)
         {
             return new SanitizedMessage(SanitizeAction.Forward, body, null); // not ours to judge
         }
@@ -89,7 +86,7 @@ internal static class ClientMessageSanitizer
             }
         }
 
-        var result = changed ? Encoding.UTF8.GetBytes(message.ToString(Formatting.None)) : body;
+        var result = changed ? LspJson.ToBytes(message) : body;
         return new SanitizedMessage(SanitizeAction.Forward, result, initializeId);
     }
 

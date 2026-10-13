@@ -102,6 +102,8 @@ public sealed class KeepAliveWatchdog : IDisposable
             return;
         }
         run.Loop = WatchAsync(run, sessionId, run.Cancellation.Token);
+        // The loop is the last user of the token source; it goes once the loop is over.
+        _ = run.Loop.ContinueWith(_ => run.Cancellation.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
     }
 
     /// <summary>Stops watching; a request still in flight is abandoned and can't report anything.</summary>
@@ -211,19 +213,27 @@ public sealed class KeepAliveWatchdog : IDisposable
 
         public Task? Loop { get; set; }
 
-        public Task? WaitingOn { get; private set; }
+        private Task? _waitingOn;
+
+        public Task? WaitingOn => Volatile.Read(ref _waitingOn);
 
         public T Wait<T>(T task)
             where T : Task
         {
-            WaitingOn = task;
+            Volatile.Write(ref _waitingOn, task);
             return task;
         }
 
         public void End()
         {
-            Cancellation.Cancel();
-            Cancellation.Dispose();
+            try
+            {
+                Cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The loop was already over, and took the token source with it.
+            }
         }
     }
 

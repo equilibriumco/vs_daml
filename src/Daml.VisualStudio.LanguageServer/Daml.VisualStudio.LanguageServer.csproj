@@ -14,6 +14,8 @@
     <PackageReference Include="Microsoft.Bcl.TimeProvider" />
     <!-- VS's own JSON-RPC connection is handed to us; VS ships the assembly, so it isn't packaged. -->
     <PackageReference Include="StreamJsonRpc" ExcludeAssets="runtime" />
+    <!-- Used directly for message bodies; the VS-shipped version is the one pinned centrally. -->
+    <PackageReference Include="Newtonsoft.Json" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup>

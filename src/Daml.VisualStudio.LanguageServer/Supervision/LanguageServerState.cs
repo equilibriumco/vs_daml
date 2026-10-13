@@ -11,11 +11,8 @@ public enum LanguageServerState
     /// <summary>Not running and not asked to.</summary>
     Stopped,
 
-    /// <summary>Building the command and creating the process.</summary>
+    /// <summary>Creating the process.</summary>
     Starting,
-
-    /// <summary>The process exists; its streams are about to be handed over.</summary>
-    Running,
 
     /// <summary>The client has the streams and is waiting for the reply to <c>initialize</c>.</summary>
     Initializing,

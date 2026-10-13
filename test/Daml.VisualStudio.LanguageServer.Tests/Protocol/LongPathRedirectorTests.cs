@@ -107,4 +107,17 @@ public class LongPathRedirectorTests
             return !Fail;
         }
     }
+
+    // Visual Studio escapes the drive colon and damlc echoes it back; Uri alone would turn that
+    // into "/c:/...", which is no Windows path.
+    [Fact, Trait("Category", "Unit")]
+    public void A_long_target_with_an_escaped_drive_colon_is_redirected_too()
+    {
+        var escaped = Uri(LongPath).Replace("file:///C:/", "file:///c%3A/");
+
+        var result = (JObject)Redirector().Redirect(JObject.FromObject(new { uri = escaped, range = new { } }))!;
+
+        _copier.Copies.ShouldHaveSingleItem().Source.ShouldBe(LongPath, StringCompareShould.IgnoreCase);
+        ((string)result["uri"]!).ShouldStartWith("file:///C:/");
+    }
 }

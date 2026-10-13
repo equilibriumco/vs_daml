@@ -204,6 +204,7 @@ public sealed class ClientRestartSequenceTests : IDisposable
         sequence.RestartCompleted += (_, _) => finished.TrySetResult(true);
 
         _host.OnDirectoryRemoved(removed);
+        _time.Advance(TimeSpan.FromSeconds(1)); // the change has been quiet long enough
 
         (await Task.WhenAny(finished.Task, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(finished.Task);
         _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
@@ -220,6 +221,7 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _host.Supervisor.MarkReady(1);
 
         _host.OnDirectoryRemoved(removed);
+        _time.Advance(TimeSpan.FromSeconds(1));
 
         _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
     }
@@ -254,5 +256,40 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _problems.ShouldBeEmpty();
         _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
         _host.IsUnresponsive.ShouldBeFalse();
+    }
+
+    // A restart asked for while there is nothing to start (no daml.yaml yet) must not swallow
+    // the next request: before, the user's own Restart would have been queued behind it forever.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_request_that_found_no_workspace_doesnt_swallow_the_next_one()
+    {
+        _discovered = null;
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        var runs = 0;
+        var secondRun = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sequence.RestartCompleted += (_, _) =>
+        {
+            if (++runs == 2)
+            {
+                secondRun.TrySetResult(true);
+            }
+        };
+
+        _host.Supervisor.RequestRestart("daml.yaml appeared");
+        (await Task.WhenAny(WaitForRunsAsync(1), Task.Delay(TimeSpan.FromSeconds(30)))).IsCompleted.ShouldBeTrue();
+        _discovered = Workspace();
+        _host.Supervisor.ResetCircuit();
+
+        (await Task.WhenAny(secondRun.Task, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(secondRun.Task);
+        _runner.Started.Count.ShouldBe(1, "the second request started the server");
+
+        async Task WaitForRunsAsync(int count)
+        {
+            while (Volatile.Read(ref runs) < count)
+            {
+                await Task.Delay(20);
+            }
+        }
     }
 }
