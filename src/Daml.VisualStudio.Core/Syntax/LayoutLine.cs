@@ -4,16 +4,21 @@ namespace Daml.VisualStudio.Core.Syntax;
 
 /// <summary>
 /// The tokens of a line that layout looks at (no whitespace, comments or pragmas), with the
-/// columns they start at. Tabs advance to the next multiple of eight, as in the Haskell report.
+/// columns they start at. Tabs advance to the next multiple of the tab size: eight as in the
+/// Haskell report, or whatever the editor shows them as.
 /// </summary>
 internal sealed class LayoutLine
 {
+    public const int DefaultTabSize = 8;
+
     private readonly LineTokens _line;
+    private readonly int _tabSize;
     private readonly List<DamlToken> _tokens = new();
 
-    public LayoutLine(LineTokens line)
+    public LayoutLine(LineTokens line, int tabSize = DefaultTabSize)
     {
         _line = line;
+        _tabSize = tabSize;
         foreach (var token in line.Tokens)
         {
             if (IsCode(token.Kind))
@@ -29,6 +34,18 @@ internal sealed class LayoutLine
 
     public string Text(int index) => _line.Text.Substring(_tokens[index].Start, _tokens[index].Length);
 
+    public bool Has(string text)
+    {
+        for (var i = 0; i < _tokens.Count; i++)
+        {
+            if (Is(i, text))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public bool Is(int index, string text) =>
         index < _tokens.Count && _tokens[index].Length == text.Length && string.CompareOrdinal(_line.Text, _tokens[index].Start, text, 0, text.Length) == 0;
 
@@ -43,7 +60,7 @@ internal sealed class LayoutLine
         var column = 0;
         for (var i = 0; i < offset; i++)
         {
-            column = text[i] == '\t' ? (column / 8 + 1) * 8 : column + 1;
+            column = text[i] == '\t' ? (column / _tabSize + 1) * _tabSize : column + 1;
         }
         return column;
     }

@@ -1,4 +1,4 @@
 ﻿Module "WhereLocal" L1-L9 body 0
-  TopLevelBinding "area" L3-L6 body 2
+  TopLevelBinding "area" L3-L6 header to L4 body 2
     WhereBlock L5-L6 body 4
-  TopLevelBinding "perimeter" L8-L9 body -1
+  TopLevelBinding "perimeter" L8-L9 header to L9 body -1

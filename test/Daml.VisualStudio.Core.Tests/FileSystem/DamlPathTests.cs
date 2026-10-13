@@ -33,4 +33,10 @@ public class DamlPathTests
     [Fact, Trait("Category", "Unit")]
     public void Paths_compare_case_insensitively() =>
         DamlPath.Comparer.Equals(@"C:\Work\App", @"c:\work\app").ShouldBeTrue();
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("daml/Main.daml")]
+    [InlineData(".")]
+    public void Normalize_refuses_a_relative_path_rather_than_guessing_a_base(string input) =>
+        Should.Throw<System.ArgumentException>(() => DamlPath.Normalize(input));
 }

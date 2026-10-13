@@ -17,7 +17,9 @@ public sealed record ProcessSpec(string FileName, IReadOnlyList<string> Argument
     /// <summary>
     /// Changes to the inherited environment: a value sets the variable, <c>null</c> removes it.
     /// </summary>
-    public IReadOnlyDictionary<string, string?> Environment { get; init; } = new Dictionary<string, string?>();
+    public IReadOnlyDictionary<string, string?> Environment { get; init; } = NoChanges;
+
+    private static readonly IReadOnlyDictionary<string, string?> NoChanges = new Dictionary<string, string?>();
 
     /// <summary>
     /// How long <see cref="IProcessRunner.RunAsync"/> waits before killing the process tree;

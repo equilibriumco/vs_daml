@@ -22,14 +22,21 @@ internal static class BlockComments
         return root;
     }
 
-    // Runs of lines that end inside a comment, plus the line that closes it.
+    // Runs of lines that end inside a comment (or a pragma, which folds the same way), plus the
+    // line that closes it. A line that closes one comment and opens another, with code between,
+    // ends the first run and starts the next.
     private static IEnumerable<(int First, int Last)> Find(IReadOnlyList<LineTokens> lines)
     {
         var first = -1;
         for (var number = 0; number < lines.Count; number++)
         {
-            var inside = lines[number].EndState.Mode == LexMode.BlockComment;
-            if (inside && first < 0)
+            var inside = IsInside(lines[number].EndState.Mode);
+            if (inside && first >= 0 && HasCodeBetweenComments(lines[number]))
+            {
+                yield return (first, number);
+                first = number;
+            }
+            else if (inside && first < 0)
             {
                 first = number;
             }
@@ -54,6 +61,11 @@ internal static class BlockComments
         }
     }
 
+    private static bool IsInside(LexMode mode) => mode is LexMode.BlockComment or LexMode.Pragma;
+
+    private static bool HasCodeBetweenComments(LineTokens line) =>
+        line.Tokens.Any(t => t.Kind is not (DamlTokenKind.Whitespace or DamlTokenKind.BlockComment or DamlTokenKind.Pragma or DamlTokenKind.LineComment or DamlTokenKind.DocComment));
+
     private static DamlBlock Insert(DamlBlock block, DamlBlock comment)
     {
         var children = block.Children.ToList();
@@ -67,7 +79,7 @@ internal static class BlockComments
             }
             if (child.StartLine <= comment.EndLine && comment.StartLine <= child.EndLine)
             {
-                return block;
+                return block; // half inside another block: not a block of its own
             }
         }
         var at = children.FindIndex(c => c.StartLine > comment.StartLine);

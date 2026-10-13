@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace Daml.Build.Core.Diagnostics;
@@ -33,9 +34,10 @@ public sealed record DamlDiagnostic
 {
     /// <summary>
     /// The file as printed: usually relative to the package root (<c>daml/Main.daml</c>), but
-    /// sometimes a folder or an absolute path with forward slashes. Use <see cref="ResolvePath"/>.
+    /// sometimes a folder, an absolute path with forward slashes, or a stand-in like
+    /// <c>&lt;unknown&gt;</c> for a package-level message. Use <see cref="ResolvePath"/>.
     /// </summary>
-    public required string File { get; init; }
+    public required string PrintedPath { get; init; }
 
     /// <summary>
     /// The package a multi-package build was building when it printed this, as a Windows path;
@@ -59,13 +61,31 @@ public sealed record DamlDiagnostic
     public string Message { get; init; } = "";
 
     /// <summary>
-    /// The full Windows path of <see cref="File"/>: as is when absolute, otherwise relative to
-    /// <see cref="PackageRoot"/> or, failing that, to <paramref name="workingDirectory"/> (the
-    /// folder dpm ran in).
+    /// The full Windows path of <see cref="PrintedPath"/>: as is when absolute, otherwise under
+    /// <see cref="PackageRoot"/> (itself under <paramref name="workingDirectory"/>, the folder dpm
+    /// ran in, when relative). When damlc printed no real file, the package folder stands in.
     /// </summary>
     public string ResolvePath(string workingDirectory)
     {
-        var file = File.Replace('/', '\\');
-        return Path.GetFullPath(Path.IsPathRooted(file) ? file : Path.Combine(PackageRoot ?? workingDirectory, file));
+        var package = Path.Combine(workingDirectory, PackageRoot ?? "");
+        return (HasFile ? TryFullPath(Path.Combine(package, PrintedPath.Replace('/', '\\'))) : null)
+            ?? TryFullPath(package)
+            ?? Path.GetFullPath(workingDirectory);
+    }
+
+    /// <summary>False when damlc printed a stand-in such as <c>&lt;unknown&gt;</c> instead of a file.</summary>
+    public bool HasFile => PrintedPath.Length > 0 && PrintedPath[0] != '<';
+
+    // Null for text the file system refuses as a path (illegal characters, too long).
+    private static string? TryFullPath(string path)
+    {
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return null;
+        }
     }
 }

@@ -113,7 +113,16 @@ public sealed class ModulePathResolver
         }
 
         // 'source' is either the folder modules live under or one .daml file whose folder is that root.
-        var sourcePath = DamlPath.Resolve(package.PackageRoot, source);
+        string sourcePath;
+        try
+        {
+            sourcePath = DamlPath.Resolve(package.PackageRoot, source);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            reasons.Add($"Package {package.Name ?? package.PackageRoot} has a 'source' that isn't a valid path: {source}");
+            return null;
+        }
         var moduleRoot = sourcePath.EndsWith(".daml", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(sourcePath)! : sourcePath;
         var path = Path.Combine(moduleRoot, module.Replace('.', '\\') + ".daml");
         if (!_fileSystem.FileExists(path))

@@ -29,7 +29,8 @@ internal sealed class DamlSmartIndent : ISmartIndent
     public int? GetDesiredIndentation(ITextSnapshotLine line)
     {
         var lines = DamlTokenCache.For(line.Snapshot.TextBuffer).Get(line.Snapshot);
-        return IndentRules.GetDesiredIndentation(lines, line.LineNumber, _view.Options.GetOptionValue(DefaultOptions.IndentSizeOptionId));
+        var options = _view.Options;
+        return IndentRules.GetDesiredIndentation(lines, line.LineNumber, options.GetOptionValue(DefaultOptions.IndentSizeOptionId), options.GetOptionValue(DefaultOptions.TabSizeOptionId));
     }
 
     public void Dispose()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 
 namespace Daml.VisualStudio.Core.Syntax;
 
@@ -64,6 +65,9 @@ public static class DamlLexer
         ("try", DamlTokenKind.ControlKeyword),
         ("catch", DamlTokenKind.ControlKeyword),
     ];
+
+    // Keywords grouped by length, so a name is compared only with the few of its own length.
+    private static readonly (string Word, DamlTokenKind Kind)[][] KeywordsByLength = ByLength(Keywords);
 
     private static readonly string[] ReservedOperators = ["..", ":", "::", "=", "\\", "|", "<-", "->", "@", "~", "=>"];
 
@@ -163,7 +167,7 @@ public static class DamlLexer
                 Add(output, i, end - i, DamlTokenKind.Number);
                 i = end;
             }
-            else if (IsNameStart(c))
+            else if (NameStartLength(line, i) > 0)
             {
                 var (end, kind) = ScanName(line, i);
                 Add(output, i, end - i, kind);
@@ -172,7 +176,7 @@ public static class DamlLexer
             else if (c == '`')
             {
                 var end = i + 1;
-                if (end < line.Length && IsNameStart(line[end]))
+                if (NameStartLength(line, end) > 0)
                 {
                     var (nameEnd, _) = ScanName(line, end);
                     if (At(line, nameEnd, '`'))
@@ -317,6 +321,10 @@ public static class DamlLexer
             }
             return At(line, end, '\'') && end > index + 2 ? end + 1 - index : 0;
         }
+        if (index + 3 < line.Length && char.IsSurrogatePair(line[index + 1], line[index + 2]) && line[index + 3] == '\'')
+        {
+            return 4; // a character outside the BMP takes two units
+        }
         return index + 2 < line.Length && line[index + 1] != '\'' && line[index + 2] == '\'' ? 3 : 0;
     }
 
@@ -393,6 +401,26 @@ public static class DamlLexer
 
     internal static bool IsNameChar(char c) => c == '_' || c == '\'' || char.IsLetterOrDigit(c);
 
+    // How many units the name character at index takes: 1, 2 for a letter or digit outside the
+    // BMP (a surrogate pair), 0 when it isn't one.
+    private static int NameStartLength(ReadOnlySpan<char> line, int index) =>
+        index >= line.Length ? 0 : IsNameStart(line[index]) ? 1 : AstralLength(line, index, digitsToo: false);
+
+    private static int NameCharLength(ReadOnlySpan<char> line, int index) =>
+        IsNameChar(line[index]) ? 1 : AstralLength(line, index, digitsToo: true);
+
+    private static int AstralLength(ReadOnlySpan<char> line, int index, bool digitsToo)
+    {
+        if (index + 1 >= line.Length || !char.IsSurrogatePair(line[index], line[index + 1]))
+        {
+            return 0;
+        }
+        var category = CharUnicodeInfo.GetUnicodeCategory(line.Slice(index, 2).ToString(), 0);
+        var isLetter = category is UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter
+            or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter;
+        return isLetter || (digitsToo && category == UnicodeCategory.DecimalDigitNumber) ? 2 : 0;
+    }
+
     private static bool IsUpper(char c) => char.IsUpper(c) || char.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter;
 
     internal static bool IsSymbol(char c) =>
@@ -401,9 +429,14 @@ public static class DamlLexer
 
     private static int ScanIdentifier(ReadOnlySpan<char> line, int index)
     {
-        while (index < line.Length && IsNameChar(line[index]))
+        while (index < line.Length)
         {
-            index++;
+            var length = NameCharLength(line, index);
+            if (length == 0)
+            {
+                break;
+            }
+            index += length;
         }
         return index;
     }
@@ -459,14 +492,27 @@ public static class DamlLexer
 
     private static DamlTokenKind KeywordKind(ReadOnlySpan<char> word)
     {
-        foreach (var (keyword, kind) in Keywords)
+        if (word.Length < KeywordsByLength.Length)
         {
-            if (keyword.Length == word.Length && word.SequenceEqual(keyword.AsSpan()))
+            foreach (var (keyword, kind) in KeywordsByLength[word.Length])
             {
-                return kind;
+                if (word.SequenceEqual(keyword.AsSpan()))
+                {
+                    return kind;
+                }
             }
         }
         return DamlTokenKind.VarId;
+    }
+
+    private static (string Word, DamlTokenKind Kind)[][] ByLength((string Word, DamlTokenKind Kind)[] keywords)
+    {
+        var buckets = new (string, DamlTokenKind)[keywords.Max(k => k.Word.Length) + 1][];
+        for (var length = 0; length < buckets.Length; length++)
+        {
+            buckets[length] = keywords.Where(k => k.Word.Length == length).ToArray();
+        }
+        return buckets;
     }
 
     private static bool IsAllDashes(ReadOnlySpan<char> run)

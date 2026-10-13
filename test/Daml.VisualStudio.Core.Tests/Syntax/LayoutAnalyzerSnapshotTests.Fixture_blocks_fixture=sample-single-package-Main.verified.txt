@@ -8,7 +8,7 @@
         WithBlock L17-L18 body 8
         DoBlock L20-L21 body 9
           WithBlock L20-L21 body 11
-  TopLevelBinding "setup" L23-L44 body 2
+  TopLevelBinding "setup" L23-L44 header to L24 body 2
     DoBlock L24-L44 body 2
       DoBlock L34-L38 body 4
         WithBlock L35-L38 body 6

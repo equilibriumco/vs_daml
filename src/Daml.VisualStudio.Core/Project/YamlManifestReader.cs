@@ -54,6 +54,9 @@ public sealed class YamlManifestReader : IManifestReader
     }
 
     /// <inheritdoc />
+    public bool Exists(string manifestPath) => _fileSystem.FileExists(DamlPath.Normalize(manifestPath));
+
+    /// <inheritdoc />
     public ManifestResult<MultiPackageManifest> ReadMultiPackage(string manifestPath)
     {
         var path = DamlPath.Normalize(manifestPath);
@@ -69,8 +72,8 @@ public sealed class YamlManifestReader : IManifestReader
             ManifestPath = path,
             Root = folder,
             SdkVersion = file.Text(root, "sdk-version"),
-            Packages = file.TextList(root, "packages").Select(p => DamlPath.Resolve(folder, p)).ToList(),
-            Dars = file.TextList(root, "dars").Select(d => DamlPath.Resolve(folder, d)).ToList(),
+            Packages = file.Paths(root, "packages", folder),
+            Dars = file.Paths(root, "dars", folder),
         };
         return new ManifestResult<MultiPackageManifest>(manifest, file.Diagnostics);
     }
@@ -130,34 +133,56 @@ public sealed class YamlManifestReader : IManifestReader
             var node => Wrong<string>(node, $"'{key}' must be a single value."),
         };
 
-        public List<string> TextList(YamlMappingNode root, string key)
+        public List<string> TextList(YamlMappingNode root, string key) =>
+            Entries(root, key).Select(e => e.Value).ToList();
+
+        // The list's entries resolved against the manifest's folder; one that isn't a path at
+        // all (illegal characters, too long) is reported and skipped rather than thrown.
+        public List<string> Paths(YamlMappingNode root, string key, string folder)
         {
+            var paths = new List<string>();
+            foreach (var (value, start) in Entries(root, key))
+            {
+                try
+                {
+                    paths.Add(DamlPath.Resolve(folder, value));
+                }
+                catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+                {
+                    Error(start, $"'{key}' entry '{value}' isn't a valid path; it is skipped.");
+                }
+            }
+            return paths;
+        }
+
+        private List<(string Value, Mark Start)> Entries(YamlMappingNode root, string key)
+        {
+            var items = new List<(string, Mark)>();
             switch (Find(root, key))
             {
                 case null:
-                    return [];
+                    break;
                 case YamlScalarNode scalar when Absent(scalar):
-                    return [];
+                    break;
                 case YamlSequenceNode sequence:
-                    var items = new List<string>();
                     foreach (var item in sequence.Children)
                     {
                         if (item is YamlScalarNode { Value: { } value })
                         {
-                            items.Add(value);
+                            items.Add((value, item.Start));
                         }
                         else
                         {
                             Error(item.Start, $"Every entry of '{key}' must be a single value; this one is skipped.");
                         }
                     }
-                    return items;
+                    break;
                 case var node:
                     Error(node.Start, $"'{key}' must be a list ('- item' lines).");
-                    return [];
+                    break;
             }
+            return items;
         }
-
         public Dictionary<string, string> TextMap(YamlMappingNode root, string key)
         {
             var map = new Dictionary<string, string>(StringComparer.Ordinal);

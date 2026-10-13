@@ -18,9 +18,12 @@ namespace Daml.Build.Core.Diagnostics;
 /// daml/TypeError.daml:5:9: error:
 ///     • Couldn't match expected type ‘Int’ with actual type ‘Text’
 /// </code>
-/// Nothing marks the end of a message, so it ends at the next block, a blank line, a
-/// timestamped log line, dpm's <c>ERROR:</c> summary or a <c>damlc:</c> failure line.
-/// Everything outside blocks is ignored, and so are the ANSI colour codes damlc puts in messages.
+/// Nothing marks the end of a message, so it ends at the next block, a timestamped log line,
+/// dpm's <c>ERROR:</c> summary or a <c>damlc:</c> failure line; a blank line ends it too, unless
+/// what follows is indented, which GHC does for its suggestions. Everything outside blocks is
+/// ignored, and so are the ANSI colour codes damlc puts in messages. Lines inside a block that
+/// aren't a known field are kept in <see cref="UnrecognisedLines"/>, so a change in dpm's
+/// output shows up instead of silently losing diagnostics.
 /// </summary>
 public sealed class DamlDiagnosticParser
 {
@@ -34,12 +37,17 @@ public sealed class DamlDiagnosticParser
 
     private readonly List<DamlDiagnostic> _diagnostics = new();
     private readonly List<string> _message = new();
+    private readonly List<string> _unrecognised = new();
     private string? _packageRoot;
     private Block? _block;
     private bool _inMessage;
+    private int _pendingBlankLines;
 
     /// <summary>Diagnostics completed so far, in output order.</summary>
     public IReadOnlyList<DamlDiagnostic> Diagnostics => _diagnostics;
+
+    /// <summary>Lines inside a diagnostic block that this parser didn't understand.</summary>
+    public IReadOnlyList<string> UnrecognisedLines => _unrecognised;
 
     /// <summary>
     /// <paramref name="line"/> without the ANSI colour codes damlc writes even when its output is
@@ -80,15 +88,30 @@ public sealed class DamlDiagnosticParser
                 SetField(_block, field.Groups[1].Value, field.Groups[2].Value.Trim());
                 return;
             }
-            if (line.Length == 0 || !EndsMessage(line))
+            if (line.Length == 0)
             {
-                return; // some field this parser doesn't know about
+                return;
+            }
+            if (!EndsMessage(line))
+            {
+                _unrecognised.Add(line);
+                return;
             }
         }
         else if (_block is not null)
         {
-            if (!EndsMessage(line))
+            if (line.Length == 0)
             {
+                _pendingBlankLines++;
+                return;
+            }
+            var continues = _pendingBlankLines == 0 ? !EndsMessage(line) : char.IsWhiteSpace(line[0]);
+            if (continues)
+            {
+                for (; _pendingBlankLines > 0; _pendingBlankLines--)
+                {
+                    _message.Add("");
+                }
                 _message.Add(line.TrimEnd());
                 return;
             }
@@ -105,7 +128,7 @@ public sealed class DamlDiagnosticParser
     public void Complete() => Finish();
 
     private static bool EndsMessage(string line) =>
-        line.Length == 0 || LogHeader.IsMatch(line) || ToolFailure.IsMatch(line);
+        LogHeader.IsMatch(line) || ToolFailure.IsMatch(line);
 
     private void SetField(Block block, string name, string value)
     {
@@ -156,7 +179,7 @@ public sealed class DamlDiagnosticParser
         {
             _diagnostics.Add(new DamlDiagnostic
             {
-                File = _block.File,
+                PrintedPath = _block.File,
                 PackageRoot = _packageRoot,
                 Range = _block.Range,
                 Severity = _block.Severity,
@@ -167,6 +190,7 @@ public sealed class DamlDiagnosticParser
         }
         _block = null;
         _inMessage = false;
+        _pendingBlankLines = 0;
         _message.Clear();
     }
 

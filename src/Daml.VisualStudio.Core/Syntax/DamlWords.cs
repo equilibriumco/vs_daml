@@ -33,6 +33,15 @@ public static class DamlWords
         }
 
         var c = line[position];
+        if (char.IsSurrogate(c))
+        {
+            // A character outside the BMP is two units; selecting half of it would corrupt it.
+            var start = char.IsLowSurrogate(c) && position > 0 && char.IsHighSurrogate(line[position - 1]) ? position - 1 : position;
+            if (start + 1 < line.Length && char.IsSurrogatePair(line[start], line[start + 1]))
+            {
+                return new DamlWord(start, 2, true);
+            }
+        }
         if (c is ' ' or '\t')
         {
             return Run(line, position, ch => ch is ' ' or '\t', significant: false);

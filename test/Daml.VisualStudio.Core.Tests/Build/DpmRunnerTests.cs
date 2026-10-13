@@ -58,7 +58,7 @@ public sealed class DpmRunnerTests : IDisposable
 
         result.ExitCode.ShouldBe(1);
         result.Succeeded.ShouldBeFalse();
-        result.Diagnostics.Select(d => d.File).ShouldBe(["daml/SyntaxError.daml", "daml/TypeError.daml", "daml/UnknownImport.daml"]);
+        result.Diagnostics.Select(d => d.PrintedPath).ShouldBe(["daml/SyntaxError.daml", "daml/TypeError.daml", "daml/UnknownImport.daml"]);
         var call = _fake.ReadCalls().ShouldHaveSingleItem();
         call.Args.ShouldBe(["build"]);
         call.WorkingDirectory.ShouldBe(_package);

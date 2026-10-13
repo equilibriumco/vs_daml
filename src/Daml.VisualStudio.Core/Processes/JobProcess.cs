@@ -55,7 +55,12 @@ internal sealed class JobProcess : IRunningProcess
 
     public static JobProcess Start(ProcessSpec spec, Action<ProcessRunner.StartStage, int>? hook)
     {
-        if (Path.IsPathRooted(spec.FileName) && !File.Exists(spec.FileName))
+        // CreateProcess gets the program as its application name, which isn't searched on PATH.
+        if (!Path.IsPathRooted(spec.FileName))
+        {
+            throw new ArgumentException($"The program must be given by its full path, not '{spec.FileName}'.", nameof(spec));
+        }
+        if (!File.Exists(spec.FileName))
         {
             throw new FileNotFoundException($"{spec.FileName} doesn't exist.", spec.FileName);
         }
@@ -121,7 +126,8 @@ internal sealed class JobProcess : IRunningProcess
                     ExtendedStartupInfoPresent | CreateUnicodeEnvironment | CreateNoWindow, environment,
                     string.IsNullOrEmpty(spec.WorkingDirectory) ? null : spec.WorkingDirectory, ref startupInfo, out var info))
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), $"Couldn't start {spec.FileName}");
+                throw new Win32Exception(Marshal.GetLastWin32Error(),
+                    string.IsNullOrEmpty(spec.WorkingDirectory) ? $"Couldn't start {spec.FileName}" : $"Couldn't start {spec.FileName} in {spec.WorkingDirectory}");
             }
             CloseHandle(info.Thread);
             process = new SafeProcessHandle(info.Process, ownsHandle: true);
@@ -169,6 +175,8 @@ internal sealed class JobProcess : IRunningProcess
         _stdin.Dispose();
         _stdout.Dispose();
         _stderr.Dispose();
+        // Nobody will learn the exit code now; a late awaiter must not hang on it.
+        _exited.TrySetCanceled();
     }
 
     private void OnExited()

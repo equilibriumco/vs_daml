@@ -43,7 +43,10 @@ public sealed class SdkResolver
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
     }
 
-    /// <summary>Resolves the tool and SDK versions for <paramref name="workspace"/>.</summary>
+    /// <summary>
+    /// Resolves the tool and SDK versions for <paramref name="workspace"/>. Manifests are read
+    /// and tools are run on worker threads, so the caller's thread is never blocked.
+    /// </summary>
     /// <exception cref="SdkResolutionException">No installed tool can run the workspace.</exception>
     public async Task<SdkResolution> ResolveAsync(WorkspaceContext workspace, LanguageServerOptions options, CancellationToken cancellationToken)
     {
@@ -57,9 +60,8 @@ public sealed class SdkResolver
         }
 
         var notes = new List<string>();
-        var packages = ReadPackages(workspace, notes);
         var workingDirectory = workspace.ServerWorkingDirectory;
-        var contextSdk = _manifests.ReadPackage(Path.Combine(workingDirectory, WorkspaceLocator.PackageManifestName)).Value?.SdkVersion;
+        var (packages, contextSdk) = await Task.Run(() => (ReadPackages(workspace, notes), ReadContextSdk(workingDirectory)), cancellationToken).ConfigureAwait(false);
         var predatesDpm = contextSdk is null ? null : SdkVersion.IsBefore(contextSdk, FirstDpmMajor, FirstDpmMinor);
         if (contextSdk is not null && predatesDpm is null)
         {
@@ -99,7 +101,7 @@ public sealed class SdkResolver
         var hintVersion = contextSdk ?? (assistant.Kind == AssistantKind.Dpm ? activeDpmVersion : assistantSdk);
         var multiIdeHint = hintVersion is null ? null : !SdkVersion.IsBefore(hintVersion, 2, 9);
 
-        var pinned = packages.Select(p => p.SdkVersion).OfType<string>().Distinct(StringComparer.Ordinal).OrderBy(v => v, StringComparer.Ordinal).ToList();
+        var pinned = SdkResolution.PinnedSdkVersions(packages);
         if (pinned.Count > 1)
         {
             notes.Add($"Packages pin different SDK versions ({string.Join(", ", pinned)}); each package is compiled with its own.");
@@ -119,13 +121,20 @@ public sealed class SdkResolver
         };
     }
 
+    // In multi-package mode the server's working directory usually has no daml.yaml of its own.
+    private string? ReadContextSdk(string workingDirectory)
+    {
+        var manifestPath = Path.Combine(workingDirectory, WorkspaceLocator.PackageManifestName);
+        return _manifests.Exists(manifestPath) ? _manifests.ReadPackage(manifestPath).Value?.SdkVersion : null;
+    }
+
     private List<PackageSdk> ReadPackages(WorkspaceContext workspace, List<string> notes)
     {
         var packages = new List<PackageSdk>();
         foreach (var root in workspace.Packages)
         {
             var manifestPath = Path.Combine(root, WorkspaceLocator.PackageManifestName);
-            if (_manifests.ReadPackage(manifestPath).Value is { } manifest)
+            if (_manifests.Exists(manifestPath) && _manifests.ReadPackage(manifestPath).Value is { } manifest)
             {
                 packages.Add(new PackageSdk(root, manifest.Name, manifest.SdkVersion, manifest.Components));
             }

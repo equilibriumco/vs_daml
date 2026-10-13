@@ -1,6 +1,6 @@
 ﻿Module "LetBlock" L1-L14 body 0
-  TopLevelBinding "total" L3-L8 body 2
+  TopLevelBinding "total" L3-L8 header to L4 body 2
     LetBlock L5-L7 body 4
-  TopLevelBinding "inScript" L10-L14 body 2
+  TopLevelBinding "inScript" L10-L14 header to L11 body 2
     DoBlock L11-L14 body 2
       LetBlock L12-L13 body 6

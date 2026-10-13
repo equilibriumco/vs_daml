@@ -17,7 +17,7 @@ public class DamlDiagnosticParserTests
     {
         var diagnostics = DamlDiagnosticParser.Parse(Fixture("build-broken.stderr.txt"));
 
-        diagnostics.Select(d => d.File).ShouldBe(["daml/SyntaxError.daml", "daml/TypeError.daml", "daml/UnknownImport.daml"]);
+        diagnostics.Select(d => d.PrintedPath).ShouldBe(["daml/SyntaxError.daml", "daml/TypeError.daml", "daml/UnknownImport.daml"]);
         diagnostics.ShouldAllBe(d => d.Severity == DamlDiagnosticSeverity.Error && !d.Hidden && d.PackageRoot == null);
 
         var type = diagnostics[1];
@@ -52,7 +52,7 @@ public class DamlDiagnosticParserTests
     {
         var warning = DamlDiagnosticParser.Parse(Fixture("build-single-package.stderr.txt")).ShouldHaveSingleItem();
 
-        warning.File.ShouldBe("daml");
+        warning.PrintedPath.ShouldBe("daml");
         warning.Severity.ShouldBe(DamlDiagnosticSeverity.Warning);
         warning.Source.ShouldBe("Daml-LF typechecker");
         warning.Message.ShouldStartWith("warning while type checking package:\n  This package defines templates");
@@ -69,7 +69,7 @@ public class DamlDiagnosticParserTests
         diagnostics[0].ResolvePath(@"C:\work\multi-broken").ShouldBe(@"C:\work\multi-broken\broken\daml\SyntaxError.daml");
 
         var package = diagnostics[3];
-        package.File.ShouldBe("C:/work/multi-broken/broken");
+        package.PrintedPath.ShouldBe("C:/work/multi-broken/broken");
         package.ResolvePath(@"C:\work\multi-broken").ShouldBe(@"C:\work\multi-broken\broken");
         package.Source.ShouldBe("compiler");
         package.Message.ShouldStartWith("Failed to build package at C:/work/multi-broken/broken.\nCallStack (from HasCallStack):");
@@ -81,7 +81,7 @@ public class DamlDiagnosticParserTests
     {
         var diagnostics = DamlDiagnosticParser.Parse(Fixture("test-broken.stderr.txt"));
 
-        diagnostics.Select(d => d.File).ShouldBe(["daml/UnknownImport.daml", "daml/SyntaxError.daml"]);
+        diagnostics.Select(d => d.PrintedPath).ShouldBe(["daml/UnknownImport.daml", "daml/SyntaxError.daml"]);
         diagnostics[1].Message.ShouldBe("daml/SyntaxError.daml:6:1: error:\n    parse error (possibly incorrect indentation or mismatched brackets)");
     }
 
@@ -141,7 +141,7 @@ public class DamlDiagnosticParserTests
             "noise before\nFile:     C:\\repo\\daml\\B.daml\nHidden:   yes\nRange:    not-a-range\nFlavour:  new\nSource:   x\nSeverity: DsInfo\nMessage: one line\n");
 
         var odd = diagnostics.ShouldHaveSingleItem();
-        odd.File.ShouldBe(@"C:\repo\daml\B.daml");
+        odd.PrintedPath.ShouldBe(@"C:\repo\daml\B.daml");
         odd.Hidden.ShouldBeTrue();
         odd.Range.ShouldBeNull();
         odd.Severity.ShouldBe(DamlDiagnosticSeverity.Information);
@@ -157,4 +157,39 @@ public class DamlDiagnosticParserTests
     [InlineData("Something", DamlDiagnosticSeverity.Error)]
     public void Severities_map_from_the_damlc_names(string value, DamlDiagnosticSeverity expected) =>
         DamlDiagnosticParser.Parse($"File: a.daml\nSeverity: {value}\nMessage: m\n").ShouldHaveSingleItem().Severity.ShouldBe(expected);
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_block_without_a_real_file_is_kept_as_printed()
+    {
+        var diagnostics = DamlDiagnosticParser.Parse("File:     <unknown>\nHidden:   no\nRange:    1:1-1:1\nSource:   package\nSeverity: DsError\nMessage:\nMissing dependency daml-script\n");
+
+        diagnostics.ShouldHaveSingleItem().PrintedPath.ShouldBe("<unknown>");
+        diagnostics[0].Message.ShouldBe("Missing dependency daml-script");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void An_indented_line_after_a_blank_line_continues_the_message()
+    {
+        var output = "File:     daml/A.daml\nHidden:   no\nRange:    1:1-1:2\nSource:   typecheck\nSeverity: DsError\nMessage:\ndaml/A.daml:1:1: error:\n    Variable not in scope: foo\n\n    Perhaps you meant 'for'\n\nBuilding C:/work/b\nFile:     daml/B.daml\nHidden:   no\nRange:    2:1-2:2\nSource:   parser\nSeverity: DsError\nMessage:\nparse error\n";
+
+        var diagnostics = DamlDiagnosticParser.Parse(output);
+
+        diagnostics.Count.ShouldBe(2);
+        diagnostics[0].Message.ShouldBe("daml/A.daml:1:1: error:\n    Variable not in scope: foo\n\n    Perhaps you meant 'for'");
+        diagnostics[1].PackageRoot.ShouldBe(@"C:\work\b");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Lines_inside_a_block_that_arent_fields_are_reported_not_dropped()
+    {
+        var parser = new DamlDiagnosticParser();
+        foreach (var line in new[] { "File:     daml/A.daml", "Hidden:   no", "Weight:   heavy", "Severity: DsError", "Message:", "boom" })
+        {
+            parser.AddLine(line);
+        }
+        parser.Complete();
+
+        parser.Diagnostics.ShouldHaveSingleItem().Message.ShouldBe("boom");
+        parser.UnrecognisedLines.ShouldBe(["Weight:   heavy"]);
+    }
 }

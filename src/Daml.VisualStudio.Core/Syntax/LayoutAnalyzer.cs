@@ -12,17 +12,18 @@ namespace Daml.VisualStudio.Core.Syntax;
 /// </summary>
 public static class LayoutAnalyzer
 {
-    private static readonly string[] HeaderContinuations = ["(", ")", "[", "]", ",", "=>", "->", ":", "::"];
+    private static readonly string[] HeaderContinuations = ["(", ")", "[", "]", ",", "=>", "->", ":", "::", "=", "|"];
 
     /// <summary>The block tree of a file; the root is the <see cref="DamlBlockKind.Module"/> block.</summary>
     /// <param name="lines">Every line of the file, lexed with the state carried from line to line.</param>
-    public static DamlBlock Analyze(IReadOnlyList<LineTokens> lines)
+    /// <param name="tabSize">How many columns a tab advances to, as the editor shows it.</param>
+    public static DamlBlock Analyze(IReadOnlyList<LineTokens> lines, int tabSize = LayoutLine.DefaultTabSize)
     {
         if (lines is null)
         {
             throw new ArgumentNullException(nameof(lines));
         }
-        var root = new Builder(lines).Run();
+        var root = new Builder(lines, tabSize).Run();
         return BlockComments.Place(root, lines);
     }
 
@@ -49,7 +50,7 @@ public static class LayoutAnalyzer
             new(Kind, Name, StartLine, LastLine, Math.Min(HeaderEndLine, LastLine), BodyIndent, Children);
     }
 
-    private sealed class Builder(IReadOnlyList<LineTokens> lines)
+    private sealed class Builder(IReadOnlyList<LineTokens> lines, int tabSize)
     {
         private readonly List<OpenBlock> _stack = new();
         private OpenBlock Root => _stack[0];
@@ -62,7 +63,7 @@ public static class LayoutAnalyzer
             _stack.Add(new OpenBlock(DamlBlockKind.Module, null, 0, -1, isLayout: true) { BodyIndent = 0 });
             for (var number = 0; number < lines.Count; number++)
             {
-                var line = new LayoutLine(lines[number]);
+                var line = new LayoutLine(lines[number], tabSize);
                 if (line.Count > 0)
                 {
                     Read(line, number);
@@ -227,12 +228,15 @@ public static class LayoutAnalyzer
                 return false;
             }
             siblings.RemoveAt(siblings.Count - 1);
+            // The first equation after a signature (or a continued equation head) is still the
+            // binding's header; later equations are its body.
             _stack.Add(new OpenBlock(previous.Kind, previous.Name, previous.StartLine, column, isLayout: false)
             {
                 HeaderEndLine = previous.HeaderEndLine,
                 BodyIndent = previous.BodyIndent,
                 LastLine = previous.EndLine,
                 Children = previous.Children.ToList(),
+                InHeader = previous.HeaderEndLine == previous.StartLine,
             });
             return true;
         }

@@ -247,4 +247,28 @@ public class ManifestReaderTests
         new ManifestDiagnostic(@"C:\a\daml.yaml", 3, 7, ManifestSeverity.Error, "bad").ToString().ShouldBe(@"C:\a\daml.yaml(3,7): error: bad");
         new ManifestDiagnostic(@"C:\a\daml.yaml", null, null, ManifestSeverity.Warning, "odd").ToString().ShouldBe(@"C:\a\daml.yaml: warning: odd");
     }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_package_entry_that_isnt_a_path_is_reported_and_the_rest_are_kept()
+    {
+        // A NUL is refused by every file system, which keeps the test the same on every runtime.
+        _files.AddFile(@"C:\work\repo\multi-package.yaml", "packages:\n  - app\n  - \"lib\\0core\"\n  - tests\n");
+
+        var result = _reader.ReadMultiPackage(@"C:\work\repo\multi-package.yaml");
+
+        result.Value.ShouldNotBeNull().Packages.ShouldBe([@"C:\work\repo\app", @"C:\work\repo\tests"]);
+        var problem = result.Diagnostics.ShouldHaveSingleItem();
+        problem.Severity.ShouldBe(ManifestSeverity.Error);
+        problem.Line.ShouldBe(3);
+        problem.Message.ShouldContain("lib");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Exists_says_whether_the_manifest_file_is_there()
+    {
+        _files.AddFile(@"C:\work\app\daml.yaml", "name: app\n");
+
+        _reader.Exists(@"C:\work\app\daml.yaml").ShouldBeTrue();
+        _reader.Exists(@"C:\work\other\daml.yaml").ShouldBeFalse();
+    }
 }

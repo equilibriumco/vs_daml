@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace Daml.VisualStudio.Core.FileSystem;
@@ -11,14 +10,24 @@ namespace Daml.VisualStudio.Core.FileSystem;
 public static class DamlPath
 {
     /// <summary>Compares canonical paths the way Windows does: ordinal, case-insensitive.</summary>
-    public static IEqualityComparer<string> Comparer { get; } = StringComparer.OrdinalIgnoreCase;
+    public static StringComparer Comparer { get; } = StringComparer.OrdinalIgnoreCase;
 
-    /// <summary>Full path with backslashes, <c>.</c>/<c>..</c> resolved and no trailing separator.</summary>
+    /// <summary>
+    /// Full path with backslashes, <c>.</c>/<c>..</c> resolved and no trailing separator. The
+    /// input must already be rooted: a relative path would resolve against the host process's
+    /// current directory, which is never the workspace. Paths over 260 characters need the
+    /// host's long-path support (Visual Studio has it).
+    /// </summary>
+    /// <exception cref="ArgumentException">The path isn't rooted or isn't a path at all.</exception>
     public static string Normalize(string path)
     {
         if (path is null)
         {
             throw new ArgumentNullException(nameof(path));
+        }
+        if (!Path.IsPathRooted(path))
+        {
+            throw new ArgumentException($"A full path is needed, not '{path}'.", nameof(path));
         }
 
         var full = Path.GetFullPath(path.Replace('/', '\\'));

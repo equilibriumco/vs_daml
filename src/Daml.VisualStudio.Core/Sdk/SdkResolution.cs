@@ -55,6 +55,10 @@ public sealed record SdkResolution
     public IReadOnlyList<string> Notes { get; init; } = [];
 
     /// <summary>True when packages pin different SDK versions.</summary>
-    public bool HasMixedSdkVersions =>
-        Packages.Select(p => p.SdkVersion).Where(v => v is not null).Distinct(StringComparer.Ordinal).Skip(1).Any();
+    public bool HasMixedSdkVersions => PinnedSdkVersions(Packages).Count > 1;
+
+    /// <summary>The distinct SDK versions the packages pin, sorted.</summary>
+    public static IReadOnlyList<string> PinnedSdkVersions(IEnumerable<PackageSdk> packages) =>
+        (packages ?? throw new ArgumentNullException(nameof(packages)))
+            .Select(p => p.SdkVersion).OfType<string>().Distinct(StringComparer.Ordinal).OrderBy(v => v, StringComparer.Ordinal).ToList();
 }

@@ -53,7 +53,7 @@ public class DamlBuildActionsTests
         // damlc's 5:9-5:20 covers columns 9..19, 1-based.
         var diagnostic = new DamlDiagnostic
         {
-            File = "daml/TypeError.daml",
+            PrintedPath = "daml/TypeError.daml",
             Range = new DamlRange(5, 9, 5, 20),
             Severity = DamlDiagnosticSeverity.Error,
             Source = "typecheck",
@@ -68,7 +68,7 @@ public class DamlBuildActionsTests
     [Fact, Trait("Category", "Unit")]
     public void A_diagnostic_without_a_range_points_at_the_start_of_the_file()
     {
-        var entry = BuildDiagnostic.From(new DamlDiagnostic { File = "daml", Message = "No modules" }, @"C:\repo\app");
+        var entry = BuildDiagnostic.From(new DamlDiagnostic { PrintedPath = "daml", Message = "No modules" }, @"C:\repo\app");
 
         (entry.Line, entry.Column, entry.EndLine, entry.EndColumn).ShouldBe((0, 0, 0, 0));
         entry.FilePath.ShouldBe(@"C:\repo\app\daml");
@@ -77,7 +77,7 @@ public class DamlBuildActionsTests
     [Fact, Trait("Category", "Unit")]
     public void A_zero_or_negative_position_never_becomes_negative()
     {
-        var entry = BuildDiagnostic.From(new DamlDiagnostic { File = "a.daml", Range = new DamlRange(0, 0, 0, 0) }, @"C:\repo");
+        var entry = BuildDiagnostic.From(new DamlDiagnostic { PrintedPath = "a.daml", Range = new DamlRange(0, 0, 0, 0) }, @"C:\repo");
 
         (entry.Line, entry.Column, entry.EndLine, entry.EndColumn).ShouldBe((0, 0, 0, 0));
     }

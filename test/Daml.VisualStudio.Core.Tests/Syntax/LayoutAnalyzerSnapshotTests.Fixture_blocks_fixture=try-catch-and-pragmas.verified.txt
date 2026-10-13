@@ -1,4 +1,4 @@
 ﻿Module "TryCatch" L1-L12 header to L3 body 0
   ImportGroup L5-L5 body -1
-  TopLevelBinding "safeDiv" L7-L12 body 2
+  TopLevelBinding "safeDiv" L7-L12 header to L8 body 2
     DoBlock L9-L10 body 4

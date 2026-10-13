@@ -12,7 +12,8 @@ namespace Daml.VisualStudio.Core.Project;
 public sealed class ManifestResult<T>
     where T : class
 {
-    internal ManifestResult(T? value, IReadOnlyList<ManifestDiagnostic> diagnostics)
+    /// <summary>Creates a result; also for fakes of <see cref="IManifestReader"/> in tests.</summary>
+    public ManifestResult(T? value, IReadOnlyList<ManifestDiagnostic> diagnostics)
     {
         Value = value;
         Diagnostics = diagnostics;

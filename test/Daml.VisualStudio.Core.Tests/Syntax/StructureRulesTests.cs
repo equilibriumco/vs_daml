@@ -40,7 +40,7 @@ public class StructureRulesTests
 
         specs.Single(s => s.StartLine == 5).ShouldBe(new StructureSpec(StructureKind.Type, 5, 0, 13, 5, "template Asset …"));
         specs.Single(s => s.StartLine == 10).ShouldBe(new StructureSpec(StructureKind.Member, 10, 4, 13, 10, "nonconsuming choice Transfer …"));
-        specs.Single(s => s.StartLine == 15).ShouldBe(new StructureSpec(StructureKind.Member, 15, 0, 17, 15, "setup …"));
+        specs.Single(s => s.StartLine == 15).ShouldBe(new StructureSpec(StructureKind.Member, 15, 0, 17, 16, "setup …"));
     }
 
     [Fact, Trait("Category", "Unit")]

@@ -181,6 +181,44 @@ public class LayoutAnalyzerTests
         block.ShouldBe(block with { EndLine = 2, BodyIndent = 8 });
     }
 
+    [Fact, Trait("Category", "Unit")]
+    public void An_equation_head_continued_on_the_next_line_is_still_the_header()
+    {
+        var root = Analyze(
+            "f : Int -> Int",
+            "f (Just x)",
+            "  = x",
+            "g = 1");
+
+        var f = root.Children[0];
+        (f.Name, f.StartLine, f.EndLine, f.HeaderEndLine).ShouldBe(("f", 0, 2, 2));
+        root.Children[1].Name.ShouldBe("g");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_line_that_closes_one_comment_and_opens_another_separates_them()
+    {
+        var root = Analyze(
+            "f = 1",
+            "  {- a",
+            "  -} + 2 {- b",
+            "  -}");
+
+        var comments = All(root).Where(b => b.Kind == DamlBlockKind.BlockComment).Select(b => (b.StartLine, b.EndLine)).ToList();
+
+        // The first comment ends where the code resumes; it no longer swallows the second one.
+        comments.ShouldContain((1, 2));
+        comments.ShouldNotContain((1, 3));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_pragma_over_several_lines_folds_like_a_comment()
+    {
+        var root = Analyze("{-# OPTIONS_GHC", "  -Wall #-}", "x = 1");
+
+        root.Children[0].ShouldBe(root.Children[0] with { Kind = DamlBlockKind.BlockComment, StartLine = 0, EndLine = 1 });
+    }
+
     [Theory, Trait("Category", "Unit")]
     [MemberData(nameof(LayoutAnalyzerSnapshotTests.Fixtures), MemberType = typeof(LayoutAnalyzerSnapshotTests))]
     public void Fixture_trees_are_well_formed(string fixture)

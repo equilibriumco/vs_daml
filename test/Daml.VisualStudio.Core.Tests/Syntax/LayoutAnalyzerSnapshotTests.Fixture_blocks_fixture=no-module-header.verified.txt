@@ -1,4 +1,4 @@
 ﻿Module L1-L5 body 0
   ImportGroup L1-L1 body -1
-  TopLevelBinding "main" L3-L5 body 2
+  TopLevelBinding "main" L3-L5 header to L4 body 2
     DoBlock L4-L5 body 2

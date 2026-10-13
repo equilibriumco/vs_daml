@@ -1,6 +1,6 @@
 ﻿Module "RecordWith" L1-L15 body 0
   ImportGroup L3-L3 body -1
-  TopLevelBinding "setup" L5-L15 body 2
+  TopLevelBinding "setup" L5-L15 header to L6 body 2
     DoBlock L6-L15 body 2
       DoBlock L8-L12 body 4
         WithBlock L9-L12 body 6

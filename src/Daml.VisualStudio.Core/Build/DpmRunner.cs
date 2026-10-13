@@ -33,6 +33,9 @@ public sealed record DpmRunResult(int ExitCode, IReadOnlyList<DamlDiagnostic> Di
 {
     /// <summary>True when dpm exited with 0.</summary>
     public bool Succeeded => ExitCode == 0;
+
+    /// <summary>Lines inside diagnostic blocks that weren't understood (see <see cref="DamlDiagnosticParser.UnrecognisedLines"/>).</summary>
+    public IReadOnlyList<string> UnrecognisedLines { get; init; } = [];
 }
 
 /// <summary>
@@ -70,8 +73,6 @@ public sealed class DpmRunner
         cancellationToken.ThrowIfCancellationRequested();
 
         using var process = _runner.Start(new ProcessSpec(dpmPath, arguments) { WorkingDirectory = workingDirectory });
-        var exited = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _ = process.Exited.ContinueWith(exit => exited.TrySetResult(exit.Result), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         using var kill = cancellationToken.Register(process.KillTree);
         process.StandardInput.Close();
 
@@ -81,10 +82,13 @@ public sealed class DpmRunner
         await Task.WhenAll(
             PumpAsync(process.StandardOutput, DpmOutputChannel.Stdout, stdout, onOutput, gate),
             PumpAsync(process.StandardError, DpmOutputChannel.Stderr, stderr, onOutput, gate)).ConfigureAwait(false);
-        var exitCode = await exited.Task.ConfigureAwait(false);
+        var exitCode = await process.Exited.ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return new DpmRunResult(exitCode, stdout.Diagnostics.Concat(stderr.Diagnostics).ToList());
+        return new DpmRunResult(exitCode, stdout.Diagnostics.Concat(stderr.Diagnostics).ToList())
+        {
+            UnrecognisedLines = stdout.UnrecognisedLines.Concat(stderr.UnrecognisedLines).ToList(),
+        };
     }
 
     private static async Task PumpAsync(Stream stream, DpmOutputChannel kind, DamlDiagnosticParser parser, Action<DpmOutputLine>? onOutput, object gate)

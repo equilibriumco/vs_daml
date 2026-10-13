@@ -22,6 +22,7 @@ public class DamlWordsTests
     [InlineData("[|']a' ", true)]
     [InlineData("[x|'] ", true)]
     [InlineData("[Üb|er] 1", true)]
+    [InlineData("f [|😀] x", true)]
     public void The_word_under_the_caret_is_found(string marked, bool significant)
     {
         var caret = marked.Replace("[", "").Replace("]", "").IndexOf('|');

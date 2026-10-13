@@ -32,13 +32,13 @@ public sealed class AssistantLocator
     /// <summary>Finds <paramref name="kind"/>, or returns <c>null</c> if it isn't installed.</summary>
     /// <param name="kind">Tool to look for.</param>
     /// <param name="configuredPath">Path set in the options; empty means search.</param>
-    /// <exception cref="SdkResolutionException">The configured path doesn't exist.</exception>
+    /// <exception cref="SdkResolutionException">The configured path doesn't exist or isn't a full path.</exception>
     public AssistantLocation? Find(AssistantKind kind, string? configuredPath)
     {
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
             // A typo in the options must not quietly fall back to some other installation.
-            var path = DamlPath.Normalize(configuredPath!);
+            var path = ConfiguredPath(kind, configuredPath!);
             return _fileSystem.FileExists(path)
                 ? new AssistantLocation(kind, path)
                 : throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml doesn't exist: {configuredPath}");
@@ -61,12 +61,26 @@ public sealed class AssistantLocator
 
     internal static string ToolName(AssistantKind kind) => kind == AssistantKind.Dpm ? "dpm" : "daml assistant";
 
+    // Pasted from a file dialog it may carry quotes; typed by hand it may not be a path at all.
+    private static string ConfiguredPath(AssistantKind kind, string configured)
+    {
+        try
+        {
+            return DamlPath.Normalize(configured.Trim().Trim('"'));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml isn't a full path to a file: {configured}");
+        }
+    }
+
     private IEnumerable<string> SearchDirectories(AssistantKind kind)
     {
         foreach (var entry in (_environment("PATH") ?? "").Split(';'))
         {
+            // PATH is user-edited; an entry that isn't a path must not stop the search.
             var directory = entry.Trim().Trim('"');
-            if (directory.Length > 0 && Path.IsPathRooted(directory))
+            if (directory.Length > 0 && directory.IndexOfAny(Path.GetInvalidPathChars()) < 0 && Path.IsPathRooted(directory))
             {
                 yield return directory;
             }

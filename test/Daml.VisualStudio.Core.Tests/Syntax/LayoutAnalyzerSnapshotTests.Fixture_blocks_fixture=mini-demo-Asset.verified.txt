@@ -46,13 +46,13 @@
               WithBlock L160-L161 body 12
           DoBlock L165-L168 body 8
           DoBlock L170-L173 body 8
-  TopLevelBinding "returnToSender" L175-L184 body 2
+  TopLevelBinding "returnToSender" L175-L184 header to L176 body 2
     DoBlock L176-L184 body 2
       WithBlock L180-L180 body 36
       WithBlock L181-L184 body 4
-  TopLevelBinding "ownerAccount" L186-L190 body 2
+  TopLevelBinding "ownerAccount" L186-L190 header to L187 body 2
     WithBlock L187-L190 body 2
-  TopLevelBinding "soleActor" L192-L193 body -1
-  TopLevelBinding "accountOwner" L195-L198 body 2
+  TopLevelBinding "soleActor" L192-L193 header to L193 body -1
+  TopLevelBinding "accountOwner" L195-L198 header to L196 body 2
     CaseBlock L196-L198 body 2
-  TopLevelBinding "require" L200-L201 body -1
+  TopLevelBinding "require" L200-L201 header to L201 body -1

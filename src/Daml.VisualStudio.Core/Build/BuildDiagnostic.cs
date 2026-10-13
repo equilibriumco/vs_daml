@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Daml.Build.Core.Diagnostics;
 
 namespace Daml.VisualStudio.Core.Build;
@@ -20,8 +22,7 @@ public sealed record BuildDiagnostic(
     private static readonly char[] Blanks = ['\r', '\n', ' ', '\t'];
 
     // "daml/TypeError.daml:5:9: error:" in front of damlc's text; the output line already has it.
-    private static readonly System.Text.RegularExpressions.Regex RepeatedPlace =
-        new(@"^\s*\S.*?:\d+:\d+:\s*(error|warning):\s*", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    private static readonly Regex RepeatedPlace = new(@"^\s*\S.*?:\d+:\d+:\s*(error|warning):\s*", RegexOptions.IgnoreCase);
 
     /// <summary>Code shown for build errors.</summary>
     public const string ErrorCode = "DAML0001";
@@ -40,7 +41,7 @@ public sealed record BuildDiagnostic(
     {
         var message = string.Join(" ", RepeatedPlace.Replace(Message ?? "", "").Split(Blanks, StringSplitOptions.RemoveEmptyEntries));
         var kind = Severity == DamlDiagnosticSeverity.Error ? "error" : "warning";
-        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}({1},{2}): {3} {4}: {5}", FilePath, Line + 1, Column + 1, kind, Code, message);
+        return string.Format(CultureInfo.InvariantCulture, "{0}({1},{2}): {3} {4}: {5}", FilePath, Line + 1, Column + 1, kind, Code, message);
     }
 
     /// <summary>

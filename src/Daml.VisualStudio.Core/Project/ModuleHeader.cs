@@ -13,7 +13,7 @@ internal static class ModuleHeader
     /// </summary>
     public static string? DeclaredModule(string text)
     {
-        var i = text.Length > 0 && text[0] == '﻿' ? 1 : 0;
+        var i = text.Length > 0 && text[0] == '\uFEFF' ? 1 : 0;
         while (i < text.Length)
         {
             if (char.IsWhiteSpace(text[i]))

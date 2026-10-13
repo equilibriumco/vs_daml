@@ -81,4 +81,31 @@ public class AssistantLocatorTests
         Locator().Find(AssistantKind.Dpm, null).ShouldBeNull();
         Locator().Find(AssistantKind.DamlAssistant, "").ShouldBeNull();
     }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_configured_path_pasted_with_quotes_is_accepted()
+    {
+        _files.AddFile(@"C:\tools\dpm.cmd", "");
+
+        Locator().Find(AssistantKind.Dpm, "\"C:\\tools\\dpm.cmd\" ")!.Path.ShouldBe(@"C:\tools\dpm.cmd");
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("dpm.cmd")]
+    [InlineData(@"C:\tools\dpm|x.cmd")]
+    public void A_configured_path_that_isnt_a_full_path_is_an_explained_failure_not_a_crash(string configured)
+    {
+        var ex = Should.Throw<SdkResolutionException>(() => Locator().Find(AssistantKind.Dpm, configured));
+
+        ex.Message.ShouldContain("Tools > Options > Daml");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_PATH_entry_that_isnt_a_path_is_skipped()
+    {
+        _environment["PATH"] = @"C:\bro<ken;C:\tools";
+        _files.AddFile(@"C:\tools\dpm.exe", "");
+
+        Locator().Find(AssistantKind.Dpm, null)!.Path.ShouldBe(@"C:\tools\dpm.exe");
+    }
 }

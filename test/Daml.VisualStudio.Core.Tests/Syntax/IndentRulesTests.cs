@@ -85,6 +85,10 @@ public class IndentRulesTests
         { "after a bare let", "f =\n  let\n‸", 4 },
         { "a let binding sets the column", "f = do\n  let x = 1\n‸", 6 },
         { "after a dollar", "f = do\n  pure $\n‸", 4 },
+        { "after a bind arrow", "main = do\n  cid <-\n‸", 4 },
+        { "after in", "f =\n  let x = 1 in\n‸", 4 },
+        { "an equation head without its equals sign yet", "f x\n‸", 2 },
+        { "a guard line continues the equation", "f x\n  | x > 0 = 1\n‸", 2 },
         { "after a lambda arrow", "f = do\n  forA_ xs \\x ->\n‸", 4 },
         { "inside an open bracket", "f = do\n  submit alice (createCmd\n‸", 4 },
         { "inside an open list", "xs =\n  [ 1\n‸", 4 },
@@ -162,5 +166,13 @@ public class IndentRulesTests
         index.ShouldBeGreaterThanOrEqualTo(0, "the case marks its new line with ‸");
         lines[index] = "";
         return (LineTokens.Lex(lines), index);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Tabs_count_with_the_editors_tab_size()
+    {
+        var (lines, index) = Parse("f =\n\tdo\n‸");
+
+        IndentRules.GetDesiredIndentation(lines, index, 4, tabSize: 4).ShouldBe(8);
     }
 }

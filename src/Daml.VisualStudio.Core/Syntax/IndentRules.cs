@@ -7,7 +7,7 @@ namespace Daml.VisualStudio.Core.Syntax;
 public static class IndentRules
 {
     // Tokens that, at the end of a line, leave what follows them for the next line.
-    private static readonly string[] OpensNextLine = ["where", "with", "do", "of", "let", "=", "->", "then", "else", "$"];
+    private static readonly string[] OpensNextLine = ["where", "with", "do", "of", "let", "in", "=", "<-", "->", "then", "else", "$"];
 
     /// <summary>
     /// The column a new line should start at, or null to leave it to the editor (which keeps
@@ -16,7 +16,8 @@ public static class IndentRules
     /// <param name="lines">Every line of the file, the new line included.</param>
     /// <param name="lineIndex">The new line.</param>
     /// <param name="indentSize">How far one level of indentation goes.</param>
-    public static int? GetDesiredIndentation(IReadOnlyList<LineTokens> lines, int lineIndex, int indentSize)
+    /// <param name="tabSize">How many columns a tab advances to, as the editor shows it.</param>
+    public static int? GetDesiredIndentation(IReadOnlyList<LineTokens> lines, int lineIndex, int indentSize, int tabSize = LayoutLine.DefaultTabSize)
     {
         if (lines is null)
         {
@@ -32,7 +33,7 @@ public static class IndentRules
         if (above.EndState.Mode == LexMode.BlockComment)
         {
             var startsComment = lineIndex < 2 || lines[lineIndex - 2].EndState.Mode != LexMode.BlockComment;
-            return Indentation(above.Text) + (startsComment ? "{- ".Length : 0);
+            return Indentation(above.Text, tabSize) + (startsComment ? "{- ".Length : 0);
         }
 
         var previous = PreviousCodeLine(lines, lineIndex);
@@ -40,19 +41,40 @@ public static class IndentRules
         {
             return 0;
         }
-        var line = new LayoutLine(lines[previous]);
+        var line = new LayoutLine(lines[previous], tabSize);
         var indent = line.Column(0);
-        var root = LayoutAnalyzer.Analyze(lines);
+        var root = LayoutAnalyzer.Analyze(lines, tabSize);
 
         if (EndsTheModuleHeader(root, previous))
         {
             return 0;
         }
-        if (OpensNext(line) || LeavesBracketOpen(line) || StartsDeclarationBody(root, previous))
+        if (OpensNext(line) || LeavesBracketOpen(line) || StartsDeclarationBody(root, previous, line))
         {
             return indent + indentSize;
         }
+        if (ContinuesAHeader(root, previous))
+        {
+            return indent; // the next guard or signature line goes where this one is
+        }
         return BodyIndentAround(root, previous, indent);
+    }
+
+    // A line inside a declaration's header but not its first: a guard, or a signature's `->` line.
+    private static bool ContinuesAHeader(DamlBlock block, int line)
+    {
+        foreach (var child in block.Children)
+        {
+            if (child.StartLine < line && line <= child.HeaderEndLine)
+            {
+                return true;
+            }
+            if (child.StartLine <= line && line <= child.EndLine && ContinuesAHeader(child, line))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int PreviousCodeLine(IReadOnlyList<LineTokens> lines, int lineIndex)
@@ -108,8 +130,9 @@ public static class IndentRules
         return depth > 0;
     }
 
-    // `template Asset`, `choice Give : ...` and the like are followed by their body.
-    private static bool StartsDeclarationBody(DamlBlock block, int line)
+    // `template Asset`, `choice Give : ...` and the like are followed by their body; so is an
+    // equation head that has no `=` or signature yet (`f x` before its guards or `= ...`).
+    private static bool StartsDeclarationBody(DamlBlock block, int line, LayoutLine tokens)
     {
         foreach (var child in block.Children)
         {
@@ -118,7 +141,11 @@ public static class IndentRules
             {
                 return true;
             }
-            if (child.StartLine <= line && line <= child.EndLine && StartsDeclarationBody(child, line))
+            if (child.StartLine == line && child.Kind == DamlBlockKind.TopLevelBinding && !tokens.Has("=") && !tokens.Has(":") && !tokens.Has("::"))
+            {
+                return true;
+            }
+            if (child.StartLine <= line && line <= child.EndLine && StartsDeclarationBody(child, line, tokens))
             {
                 return true;
             }
@@ -157,7 +184,7 @@ public static class IndentRules
         }
     }
 
-    private static int Indentation(string text)
+    private static int Indentation(string text, int tabSize)
     {
         var column = 0;
         foreach (var c in text)
@@ -168,7 +195,7 @@ public static class IndentRules
             }
             else if (c == '\t')
             {
-                column = (column / 8 + 1) * 8;
+                column = (column / tabSize + 1) * tabSize;
             }
             else
             {

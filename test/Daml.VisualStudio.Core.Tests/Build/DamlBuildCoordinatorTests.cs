@@ -59,7 +59,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         run.Diagnostics.ShouldNotBeEmpty();
         var typeError = run.Diagnostics.First(d => d.FilePath.EndsWith("TypeError.daml", StringComparison.Ordinal));
         typeError.FilePath.ShouldBe(Path.Combine(_package, "daml", "TypeError.daml"));
-        typeError.Line.ShouldBeGreaterThanOrEqualTo(0);
+        (typeError.Line, typeError.Column).ShouldBe((4, 8), "5:9 in damlc's 1-based output");
         _logger.Lines.ShouldContain(l => l.Level == DamlLogLevel.Information && l.Message.StartsWith("Build", StringComparison.Ordinal) && l.Message.Contains(_package));
         _logger.Lines.ShouldContain(l => l.Message.Contains("File:"));
         _logger.Lines.ShouldContain(l => l.Message.Contains("failed") && l.Message.Contains("exit code 1"));

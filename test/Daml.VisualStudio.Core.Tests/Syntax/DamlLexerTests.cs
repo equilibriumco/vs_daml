@@ -354,4 +354,13 @@ public class DamlLexerTests
         Lex("").Tokens.ShouldBeEmpty();
         Lex("", inComment).End.ShouldBe(inComment);
     }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Characters_outside_the_BMP_are_one_character_in_literals_and_names()
+    {
+        // U+1F600 and U+1D465 are surrogate pairs in UTF-16.
+        Single("'😀'").ShouldBe(Char);
+        Significant("𝑥 = 1").ShouldBe([("𝑥", VarId), ("=", ReservedOp), ("1", Number)]);
+        Significant("f𝟙 x").ShouldBe([("f𝟙", VarId), ("x", VarId)]);
+    }
 }

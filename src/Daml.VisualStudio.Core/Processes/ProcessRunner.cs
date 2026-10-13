@@ -50,6 +50,9 @@ public sealed class ProcessRunner : IProcessRunner
         if (await Task.WhenAny(finished, stopped).ConfigureAwait(false) != finished)
         {
             process.KillTree();
+            // The reads end once the pipes close behind the dead tree; let them finish here
+            // rather than fault, unobserved, when the pipes are disposed under them.
+            await Task.WhenAll(stdout, stderr).ContinueWith(_ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             throw new TimeoutException($"{spec.FileName} didn't finish within {limit?.TotalSeconds:0.#} s and was stopped.");
         }

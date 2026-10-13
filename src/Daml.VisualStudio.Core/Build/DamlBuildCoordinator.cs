@@ -96,6 +96,11 @@ public sealed class DamlBuildCoordinator : IDisposable
                 throw;
             }
             Flush(assemblers.Values);
+            if (result.UnrecognisedLines.Count > 0)
+            {
+                _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning,
+                    $"{result.UnrecognisedLines.Count} line(s) of dpm's diagnostic output weren't understood; the Error List may be incomplete. First: {result.UnrecognisedLines[0]}");
+            }
 
             var diagnostics = result.Diagnostics.Where(d => !d.Hidden).Select(d => BuildDiagnostic.From(d, action.WorkingDirectory)).ToList();
             var errors = diagnostics.Count(d => d.Severity == DamlDiagnosticSeverity.Error);
@@ -119,8 +124,9 @@ public sealed class DamlBuildCoordinator : IDisposable
             old = _all;
             _all = new CancellationTokenSource();
         }
+        // Not disposed: a run that read the old token just before the swap still links to it,
+        // and linking to a disposed source throws something other than a cancellation.
         old.Cancel();
-        old.Dispose();
     }
 
     /// <summary>Cancels whatever is running.</summary>

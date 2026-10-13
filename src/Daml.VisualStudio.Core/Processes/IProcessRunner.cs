@@ -21,10 +21,15 @@ public interface IProcessRunner
 
     /// <summary>Starts a long-running program and hands over its standard streams.</summary>
     /// <exception cref="FileNotFoundException">The program doesn't exist.</exception>
+    /// <exception cref="ArgumentException">The program isn't given by a full path.</exception>
     IRunningProcess Start(ProcessSpec spec);
 }
 
-/// <summary>A started program. Disposing releases the handles but doesn't stop it.</summary>
+/// <summary>
+/// A started program. Disposing it kills the program and everything it started (they live in a
+/// kill-on-close job) and releases the handles; <see cref="Exited"/> is cancelled if it hadn't
+/// completed.
+/// </summary>
 public interface IRunningProcess : IDisposable
 {
     /// <summary>Process ID.</summary>

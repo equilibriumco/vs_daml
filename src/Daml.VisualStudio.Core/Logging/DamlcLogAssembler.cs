@@ -86,8 +86,11 @@ public sealed class DamlcLogAssembler
         }
         _text.Append(line.TrimEnd());
         _hasMessage = true;
-        return completed;
+        return Nothing;
     }
+
+    // Most lines continue an entry and complete nothing; they share one empty result.
+    private static readonly DamlcLogRecord[] Nothing = [];
 
     /// <summary>Emits the entry in progress, if any.</summary>
     public DamlcLogRecord? Flush()
