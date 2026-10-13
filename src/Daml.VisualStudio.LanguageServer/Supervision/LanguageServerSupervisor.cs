@@ -122,6 +122,9 @@ public sealed class LanguageServerSupervisor : IDisposable
                 superseded = _current;
                 _current = null;
                 backoff = _backoff;
+                // This start answers the restarts asked for so far, whether or not it succeeds:
+                // a request made after a failed start (say, once the dpm path is fixed) is new.
+                _pendingReasons.Clear();
             }
             superseded?.End();
 
@@ -166,7 +169,6 @@ public sealed class LanguageServerSupervisor : IDisposable
                 session = new Session(++_sessionId, process);
                 _current = session;
                 _backoff = TimeSpan.Zero;
-                _pendingReasons.Clear();
             }
             SetState(LanguageServerState.Running);
             _ = process.Exited.ContinueWith(exited => OnExited(session, exited.Result), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);

@@ -229,6 +229,24 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         _restartRequests.Count.ShouldBe(2);
     }
 
+    // A start that fails (dpm path wrong) still answered the restart request; the same request
+    // made after the user fixes the path must start the server again, not join a stale one.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_failed_start_still_clears_the_restart_reasons()
+    {
+        var failing = new LanguageServerSupervisor(_runner, _ => throw new InvalidOperationException("dpm path doesn't exist"), NullDamlLogger.Instance, _time);
+        var requests = new List<IReadOnlyList<string>>();
+        failing.RestartRequested += (_, e) => requests.Add(e.Reasons);
+        failing.RequestRestart("Options changed");
+
+        await Should.ThrowAsync<InvalidOperationException>(() => failing.StartAsync(CancellationToken.None));
+
+        failing.PendingRestartReasons.ShouldBeEmpty();
+        failing.RequestRestart("Options changed");
+        requests.Count.ShouldBe(2, "the second request is a new restart");
+        failing.Dispose();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task A_failed_start_counts_as_a_crash_and_is_reported()
     {
