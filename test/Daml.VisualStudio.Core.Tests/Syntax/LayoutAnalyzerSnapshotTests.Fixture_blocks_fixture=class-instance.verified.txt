@@ -1,0 +1,7 @@
+﻿Module "ClassInstance" L1-L11 body 0
+  Class "Describable" L3-L5 body 2
+    WhereBlock L3-L5 body 2
+  Instance "Describable Int" L7-L8 body 2
+    WhereBlock L7-L8 body 2
+  Instance "(Describable a) => Describable [a]" L10-L11 body 2
+    WhereBlock L10-L11 body 2

@@ -1,0 +1,8 @@
+module Errors where
+
+exception InsufficientFunds
+  with
+    needed : Decimal
+    available : Decimal
+  where
+    message "needed " <> show needed <> ", have " <> show available

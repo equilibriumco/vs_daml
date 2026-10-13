@@ -1,0 +1,7 @@
+﻿Module "Broken" L1-L14 body 0
+  Template "Asset" L3-L11 body 2
+    WithBlock L4-L5 body 4
+    WhereBlock L6-L11 body 4
+      Choice "Give" L8-L11 body 6
+        DoBlock L10-L11 body 8
+  TopLevelBinding "f" L13-L14 body -1

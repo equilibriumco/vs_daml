@@ -1,0 +1,30 @@
+module Iface where
+
+data View = View with
+    owner : Party
+    label : Text
+  deriving (Eq, Show)
+
+interface Labelled where
+  viewtype View
+
+  getLabel : Text
+
+  choice Relabel : ContractId Labelled
+    with
+      label : Text
+    controller (view this).owner
+    do
+      pure self
+
+template Box
+  with
+    owner : Party
+  where
+    signatory owner
+
+    interface instance Labelled for Box where
+      view = View with
+        owner
+        label = "box"
+      getLabel = "box"

@@ -1,0 +1,5 @@
+﻿Module "Conditions" L1-L11 body 0
+  TopLevelBinding "check" L3-L11 body 2
+    DoBlock L4-L11 body 2
+      DoBlock L6-L8 body 6
+      DoBlock L9-L10 body 6

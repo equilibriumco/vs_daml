@@ -1,0 +1,5 @@
+﻿Module "CaseOf" L1-L14 body 0
+  TopLevelBinding "describe" L3-L9 body 2
+    CaseBlock L5-L9 body 4
+  TopLevelBinding "lambdaCase" L11-L14 body 2
+    CaseBlock L12-L14 body 2

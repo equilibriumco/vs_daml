@@ -1,0 +1,13 @@
+module MultiHeader where
+
+instance
+  ( Show a
+  , Eq a
+  ) => Show (Pair a) where
+  show (Pair x y) = show x <> show y
+
+longSignature
+  : Int
+  -> Int
+  -> Int
+longSignature a b = a + b

@@ -1,0 +1,10 @@
+﻿Module "Transfer" L1-L19 body 0
+  Template "Asset" L3-L19 body 2
+    WithBlock L4-L5 body 4
+    WhereBlock L6-L19 body 4
+      Choice "Give" L9-L14 body 6
+        WithBlock L10-L11 body 8
+        DoBlock L13-L14 body 8
+          WithBlock L14-L14 body 25
+      Choice "Inspect" L16-L19 body 6
+        DoBlock L18-L19 body 8

@@ -1,0 +1,4 @@
+﻿Module "MultiHeader" L1-L13 body 0
+  Instance L3-L7 header to L6 body 2
+    WhereBlock L6-L7 body 2
+  TopLevelBinding "longSignature" L9-L13 header to L12 body -1

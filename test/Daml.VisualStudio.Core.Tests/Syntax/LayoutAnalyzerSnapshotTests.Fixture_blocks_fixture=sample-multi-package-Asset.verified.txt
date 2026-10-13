@@ -1,0 +1,6 @@
+﻿Module "Asset" L1-L16 body 0
+  Data "View" L3-L7 body 2
+  Interface "Asset" L9-L16 body 2
+    WhereBlock L9-L16 body 2
+      Choice "GetView" L13-L16 body 4
+        DoBlock L15-L16 body 6

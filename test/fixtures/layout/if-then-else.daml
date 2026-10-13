@@ -1,0 +1,11 @@
+module Conditions where
+
+check : Int -> Script ()
+check n = script do
+  if n > 0
+    then do
+      debug "positive"
+      pure ()
+    else do
+      debug "not positive"
+  pure ()

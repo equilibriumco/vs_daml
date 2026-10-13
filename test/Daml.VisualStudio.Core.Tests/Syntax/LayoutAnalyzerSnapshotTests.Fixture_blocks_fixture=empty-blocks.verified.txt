@@ -1,0 +1,5 @@
+﻿Module "EmptyBlocks" L1-L9 body 0
+  Template "Empty" L3-L6 body 2
+    WithBlock L4-L5 body 4
+    WhereBlock L6-L6 body -1
+  TopLevelBinding "value" L8-L9 body -1

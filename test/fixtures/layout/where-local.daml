@@ -1,0 +1,9 @@
+module WhereLocal where
+
+area : Int -> Int -> Int
+area w h = double w * h
+  where
+    double x = x * 2
+
+perimeter : Int -> Int -> Int
+perimeter w h = 2 * (w + h)

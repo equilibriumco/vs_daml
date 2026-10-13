@@ -1,0 +1,6 @@
+﻿Module "NestedDo" L1-L12 body 0
+  ImportGroup L3-L3 body -1
+  TopLevelBinding "test" L5-L12 body 2
+    DoBlock L6-L12 body 2
+      DoBlock L8-L11 body 4
+        DoBlock L10-L11 body 6

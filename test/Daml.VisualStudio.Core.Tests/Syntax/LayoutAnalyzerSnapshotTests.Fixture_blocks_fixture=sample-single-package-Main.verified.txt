@@ -1,0 +1,18 @@
+﻿Module "Main" L1-L44 body 0
+  ImportGroup L3-L3 body -1
+  Data "AssetId" L5-L5 body -1
+  Template "Asset" L7-L21 body 2
+    WithBlock L8-L11 body 4
+    WhereBlock L12-L21 body 4
+      Choice "Give" L16-L21 body 6
+        WithBlock L17-L18 body 8
+        DoBlock L20-L21 body 9
+          WithBlock L20-L21 body 11
+  TopLevelBinding "setup" L23-L44 body 2
+    DoBlock L24-L44 body 2
+      DoBlock L34-L38 body 4
+        WithBlock L35-L38 body 6
+      DoBlock L40-L41 body 4
+        WithBlock L41-L41 body 34
+      DoBlock L43-L44 body 4
+        WithBlock L44-L44 body 32

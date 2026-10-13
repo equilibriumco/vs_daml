@@ -1,0 +1,5 @@
+﻿Module "Comments" L1-L15 body 0
+  BlockComment L3-L5 body -1
+  TopLevelBinding "f" L7-L11 body 2
+    BlockComment L9-L10 body -1
+  TopLevelBinding "g" L14-L15 body -1

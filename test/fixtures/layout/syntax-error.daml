@@ -1,0 +1,14 @@
+module Broken where
+
+template Asset
+  with
+    owner : Party
+  where
+    signatory (owner
+    choice Give : ()
+      controller owner
+      do
+        pure (
+
+f : Int -> Int
+f x = x +

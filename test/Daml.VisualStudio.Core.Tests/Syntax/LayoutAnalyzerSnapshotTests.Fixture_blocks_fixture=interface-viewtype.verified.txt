@@ -1,0 +1,14 @@
+﻿Module "Iface" L1-L30 body 0
+  Data "View" L3-L6 body 4
+    WithBlock L3-L5 body 4
+  Interface "Labelled" L8-L18 body 2
+    WhereBlock L8-L18 body 2
+      Choice "Relabel" L13-L18 body 4
+        WithBlock L14-L15 body 6
+        DoBlock L17-L18 body 6
+  Template "Box" L20-L30 body 2
+    WithBlock L21-L22 body 4
+    WhereBlock L23-L30 body 4
+      InterfaceInstance "Labelled for Box" L26-L30 body 6
+        WhereBlock L26-L30 body 6
+          WithBlock L27-L29 body 8

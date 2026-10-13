@@ -1,0 +1,5 @@
+﻿Module "Asset" L1-L15 body 0
+  ImportGroup L3-L4 body -1
+  Template "Asset" L7-L15 body 2
+    WithBlock L8-L11 body 4
+    WhereBlock L12-L15 body 4

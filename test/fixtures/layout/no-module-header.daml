@@ -1,0 +1,5 @@
+import Daml.Script
+
+main : Script ()
+main = script do
+  pure ()

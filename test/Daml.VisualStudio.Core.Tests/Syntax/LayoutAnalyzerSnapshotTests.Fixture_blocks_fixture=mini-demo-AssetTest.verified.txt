@@ -1,0 +1,48 @@
+﻿Module "MiniDemo.AssetTest" L1-L169 header to L4 body 0
+  ImportGroup L6-L15 body -1
+  Data "Fixture" L17-L22 body 4
+    WithBlock L17-L22 body 4
+  TopLevelBinding "gold" L24-L25 body -1
+  TopLevelBinding "setup" L27-L35 body 2
+    DoBlock L28-L35 body 2
+      WithBlock L32-L32 body 44
+      WithBlock L33-L33 body 91
+      WithBlock L34-L34 body 68
+      WithBlock L35-L35 body 20
+  TopLevelBinding "noExtraArgs" L37-L38 body -1
+    WithBlock L38-L38 body 40
+  TopLevelBinding "transferToBob" L40-L51 body 2
+    DoBlock L41-L51 body 2
+      WithBlock L43-L51 body 4
+        WithBlock L47-L47 body 47
+  TopLevelBinding "proposeToBob" L53-L62 body 2
+    DoBlock L54-L62 body 2
+      WithBlock L56-L59 body 4
+      CaseBlock L60-L62 body 4
+  TopLevelBinding "holdingsOf" L64-L67 body 2
+    DoBlock L65-L67 body 2
+  TopLevelBinding "assertUnlockedHoldings" L69-L73 body 2
+    DoBlock L70-L73 body 2
+  TopLevelBinding "lockedHoldingDisclosure" L75-L79 body 2
+    DoBlock L76-L79 body 2
+  TopLevelBinding "totalSupply" L81-L82 body -1
+  TopLevelBinding "test_acceptMovesTheLockedHoldingToBob" L84-L111 body 2
+    DoBlock L85-L111 body 2
+      WithBlock L95-L97 body 4
+      WithBlock L100-L102 body 4
+      CaseBlock L103-L105 body 4
+      WithBlock L110-L110 body 88
+  TopLevelBinding "test_rejectReturnsTheHoldingToAlice" L113-L130 body 2
+    DoBlock L114-L130 body 2
+      WithBlock L118-L120 body 4
+      WithBlock L123-L125 body 4
+  TopLevelBinding "test_withdrawReturnsTheHoldingToAlice" L132-L147 body 2
+    DoBlock L133-L147 body 2
+      WithBlock L137-L139 body 4
+      WithBlock L141-L143 body 4
+  TopLevelBinding "test_acceptAfterTheDeadlineFails" L149-L157 body 2
+    DoBlock L150-L157 body 2
+      WithBlock L155-L157 body 4
+  TopLevelBinding "test_partialTransferReturnsChangeToAlice" L159-L169 body 2
+    DoBlock L160-L169 body 2
+      WithBlock L163-L166 body 4

@@ -1,0 +1,58 @@
+﻿Module "MiniDemo.Asset" L1-L201 header to L4 body 0
+  ImportGroup L6-L12 body -1
+  Template "Instrument" L14-L36 body 2
+    WithBlock L15-L17 body 4
+    WhereBlock L18-L36 body 4
+      Choice "Mint" L24-L30 body 6
+        WithBlock L25-L27 body 8
+        DoBlock L29-L30 body 8
+          WithBlock L30-L30 body 26
+      Choice "TotalSupply" L32-L36 body 6
+        DoBlock L34-L36 body 8
+  Template "Asset" L38-L61 body 2
+    WithBlock L39-L44 body 4
+    WhereBlock L45-L61 body 4
+      InterfaceInstance "HoldingV2.Holding for Asset" L53-L61 body 6
+        WhereBlock L53-L61 body 6
+          WithBlock L54-L61 body 8
+            WithBlock L56-L58 body 10
+  Template "AssetTransferFactory" L63-L124 body 2
+    WithBlock L64-L66 body 4
+    WhereBlock L67-L124 body 4
+      InterfaceInstance "TransferInstructionV2.TransferFactory for AssetTransferFactory" L71-L124 body 6
+        WhereBlock L71-L124 body 6
+          WithBlock L72-L74 body 8
+          DoBlock L80-L124 body 8
+            DoBlock L89-L97 body 10
+              LetBlock L90-L90 body 14
+            LetBlock L98-L98 body 12
+            LetBlock L101-L106 body 12
+              WithBlock L101-L106 body 14
+            WithBlock L107-L112 body 10
+              WithBlock L108-L112 body 12
+            WithBlock L116-L116 body 39
+            WithBlock L119-L119 body 63
+            WithBlock L120-L124 body 10
+              WithBlock L121-L122 body 12
+  Template "AssetTransferInstruction" L126-L173 body 2
+    WithBlock L127-L130 body 4
+    WhereBlock L131-L173 body 4
+      InterfaceInstance "TransferInstructionV2.TransferInstruction for AssetTransferInstruction" L135-L173 body 6
+        WhereBlock L135-L173 body 6
+          WithBlock L136-L145 body 8
+          DoBlock L151-L163 body 8
+            WithBlock L158-L158 body 49
+            WithBlock L159-L163 body 10
+              WithBlock L160-L161 body 12
+          DoBlock L165-L168 body 8
+          DoBlock L170-L173 body 8
+  TopLevelBinding "returnToSender" L175-L184 body 2
+    DoBlock L176-L184 body 2
+      WithBlock L180-L180 body 36
+      WithBlock L181-L184 body 4
+  TopLevelBinding "ownerAccount" L186-L190 body 2
+    WithBlock L187-L190 body 2
+  TopLevelBinding "soleActor" L192-L193 body -1
+  TopLevelBinding "accountOwner" L195-L198 body 2
+    CaseBlock L196-L198 body 2
+  TopLevelBinding "require" L200-L201 body -1

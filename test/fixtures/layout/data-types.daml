@@ -1,0 +1,13 @@
+module DataTypes where
+
+data Colour = Red | Green | Blue
+  deriving (Eq, Show)
+
+data Point = Point with
+    x : Decimal
+    y : Decimal
+  deriving (Eq, Show)
+
+newtype Wrapper = Wrapper Int
+
+type Name = Text

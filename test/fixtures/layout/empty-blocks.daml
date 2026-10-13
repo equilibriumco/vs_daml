@@ -1,0 +1,9 @@
+module EmptyBlocks where
+
+template Empty
+  with
+    owner : Party
+  where
+
+value : Int
+value = 1

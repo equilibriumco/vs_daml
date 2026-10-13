@@ -1,0 +1,4 @@
+﻿Module "Errors" L1-L8 body 0
+  Exception "InsufficientFunds" L3-L8 body 2
+    WithBlock L4-L6 body 4
+    WhereBlock L7-L8 body 4

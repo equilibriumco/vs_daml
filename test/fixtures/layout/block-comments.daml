@@ -1,0 +1,15 @@
+module Comments where
+
+{- A long note
+   over several lines
+   about the module. -}
+
+f : Int
+f = 1
+  {- inside a binding,
+     still part of it -}
+  + 2
+
+{- one line -}
+g : Int
+g = 2

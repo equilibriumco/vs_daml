@@ -1,0 +1,77 @@
+using System.Collections.Generic;
+using System.Linq;
+
+namespace Daml.VisualStudio.Core.Syntax;
+
+/// <summary>Adds <c>{- ... -}</c> comments that run over several lines to a block tree.</summary>
+internal static class BlockComments
+{
+    /// <summary>
+    /// The tree with each comment placed in the innermost block that holds all of it. A comment
+    /// that starts in one block and ends in another belongs to neither and is left out.
+    /// </summary>
+    public static DamlBlock Place(DamlBlock root, IReadOnlyList<LineTokens> lines)
+    {
+        foreach (var (first, last) in Find(lines))
+        {
+            if (first >= root.StartLine && last <= root.EndLine)
+            {
+                root = Insert(root, new DamlBlock(DamlBlockKind.BlockComment, null, first, last, first, -1, []));
+            }
+        }
+        return root;
+    }
+
+    // Runs of lines that end inside a comment, plus the line that closes it.
+    private static IEnumerable<(int First, int Last)> Find(IReadOnlyList<LineTokens> lines)
+    {
+        var first = -1;
+        for (var number = 0; number < lines.Count; number++)
+        {
+            var inside = lines[number].EndState.Mode == LexMode.BlockComment;
+            if (inside && first < 0)
+            {
+                first = number;
+            }
+            else if (!inside && first >= 0)
+            {
+                yield return (first, number);
+                first = -1;
+            }
+        }
+        if (first >= 0)
+        {
+            // Never closed: it runs to the last line with anything on it.
+            var last = lines.Count - 1;
+            while (last > first && lines[last].Tokens.All(t => t.Kind == DamlTokenKind.Whitespace))
+            {
+                last--;
+            }
+            if (last > first)
+            {
+                yield return (first, last);
+            }
+        }
+    }
+
+    private static DamlBlock Insert(DamlBlock block, DamlBlock comment)
+    {
+        var children = block.Children.ToList();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (child.StartLine <= comment.StartLine && comment.EndLine <= child.EndLine)
+            {
+                children[i] = Insert(child, comment);
+                return block with { Children = children };
+            }
+            if (child.StartLine <= comment.EndLine && comment.StartLine <= child.EndLine)
+            {
+                return block;
+            }
+        }
+        var at = children.FindIndex(c => c.StartLine > comment.StartLine);
+        children.Insert(at < 0 ? children.Count : at, comment);
+        return block with { Children = children };
+    }
+}

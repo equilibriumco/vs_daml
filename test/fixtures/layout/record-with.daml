@@ -1,0 +1,15 @@
+module RecordWith where
+
+import Daml.Script
+
+setup : Script ()
+setup = script do
+  alice <- allocateParty "Alice"
+  cid <- submit alice do
+    createCmd Asset with
+      issuer = alice
+      owner = alice
+      name = "TV"
+  submit alice do
+    exerciseCmd cid Give with newOwner = alice
+  pure ()

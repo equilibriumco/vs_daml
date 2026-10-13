@@ -1,0 +1,11 @@
+module ClassInstance where
+
+class (Show a) => Describable a where
+  describe : a -> Text
+  describe x = show x
+
+instance Describable Int where
+  describe n = "int " <> show n
+
+instance (Describable a) => Describable [a] where
+  describe xs = concatMap describe xs

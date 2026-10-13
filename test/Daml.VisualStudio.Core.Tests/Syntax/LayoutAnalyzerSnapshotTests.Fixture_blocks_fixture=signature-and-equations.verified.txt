@@ -1,0 +1,4 @@
+﻿Module "Equations" L1-L14 body 0
+  TopLevelBinding "fact" L3-L5 body -1
+  TopLevelBinding "isZero" L8-L11 body -1
+  TopLevelBinding "<+>" L13-L14 body -1

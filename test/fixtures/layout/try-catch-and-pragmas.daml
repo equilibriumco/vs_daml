@@ -1,0 +1,12 @@
+{-# LANGUAGE ApplicativeDo #-}
+-- | Module documentation.
+module TryCatch where
+
+import DA.Exception
+
+safeDiv : Int -> Int -> Update Int
+safeDiv a b =
+  try do
+    pure (a / b)
+  catch
+    (ArithmeticError _) -> pure 0

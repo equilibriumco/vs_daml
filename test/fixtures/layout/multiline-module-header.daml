@@ -1,0 +1,13 @@
+module Exports
+  ( Asset (..)
+  , give
+  ) where
+
+import qualified DA.Map as Map
+import DA.Optional
+  ( fromOptional
+  , isSome
+  )
+
+give : Int
+give = 1
