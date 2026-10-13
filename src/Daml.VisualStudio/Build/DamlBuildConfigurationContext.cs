@@ -26,7 +26,14 @@ internal sealed class DamlBuildConfigurationContext : IBuildFileContext
     public DamlBuildAction Action { get; }
 
     /// <inheritdoc />
-    public string? BuildConfiguration => null;
+    /// <summary>
+    /// The one configuration a Daml package has. Named, not null, so Visual Studio's own build
+    /// commands, which match it against the folder's current project setting, have something
+    /// to match.
+    /// </summary>
+    public const string ConfigurationName = "Default";
+
+    public string? BuildConfiguration => ConfigurationName;
 
     /// <summary>Runs the command and reports its diagnostics as build messages.</summary>
     public async Task<bool> ExecuteBuildAsync(IBuildActionProgress progress, CancellationToken cancellationToken)

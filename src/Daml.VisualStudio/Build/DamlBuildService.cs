@@ -7,6 +7,7 @@ using Daml.VisualStudio.Core.Build;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Sdk;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 
 namespace Daml.VisualStudio.Build;
@@ -21,21 +22,27 @@ namespace Daml.VisualStudio.Build;
 internal sealed class DamlBuildService : IDisposable
 {
     private readonly DamlBuildCoordinator _coordinator;
+    private readonly JoinableTaskFactory _joinableTaskFactory;
+    private readonly Action<string> _onFolderClosing;
 
     [ImportingConstructor]
     public DamlBuildService(IDamlLogger logger, JoinableTaskContext joinableTaskContext)
     {
+        _joinableTaskFactory = joinableTaskContext.Factory;
         _coordinator = new DamlBuildCoordinator(
             new DpmRunner(new ProcessRunner()),
             () => new AssistantLocator().Find(AssistantKind.Dpm, configuredPath: null)?.Path,
             logger);
+        _onFolderClosing = _ => _coordinator.CancelAll();
 
-        // Solution events have to be subscribed on the UI thread; nothing waits for it.
-        _ = joinableTaskContext.Factory.RunAsync(async () =>
+        // Solution events have to be subscribed on the UI thread; nothing waits for it. Open
+        // Folder raises the folder pair; the solution pair is raised for folders too.
+        _joinableTaskFactory.RunAsync(async () =>
         {
-            await joinableTaskContext.Factory.SwitchToMainThreadAsync();
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            VS.Events.SolutionEvents.OnBeforeCloseFolder += _onFolderClosing;
             VS.Events.SolutionEvents.OnBeforeCloseSolution += _coordinator.CancelAll;
-        });
+        }).FileAndForget("daml/build/solutionEvents");
     }
 
     /// <summary>Runs one dpm command; see <see cref="DamlBuildCoordinator.RunAsync"/>.</summary>
@@ -44,7 +51,26 @@ internal sealed class DamlBuildService : IDisposable
 
     public void Dispose()
     {
-        VS.Events.SolutionEvents.OnBeforeCloseSolution -= _coordinator.CancelAll;
+        // MEF may dispose this part from any thread; the events are a UI-thread object.
+        if (ThreadHelper.CheckAccess())
+        {
+            Unsubscribe();
+        }
+        else
+        {
+            _joinableTaskFactory.RunAsync(async () =>
+            {
+                await _joinableTaskFactory.SwitchToMainThreadAsync();
+                Unsubscribe();
+            }).FileAndForget("daml/build/unsubscribe");
+        }
         _coordinator.Dispose();
+    }
+
+    private void Unsubscribe()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        VS.Events.SolutionEvents.OnBeforeCloseFolder -= _onFolderClosing;
+        VS.Events.SolutionEvents.OnBeforeCloseSolution -= _coordinator.CancelAll;
     }
 }

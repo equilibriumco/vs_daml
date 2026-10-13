@@ -15,8 +15,9 @@ using Microsoft.VisualStudio.Utilities;
 namespace Daml.VisualStudio.Structure;
 
 /// <summary>
-/// Hands out structure taggers for Daml buffers. Each caller gets its own and disposes of it with
-/// its view, which stops the tagger's timer.
+/// Hands out structure taggers for Daml buffers. Each caller gets its own tagger, but they all
+/// read the one set of regions kept for the buffer, so outlining and the structure guides don't
+/// each lex the file.
 /// </summary>
 [Export(typeof(ITaggerProvider))]
 [ContentType(DamlContentDefinition.ContentTypeName)]
@@ -35,27 +36,27 @@ internal sealed class DamlStructureTaggerProvider : ITaggerProvider
 
     public ITagger<T>? CreateTagger<T>(ITextBuffer buffer)
         where T : ITag =>
-        new DamlStructureTagger(buffer, _logger, _joinableTaskContext.Factory) as ITagger<T>;
+        new DamlStructureTagger(DamlStructureRegions.For(buffer, _logger, _joinableTaskContext.Factory)) as ITagger<T>;
 }
 
 /// <summary>
-/// Folding regions and structure guides for a Daml buffer. The regions are worked out again on a
-/// thread-pool thread once the buffer has been quiet for a moment, and in between the last ones
-/// are mapped onto the current text.
+/// The foldable regions of one buffer, worked out again on a thread-pool thread once the buffer
+/// has been quiet for a moment. Shared by every tagger of the buffer; the last tagger to go
+/// stops the timer.
 /// </summary>
-internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
+internal sealed class DamlStructureRegions : IDisposable
 {
     private static readonly TimeSpan Quiet = TimeSpan.FromMilliseconds(200);
-    private const int MaxHintLength = 2000;
 
     private readonly ITextBuffer _buffer;
     private readonly IDamlLogger _logger;
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly Timer _timer;
     private Regions? _regions;
-    private int _disposed;
+    private int _users;
+    private int _stopped;
 
-    public DamlStructureTagger(ITextBuffer buffer, IDamlLogger logger, JoinableTaskFactory joinableTaskFactory)
+    private DamlStructureRegions(ITextBuffer buffer, IDamlLogger logger, JoinableTaskFactory joinableTaskFactory)
     {
         _buffer = buffer;
         _logger = logger;
@@ -64,20 +65,117 @@ internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
         buffer.Changed += OnBufferChanged;
     }
 
+    /// <summary>The regions kept for <paramref name="buffer"/>, created on first use.</summary>
+    public static DamlStructureRegions For(ITextBuffer buffer, IDamlLogger logger, JoinableTaskFactory joinableTaskFactory) =>
+        buffer.Properties.GetOrCreateSingletonProperty(() => new DamlStructureRegions(buffer, logger, joinableTaskFactory));
+
+    /// <summary>Raised on the UI thread after the regions have been worked out again.</summary>
+    public event EventHandler<SnapshotSpanEventArgs>? Changed;
+
+    /// <summary>The latest regions, with the snapshot they were computed on; null before the first pass.</summary>
+    public Regions? Current => Volatile.Read(ref _regions);
+
+    public void AddUser() => Interlocked.Increment(ref _users);
+
+    /// <summary>The last tagger is gone: stops the timer and lets the buffer forget this instance.</summary>
+    public void RemoveUser()
+    {
+        if (Interlocked.Decrement(ref _users) == 0)
+        {
+            Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _stopped, 1) != 0)
+        {
+            return;
+        }
+        _buffer.Changed -= OnBufferChanged;
+        _timer.Dispose();
+        _buffer.Properties.RemoveProperty(typeof(DamlStructureRegions));
+    }
+
+    private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
+    {
+        if (Volatile.Read(ref _stopped) == 0)
+        {
+            _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private void Update()
+    {
+        if (Volatile.Read(ref _stopped) != 0)
+        {
+            return;
+        }
+        try
+        {
+            var snapshot = _buffer.CurrentSnapshot;
+            var lines = snapshot.Lines.Select(l => l.GetText()).ToList();
+            var specs = StructureRules.FromBlocks(LayoutAnalyzer.Analyze(LineTokens.Lex(lines)), lines);
+            var spans = specs.Select(spec => (spec, Whole(spec, snapshot))).ToList();
+            Volatile.Write(ref _regions, new Regions(snapshot, spans));
+            _joinableTaskFactory.RunAsync(async () =>
+            {
+                // The outlining manager expects to hear about changes on the UI thread.
+                await _joinableTaskFactory.SwitchToMainThreadAsync();
+                Changed?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
+            }).FileAndForget("daml/structure/tagsChanged");
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // Runs on a timer thread, where an escaping exception would take Visual Studio down.
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, "Working out the folding regions failed.", ex);
+        }
+    }
+
+    // The block from its first character to the end of its last line; folding may start later.
+    private static SnapshotSpan Whole(StructureSpec spec, ITextSnapshot snapshot)
+    {
+        var first = snapshot.GetLineFromLineNumber(spec.StartLine);
+        var start = first.Start + (spec.StartColumn == StructureSpec.EndOfLine ? 0 : Math.Min(spec.StartColumn, first.Length));
+        return new SnapshotSpan(start, snapshot.GetLineFromLineNumber(spec.EndLine).End);
+    }
+
+    /// <summary>One pass over a snapshot: each region with the span it covers there.</summary>
+    public sealed record Regions(ITextSnapshot Snapshot, IReadOnlyList<(StructureSpec Spec, SnapshotSpan Block)> Spans);
+}
+
+/// <summary>
+/// Folding regions and structure guides for one consumer of a Daml buffer, mapped from the
+/// buffer's shared <see cref="DamlStructureRegions"/> onto whatever snapshot is asked about.
+/// </summary>
+internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
+{
+    private const int MaxHintLength = 2000;
+
+    private readonly DamlStructureRegions _regions;
+    private int _disposed;
+
+    public DamlStructureTagger(DamlStructureRegions regions)
+    {
+        _regions = regions;
+        regions.AddUser();
+        regions.Changed += OnRegionsChanged;
+    }
+
     public event EventHandler<SnapshotSpanEventArgs>? TagsChanged;
 
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
         {
-            _buffer.Changed -= OnBufferChanged;
-            _timer.Dispose();
+            _regions.Changed -= OnRegionsChanged;
+            _regions.RemoveUser();
         }
     }
 
     public IEnumerable<ITagSpan<IStructureTag>> GetTags(NormalizedSnapshotSpanCollection spans)
     {
-        var regions = Volatile.Read(ref _regions);
+        var regions = _regions.Current;
         if (spans.Count == 0 || regions is null)
         {
             return [];
@@ -99,48 +197,7 @@ internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
         return result;
     }
 
-    private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
-    {
-        if (Volatile.Read(ref _disposed) == 0)
-        {
-            _timer.Change(Quiet, Timeout.InfiniteTimeSpan);
-        }
-    }
-
-    private void Update()
-    {
-        if (Volatile.Read(ref _disposed) != 0)
-        {
-            return;
-        }
-        try
-        {
-            var snapshot = _buffer.CurrentSnapshot;
-            var lines = snapshot.Lines.Select(l => l.GetText()).ToList();
-            var specs = StructureRules.FromBlocks(LayoutAnalyzer.Analyze(LineTokens.Lex(lines)), lines);
-            var spans = specs.Select(spec => (spec, Whole(spec, snapshot))).ToList();
-            Volatile.Write(ref _regions, new Regions(snapshot, spans));
-            _joinableTaskFactory.RunAsync(async () =>
-            {
-                // The outlining manager expects to hear about changes on the UI thread.
-                await _joinableTaskFactory.SwitchToMainThreadAsync();
-                TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snapshot, 0, snapshot.Length)));
-            }).FileAndForget("daml/structure/tagsChanged");
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            // Runs on a timer thread, where an escaping exception would take Visual Studio down.
-            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, "Working out the folding regions failed.", ex);
-        }
-    }
-
-    // The block from its first character to the end of its last line; folding may start later.
-    private static SnapshotSpan Whole(StructureSpec spec, ITextSnapshot snapshot)
-    {
-        var first = snapshot.GetLineFromLineNumber(spec.StartLine);
-        var start = first.Start + (spec.StartColumn == StructureSpec.EndOfLine ? 0 : Math.Min(spec.StartColumn, first.Length));
-        return new SnapshotSpan(start, snapshot.GetLineFromLineNumber(spec.EndLine).End);
-    }
+    private void OnRegionsChanged(object? sender, SnapshotSpanEventArgs e) => TagsChanged?.Invoke(this, e);
 
     private static StructureTag Tag(StructureSpec spec, SnapshotSpan block)
     {
@@ -171,6 +228,4 @@ internal sealed class DamlStructureTagger : ITagger<IStructureTag>, IDisposable
 
     private static string Hint(ITextSnapshot snapshot, Span span) =>
         span.Length <= MaxHintLength ? snapshot.GetText(span) : snapshot.GetText(span.Start, MaxHintLength) + "…";
-
-    private sealed record Regions(ITextSnapshot Snapshot, IReadOnlyList<(StructureSpec Spec, SnapshotSpan Block)> Spans);
 }

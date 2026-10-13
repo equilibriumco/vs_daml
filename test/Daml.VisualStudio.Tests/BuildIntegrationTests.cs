@@ -68,7 +68,7 @@ public class BuildIntegrationTests
         {
             value.Type.ShouldBe(BuildConfigurationContext.ContextTypeGuid);
             value.Name.ShouldBe(BuildConfigurationContext.DataValueName);
-            value.Context.ShouldBeNull();
+            value.Context.ShouldBe(DamlBuildConfigurationContext.ConfigurationName);
         }
         var contexts = await new DamlFileContextProviderFactory(NoRun).CreateProvider(null!).GetContextsForFileAsync(path, CancellationToken.None);
         contexts.Select(c => ((IBuildConfigurationContext)c.Context).BuildConfiguration).ShouldAllBe(configuration => values.All(v => v.Context == configuration));
@@ -114,9 +114,9 @@ public class BuildIntegrationTests
 
         contexts.Count.ShouldBe(expected);
         // Open Folder only enables Build when the context carries a build configuration that
-        // matches the indexed one; ours is "not applicable" (null) on both sides.
+        // matches the indexed one; ours is the same named configuration on both sides.
         contexts.ShouldAllBe(c => c.ProviderType == BuildIds.FileContextProvider
-            && c.Context is DamlBuildConfigurationContext && ((IBuildConfigurationContext)c.Context).BuildConfiguration == null);
+            && c.Context is DamlBuildConfigurationContext && ((IBuildConfigurationContext)c.Context).BuildConfiguration == DamlBuildConfigurationContext.ConfigurationName);
     }
 
     [Fact, Trait("Category", "Editor")]

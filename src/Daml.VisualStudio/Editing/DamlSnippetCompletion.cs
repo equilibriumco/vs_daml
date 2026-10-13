@@ -46,8 +46,7 @@ internal sealed class DamlSnippetCompletionSource : IAsyncCompletionSource
             return CompletionStartData.DoesNotParticipateInCompletion;
         }
         var line = triggerLocation.GetContainingLine();
-        // The lines above say whether this one starts inside a comment; the ones below don't matter.
-        var lines = LineTokens.Lex(triggerLocation.Snapshot.Lines.Take(line.LineNumber + 1).Select(l => l.GetText()));
+        var lines = DamlTokenCache.For(triggerLocation.Snapshot.TextBuffer).Get(triggerLocation.Snapshot);
         if (SnippetContext.ApplicableSpan(lines, line.LineNumber, triggerLocation.Position - line.Start.Position) is not { } span)
         {
             return CompletionStartData.DoesNotParticipateInCompletion;
@@ -74,9 +73,14 @@ internal sealed class DamlSnippetCompletionSource : IAsyncCompletionSource
     }
 }
 
-/// <summary>Hands out the snippet commit manager of a Daml view.</summary>
+/// <summary>
+/// Hands out the snippet commit manager of a Daml view. It runs before the language server's
+/// manager, which only commits its own items anyway, so a snippet committed by a character the
+/// server listed still reaches this one.
+/// </summary>
 [Export(typeof(IAsyncCompletionCommitManagerProvider))]
 [Name("Daml snippets")]
+[Order(Before = "default")]
 [ContentType(DamlContentDefinition.ContentTypeName)]
 internal sealed class DamlSnippetCommitManagerProvider : IAsyncCompletionCommitManagerProvider
 {

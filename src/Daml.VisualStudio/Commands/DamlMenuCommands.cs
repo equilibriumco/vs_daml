@@ -36,10 +36,16 @@ internal static class DamlMenuIds
 internal sealed class RestartLanguageServerCommand : BaseCommand<RestartLanguageServerCommand>
 {
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
+    private static int s_restarting;
 
     // The status bar keeps a message until something replaces it, so the outcome replaces this one.
     protected override async Task ExecuteAsync(OleMenuCmdEventArgs e)
     {
+        if (Interlocked.Exchange(ref s_restarting, 1) != 0)
+        {
+            await VS.StatusBar.ShowMessageAsync("The Daml language server is already restarting…");
+            return;
+        }
         var client = await VS.GetMefServiceAsync<DamlLanguageClient>();
         var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnReady(object? sender, SessionReadyEventArgs args) => ready.TrySetResult(true);
@@ -61,6 +67,7 @@ internal sealed class RestartLanguageServerCommand : BaseCommand<RestartLanguage
         finally
         {
             client.Host.SessionReady -= OnReady;
+            Volatile.Write(ref s_restarting, 0);
         }
     }
 }
@@ -106,6 +113,9 @@ internal sealed class TestCurrentPackageCommand : BaseCommand<TestCurrentPackage
 /// </summary>
 internal static class CurrentPackage
 {
+    // The command in flight; choosing the command again cancels it and starts over.
+    private static CancellationTokenSource? s_running;
+
     public static async Task RunAsync(DpmCommandKind kind)
     {
         var view = await VS.Documents.GetActiveDocumentViewAsync();
@@ -126,12 +136,14 @@ internal static class CurrentPackage
         }
         var package = Path.GetFileName(action.WorkingDirectory);
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"{action.DisplayName} Current Package chosen from the Daml menu for {view!.FilePath}.");
-        await VS.StatusBar.ShowMessageAsync($"Daml: {action.DisplayName} {package}…");
+        await VS.StatusBar.ShowMessageAsync($"Daml: {action.DisplayName} {package}… (choose the command again to cancel)");
 
         await TaskScheduler.Default;
+        using var cancellation = new CancellationTokenSource();
+        Interlocked.Exchange(ref s_running, cancellation)?.Cancel();
         try
         {
-            var run = await service.RunAsync(action, CancellationToken.None);
+            var run = await service.RunAsync(action, cancellation.Token);
             foreach (var diagnostic in run.Diagnostics)
             {
                 output?.WritePlainLine(DamlLogCategory.Build, diagnostic.ToOutputLine());
@@ -145,6 +157,10 @@ internal static class CurrentPackage
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             logger.Log(DamlLogCategory.Build, DamlLogLevel.Error, $"{action.DisplayName} of {package} failed to run.", ex);
+        }
+        finally
+        {
+            Interlocked.CompareExchange(ref s_running, null, cancellation);
         }
     }
 }

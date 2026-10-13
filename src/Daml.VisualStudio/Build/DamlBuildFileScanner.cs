@@ -38,7 +38,7 @@ internal sealed class DamlBuildFileScannerFactory : IWorkspaceProviderFactory<IF
 
             // The scanner is matched by file name suffix, so "not-daml.yaml" arrives here too.
             IReadOnlyCollection<FileDataValue> values = DamlBuildActions.For(filePath).Count > 0
-                ? [new FileDataValue(BuildConfigurationContext.ContextTypeGuid, BuildConfigurationContext.DataValueName, value: null, target: null, context: null)]
+                ? [new FileDataValue(BuildConfigurationContext.ContextTypeGuid, BuildConfigurationContext.DataValueName, value: null, target: null, context: DamlBuildConfigurationContext.ConfigurationName)]
                 : [];
             return Task.FromResult((T)(object)values);
         }

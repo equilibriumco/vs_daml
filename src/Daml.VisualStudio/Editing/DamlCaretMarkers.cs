@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.ComponentModel.Composition;
 using Daml.VisualStudio.Core.Syntax;
 using Microsoft.VisualStudio.Text;
@@ -104,7 +105,24 @@ internal sealed class DamlCaretMarkerTagger : ITagger<TextMarkerTag>, IDisposabl
         return marks;
     }
 
-    private void OnCaretMoved(object sender, CaretPositionChangedEventArgs e) => Refresh(e.NewPosition.BufferPosition.Snapshot);
+    // Only the marks that were there and the ones that are now need another look; most caret
+    // moves change nothing, and then nothing is invalidated.
+    private void OnCaretMoved(object sender, CaretPositionChangedEventArgs e)
+    {
+        var caret = e.NewPosition.BufferPosition;
+        var snapshot = caret.Snapshot;
+        var before = _marks.Select(m => m.TranslateTo(snapshot, SpanTrackingMode.EdgeExclusive)).ToList();
+        _computedAt = caret;
+        _marks = Compute(caret);
+        var changed = before.Concat(_marks).ToList();
+        if (changed.Count == 0)
+        {
+            return;
+        }
+        var start = changed.Min(m => m.Start.Position);
+        var end = changed.Max(m => m.End.Position);
+        TagsChanged?.Invoke(this, new SnapshotSpanEventArgs(new SnapshotSpan(snapshot, start, end - start)));
+    }
 
     private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
     {

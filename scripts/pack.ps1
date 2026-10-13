@@ -73,13 +73,21 @@ function Test-Vsix([string] $Path) {
 
         # A third-party assembly found only by probing can lose to another extension's copy of a
         # different version; each one needs an exact codeBase entry matching the file we ship.
+        # Only the ones we decided to ship may be there at all: YamlDotNet and the TimeProvider
+        # polyfill with our own entries, the Community Toolkit with the entry its targets write.
+        $allowed = @('YamlDotNet', 'Microsoft.Bcl.TimeProvider', 'Community.VisualStudio.Toolkit')
         New-Item -ItemType Directory -Force -Path $scratch | Out-Null
         foreach ($dll in $zip.Entries | Where-Object { $_.Name -match '\.dll$' -and $_.Name -notmatch '^Daml\.' }) {
             $file = Join-Path $scratch $dll.Name
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($dll, $file, $true)
             $identity = [System.Reflection.AssemblyName]::GetAssemblyName($file)
+            if ($identity.Name -notin $allowed) { $problems.Add("$($dll.FullName) isn't one of the assemblies this extension ships ($($allowed -join ', '))") }
             if (-not $codeBases.ContainsKey($identity.Name)) { $problems.Add("$($dll.FullName) has no codeBase entry in the pkgdef") }
             elseif ($codeBases[$identity.Name] -ne $identity.Version.ToString()) { $problems.Add("$($dll.FullName) is $($identity.Version) but its codeBase entry says $($codeBases[$identity.Name])") }
+        }
+        # A Release VSIX carries neither symbols nor the compiler's documentation files.
+        foreach ($entry in $entries | Where-Object { $_ -match '\.(xml|pdb)$' }) {
+            $problems.Add("$entry doesn't belong in the VSIX")
         }
     }
     finally {

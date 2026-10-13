@@ -61,28 +61,37 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
         var snapshot = spans[0].Snapshot;
         lock (_gate)
         {
-            if (!CatchUp(snapshot))
+            if (CatchUp(snapshot))
             {
-                return result; // an older snapshot than ours; the editor will ask again
+                Collect(snapshot, spans, _syntax, result);
             }
-
-            var lastLine = -1;
-            foreach (var span in spans)
+            else
             {
-                var first = Math.Max(snapshot.GetLineNumberFromPosition(span.Start), lastLine + 1);
-                var last = snapshot.GetLineNumberFromPosition(span.End);
-                for (var number = first; number <= last; number++)
-                {
-                    var line = snapshot.GetLineFromLineNumber(number);
-                    foreach (var classified in _syntax.GetClassifications(number))
-                    {
-                        result.Add(new TagSpan<IClassificationTag>(new SnapshotSpan(snapshot, line.Start + classified.Start, classified.Length), Tag(classified.Classification)));
-                    }
-                }
-                lastLine = last;
+                // An older snapshot than ours: the editor will ask again for the current one, but
+                // this paint shouldn't go uncoloured, so it is lexed on its own.
+                Collect(snapshot, spans, new LexerSyntaxProvider(new SnapshotLines(snapshot)), result);
             }
         }
         return result;
+    }
+
+    private void Collect(ITextSnapshot snapshot, NormalizedSnapshotSpanCollection spans, IDamlSyntaxProvider syntax, List<ITagSpan<IClassificationTag>> result)
+    {
+        var lastLine = -1;
+        foreach (var span in spans)
+        {
+            var first = Math.Max(snapshot.GetLineNumberFromPosition(span.Start), lastLine + 1);
+            var last = snapshot.GetLineNumberFromPosition(span.End);
+            for (var number = first; number <= last; number++)
+            {
+                var line = snapshot.GetLineFromLineNumber(number);
+                foreach (var classified in syntax.GetClassifications(number))
+                {
+                    result.Add(new TagSpan<IClassificationTag>(new SnapshotSpan(snapshot, line.Start + classified.Start, classified.Length), Tag(classified.Classification)));
+                }
+            }
+            lastLine = last;
+        }
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)

@@ -9,7 +9,8 @@
     <TargetFramework>net48</TargetFramework>
 
     <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
-    <IncludeDebugSymbolsInVSIXContainer>true</IncludeDebugSymbolsInVSIXContainer>
+    <!-- Symbols travel with a Debug VSIX only; the Marketplace artefact ships without them. -->
+    <IncludeDebugSymbolsInVSIXContainer Condition="'$(Configuration)' == 'Debug'">true</IncludeDebugSymbolsInVSIXContainer>
     <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
     <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
     <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
@@ -64,6 +65,13 @@
 
   <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
   <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
+
+  <!-- The XML documentation files are for the compiler, not for the IDE. -->
+  <Target Name="DropDocumentationFromVsix" AfterTargets="GetVsixSourceItems">
+    <ItemGroup>
+      <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'%(Extension)' == '.xml'" />
+    </ItemGroup>
+  </Target>
 
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
 

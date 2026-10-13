@@ -100,10 +100,6 @@
       <IDSymbol name="TestCurrentPackageCommand" value="0x0203" />
       <IDSymbol name="OpenDocumentationCommand" value="0x0204" />
     </GuidSymbol>
-
-    <GuidSymbol name="guidWorkspaceExplorerCommandSet" value="{cfb400f1-5c60-4f3c-856e-180d28def0b7}">
-      <IDSymbol name="idmWorkspaceContextMenu" value="0x0002" />
-    </GuidSymbol>
   </Symbols>
 
 </CommandTable>

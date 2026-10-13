@@ -16,7 +16,6 @@ using Daml.VisualStudio.LanguageServer.Hosting;
 using Daml.VisualStudio.LanguageServer.Messages;
 using Daml.VisualStudio.LanguageServer.Protocol;
 using Daml.VisualStudio.Options;
-using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.LanguageServer.Client;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -29,27 +28,23 @@ namespace Daml.VisualStudio.LanguageClient;
 
 /// <summary>
 /// VS's language client for Daml: one instance, one damlc process. It only adapts VS's calls to
-/// <see cref="LanguageServerHost"/> and shows what the host reports; deciding what to start,
-/// when to restart and how to talk to damlc happens there.
+/// <see cref="LanguageServerHost"/>; deciding what to start, when to restart and how to talk to
+/// damlc happens there, watching the folder is <see cref="WorkspaceWatcher"/>'s job and telling
+/// the user is <see cref="LanguageServerNotifier"/>'s.
 /// </summary>
 [Export(typeof(ILanguageClient))]
 [Export(typeof(DamlLanguageClient))]
 [ContentType(DamlContentDefinition.ContentTypeName)]
 internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCustomMessage2, IDisposable
 {
-    private const string RestartAction = "Restart";
-    private const string ApplySettingsAction = "Restart now";
-
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly IDamlLogger _logger;
     private readonly LanguageServerHost _host;
     private readonly ClientRestartSequence _sequence;
     private readonly WorkspaceDiscovery _discovery;
+    private readonly WorkspaceWatcher _watcher;
+    private readonly LanguageServerNotifier _notifier;
     private readonly DamlSettingsMonitor _settings = new();
-    private readonly object _gate = new();
-    private FileSystemWatcher? _watcher;
-    private FileSystemWatcher? _folderWatcher;
-    private string? _watchedRoot;
     private int _version;
     private string? _openedFolder;
 
@@ -63,8 +58,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         var runner = new ProcessRunner();
         _discovery = new WorkspaceDiscovery(files, manifests);
         _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
-        _host.ProblemRaised += OnProblemRaised;
-        _host.ReadinessChanged += OnReadinessChanged;
+        _watcher = new WorkspaceWatcher(_host);
+        _notifier = new LanguageServerNotifier(_joinableTaskFactory, logger, _host);
+        _host.ProblemRaised += _notifier.OnProblemRaised;
+        _host.ReadinessChanged += _notifier.OnReadinessChanged;
         // Solution events have to be subscribed on the UI thread; nothing waits for it.
         _joinableTaskFactory.RunAsync(async () =>
         {
@@ -121,8 +118,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         {
             return null;
         }
-        // Like any status bar text, the next message from Visual Studio replaces it.
-        _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync("Daml: starting…")).FileAndForget("daml/languageClient/starting");
+        _notifier.ShowStarting();
         return new Connection(connection.FromServer, connection.ToServer);
     }
 
@@ -146,20 +142,33 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     public void Dispose()
     {
-        lock (_gate)
+        // Solution events are a UI-thread object; MEF may dispose this part from any thread, and
+        // the host below must be disposed whatever happens here, or the server outlives VS.
+        if (ThreadHelper.CheckAccess())
         {
-            _watcher?.Dispose();
-            _watcher = null;
-            _folderWatcher?.Dispose();
-            _folderWatcher = null;
+            UnsubscribeSolutionEvents();
         }
+        else
+        {
+            _joinableTaskFactory.RunAsync(async () =>
+            {
+                await _joinableTaskFactory.SwitchToMainThreadAsync();
+                UnsubscribeSolutionEvents();
+            }).FileAndForget("daml/languageClient/unsubscribe");
+        }
+        _watcher.Dispose();
         _settings.Dispose();
+        _sequence.Dispose();
+        _host.Dispose(); // closes the job, so the server can't outlive VS
+    }
+
+    private void UnsubscribeSolutionEvents()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
         VS.Events.SolutionEvents.OnAfterOpenFolder -= OnFolderOpened;
         VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
         VS.Events.SolutionEvents.OnAfterCloseFolder -= OnFolderClosed;
         VS.Events.SolutionEvents.OnAfterCloseSolution -= OnWorkspaceClosed;
-        _sequence.Dispose();
-        _host.Dispose(); // closes the job, so the server can't outlive VS
     }
 
     private async Task<(WorkspaceContext? Workspace, LanguageServerOptions Options)> DiscoverAsync(CancellationToken cancellationToken)
@@ -182,7 +191,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
         ApplyKeepAlive(settings);
         var workspace = _discovery.Discover(root, activeFile, Interlocked.Increment(ref _version), settings.ServerMode);
-        Watch(workspace?.WorkspaceRoot ?? root);
+        _watcher.Watch(workspace?.WorkspaceRoot ?? root);
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, workspace is null
             ? $"No Daml workspace in {root ?? "(no folder)"}."
             : $"Daml workspace {workspace.WorkspaceRoot}; server runs in {workspace.ServerWorkingDirectory}.");
@@ -208,68 +217,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         ApplyKeepAlive(e.Settings);
         if (e.RestartRequired)
         {
-            _joinableTaskFactory.RunAsync(() => ShowRestartRequiredAsync(e.ChangesNeedingRestart)).FileAndForget("daml/options/restartRequired");
-        }
-    }
-
-    private async Task ShowRestartRequiredAsync(IReadOnlyList<string> changes)
-    {
-        var model = new InfoBarModel(
-            new[] { new InfoBarTextSpan($"Daml settings changed ({string.Join(", ", changes)}). Restart the language server to apply them. ") },
-            new[] { new InfoBarHyperlink(ApplySettingsAction) },
-            KnownMonikers.StatusInformation,
-            isCloseButtonVisible: true);
-        var infoBar = await VS.InfoBar.CreateAsync(model);
-        if (infoBar is null)
-        {
-            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "Couldn't show the restart bar for the changed settings; use Restart to apply them.");
-            return;
-        }
-        infoBar.ActionItemClicked += (_, args) =>
-        {
-            ThreadHelper.ThrowIfNotOnUIThread(); // VS raises it from the info bar's UI
-            if (args.ActionItem.Text == ApplySettingsAction)
-            {
-                args.InfoBarUIElement.Close();
-                _host.Supervisor.RequestRestart("Options changed");
-            }
-        };
-        if (!await infoBar.TryShowInfoBarUIAsync())
-        {
-            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "Couldn't show the restart bar for the changed settings; use Restart to apply them.");
-        }
-    }
-
-    private const int WatcherBufferSize = 64 * 1024;
-
-    // Manifest changes the server won't notice by itself go to the host, which may ask for a restart.
-    private void Watch(string? root)
-    {
-        lock (_gate)
-        {
-            if (root is null || string.Equals(root, _watchedRoot, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(root))
-            {
-                return;
-            }
-            _watcher?.Dispose();
-            _watchedRoot = root;
-            // One filter only on .NET Framework; the host ignores YAML files that aren't manifests.
-            // A build or clean touches thousands of entries under .daml at once, more than the
-            // default 8 KB buffer holds; when events are lost anyway, the host is told.
-            _watcher = new FileSystemWatcher(root, "*.yaml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, InternalBufferSize = WatcherBufferSize };
-            _watcher.Changed += (_, e) => _host.OnFileChanged(e.FullPath);
-            _watcher.Created += (_, e) => _host.OnFileChanged(e.FullPath);
-            _watcher.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
-            _watcher.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
-            _watcher.Error += (_, _) => _host.OnWatcherOverflow();
-            _watcher.EnableRaisingEvents = true;
-
-            // dpm clean deletes the package database damlc reads library sources from.
-            _folderWatcher?.Dispose();
-            _folderWatcher = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = WatcherBufferSize };
-            _folderWatcher.Deleted += (_, e) => _host.OnDirectoryRemoved(e.FullPath);
-            _folderWatcher.Error += (_, _) => _host.OnWatcherOverflow();
-            _folderWatcher.EnableRaisingEvents = true;
+            _notifier.ShowRestartRequired(e.ChangesNeedingRestart);
         }
     }
 
@@ -311,47 +259,4 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     private void OnWorkspaceOpened() =>
         _joinableTaskFactory.RunAsync(() => _sequence.FolderChangedAsync(CancellationToken.None)).FileAndForget("daml/languageClient/folderChanged");
-
-    private void OnReadinessChanged(object? sender, EventArgs e) =>
-        _joinableTaskFactory.RunAsync(async () =>
-        {
-            await _joinableTaskFactory.SwitchToMainThreadAsync();
-            // Read again on the UI thread, so a quick ready-then-stopped can't leave it stale.
-            var ready = _host.IsReady;
-            UIContext.FromUIContextGuid(PackageGuids.LanguageServerReady).IsActive = ready;
-            if (ready)
-            {
-                await VS.StatusBar.ShowMessageAsync("Daml: ready");
-            }
-        }).FileAndForget("daml/languageClient/readiness");
-
-    private void OnProblemRaised(object? sender, LanguageServerProblemEventArgs e) =>
-        _joinableTaskFactory.RunAsync(() => ShowProblemAsync(e.Problem)).FileAndForget("daml/languageClient/showProblem");
-
-    private async Task ShowProblemAsync(LanguageServerProblem problem)
-    {
-        var actions = problem.Kind == LanguageServerProblemKind.CircuitOpen
-            ? new[] { new InfoBarHyperlink(RestartAction) }
-            : Array.Empty<InfoBarHyperlink>();
-        var model = new InfoBarModel(
-            new[] { new InfoBarTextSpan(problem.Message + " ") },
-            actions,
-            problem.Kind == LanguageServerProblemKind.NoWorkspace ? KnownMonikers.StatusInformation : KnownMonikers.StatusWarning,
-            isCloseButtonVisible: true);
-        var infoBar = await VS.InfoBar.CreateAsync(model);
-        if (infoBar is null)
-        {
-            return;
-        }
-        infoBar.ActionItemClicked += (_, args) =>
-        {
-            ThreadHelper.ThrowIfNotOnUIThread(); // VS raises it from the info bar's UI
-            if (args.ActionItem.Text == RestartAction)
-            {
-                args.InfoBarUIElement.Close();
-                _host.Supervisor.ResetCircuit();
-            }
-        };
-        await infoBar.TryShowInfoBarUIAsync();
-    }
 }
