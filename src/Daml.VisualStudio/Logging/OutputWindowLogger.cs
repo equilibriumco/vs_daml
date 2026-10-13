@@ -54,7 +54,7 @@ internal sealed class OutputWindowLogger : IDamlLogger
         _createPaneAsync = createPaneAsync ?? CreateOutputPaneAsync;
     }
 
-    // Becomes configurable with the options page; until then Information and up.
+    // Information and up. The log level on the options page is the server's, not this pane's.
     public DamlLogLevel MinimumLevel { get; set; } = DamlLogLevel.Information;
 
     public bool IsEnabled(DamlLogLevel level) => level >= MinimumLevel;
