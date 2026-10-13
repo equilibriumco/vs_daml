@@ -18,6 +18,8 @@
          and the build tests need to load them. -->
     <PackageReference Include="Microsoft.VisualStudio.Workspace" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
+    <!-- Same for WebView2: devenv has it in PrivateAssemblies, the test host doesn't. -->
+    <PackageReference Include="Microsoft.Web.WebView2" />
     <!-- Only to pin the version Workspace.Extensions.VS asks for; its build targets stay out. -->
     <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="MessagePack" />

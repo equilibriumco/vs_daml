@@ -43,12 +43,24 @@
     <Content Include="LanguageConfiguration\DamlLanguageConfiguration.pkgdef" IncludeInVSIX="true" />
   </ItemGroup>
 
+  <!-- The script results page: the pinned script and stylesheet from the Daml VS Code extension,
+       with its licence, and our shim that stands in for the VS Code API. -->
+  <ItemGroup>
+    <Content Include="..\..\third_party\daml-extension\webview.js" Link="Assets\webview\webview.js" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\daml-extension\webview.css" Link="Assets\webview\webview.css" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\daml-extension\LICENSE" Link="Assets\webview\LICENSE" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="ScriptResults\Assets\shim.js" Link="Assets\webview\shim.js" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" ExcludeAssets="runtime" />
     <PackageReference Include="Community.VisualStudio.Toolkit.17" />
+    <!-- Compile only: Visual Studio ships WebView2 and redirects every version up to its own,
+         so the VSIX carries none of it. The build assets go too; they would copy WebView2Loader.dll. -->
+    <PackageReference Include="Microsoft.Web.WebView2" ExcludeAssets="runtime;native;build;buildTransitive" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
     <!-- Build only: VSGlobals.vsct names Visual Studio's own menus (Extensions) for the VSCT. -->
     <PackageReference Include="Community.VisualStudio.VSCT" PrivateAssets="all" />

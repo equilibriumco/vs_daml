@@ -26,6 +26,9 @@ namespace Daml.VisualStudio;
 [Guid(PackageGuids.PackageString)]
 [ProvideBindingPath]
 [ProvideMenuResource("Menus.ctmenu", 1)]
+// Script results open beside the Output window, one tab per script. They aren't restored with
+// the layout: their content comes from a running language server and is shown again on request.
+[ProvideToolWindow(typeof(ScriptResults.ScriptResultsToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, Window = OutputWindowGuid)]
 [ProvideOptionPage(typeof(Options.DamlOptionPages.General), "Daml", "General", 0, 0, true, SupportsProfiles = true)]
 [ProvideAutoLoad(PackageGuids.DamlActiveString, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideUIContextRule(
@@ -40,6 +43,9 @@ namespace Daml.VisualStudio;
     })]
 public sealed class DamlPackage : ToolkitPackage
 {
+    // The Output window, which the results windows dock beside.
+    private const string OutputWindowGuid = "34e76e81-ee4a-11d0-ae2e-00a0c90fffc3";
+
     /// <inheritdoc />
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {

@@ -18,4 +18,7 @@ internal static class PackageGuids
     public static readonly Guid ExtensionPane = new("e591e6cb-c20e-4529-9bbd-95967aad0b88");
     public static readonly Guid LanguageServerPane = new("c7638d4a-ffd8-4a66-a687-38e6b7279eaf");
     public static readonly Guid BuildPane = new("78e76cd5-a3c0-4863-8f68-39be37ff1f4c");
+
+    // The script results tool window type; each results resource gets its own instance of it.
+    public const string ScriptResultsWindowString = "2c1e6e0b-7d43-4a7b-9b1e-5f2a8c6d4e91";
 }
