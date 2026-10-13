@@ -61,6 +61,16 @@ public class ClassificationExportsTests
     }
 
     [Fact, Trait("Category", "Editor")]
+    public async Task Daml_views_get_markers_for_bracket_pairs_and_names()
+    {
+        var exports = (await ExportsAsync(typeof(IViewTaggerProvider))).ToList();
+
+        exports.Count.ShouldBe(2);
+        exports.ShouldAllBe(e => ((IEnumerable<string>)e.Metadata["ContentTypes"]!).SequenceEqual(new[] { "daml" }));
+        exports.ShouldAllBe(e => TypeNames(e.Metadata["TagTypes"]).SequenceEqual(new[] { typeof(TextMarkerTag).FullName }));
+    }
+
+    [Fact, Trait("Category", "Editor")]
     public async Task Daml_views_get_smart_indent()
     {
         var export = (await ExportsAsync(typeof(Microsoft.VisualStudio.Text.Editor.ISmartIndentProvider))).Single();

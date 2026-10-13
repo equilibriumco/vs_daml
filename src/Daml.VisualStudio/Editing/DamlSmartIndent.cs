@@ -16,8 +16,9 @@ internal sealed class DamlSmartIndentProvider : ISmartIndentProvider
 }
 
 /// <summary>
-/// Puts the caret of a new line where the code around it says it belongs. The whole file is
-/// lexed for each new line, which takes a few milliseconds even for thousands of lines.
+/// Puts the caret of a new line where the code around it says it belongs, from the buffer's
+/// shared tokens; a new line is a new text version, so it is lexed once (a few milliseconds even
+/// for thousands of lines).
 /// </summary>
 internal sealed class DamlSmartIndent : ISmartIndent
 {
@@ -27,7 +28,7 @@ internal sealed class DamlSmartIndent : ISmartIndent
 
     public int? GetDesiredIndentation(ITextSnapshotLine line)
     {
-        var lines = LineTokens.Lex(line.Snapshot.Lines.Select(l => l.GetText()));
+        var lines = DamlTokenCache.For(line.Snapshot.TextBuffer).Get(line.Snapshot);
         return IndentRules.GetDesiredIndentation(lines, line.LineNumber, _view.Options.GetOptionValue(DefaultOptions.IndentSizeOptionId));
     }
 
