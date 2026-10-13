@@ -51,6 +51,14 @@ public class ClassificationExportsTests
     }
 
     [Fact, Trait("Category", "Editor")]
+    public async Task Daml_views_get_smart_indent()
+    {
+        var export = (await ExportsAsync(typeof(Microsoft.VisualStudio.Text.Editor.ISmartIndentProvider))).Single();
+
+        ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
+    }
+
+    [Fact, Trait("Category", "Editor")]
     public async Task Double_quotes_get_native_brace_completion_in_daml_buffers()
     {
         var export = (await ExportsAsync(typeof(Microsoft.VisualStudio.Text.BraceCompletion.IBraceCompletionDefaultProvider))).Single();

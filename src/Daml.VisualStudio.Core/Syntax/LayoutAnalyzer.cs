@@ -244,6 +244,12 @@ public static class LayoutAnalyzer
                 if (Top.InHeader)
                 {
                     CountBracket(line, i);
+                    // What follows `=` is the body, however it's laid out.
+                    if (line[i].Kind == DamlTokenKind.ReservedOp && line.Is(i, "=") && Top.HeaderBrackets == 0)
+                    {
+                        Top.InHeader = false;
+                        Top.HeaderEndLine = number;
+                    }
                 }
                 if (OpenerAt(line, i) is not { } kind)
                 {

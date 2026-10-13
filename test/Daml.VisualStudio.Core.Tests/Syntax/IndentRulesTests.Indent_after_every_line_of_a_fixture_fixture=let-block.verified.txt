@@ -1,0 +1,28 @@
+﻿module LetBlock where
+‸
+
+‸
+total : [Int] -> Int
+‸
+total xs =
+  ‸
+  let
+    ‸
+    positive = filter (> 0) xs
+    ‸
+    summed = sum positive
+    ‸
+  in summed
+  ‸
+
+  ‸
+inScript : Script ()
+‸
+inScript = script do
+  ‸
+  let a = 1
+      ‸
+      b = 2
+      ‸
+  debug (a + b)
+  ‸

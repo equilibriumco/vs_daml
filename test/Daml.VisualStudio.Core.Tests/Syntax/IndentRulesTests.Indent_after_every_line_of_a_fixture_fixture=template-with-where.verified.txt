@@ -1,0 +1,30 @@
+﻿module Asset where
+‸
+
+‸
+import Daml.Script
+‸
+import DA.List (sort)
+‸
+
+‸
+-- | A thing someone owns.
+‸
+template Asset
+  ‸
+  with
+    ‸
+    issuer : Party
+    ‸
+    owner : Party
+    ‸
+    name : Text
+    ‸
+  where
+    ‸
+    signatory issuer
+    ‸
+    observer owner
+    ‸
+    ensure name /= ""
+    ‸

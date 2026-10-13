@@ -1,0 +1,38 @@
+﻿module Transfer where
+‸
+
+‸
+template Asset
+  ‸
+  with
+    ‸
+    owner : Party
+    ‸
+  where
+    ‸
+    signatory owner
+    ‸
+
+    ‸
+    choice Give : ContractId Asset
+      ‸
+      with
+        ‸
+        newOwner : Party
+        ‸
+      controller owner
+      ‸
+      do
+        ‸
+        create this with owner = newOwner
+        ‸
+
+        ‸
+    nonconsuming choice Inspect : Text
+      ‸
+      controller owner
+      ‸
+      do
+        ‸
+        pure "fine"
+        ‸

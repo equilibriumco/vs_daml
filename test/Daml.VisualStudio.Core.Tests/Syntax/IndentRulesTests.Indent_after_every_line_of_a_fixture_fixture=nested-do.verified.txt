@@ -1,0 +1,24 @@
+﻿module NestedDo where
+‸
+
+‸
+import Daml.Script
+‸
+
+‸
+test : Script ()
+‸
+test = script do
+  ‸
+  alice <- allocateParty "Alice"
+  ‸
+  forA_ [1, 2, 3] \i -> do
+    ‸
+    debug i
+    ‸
+    when (i > 1) do
+      ‸
+      debug "big"
+      ‸
+  pure ()
+  ‸

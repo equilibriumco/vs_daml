@@ -1,0 +1,28 @@
+﻿module CaseOf where
+‸
+
+‸
+describe : Optional Int -> Text
+‸
+describe value =
+  ‸
+  case value of
+    ‸
+    None -> "nothing"
+    ‸
+    Some n
+    ‸
+      | n > 10 -> "big"
+    ‸
+      | otherwise -> "small"
+    ‸
+
+    ‸
+lambdaCase : Optional Int -> Int
+‸
+lambdaCase = \case
+  ‸
+  None -> 0
+  ‸
+  Some n -> n
+  ‸
