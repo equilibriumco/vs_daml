@@ -26,6 +26,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        // Redirected console streams default to the OEM code page, which can't spell most of
+        // what a real dpm prints.
+        Console.OutputEncoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         RecordCall(args);
 
         var scenarioPath = Environment.GetEnvironmentVariable("FAKE_DPM_SCENARIO");

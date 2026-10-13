@@ -34,7 +34,7 @@ public sealed class FakeLanguageServerSession : IDisposable
         }
     }
 
-    internal static FakeLanguageServerSession Start(string executable, IReadOnlyDictionary<string, string> environment)
+    internal static FakeLanguageServerSession Start(string executable, IReadOnlyDictionary<string, string> environment, object? clientTarget)
     {
         var startInfo = new ProcessStartInfo(executable)
         {
@@ -52,6 +52,10 @@ public sealed class FakeLanguageServerSession : IDisposable
 
         // Raw streams: LSP framing is bytes with Content-Length headers, not text lines.
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(process.StandardInput.BaseStream, process.StandardOutput.BaseStream, new JsonMessageFormatter()));
+        if (clientTarget is not null)
+        {
+            rpc.AddLocalRpcTarget(clientTarget);
+        }
         var session = new FakeLanguageServerSession(process, rpc);
         process.ErrorDataReceived += (_, e) =>
         {

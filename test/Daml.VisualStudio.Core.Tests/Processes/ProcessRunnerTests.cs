@@ -322,4 +322,29 @@ public sealed class ProcessRunnerTests : IDisposable
             return true;
         }
     }
+
+    // Both pipes well past the 4 KB a pipe buffers, with text that isn't ASCII: a runner that
+    // read one pipe to the end before the other would deadlock here.
+    [Fact, Trait("Category", "Process")]
+    public async Task Large_output_on_both_pipes_is_read_whole_and_decoded_as_utf8()
+    {
+        var scenario = new FakeDpmScenario();
+        var big = new FakeDpmCommand { Stdout = new string('x', 1_000_000) + "zażółć 日本", Stderr = new string('y', 700_000) + "ü", ExitCode = 0 };
+        big.Args.Add("big");
+        scenario.Commands.Add(big);
+        using var fake = FakeDpm.Create(scenario);
+
+        var result = await _runner.RunAsync(new ProcessSpec(fake.ExecutablePath, ["big"])
+        {
+            WorkingDirectory = fake.RootDirectory,
+            Environment = fake.Environment.ToDictionary(p => p.Key, p => (string?)p.Value),
+            Timeout = Generous,
+        }, CancellationToken.None);
+
+        result.ExitCode.ShouldBe(0);
+        result.Stdout.Length.ShouldBe(1_000_000 + "zażółć 日本".Length);
+        result.Stdout.ShouldEndWith("zażółć 日本");
+        result.Stderr.ShouldEndWith("ü");
+        result.Stderr.Length.ShouldBe(700_001);
+    }
 }

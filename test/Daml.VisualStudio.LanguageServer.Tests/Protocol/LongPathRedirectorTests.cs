@@ -120,4 +120,55 @@ public class LongPathRedirectorTests
         _copier.Copies.ShouldHaveSingleItem().Source.ShouldBe(LongPath, StringCompareShould.IgnoreCase);
         ((string)result["uri"]!).ShouldStartWith("file:///C:/");
     }
+
+    // The limit is the one Visual Studio applies: 260 characters including the terminator, so a
+    // 259-character path still opens and a 260-character one doesn't.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(259, false)]
+    [InlineData(260, true)]
+    [InlineData(261, true)]
+    public void Paths_are_redirected_from_exactly_260_characters(int length, bool redirected)
+    {
+        var folder = @"C:\p\";
+        var path = folder + new string('a', length - folder.Length - @"\F.daml".Length) + @"\F.daml";
+        path.Length.ShouldBe(length);
+
+        var result = Redirector().Redirect(Location(path));
+
+        (_copier.Copies.Count > 0).ShouldBe(redirected);
+        ((string)result!["uri"]!).Equals(Uri(path), StringComparison.Ordinal).ShouldBe(!redirected);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_space_in_the_long_path_survives_the_uri_escaping()
+    {
+        var path = LongPath.Replace(@"\Daml\Script\", @"\Daml Script\");
+
+        Redirector().Redirect(Location(path));
+
+        _copier.Copies.ShouldHaveSingleItem().Source.ShouldBe(path);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_location_link_keeps_its_ranges()
+    {
+        var link = JObject.FromObject(new { targetUri = Uri(LongPath), targetRange = new { start = new { line = 1, character = 2 }, end = new { line = 3, character = 4 } }, targetSelectionRange = new { start = new { line = 1, character = 2 }, end = new { line = 1, character = 9 } } });
+
+        var result = (JObject)Redirector().Redirect(link)!;
+
+        JToken.DeepEquals(result["targetRange"], link["targetRange"]).ShouldBeTrue();
+        JToken.DeepEquals(result["targetSelectionRange"], link["targetSelectionRange"]).ShouldBeTrue();
+        ((string)result["targetUri"]!).ShouldNotBe(Uri(LongPath));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Two_long_files_of_the_same_folder_get_their_own_copies()
+    {
+        var sibling = LongPath.Replace("PartyIdHint.daml", "PartyIdHints.daml");
+
+        Redirector().Redirect(new JArray(Location(LongPath), Location(sibling)));
+
+        _copier.Copies.Select(c => c.Target).Distinct().Count().ShouldBe(2);
+        _copier.Copies.Select(c => Path.GetFileName(c.Target)).ShouldBe(["PartyIdHint.daml", "PartyIdHints.daml"]);
+    }
 }

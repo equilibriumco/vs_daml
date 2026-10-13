@@ -40,6 +40,12 @@ internal static class ClientMessageSanitizer
     private const int LastCompletionItemKind = 25;
     private const int FirstDiagnosticTag = 1;
     private const int LastDiagnosticTag = 2;
+    private const int FirstSymbolKind = 1;
+    private const int LastSymbolKind = 26;
+    private const int FirstCompletionItemTag = 1;
+    private const int LastCompletionItemTag = 1;
+    private const int FirstInsertTextMode = 1;
+    private const int LastInsertTextMode = 2;
 
     private static readonly byte[] NotificationReceived = Encoding.UTF8.GetBytes("\"NotificationReceived\"");
     private static readonly byte[] Initialize = Encoding.UTF8.GetBytes("\"initialize\"");
@@ -77,6 +83,10 @@ internal static class ClientMessageSanitizer
             initializeId = message["id"];
             changed |= Clamp(message.SelectToken("params.capabilities.textDocument.completion.completionItemKind.valueSet"), FirstCompletionItemKind, LastCompletionItemKind);
             changed |= Clamp(message.SelectToken("params.capabilities.textDocument.publishDiagnostics.tagSupport.valueSet"), FirstDiagnosticTag, LastDiagnosticTag);
+            changed |= Clamp(message.SelectToken("params.capabilities.textDocument.documentSymbol.symbolKind.valueSet"), FirstSymbolKind, LastSymbolKind);
+            changed |= Clamp(message.SelectToken("params.capabilities.workspace.symbol.symbolKind.valueSet"), FirstSymbolKind, LastSymbolKind);
+            changed |= Clamp(message.SelectToken("params.capabilities.textDocument.completion.completionItem.tagSupport.valueSet"), FirstCompletionItemTag, LastCompletionItemTag);
+            changed |= Clamp(message.SelectToken("params.capabilities.textDocument.completion.completionItem.insertTextModeSupport.valueSet"), FirstInsertTextMode, LastInsertTextMode);
         }
         if (mayHaveTags)
         {

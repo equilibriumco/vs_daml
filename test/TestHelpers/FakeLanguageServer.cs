@@ -4,12 +4,13 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using StreamJsonRpc;
 
 namespace Daml.TestHelpers;
 
 /// <summary>
 /// The fake Daml language server plus a temp folder holding its scenario and the log of
-/// methods it received. <see cref="Start"/> launches one process per session.
+/// methods it received. <see cref="Start()"/> launches one process per session.
 /// </summary>
 public sealed class FakeLanguageServer : IDisposable
 {
@@ -48,13 +49,22 @@ public sealed class FakeLanguageServer : IDisposable
             ["hangOnInitialize"] = scenario.HangOnInitialize,
             ["hangOnKeepAlive"] = scenario.HangOnKeepAlive,
             ["notificationsAfterInitialized"] = new JArray(scenario.NotificationsAfterInitialized),
+            ["stderrLinesAfterInitialized"] = new JArray(scenario.StderrLinesAfterInitialized),
+            ["replay"] = scenario.Replay is { } replay ? new JValue(replay) : JValue.CreateNull(),
+            ["replayRoot"] = scenario.ReplayRoot is { } replayRoot ? new JValue(replayRoot) : JValue.CreateNull(),
         };
         File.WriteAllText(server._scenarioPath, json.ToString(Formatting.None));
         return server;
     }
 
     /// <summary>Starts a server process and connects a JSON-RPC client to it.</summary>
-    public FakeLanguageServerSession Start() => FakeLanguageServerSession.Start(ExecutablePath, Environment);
+    public FakeLanguageServerSession Start() => FakeLanguageServerSession.Start(ExecutablePath, Environment, clientTarget: null);
+
+    /// <summary>
+    /// Starts the server with an object answering what it sends to the client: its public
+    /// methods, named by <see cref="JsonRpcMethodAttribute"/>, are registered before listening begins.
+    /// </summary>
+    public FakeLanguageServerSession Start(object clientTarget) => FakeLanguageServerSession.Start(ExecutablePath, Environment, clientTarget);
 
     /// <summary>Methods received across all sessions, in order.</summary>
     public IReadOnlyList<string> ReadReceivedMethods()

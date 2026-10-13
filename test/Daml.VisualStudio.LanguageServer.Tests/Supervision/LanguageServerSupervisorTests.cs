@@ -350,4 +350,23 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         _runner.Started.Count.ShouldBe(1);
         _supervisor.State.ShouldBe(LanguageServerState.Crashed);
     }
+
+    // The lock around the crash record exists for this: a process that leaves while the stop
+    // is waiting for it is a stop that worked, not a crash.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_process_that_leaves_during_the_stop_is_stopped_not_crashed()
+    {
+        await StartAsync();
+        var stop = _supervisor.StopAsync(CancellationToken.None);
+        _supervisor.State.ShouldBe(LanguageServerState.Stopping);
+
+        _runner.Started[0].Exit(1);
+        await stop;
+
+        _supervisor.State.ShouldBe(LanguageServerState.Stopped);
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Crashed);
+        var restart = StartAsync();
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Restarting, "no backoff after a clean stop");
+        (await restart).ShouldNotBeNull();
+    }
 }

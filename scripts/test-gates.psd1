@@ -6,7 +6,7 @@
         Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
         # Tests that start real processes (the fake dpm, the fake language server, cmd.exe) and
         # wait on them: kept out of Unit, which stays fast and deterministic.
-        Process     = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
+        Process     = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
         Editor      = @('Daml.VisualStudio.Tests')
         Contract    = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
         MSBuild     = @('Daml.Build.Tests')

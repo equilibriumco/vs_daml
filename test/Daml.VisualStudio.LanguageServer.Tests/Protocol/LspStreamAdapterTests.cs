@@ -46,6 +46,26 @@ public class LspStreamAdapterTests
         result.InitializeRequestId.ShouldNotBeNull().Value<int>().ShouldBe(0);
     }
 
+    // Everything damlc decodes as a closed enum: a value outside the protocol's range anywhere
+    // in initialize would end the session before it began.
+    [Fact, Trait("Category", "Unit")]
+    public void Initialize_keeps_only_the_symbol_kinds_item_tags_and_insert_modes_the_spec_defines()
+    {
+        var result = Sanitize("""
+            {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"processId":1,"capabilities":{
+              "workspace":{"symbol":{"symbolKind":{"valueSet":[1,26,27,118000]}}},
+              "textDocument":{
+                "documentSymbol":{"symbolKind":{"valueSet":[0,5,26,99]}},
+                "completion":{"completionItem":{"tagSupport":{"valueSet":[1,2]},"insertTextModeSupport":{"valueSet":[1,2,3]}}}}}}}
+            """);
+
+        var capabilities = Json(result.Body)["params"]!["capabilities"]!;
+        capabilities["workspace"]!["symbol"]!["symbolKind"]!["valueSet"]!.Values<int>().ShouldBe([1, 26]);
+        capabilities["textDocument"]!["documentSymbol"]!["symbolKind"]!["valueSet"]!.Values<int>().ShouldBe([5, 26]);
+        capabilities["textDocument"]!["completion"]!["completionItem"]!["tagSupport"]!["valueSet"]!.Values<int>().ShouldBe([1]);
+        capabilities["textDocument"]!["completion"]!["completionItem"]!["insertTextModeSupport"]!["valueSet"]!.Values<int>().ShouldBe([1, 2]);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Diagnostics_sent_back_by_the_client_lose_private_tags()
     {

@@ -236,5 +236,46 @@ public sealed class SupervisorLifecycleTests
         return _logger.Entries.Any(match);
     }
 
+    // The limit is per second: once the clock has moved on, lines are shown again and what the
+    // earlier window dropped is summarised on its own.
+    [Fact, Trait("Category", "Process")]
+    public async Task The_stderr_limit_starts_over_with_each_second()
+    {
+        var scenario = new FakeLanguageServerScenario();
+        scenario.StderrLines.AddRange(Enumerable.Range(1, 60).Select(i => $"early {i}"));
+        scenario.StderrLinesAfterInitialized.AddRange(Enumerable.Range(1, 60).Select(i => $"late {i}"));
+        using var server = FakeLanguageServer.Create(scenario);
+        using var supervisor = Real(server, out _, new SupervisorSettings { StderrLinesPerSecond = 10 });
+        var raised = 0;
+        supervisor.StdErrLine += (_, _) => Interlocked.Increment(ref raised);
 
+        var session = (await supervisor.StartAsync(CancellationToken.None)).ShouldNotBeNull();
+        (await EventuallyAsync(() => Volatile.Read(ref raised) >= 60)).ShouldBeTrue("the early lines");
+        _time.Advance(TimeSpan.FromSeconds(1));
+        using var rpc = Connect(session);
+        await rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, capabilities = new { } });
+        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
+        (await EventuallyAsync(() => Volatile.Read(ref raised) >= 120)).ShouldBeTrue("the late lines");
+        await rpc.InvokeAsync<object?>("shutdown");
+        await rpc.NotifyAsync("exit");
+        await RunOutTheGracePeriodAsync(supervisor.StopAsync(CancellationToken.None));
+
+        _logger.Entries.Count(e => e.Message.StartsWith("early ", StringComparison.Ordinal)).ShouldBe(10);
+        _logger.Entries.Count(e => e.Message.StartsWith("late ", StringComparison.Ordinal)).ShouldBe(10);
+        (await EventuallyAsync(() => _logger.Entries.Count(e => e.Message.StartsWith("50 stderr line(s)", StringComparison.Ordinal)) == 2)).ShouldBeTrue("one summary per window");
+    }
+
+    private static async Task<bool> EventuallyAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + Generous;
+        while (!condition())
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                return false;
+            }
+            await Task.Delay(20);
+        }
+        return true;
+    }
 }

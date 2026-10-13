@@ -32,6 +32,9 @@ public class OpenDocumentsTests
 
     private static readonly byte[] Close = Frame("""{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file:///M:/repo/daml/TypeError.daml"}}}""");
 
+    private static byte[] Change(int version, string text) =>
+        Frame(new JObject { ["jsonrpc"] = "2.0", ["method"] = "textDocument/didChange", ["params"] = new JObject { ["textDocument"] = new JObject { ["uri"] = Uri, ["version"] = version }, ["contentChanges"] = new JArray { new JObject { ["text"] = text } } } }.ToString(Newtonsoft.Json.Formatting.None));
+
     private static readonly string Diagnostics = """{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///m%3A/repo/daml/TypeError.daml","version":1,"diagnostics":[{"message":"Couldn't match","range":{"start":{"line":4,"character":8},"end":{"line":4,"character":19}}}]}}""";
 
     private static async Task<List<JObject>> SentToServerAsync(OpenDocuments documents, params byte[][] frames)
@@ -263,5 +266,24 @@ public class OpenDocumentsTests
             }
             base.Dispose(disposing);
         }
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_edit_after_the_reopen_follows_it_with_its_own_version()
+    {
+        var sent = await SentToServerAsync(new OpenDocuments(), Open(1, "a"), Close, Open(7, "b"), Change(8, "c"));
+
+        sent.Select(m => (string)m["method"]!).ShouldBe(["textDocument/didOpen", "textDocument/didChange", "textDocument/didChange"]);
+        sent.Select(m => (int)m["params"]!["textDocument"]!["version"]!).ShouldBe([1, 7, 8]);
+        ((string)sent[2]["params"]!["contentChanges"]![0]!["text"]!).ShouldBe("c");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Diagnostics_for_a_file_that_was_never_opened_pass_through()
+    {
+        var documents = new OpenDocuments();
+        var body = Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///M:/repo/daml/Other.daml","diagnostics":[]}}""");
+
+        documents.FromServer(body).ShouldBeTrue();
     }
 }

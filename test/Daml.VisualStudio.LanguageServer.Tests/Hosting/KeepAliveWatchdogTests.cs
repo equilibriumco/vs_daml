@@ -281,4 +281,44 @@ public sealed class KeepAliveWatchdogTests : IDisposable
 
         public TaskCompletionSource<bool> Answer { get; } = new();
     }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Watching_the_same_session_again_starts_over_and_the_old_ping_cant_report()
+    {
+        using var watchdog = Watchdog();
+        watchdog.Watch(1);
+        Advance(60);
+        var first = _pings[0];
+
+        watchdog.Watch(1);
+
+        first.Cancellation.IsCancellationRequested.ShouldBeTrue("the ping in flight belongs to the run that ended");
+        Advance(59);
+        _pings.Count.ShouldBe(1);
+        Advance(1);
+        _pings.Count.ShouldBe(2, "the new run pings a minute after it started");
+        Advance(119);
+        _unresponsive.ShouldBeEmpty("the first ping ran out at 180 s, but its run is over");
+        Advance(1);
+        _unresponsive.ShouldBe([1], "the second ping's timeout, reported once");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Disposing_in_the_middle_of_a_ping_ends_it_without_a_report()
+    {
+        var watchdog = Watchdog();
+        watchdog.Watch(1);
+        Advance(60);
+        var pending = _pings[0];
+
+        watchdog.Dispose();
+
+        pending.Cancellation.IsCancellationRequested.ShouldBeTrue();
+        Settle();
+        Advance(600);
+        pending.Answer.TrySetResult(true);
+        Settle();
+        _pings.Count.ShouldBe(1);
+        _unresponsive.ShouldBeEmpty();
+    }
 }

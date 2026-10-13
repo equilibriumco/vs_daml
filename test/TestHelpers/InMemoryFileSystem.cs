@@ -42,5 +42,7 @@ public sealed class InMemoryFileSystem : IDamlFileSystem
 
     /// <inheritdoc />
     public string ReadAllText(string path) =>
-        _files.TryGetValue(DamlPath.Normalize(path), out var content) ? content : throw new FileNotFoundException("No such file in the in-memory file system.", path);
+        _files.TryGetValue(DamlPath.Normalize(path), out var content)
+            ? content.TrimStart('\uFEFF') // File.ReadAllText drops a byte-order mark; so does this
+            : throw new FileNotFoundException("No such file in the in-memory file system.", path);
 }

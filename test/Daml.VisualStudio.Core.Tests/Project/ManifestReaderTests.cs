@@ -271,4 +271,26 @@ public class ManifestReaderTests
         _reader.Exists(@"C:\work\app\daml.yaml").ShouldBeTrue();
         _reader.Exists(@"C:\work\other\daml.yaml").ShouldBeFalse();
     }
+
+    // YAML has more than the hand-written manifests use; none of it may throw out of the reader.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("sdk-version: 3.6\nname: app\n", "3.6")]
+    [InlineData("\uFEFFsdk-version: 3.6.0\r\nname: app\r\n", "3.6.0")]
+    [InlineData("sdk-version: '3.6.0'\nname: app\n", "3.6.0")]
+    [InlineData("base: &b\n  name: app\nsdk-version: 3.6.0\nmore: *b\n", "3.6.0")]
+    [InlineData("base: &b\n  name: app\n<<: *b\nsdk-version: 3.6.0\n", "3.6.0")]
+    [InlineData("sdk-version: &v 3.6.0\nname: *v\n", "3.6.0")]
+    [InlineData("sdk-version: [3, 6]\nname: app\n", null)]
+    public void Unusual_but_valid_yaml_is_read_or_reported_never_thrown(string yaml, string? sdkVersion)
+    {
+        _files.AddFile(@"C:\work\app\daml.yaml", yaml);
+
+        var result = Should.NotThrow(() => _reader.ReadPackage(@"C:\work\app\daml.yaml"));
+
+        result.Value.ShouldNotBeNull().SdkVersion.ShouldBe(sdkVersion);
+        if (sdkVersion is null)
+        {
+            result.Diagnostics.ShouldNotBeEmpty("the sequence where a version was expected is reported");
+        }
+    }
 }
