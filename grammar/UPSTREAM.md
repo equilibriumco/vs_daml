@@ -62,8 +62,16 @@
   `type` and `deriving` are `@keyword.declaration` (as the Visual Studio extension colours them);
   upstream's `(variable) @type`, which overrode every variable, is `(type/variable) @type`;
   `(comment) @spell` moved before `(comment) @comment`, so that the comment highlight wins; Daml's
-  debug and error functions added to those lists; Daml's own captures in a last section. Our
-  highlight tests are under `test/highlight/`.
+  debug and error functions added to those lists; Daml's own captures in a last section; lambda
+  parameters captured one by one, as function parameters are (upstream captured the whole
+  `patterns` node, so the parameters stayed plain variables). Our highlight tests are under
+  `test/highlight/`.
+- **Locals** (`queries/locals.scm`) rewritten: upstream's four lines captured whole `signature`
+  and `function` nodes as definitions (which never match a name) and had no scopes. Ours declares
+  scopes (equations, lambdas, `let … in`, case alternatives, `do`, templates, choices, exceptions),
+  definitions (pattern variables, `let`/`where` bindings, the fields after `with`) and references.
+- **Tags** (`queries/tags.scm`) are ours (upstream has none), with tests under `test/tags/`;
+  `tree-sitter.json` names the injections, locals and tags queries next to the highlights.
 - **The body of a choice in the scanner** (`src/scanner.c`): a symbol `CHOICE_BODY` (mirroring
   `_cmd_choice_body`, before `UPDATE`), emitted with zero width before a `do` where a choice's body
   may start (`choice_body`, first in `interior`). Haskell lets a `do` block be an argument, so

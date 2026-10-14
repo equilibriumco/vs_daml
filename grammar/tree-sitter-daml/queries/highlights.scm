@@ -16,9 +16,11 @@
   patterns: (patterns
     (_) @variable.parameter))
 
+; Daml: each parameter, as for functions below; upstream captured the whole `patterns` node, which
+; left the parameters themselves (and so their uses, through locals.scm) plain variables.
 (expression/lambda
-  (_)+ @variable.parameter
-  "->")
+  patterns: (patterns
+    (_) @variable.parameter))
 
 (decl/function
   (infix

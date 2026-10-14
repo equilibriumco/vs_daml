@@ -1,0 +1,47 @@
+module Main where
+       -- <- definition.module
+
+template Asset
+         -- <- definition.class
+  with
+    owner : Party
+  where
+    signatory owner
+    choice Give : ContractId Asset
+           -- <- definition.method
+      with
+        newOwner : Party
+      controller owner
+      do create this with owner = newOwner
+         -- <- reference.call
+
+interface Holding where
+          -- <- definition.class
+  viewtype HoldingView
+  getOwner : Party
+  -- <- definition.method
+
+exception Oops
+          -- <- definition.class
+  with
+    m : Text
+  where
+    message m
+
+data Colour = Red | Green
+     -- <- definition.class
+
+class Pretty a where
+      -- <- definition.interface
+  pretty : a -> Text
+  -- <- definition.method
+
+transfer : Party -> Update ()
+-- <- definition.function
+transfer p = pure ()
+
+first, second : Int
+-- <- definition.function
+       -- <- definition.function
+first = 1
+second = 2

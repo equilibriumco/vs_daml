@@ -1,0 +1,24 @@
+template Asset
+  with
+    owner : Party
+  where
+    signatory owner
+              -- <- variable.member
+    choice Give : ()
+      with
+        newOwner : Party
+      controller owner
+                 -- <- variable.member
+      do
+        assertMsg "different" (newOwner /= owner)
+                               -- <- variable.member
+        pure ()
+
+inc x = x + 1
+        -- <- variable.parameter
+
+twice = \y -> y + y
+              -- <- variable.parameter
+
+owner = 1
+-- <- variable

@@ -14,7 +14,7 @@ template Asset
   -- <- keyword
     signatory issuer
     -- <- keyword.contract
-              -- <- variable
+              -- <- variable.member
     observer owner
     -- <- keyword.contract
     ensure issuer /= owner
