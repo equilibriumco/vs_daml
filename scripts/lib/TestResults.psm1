@@ -64,22 +64,41 @@ function Get-TreeSitterTestCounters {
         "Total parses: N; successful parses: P; failed parses: F; ...". Found is false when
         there is no such line (the parser didn't compile, the CLI failed), so a broken run can't
         pass for one with no failures.
+        The highlight and tag test files, listed under "syntax highlighting:" and "tags:", are
+        counted apart: QueryFiles, QueryFailed (a file without "(N assertions)") and Assertions.
     #>
     param([string[]] $Lines)
 
     $summary = $null
+    $inQueries = $false
+    $queryFiles = 0
+    $queryFailed = 0
+    $assertions = 0
     foreach ($line in $Lines) {
-        $match = [regex]::Match($line, 'Total parses:\s*(\d+);\s*successful parses:\s*(\d+);\s*failed parses:\s*(\d+)')
+        $plain = [regex]::Replace($line, "`e\[[0-9;]*m", '')
+        $match = [regex]::Match($plain, 'Total parses:\s*(\d+);\s*successful parses:\s*(\d+);\s*failed parses:\s*(\d+)')
         if ($match.Success) { $summary = $match }
+        if ($plain -match '^(syntax highlighting|tags):\s*$') { $inQueries = $true; continue }
+        if ($plain -match '^\S') { $inQueries = $false }
+        if ($inQueries) {
+            $file = [regex]::Match($plain, '^\s+\d+\.\s+\S+\s+\S.*?(\((\d+) assertions\))?\s*$')
+            if ($file.Success) {
+                $queryFiles++
+                if ($file.Groups[2].Success) { $assertions += [int] $file.Groups[2].Value } else { $queryFailed++ }
+            }
+        }
     }
     if ($null -eq $summary) {
-        return [pscustomobject]@{ Found = $false; Executed = 0; Passed = 0; Failed = 0 }
+        return [pscustomobject]@{ Found = $false; Executed = 0; Passed = 0; Failed = 0; QueryFiles = $queryFiles; QueryFailed = $queryFailed; Assertions = $assertions }
     }
     [pscustomobject]@{
-        Found    = $true
-        Executed = [int] $summary.Groups[1].Value
-        Passed   = [int] $summary.Groups[2].Value
-        Failed   = [int] $summary.Groups[3].Value
+        Found       = $true
+        Executed    = [int] $summary.Groups[1].Value
+        Passed      = [int] $summary.Groups[2].Value
+        Failed      = [int] $summary.Groups[3].Value
+        QueryFiles  = $queryFiles
+        QueryFailed = $queryFailed
+        Assertions  = $assertions
     }
 }
 

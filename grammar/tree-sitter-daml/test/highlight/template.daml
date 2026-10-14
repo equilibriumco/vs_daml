@@ -1,0 +1,47 @@
+module Main where
+-- <- keyword.import
+
+template Asset
+-- <- keyword.declaration
+         -- <- type
+  with
+  -- <- keyword.contract
+    issuer : Party
+    -- <- variable.member
+             -- <- type
+    owner : Party
+  where
+  -- <- keyword
+    signatory issuer
+    -- <- keyword.contract
+              -- <- variable
+    observer owner
+    -- <- keyword.contract
+    ensure issuer /= owner
+    -- <- keyword.contract
+    key (issuer, owner) : (Party, Party)
+    -- <- keyword.contract
+    maintainer key._1
+    -- <- keyword.contract
+
+    nonconsuming choice Look : ()
+    -- <- keyword.contract
+                 -- <- keyword.contract
+                        -- <- function.method
+      controller owner
+      -- <- keyword.contract
+      do pure ()
+      -- <- keyword
+
+    choice Give : ContractId Asset
+           -- <- function.method
+                  -- <- type
+      with
+      -- <- keyword.contract
+        newOwner : Party
+        -- <- variable.member
+      controller owner
+      do create this with owner = newOwner
+         -- <- function.call
+                     -- <- keyword.contract
+                          -- <- variable.member

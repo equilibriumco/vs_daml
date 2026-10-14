@@ -1,3 +1,9 @@
+; Highlights for Daml.
+;
+; When several patterns capture the same node, the last one wins, as in the tree-sitter CLI and
+; Neovim; general patterns come first and Daml's own at the end. Helix lets the first one win and
+; needs them in the opposite order.
+
 ; ----------------------------------------------------------------------------
 ; Parameters and variables
 ; NOTE: These are at the top, so that they have low priority,
@@ -32,6 +38,9 @@
 (string) @string
 
 (unit) @string.special.symbol ; unit, as in ()
+
+; Spell checking, for editors that do it; before the comment highlight so that it wins.
+(comment) @spell
 
 (comment) @comment
 
@@ -104,20 +113,24 @@
 (module
   (module_id) @module)
 
+; Daml: keywords that declare something, as the Visual Studio extension colours them.
 [
-  "where"
   "let"
   "in"
   "class"
   "instance"
-  "pattern"
   "data"
   "newtype"
-  "family"
   "type"
+  "deriving"
+] @keyword.declaration
+
+[
+  "where"
+  "pattern"
+  "family"
   "as"
   "hiding"
-  "deriving"
   "via"
   "stock"
   "anyclass"
@@ -375,7 +388,8 @@
 
 (type/star) @type
 
-(variable) @type
+; Daml: only type variables; every variable here would override all the patterns above.
+(type/variable) @type
 
 (constructor) @constructor
 
@@ -421,7 +435,7 @@
     "error" "undefined" "try" "tryJust" "tryAny" "catch" "catches" "catchJust" "handle" "handleJust"
     "throw" "throwIO" "throwTo" "throwError" "ioError" "mask" "mask_" "uninterruptibleMask"
     "uninterruptibleMask_" "bracket" "bracket_" "bracketOnErrorSource" "finally" "fail"
-    "onException" "expectationFailure"))
+    "onException" "expectationFailure" "abort" "assert" "assertMsg" "failWithStatus"))
 
 ; ----------------------------------------------------------------------------
 ; Debugging
@@ -429,7 +443,7 @@
   (#any-of? @keyword.debug
     "trace" "traceId" "traceShow" "traceShowId" "traceWith" "traceShowWith" "traceStack" "traceIO"
     "traceM" "traceShowM" "traceEvent" "traceEventWith" "traceEventIO" "flushEventLog" "traceMarker"
-    "traceMarkerIO"))
+    "traceMarkerIO" "debug" "debugRaw"))
 
 ; ----------------------------------------------------------------------------
 ; Fields
@@ -443,7 +457,51 @@
   (children
     (variable) @variable.member))
 
-
 ; ----------------------------------------------------------------------------
-; Spell checking
-(comment) @spell
+; Daml
+; Templates, interfaces and exceptions declare things; the contract keywords
+; give their terms. Last, so that they win.
+
+[
+  "template"
+  "interface"
+  "exception"
+] @keyword.declaration
+
+[
+  "with"
+  "choice"
+  "controller"
+  "signatory"
+  "observer"
+  "ensure"
+  "key"
+  "maintainer"
+  "message"
+  "viewtype"
+  "requires"
+  "for"
+] @keyword.contract
+
+(choice_modifier) @keyword.contract
+
+[
+  "try"
+  "catch"
+] @keyword.exception
+
+; A choice and an interface method are operations on a contract.
+(choice_declaration
+  name: (name) @function.method)
+
+(interface_body
+  (signature
+    name: (variable) @function.method))
+
+; The view and methods an interface instance implements.
+(interface_instance
+  body: (instance_declarations
+    [
+      (bind name: (variable) @function.method)
+      (function name: (variable) @function.method)
+    ]))

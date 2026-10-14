@@ -56,6 +56,14 @@
   the next word is `controller` followed by a party, a choice's empty `with`
   (`controller_follows`, in `valid_layout_start`). The debug names of the
   context sorts were reordered to match the enum (upstream had `quote` and `multi_way_if` swapped).
+- **Highlights** (`queries/highlights.scm`) keep upstream's order: when several patterns capture
+  a node, the last one wins (the tree-sitter CLI and Neovim; Helix needs the opposite order). Our
+  changes: a note on that at the top; `let`, `in`, `class`, `instance`, `data`, `newtype`,
+  `type` and `deriving` are `@keyword.declaration` (as the Visual Studio extension colours them);
+  upstream's `(variable) @type`, which overrode every variable, is `(type/variable) @type`;
+  `(comment) @spell` moved before `(comment) @comment`, so that the comment highlight wins; Daml's
+  debug and error functions added to those lists; Daml's own captures in a last section. Our
+  highlight tests are under `test/highlight/`.
 - **The body of a choice in the scanner** (`src/scanner.c`): a symbol `CHOICE_BODY` (mirroring
   `_cmd_choice_body`, before `UPDATE`), emitted with zero width before a `do` where a choice's body
   may start (`choice_body`, first in `interior`). Haskell lets a `do` block be an argument, so

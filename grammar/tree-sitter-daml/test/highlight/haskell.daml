@@ -1,0 +1,41 @@
+import DA.List (sort)
+-- <- keyword.import
+
+-- | Adds one.
+-- <- comment.documentation
+inc : Int -> Int
+-- <- function
+      -- <- type
+inc x = x + 1
+-- <- function
+    -- <- variable.parameter
+        -- <- variable.parameter
+          -- <- operator
+            -- <- number
+
+{- A plain comment. -}
+-- <- comment
+
+data Colour = Red | Green
+-- <- keyword.declaration
+     -- <- type
+              -- <- constructor
+  deriving (Eq, Show)
+  -- <- keyword.declaration
+
+first : [a] -> Optional a
+         -- <- type
+first xs = case xs of
+-- <- function
+           -- <- keyword.conditional
+  [] -> None
+        -- <- constructor
+  x :: _ -> Some x
+    -- <- operator
+
+yes = True
+      -- <- boolean
+text = "hello"
+       -- <- string
+main = pure ()
+-- <- function

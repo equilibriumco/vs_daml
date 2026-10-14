@@ -163,6 +163,34 @@ Describe 'Get-TreeSitterTestCounters' {
 
         (Get-TreeSitterTestCounters $lines).Failed | Should Be 2
     }
+
+    It 'counts the highlight and tag test files apart from the parses, with their assertions' {
+        $lines = @(
+            "      13. `e[32m✓ record: data declaration`e[0m",
+            'syntax highlighting:',
+            "      1. `e[32m✓ exception.daml`e[0m (8 assertions)",
+            "      2. `e[31m✗ haskell.daml`e[0m",
+            '    Failure - row: 25, column: 8, expected highlight ''type'', actual highlights: ''punctuation.bracket''',
+            "      3. `e[32m✓ template.daml`e[0m (25 assertions)",
+            'tags:',
+            "      1. `e[32m✓ template.daml`e[0m (4 assertions)",
+            'Total parses: 796; successful parses: 796; failed parses: 0; success percentage: 100.00%'
+        )
+
+        $counters = Get-TreeSitterTestCounters $lines
+
+        $counters.Executed | Should Be 796
+        $counters.QueryFiles | Should Be 4
+        $counters.QueryFailed | Should Be 1
+        $counters.Assertions | Should Be 37
+    }
+
+    It 'reports no query files when the run has none' {
+        $counters = Get-TreeSitterTestCounters @('Total parses: 3; successful parses: 3; failed parses: 0; success percentage: 100.00%')
+
+        $counters.QueryFiles | Should Be 0
+        $counters.QueryFailed | Should Be 0
+    }
 }
 
 Describe 'Get-NodeTestCounters' {

@@ -1,0 +1,27 @@
+interface Asset requires Holding.I where
+-- <- keyword.declaration
+          -- <- type
+                -- <- keyword.contract
+  viewtype AssetView
+  -- <- keyword.contract
+           -- <- type
+  getOwner : Party
+  -- <- function.method
+  transfer : Party -> Update (ContractId Asset)
+  -- <- function.method
+
+template Coin
+  with
+    owner : Party
+  where
+    signatory owner
+    interface instance Asset for Coin where
+    -- <- keyword.declaration
+              -- <- keyword.declaration
+                       -- <- type
+                             -- <- keyword.contract
+                                 -- <- type
+      view = AssetView with owner
+      -- <- function.method
+      getOwner = owner
+      -- <- function.method

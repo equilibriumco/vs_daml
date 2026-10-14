@@ -1,0 +1,18 @@
+exception InsufficientFunds
+-- <- keyword.declaration
+          -- <- type
+  with
+    needed : Decimal
+  where
+    message "Needed " <> show needed
+    -- <- keyword.contract
+            -- <- string
+
+f = try do
+    -- <- keyword.exception
+      throw (InsufficientFunds 1.0)
+      -- <- keyword.exception
+    catch
+    -- <- keyword.exception
+      (InsufficientFunds n) -> pure n
+       -- <- constructor
