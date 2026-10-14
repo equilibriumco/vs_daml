@@ -8,6 +8,12 @@
 // - Undoing the edits, also incrementally, gives back the tree of the original file (when that one
 //   parses without errors).
 //
+// One difference is let through: a node may end elsewhere when only whitespace lies between the
+// two ends. The layout scanner inherited from tree-sitter-haskell ends a block before or after the
+// line break and indentation that follow it depending on which old subtrees get reused (a `case`
+// with a `where` after its alternatives shows it, in unmodified tree-sitter-haskell too). The
+// fuzzer harness allows the same; such comparisons are counted.
+//
 // Where an edit leaves errors, the trees may differ: error recovery depends on which old subtrees
 // the parser reuses, and tree-sitter doesn't promise the same recovery both ways (its own fuzzer
 // checks only the undo). Those cases are counted, and must still produce a tree.
@@ -128,17 +134,45 @@ export function inverseEdit(text, { position, delete: count, insert }) {
 
 const hasErrors = sexp => /\((ERROR|MISSING)\b/.test(sexp);
 
-function mismatch(incremental, full) {
-  const a = incremental.split('\n');
-  const b = full.split('\n');
-  const line = a.findIndex((l, k) => l !== b[k]);
-  return { incremental: a[line], full: b[line] };
+// A printed node: what comes before its range (indentation, field, kind), the range as rows and
+// byte columns, and the parentheses closing it and its parents.
+const nodeLine = /^(.*?)\[(\d+), (\d+)\] - \[(\d+), (\d+)\](.*)$/;
+const whitespace = new Set([0x20, 0x09, 0x0a, 0x0d]);
+
+/**
+ * Compares two printed trees of `text`, line by line. A node may end at a different place when
+ * only whitespace lies between the two ends; everything else must match. Returns whether they are
+ * the same and whether that took the allowance, or the first two lines that differ.
+ */
+export function compareTrees(first, second, text) {
+  if (first === second) return { same: true, tolerated: false };
+  const a = first.split('\n');
+  const b = second.split('\n');
+  const bytes = Buffer.from(text, 'utf8');
+  const lineStarts = [0];
+  bytes.forEach((byte, i) => byte === 0x0a && lineStarts.push(i + 1));
+  const offset = (row, column) => (lineStarts[row] ?? bytes.length) + Number(column);
+  const blank = (x, y) => {
+    for (let i = Math.min(x, y); i < Math.max(x, y); i++) if (!whitespace.has(bytes[i])) return false;
+    return true;
+  };
+  for (let k = 0; k < Math.max(a.length, b.length); k++) {
+    if (a[k] === b[k]) continue;
+    const p = nodeLine.exec(a[k] ?? '');
+    const q = nodeLine.exec(b[k] ?? '');
+    const onlyEndsDiffer = p && q && p[1] === q[1] && p[2] === q[2] && p[3] === q[3] && p[6] === q[6];
+    if (!onlyEndsDiffer || !blank(offset(p[4], p[5]), offset(q[4], q[5]))) {
+      return { same: false, first: a[k], second: b[k] };
+    }
+  }
+  return { same: true, tolerated: true };
 }
 
 /**
  * Runs `cases` random cases over `files` from `seed`. Returns the failures, each with what is
- * needed to run it again, and how many cases left errors in the edited text (checked for a tree
- * only) and how many were compared exactly.
+ * needed to run it again, how many cases left errors in the edited text (checked for a tree only)
+ * and how many were compared exactly, and how many comparisons passed only because node ends may
+ * differ by whitespace.
  */
 export function checkCases({ files, seed, cases }) {
   const rand = randomGenerator(seed);
@@ -146,6 +180,7 @@ export function checkCases({ files, seed, cases }) {
   const failures = [];
   let exact = 0;
   let withErrors = 0;
+  let tolerated = 0;
   const originals = new Map();
   try {
     for (let i = 0; i < cases; i++) {
@@ -184,20 +219,24 @@ export function checkCases({ files, seed, cases }) {
         withErrors++;
       } else {
         exact++;
-        if (incremental !== full) report({ problem: 'incremental differs from full', ...mismatch(incremental, full) });
+        const result = compareTrees(incremental, full, current);
+        if (result.tolerated) tolerated++;
+        if (!result.same) report({ problem: 'incremental differs from full', incremental: result.first, full: result.second });
       }
 
       if (!originals.has(file)) originals.set(file, tree([file]));
       const original = originals.get(file);
       if (!hasErrors(original)) {
         const undone = tree([file, ...forward.flatMap(e => ['--edits', e]), ...undo.flatMap(e => ['--edits', e])]);
-        if (undone !== original) report({ problem: 'undoing the edits differs from the original', undo, ...mismatch(undone, original) });
+        const result = compareTrees(undone, original, text);
+        if (result.tolerated) tolerated++;
+        if (!result.same) report({ problem: 'undoing the edits differs from the original', undo, undone: result.first, original: result.second });
       }
     }
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
-  return { failures, exact, withErrors };
+  return { failures, exact, withErrors, tolerated };
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
@@ -208,8 +247,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const files = sourceFiles();
   const seed = arg('--seed') ?? Math.floor(Math.random() * 2 ** 31);
   const cases = arg('--cases') ?? 200;
-  const { failures, exact, withErrors } = checkCases({ files, seed, cases });
-  console.log(`${cases} cases over ${files.length} files, seed ${seed}: ${exact} compared exactly, ${withErrors} left errors; ${failures.length} failure(s)`);
+  const { failures, exact, withErrors, tolerated } = checkCases({ files, seed, cases });
+  console.log(`${cases} cases over ${files.length} files, seed ${seed}: ${exact} compared exactly, ${withErrors} left errors, ` +
+    `${tolerated} comparison(s) with node ends apart by whitespace only; ${failures.length} failure(s)`);
   for (const f of failures) console.error(JSON.stringify(f));
   process.exitCode = failures.length === 0 ? 0 : 1;
 }
