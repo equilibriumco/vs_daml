@@ -85,6 +85,13 @@ jobs:
       - name: Incremental parsing of the real-world corpus
         run: node ../scripts/edit-properties.mjs --cases 300 --seed ${{ github.run_number }}
 
+      # Parsing speed against the budgets (5 000 lines in 20 ms, an edit in 2 ms). Shared runners
+      # are too noisy to judge timings, so this reports and doesn't fail; the budgets are checked
+      # on a quiet machine with the same command.
+      - name: Parsing speed (report only)
+        run: |
+          { echo '### Parsing speed'; echo '```'; node ../scripts/perf.mjs --runs 10 || true; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+
       # The scanner and the tree-sitter runtime under the address and undefined-behaviour
       # sanitizers: every seed (the inputs of the corpus tests and the real-world files) parsed,
       # edited and undone once, then a minute of libFuzzer. The nightly workflow fuzzes longer.
