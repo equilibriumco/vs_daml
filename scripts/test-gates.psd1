@@ -57,5 +57,14 @@
                 }
             }
         }
+        # M4: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
+        # highlight and tag tests, `tree-sitter fuzz`, the scripts' tests and the corpus gate,
+        # which in a gate run needs the collected real-world corpus.
+        M4 = @{
+            Required = @('Grammar')
+            Pending  = @{}
+            Tools    = @()
+            Coverage = @{}
+        }
     }
 }

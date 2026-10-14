@@ -1,6 +1,6 @@
 # The real-world corpus
 
-Checked 2026-10-14 by `grammar/scripts/corpus-gate.mjs` with tree-sitter CLI 0.27.1, grammar at `1d1e5d1`,
+Checked 2026-10-14 by `grammar/scripts/corpus-gate.mjs` with tree-sitter CLI 0.27.1, grammar at `baf3469`,
 corpus collected 2026-10-14T09:29:34Z (`grammar/test/real-world/manifest.json`).
 
 **Gate: passed.** 760 of 764 files (99.5%) parse without errors;
