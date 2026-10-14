@@ -349,6 +349,28 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         reasons.ShouldContain(r => r.Contains("during startup"));
     }
 
+    // The crash is handled on the process's exit, where an exception would go unseen: a state
+    // handler that throws must not stop the restart from being asked for.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_crash_during_startup_asks_for_a_restart_even_when_a_state_handler_throws()
+    {
+        _supervisor.StateChanged += (_, e) =>
+        {
+            if (e.NewState == LanguageServerState.Crashed)
+            {
+                throw new InvalidOperationException("a handler that fails");
+            }
+        };
+        await StartAsync();
+
+        // Not CrashAsync: it waits for the state through a handler of its own, which the failing
+        // one above would keep from running.
+        _runner.Started[0].Exit(1);
+
+        var reasons = (await RestartRequestAsync(Generous)).ShouldNotBeNull("nothing asked for a restart");
+        reasons.ShouldContain(r => r.Contains("during startup"));
+    }
+
     // After a crash of a server that was ready, Visual Studio asks for a new session itself.
     [Fact, Trait("Category", "Unit")]
     public async Task A_crash_of_a_ready_server_is_left_to_visual_studio()

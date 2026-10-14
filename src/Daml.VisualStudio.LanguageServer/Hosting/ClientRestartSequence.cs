@@ -107,6 +107,7 @@ public sealed class ClientRestartSequence : IDisposable
                     await _host.StopAsync(cancellationToken, immediately: true).ConfigureAwait(false);
                 }
                 cancellationToken.ThrowIfCancellationRequested();
+                _host.Log(DamlLogLevel.Information, "Stopping the language client for the restart.");
                 await _raiseStop().ConfigureAwait(false);
                 await _host.StopAsync(cancellationToken).ConfigureAwait(false);
                 _clientStarted = false;
@@ -121,6 +122,10 @@ public sealed class ClientRestartSequence : IDisposable
                 return;
             }
             cancellationToken.ThrowIfCancellationRequested();
+            if (restart)
+            {
+                _host.Log(DamlLogLevel.Information, "Starting the language client again.");
+            }
             await _raiseStart().ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             _clientStarted = true;
@@ -142,6 +147,7 @@ public sealed class ClientRestartSequence : IDisposable
     {
         try
         {
+            _host.Log(DamlLogLevel.Information, $"Restarting the language server: {reasons}.");
             await RestartAsync(CancellationToken.None).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (Volatile.Read(ref _disposed) != 0)

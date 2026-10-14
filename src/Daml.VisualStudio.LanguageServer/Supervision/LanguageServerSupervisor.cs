@@ -357,7 +357,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     /// </summary>
     public void RequestRestart(string reason)
     {
-        IReadOnlyList<string> reasons;
+        string[] reasons;
         lock (_gate)
         {
             if (_pendingReasons.Contains(reason))
@@ -365,11 +365,12 @@ public sealed class LanguageServerSupervisor : IDisposable
                 return;
             }
             _pendingReasons.Add(reason);
-            if (_pendingReasons.Count > 1)
-            {
-                return;
-            }
             reasons = _pendingReasons.ToArray();
+        }
+        if (reasons.Length > 1)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"{reason}: joins the restart already asked for ({reasons[0]}).");
+            return;
         }
         RestartRequested?.Invoke(this, new RestartRequestedEventArgs(reasons));
     }
@@ -643,7 +644,16 @@ public sealed class LanguageServerSupervisor : IDisposable
         }
         if (crash.Old != crash.New)
         {
-            StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(crash.Old, crash.New, crash.SessionId));
+            // This runs on the process's exit, where nobody would see an exception: a failing
+            // handler is logged, and the restart below is still asked for.
+            try
+            {
+                StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(crash.Old, crash.New, crash.SessionId));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "Handling the language server's crash failed.", ex);
+            }
         }
         // Visual Studio starts a crashed server again by itself only once it has initialized; one
         // that dies before answering initialize is reported as failed to start and left there. So
