@@ -128,6 +128,7 @@ module.exports = {
   declaration: $ => choice(
     // Daml's own declarations (grammar/daml.js).
     $.template_declaration,
+    $.interface_declaration,
     $.decl,
     $.type_synonym,
     $.kind_signature,

@@ -170,6 +170,10 @@ module.exports = {
     $._varsym,
     $._consym,
 
+    // Daml: a zero-width token before the `do` that starts a choice's body, so that the `do` ends the controller
+    // instead of becoming an argument of its last expression.
+    $._cmd_choice_body,
+
     // The newline is used as a dummy symbol that is emitted whenever the scanner has to update its state even though
     // the current position must be parsed by the grammar.
     /\n/,

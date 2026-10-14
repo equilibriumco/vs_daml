@@ -32,16 +32,16 @@
   Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
   test had to leave `test/corpus/haskell/`.
 - **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses,
-  choices, the `with` blocks of fields, records with `with`). Upstream files are touched only to plug it in,
-  each place marked with a `Daml:` comment: `grammar.js` requires the module and spreads it into
-  the rules (`...daml`); `declaration` in `grammar/module.js` lists `template_declaration` first;
-  the record rules (`_record_fields` in `grammar/data.js`, `_exp_record` in `grammar/exp.js`,
-  `_pat_record` in `grammar/pat.js`) take `with` and a block as an alternative to braces, and accept
-  `;` between fields in braces; `grammar/externals.js` has one more layout start,
-  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`; `grammar/precedences.js` has one more
-  group, `['daml-clause', 'apply']`, so that `controller p` ends before the `do` of a choice instead
-  of taking it as an argument. Their nodes are listed in `grammar/docs/nodes.md`; our tests are
-  under `test/corpus/daml/`.
+  choices, interfaces and their instances, the `with` blocks of fields, records with `with`).
+  Upstream files are touched only to plug it in, each place marked with a `Daml:` comment:
+  `grammar.js` requires the module and spreads it into the rules (`...daml`); `declaration` in
+  `grammar/module.js` lists `template_declaration` and `interface_declaration` first; the record
+  rules (`_record_fields` in `grammar/data.js`, `_exp_record` in `grammar/exp.js`, `_pat_record` in
+  `grammar/pat.js`) take `with` and a block as an alternative to braces, and accept `;` between
+  fields in braces; `grammar/externals.js` has two more externals: a layout start,
+  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`, and `_cmd_choice_body` after
+  `_consym`. Their nodes are listed in `grammar/docs/nodes.md`; our tests are under
+  `test/corpus/daml/`.
 - **The `with` block in the scanner** (`src/scanner.c`): a symbol `START_WITH` (mirroring the new
   external) and a context sort `WithLayout` (below `MultiWayIfLayout`, so it gets layout
   semicolons). Inside it a `,` or `=` doesn't end the block in parentheses
@@ -50,6 +50,10 @@
   the next word is `controller` followed by a party, a choice's empty `with`
   (`controller_follows`, in `valid_layout_start`). The debug names of the
   context sorts were reordered to match the enum (upstream had `quote` and `multi_way_if` swapped).
+- **The body of a choice in the scanner** (`src/scanner.c`): a symbol `CHOICE_BODY` (mirroring
+  `_cmd_choice_body`, before `UPDATE`), emitted with zero width before a `do` where a choice's body
+  may start (`choice_body`, first in `interior`). Haskell lets a `do` block be an argument, so
+  without it `controller a :: b` followed by `do` would read as `b do …`.
 - Our own `package.json` (private, only the pinned CLI), `tree-sitter.json` (file type `.daml`,
   scope `source.daml`), `.gitignore`, `.gitattributes`, `.editorconfig`, `README.md`; our
   copyright line added to `LICENSE`.

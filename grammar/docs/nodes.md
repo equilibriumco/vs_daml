@@ -48,7 +48,7 @@ A clause still being written (`signatory` with nothing after it) gives an `ERROR
 |---|---|---|
 | `choice_declaration` | `modifier` (`choice_modifier`)?, `name` (`name`), `return_type` (type), `parameters` (`with_fields`)?, `observer` (`observer_clause`)?, `controller` (`controller_clause`), `body` (`do`) | `nonconsuming choice Name : Type with … observer … controller … do …`, in that order. Each part after the name may start a line of its own, indented more than `choice` (`: Type` too). A `with` without fields right before `controller` is allowed. The body is upstream's `do` node. |
 | `choice_modifier` | — | `nonconsuming`, `preconsuming` or `postconsuming`; the node's text says which. |
-| `controller_clause` | `party` (expression)+ | `controller a, b`. The `do` after the last party starts the body; it is never an argument of the party. |
+| `controller_clause` | `party` (expression)+ | `controller a, b`, also with operators (`controller (view this).admin :: extraActors`). The `do` after the last party starts the body; it is never an argument of the party. |
 
 `choice` and `controller` are keywords only where a choice or its controller can start; elsewhere
 they stay ordinary names (a record field `choice : Text`, a variable `controller`). A choice still
@@ -63,4 +63,36 @@ being written (`controller` with nothing after it) gives an `ERROR` inside `temp
   observer: (observer_clause party: (variable))
   controller: (controller_clause party: (variable))
   body: (do statement: (exp …)))
+```
+
+## Interfaces
+
+| Node | Fields | Notes |
+|---|---|---|
+| `interface_declaration` | `name` (`name`), `requires` (`requires_clause`)?, `body` (`interface_body`)? | `interface Name requires A, B where …`. |
+| `requires_clause` | `interface` (`name` or `qualified`)+ | The interfaces this one requires, comma-separated. |
+| `interface_body` | — | The layout block after `where`: `viewtype_clause`, methods as upstream's `signature` (the type may start the next line), and `choice_declaration`. |
+| `viewtype_clause` | `type` (`name` or `qualified`) | `viewtype View`. |
+| `interface_instance` | `interface` (`name` or `qualified`), `for` (`name` or `qualified`), `body` (`instance_declarations`)? | `interface instance I for T where …`, in a template body; the `where` may start the next line. The body is upstream's class-instance body: `view = …` and the methods are `bind`/`function` declarations under `declaration:` fields. |
+
+`viewtype` and `requires` are keywords only in an interface; elsewhere they stay ordinary names. A
+method still being written (`getOwner :`) stays a `signature` with a `MISSING` type, and an
+instance still being written (`interface instance I for`) an `interface_instance` with a `MISSING`
+name; what follows them is not affected.
+
+```
+(interface_declaration
+  name: (name)
+  requires: (requires_clause interface: (qualified module: (module (module_id)) id: (name)))
+  body: (interface_body
+    (viewtype_clause type: (name))
+    (signature name: (variable) type: (name))
+    (choice_declaration …)))
+
+(interface_instance
+  interface: (name)
+  for: (name)
+  body: (instance_declarations
+    declaration: (bind name: (variable) match: (match expression: (record …)))
+    declaration: (function name: (variable) patterns: (patterns (variable)) match: (match …))))
 ```

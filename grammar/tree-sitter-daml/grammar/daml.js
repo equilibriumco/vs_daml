@@ -1,6 +1,7 @@
-// The constructs Daml adds to Haskell: templates and their clauses, choices, and the `with`
-// blocks of fields they share with records. Kept apart from the modules inherited from
-// tree-sitter-haskell, so that taking upstream changes stays a matter of merging those.
+// The constructs Daml adds to Haskell: templates and their clauses, choices, interfaces and their
+// instances, and the `with` blocks of fields they share with records. Kept apart from the modules
+// inherited from tree-sitter-haskell, so that taking upstream changes stays a matter of merging
+// those.
 
 const {
   sep1,
@@ -65,6 +66,7 @@ module.exports = {
     $.observer_clause,
     $.ensure_clause,
     $.choice_declaration,
+    $.interface_instance,
   ),
 
   /**
@@ -94,17 +96,63 @@ module.exports = {
     optional(seq('with', optional(field('parameters', $.with_fields)))),
     optional(field('observer', $.observer_clause)),
     field('controller', $.controller_clause),
-    field('body', alias($._exp_do, $.do)),
+    field('body', alias($._choice_body, $.do)),
   ),
+
+  /**
+   * The body, upstream's `do` node. The scanner puts a zero-width token before its `do`, so the
+   * `do` is never taken for an argument of the controller's last expression.
+   */
+  _choice_body: $ => seq($._cmd_choice_body, 'do', $._statements),
 
   choice_modifier: _ => choice('nonconsuming', 'preconsuming', 'postconsuming'),
 
   /**
    * `controller a, b`: who may exercise the choice. The `do` after it starts the body, it isn't an
-   * argument of the last party.
+   * argument of the last party (see `_choice_body`).
    */
-  controller_clause: $ => seq('controller', sep1(',', field('party', $._controller_party))),
+  controller_clause: $ => seq('controller', sep1(',', field('party', $.expression))),
 
-  _controller_party: $ => prec('daml-clause', $.expression),
+  // ------------------------------------------------------------------------
+  // interface
+  // ------------------------------------------------------------------------
+
+  /**
+   * `interface Name requires A, B where <body>`. The names may be qualified.
+   */
+  interface_declaration: $ => seq(
+    'interface',
+    field('name', $.name),
+    optional(field('requires', $.requires_clause)),
+    optional(seq($._where, optional(field('body', $.interface_body)))),
+  ),
+
+  requires_clause: $ => seq('requires', sep1(',', field('interface', $._tyconids))),
+
+  /**
+   * The view type, the methods, written as signatures, and the choices.
+   */
+  interface_body: $ => layout($, $._interface_body_item),
+
+  _interface_body_item: $ => choice(
+    $.viewtype_clause,
+    $.signature,
+    $.choice_declaration,
+  ),
+
+  viewtype_clause: $ => seq('viewtype', field('type', $._tyconids)),
+
+  /**
+   * `interface instance I for T where <methods>`, in a template. The methods and `view` are
+   * bindings, so the body is the same node as a class instance's.
+   */
+  interface_instance: $ => seq(
+    'interface',
+    'instance',
+    field('interface', $._tyconids),
+    'for',
+    field('for', $._tyconids),
+    optional(seq($._where, optional(field('body', $.instance_declarations)))),
+  ),
 
 }

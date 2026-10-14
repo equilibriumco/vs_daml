@@ -162,6 +162,7 @@ typedef enum {
   TYPE_INSTANCE,
   VARSYM,
   CONSYM,
+  CHOICE_BODY,
   UPDATE,
 } Symbol;
 
@@ -217,6 +218,7 @@ static const char *sym_names[] = {
   "type_instance",
   "varsym",
   "consym",
+  "choice_body",
   "update",
 };
 
@@ -3354,10 +3356,22 @@ static Symbol process_token_constraint(Env *env) {
   return FAIL;
 }
 
+/**
+ * Daml: the `do` that starts a choice's body. Haskell lets a `do` block be an argument, so after
+ * `controller a :: b` the parser could take `b do …` for an application; this zero-width token, valid only where a
+ * choice's body may start, ends the controller first. A `do` at the start of a line gets here too, once the newline
+ * has been processed.
+ */
+static Symbol choice_body(Env *env) {
+  if (valid(env, CHOICE_BODY) && token(env, "do")) return finish(CHOICE_BODY, "choice body");
+  return FAIL;
+}
+
 static Symbol interior(Env *env, bool whitespace) {
   Lexed next = lex(env, false);
   dbg("interior, column %d, ws %d, token %s\n", column(env), whitespace, token_names[next]);
   SEQ(resolve_semicolon(env, next));
+  SEQ(choice_body(env));
   SEQ(process_token_interior(env, next));
   SEQ(process_token_symop(env, whitespace, next));
   SEQ(process_token_constraint(env));

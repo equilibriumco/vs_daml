@@ -1,0 +1,362 @@
+================================================================================
+interface: view type, methods and a choice
+================================================================================
+
+interface Asset where
+  viewtype AssetView
+  getOwner : Party
+  transfer : Party -> Update (ContractId Asset)
+  nonconsuming choice Look : ()
+    controller getOwner this
+    do pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (interface_declaration
+      name: (name)
+      body: (interface_body
+        (viewtype_clause
+          type: (name))
+        (signature
+          name: (variable)
+          type: (name))
+        (signature
+          name: (variable)
+          type: (function
+            parameter: (name)
+            result: (apply
+              constructor: (name)
+              argument: (parens
+                type: (apply
+                  constructor: (name)
+                  argument: (name))))))
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (apply
+              function: (variable)
+              argument: (variable)))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+interface: required interfaces, qualified names
+================================================================================
+
+interface Fungible requires Holding.I, Lockable where
+  viewtype Holding.View
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (interface_declaration
+      name: (name)
+      requires: (requires_clause
+        interface: (qualified
+          module: (module
+            (module_id))
+          id: (name))
+        interface: (name))
+      body: (interface_body
+        (viewtype_clause
+          type: (qualified
+            module: (module
+              (module_id))
+            id: (name)))))))
+
+================================================================================
+interface: a method with its type on the next line
+================================================================================
+
+interface I where
+  viewtype V
+  allocate
+    : Party -> Update ()
+  cancel : Update ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (interface_declaration
+      name: (name)
+      body: (interface_body
+        (viewtype_clause
+          type: (name))
+        (signature
+          name: (variable)
+          type: (function
+            parameter: (name)
+            result: (apply
+              constructor: (name)
+              argument: (unit))))
+        (signature
+          name: (variable)
+          type: (apply
+            constructor: (name)
+            argument: (unit)))))))
+
+================================================================================
+interface: between other declarations
+================================================================================
+
+module Main where
+
+interface I where
+  viewtype V
+
+f : Int
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  (header
+    module: (module
+      (module_id)))
+  declarations: (declarations
+    (interface_declaration
+      name: (name)
+      body: (interface_body
+        (viewtype_clause
+          type: (name))))
+    (signature
+      name: (variable)
+      type: (name))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+interface instance: in a template, with the view and methods
+================================================================================
+
+template Coin
+  with
+    owner : Party
+  where
+    signatory owner
+    interface instance Asset for Coin where
+      view = AssetView with owner
+      getOwner = owner
+      transfer newOwner = toInterfaceContractId <$> create this with owner = newOwner
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (interface_instance
+          interface: (name)
+          for: (name)
+          body: (instance_declarations
+            declaration: (bind
+              name: (variable)
+              match: (match
+                expression: (record
+                  expression: (constructor)
+                  field: (field_update
+                    field: (field_name
+                      (variable))))))
+            declaration: (bind
+              name: (variable)
+              match: (match
+                expression: (variable)))
+            declaration: (function
+              name: (variable)
+              patterns: (patterns
+                (variable))
+              match: (match
+                expression: (infix
+                  left_operand: (variable)
+                  operator: (operator)
+                  right_operand: (apply
+                    function: (variable)
+                    argument: (record
+                      expression: (variable)
+                      field: (field_update
+                        field: (field_name
+                          (variable))
+                        expression: (variable)))))))))))))
+
+================================================================================
+interface instance: qualified names, where on the next line, methods with patterns
+================================================================================
+
+template Coin
+  with
+    owner : Party
+  where
+    signatory owner
+    interface instance V1.Factory for Coin
+      where
+        view = V
+        method3 True x y = x
+        create' Factory.Create{..} = pure 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (interface_instance
+          interface: (qualified
+            module: (module
+              (module_id))
+            id: (name))
+          for: (name)
+          body: (instance_declarations
+            declaration: (bind
+              name: (variable)
+              match: (match
+                expression: (constructor)))
+            declaration: (function
+              name: (variable)
+              patterns: (patterns
+                (constructor)
+                (variable)
+                (variable))
+              match: (match
+                expression: (variable)))
+            declaration: (function
+              name: (variable)
+              patterns: (patterns
+                (record
+                  constructor: (qualified
+                    module: (module
+                      (module_id))
+                    id: (constructor))
+                  field: (field_pattern
+                    (wildcard))))
+              match: (match
+                expression: (apply
+                  function: (variable)
+                  argument: (literal
+                    (integer)))))))))))
+
+================================================================================
+interface: viewtype and requires as ordinary names elsewhere
+================================================================================
+
+requires viewtype = viewtype
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+interface: a method still being written
+================================================================================
+
+interface I where
+  viewtype V
+  getOwner :
+
+f : Int
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (interface_declaration
+      name: (name)
+      body: (interface_body
+        (viewtype_clause
+          type: (name))
+        (signature
+          name: (variable)
+          type: (MISSING variable))))
+    (signature
+      name: (variable)
+      type: (name))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+interface instance: still being written
+================================================================================
+
+template Coin
+  with
+    owner : Party
+  where
+    signatory owner
+    interface instance Asset for
+
+    choice C : ()
+      controller owner
+      do pure ()
+
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (interface_instance
+          interface: (name)
+          for: (MISSING name))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))

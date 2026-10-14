@@ -565,3 +565,69 @@ f = Foo with
               (variable))
             expression: (literal
               (integer))))))))
+
+================================================================================
+choice: a controller written with operators
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    choice Burn : ()
+      controller (view this).admin :: extraActors
+      do pure ()
+
+    choice Lock : ()
+      controller [a] ++ b do
+        pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (infix
+              left_operand: (projection
+                expression: (parens
+                  expression: (apply
+                    function: (variable)
+                    argument: (variable)))
+                field: (field_name
+                  (variable)))
+              operator: (constructor_operator)
+              right_operand: (variable)))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (infix
+              left_operand: (list
+                element: (variable))
+              operator: (operator)
+              right_operand: (variable)))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
