@@ -670,3 +670,79 @@ r = x {a = 1; b = 2}
               (variable))
             expression: (literal
               (integer))))))))
+
+================================================================================
+record: a wildcard without a block, in a function head
+================================================================================
+
+contractGroupId AnsEntryContext with .. = ForDso with ..
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (record
+          constructor: (constructor)
+          field: (field_pattern
+            (wildcard))))
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            (wildcard)))))))
+
+================================================================================
+record: a field value with a type annotation
+================================================================================
+
+r = Coin with amount = 1.0 : Decimal; owner
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (signature
+              expression: (literal
+                (float))
+              type: (name)))
+          field: (field_update
+            field: (field_name
+              (variable))))))))
+
+================================================================================
+record: fields then a wildcard, in a function head
+================================================================================
+
+contractGroupId OpenMiningRound with dso; .. = ForDso with dso
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (record
+          constructor: (constructor)
+          field: (field_pattern
+            field: (field_name
+              (variable)))
+          field: (field_pattern
+            (wildcard))))
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            field: (field_name
+              (variable))))))))

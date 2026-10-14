@@ -27,7 +27,8 @@ both alike. In Daml both kinds separate fields with `,` or `;`.
 
 `with` binds tighter than application: `create Asset with …` is `create` applied to the record.
 The block after `with` ends where its indentation ends, or at `)`, `]`, `then`, `else`, `in`,
-`deriving`, `|` between constructors, and the `->` after a pattern.
+`deriving`, `|` between constructors, the `->` after a pattern, an `=` that can't give a field its
+value (`f Con with a; .. = …`) and a `:` that can't annotate a field's value (`key K with a; b : T`).
 
 ## Templates
 
@@ -38,6 +39,11 @@ The block after `with` ends where its indentation ends, or at `)`, `]`, `then`, 
 | `signatory_clause` | `party` (expression)+ | `signatory a, b`: one `party` per comma-separated expression (a party, a list or a set). |
 | `observer_clause` | `party` (expression)+ | As `signatory_clause`; also a choice's observers. |
 | `ensure_clause` | `condition` (expression) | |
+| `key_clause` | `expression` (expression), `type` (type) | `key (bank, number) : (Party, Text)`. Keys compile by default from SDK 3.6 (3.5 only with a development target). |
+| `maintainer_clause` | `party` (expression)+ | `maintainer key._1`. |
+
+`key` and `maintainer` are keywords only in a template body; a key still being written
+(`key e :`) keeps its `key_clause` with a `MISSING` type.
 
 A clause still being written (`signatory` with nothing after it) gives an `ERROR` inside
 `template_body`; the declarations after the template are not affected.
@@ -96,3 +102,19 @@ name; what follows them is not affected.
     declaration: (bind name: (variable) match: (match expression: (record …)))
     declaration: (function name: (variable) patterns: (patterns (variable)) match: (match …))))
 ```
+
+## Exceptions
+
+Deprecated since SDK 3.3 in favour of `failWithStatus`, but still compiled (with a warning).
+
+| Node | Fields | Notes |
+|---|---|---|
+| `exception_declaration` | `name` (`name`), `parameters` (`with_fields`)?, `body` (`exception_body`)? | `exception Name with … where message …`. |
+| `exception_body` | — | The layout block after `where`, holding the `message_clause`. |
+| `message_clause` | `message` (expression) | `message "MyException(" <> show field1`. |
+| `try` | `body` (expression), `alternatives` (`alternatives`)? | `try <body> catch <alternatives>`, an expression; the alternatives are upstream's, as in `case`. `catch` may stand in the column of the block around the `try`, or carry one alternative on its own line. |
+
+`try`, `catch` and `message` are keywords only where these constructs can be; `catch` and
+`message` stay ordinary names elsewhere (`message` is also a method of `HasMessage`). A `try` at
+the start of a top-level declaration is read as an expression, as upstream reads any expression
+there.

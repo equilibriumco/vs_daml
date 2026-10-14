@@ -260,7 +260,8 @@ module.exports = {
     alias('..', $.wildcard),
     seq(
       field('field', $._field_spec),
-      optional(seq('=', field('expression', $._exp)))
+      // Daml: the phantom tells the scanner that an `=` here gives the field its value (grammar/externals.js).
+      optional(seq(optional($._phantom_equals), '=', field('expression', $._exp)))
     ),
   ),
 
@@ -399,6 +400,8 @@ module.exports = {
     alias($._exp_section_right, $.right_section),
     $._exp_greedy,
     alias($._exp_case, $.case),
+    // Daml: `try … catch …` (grammar/daml.js).
+    alias($._exp_try, $.try),
     alias($._exp_multi_way_if, $.multi_way_if),
     $._exp_name,
     $._universal,
@@ -406,6 +409,8 @@ module.exports = {
 
   _exp_signature: $ => prec.right('annotated', seq(
     field('expression', $.expression),
+    // Daml: tells the scanner that a `:` here annotates the expression (grammar/externals.js).
+    optional($._phantom_colon),
     $._type_annotation,
   )),
 

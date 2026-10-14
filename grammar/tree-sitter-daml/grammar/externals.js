@@ -95,6 +95,12 @@ module.exports = {
     $._phantom_arrow,
     $._phantom_bar,
     $._phantom_deriving,
+    // Daml: valid where `:` would annotate an expression, so the scanner knows when a `:` can't continue a `with`
+    // block and ends it, as in `key K with a; b : T`.
+    $._phantom_colon,
+    // Daml: valid where `=` would give a record field its value, so an `=` after `..` ends a `with` block, as in
+    // `f Con with a; .. = …`.
+    $._phantom_equals,
 
     // Detect and emit text nodes for comments and CPP.
     // In particular, #else branches of CPP conditionals a fully contained in the resulting node, since their nonlinear

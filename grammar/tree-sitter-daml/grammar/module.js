@@ -129,6 +129,7 @@ module.exports = {
     // Daml's own declarations (grammar/daml.js).
     $.template_declaration,
     $.interface_declaration,
+    $.exception_declaration,
     $.decl,
     $.type_synonym,
     $.kind_signature,

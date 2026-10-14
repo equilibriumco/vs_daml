@@ -32,20 +32,26 @@
   Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
   test had to leave `test/corpus/haskell/`.
 - **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses,
-  choices, interfaces and their instances, the `with` blocks of fields, records with `with`).
-  Upstream files are touched only to plug it in, each place marked with a `Daml:` comment:
-  `grammar.js` requires the module and spreads it into the rules (`...daml`); `declaration` in
-  `grammar/module.js` lists `template_declaration` and `interface_declaration` first; the record
-  rules (`_record_fields` in `grammar/data.js`, `_exp_record` in `grammar/exp.js`, `_pat_record` in
-  `grammar/pat.js`) take `with` and a block as an alternative to braces, and accept `;` between
-  fields in braces; `grammar/externals.js` has two more externals: a layout start,
-  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`, and `_cmd_choice_body` after
-  `_consym`. Their nodes are listed in `grammar/docs/nodes.md`; our tests are under
-  `test/corpus/daml/`.
+  keys, choices, interfaces and their instances, exceptions and `try`/`catch`, the `with` blocks of
+  fields, records with `with`). Upstream files are touched only to plug it in, each place marked
+  with a `Daml:` comment: `grammar.js` requires the module and spreads it into the rules
+  (`...daml`); `declaration` in `grammar/module.js` lists `template_declaration`,
+  `interface_declaration` and `exception_declaration` first; `expression` in `grammar/exp.js` has
+  `try` next to `case`; the record rules (`_record_fields` in `grammar/data.js`, `_exp_record` in
+  `grammar/exp.js`, `_pat_record` in `grammar/pat.js`) take `with` and a block as an alternative to
+  braces, and accept `;` between fields in braces; `_exp_signature` (`grammar/exp.js`),
+  `field_update` (`grammar/exp.js`) and `field_pattern` (`grammar/pat.js`) have an optional phantom
+  before their `:` or `=`. `grammar/externals.js` has five more externals: a layout start,
+  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`; the phantoms `_phantom_colon` and
+  `_phantom_equals` after `_phantom_deriving`; and `_cmd_choice_body` after `_consym`. Their nodes
+  are listed in `grammar/docs/nodes.md`; our tests are under `test/corpus/daml/`.
 - **The `with` block in the scanner** (`src/scanner.c`): a symbol `START_WITH` (mirroring the new
   external) and a context sort `WithLayout` (below `MultiWayIfLayout`, so it gets layout
   semicolons). Inside it a `,` or `=` doesn't end the block in parentheses
-  (`end_layout_texp_closer`), an arrow that can't continue it does (`end_layout_arrow`), and
+  (`end_layout_texp_closer`), but an `=` that can't give a field its value ends it anywhere (symbol
+  `EQUALS`, the phantom, as after the `..` of `f Con with a; .. = …`); a lone `:` that can't
+  annotate the expression before it ends it (`end_layout_colon`, symbol `COLON`, as in
+  `key K with a; b : T`); an arrow that can't continue it does (`end_layout_arrow`), and
   `deriving` ends it as it ends GADT layouts (`end_layout_deriving`). It isn't started at all when
   the next word is `controller` followed by a party, a choice's empty `with`
   (`controller_follows`, in `valid_layout_start`). The debug names of the

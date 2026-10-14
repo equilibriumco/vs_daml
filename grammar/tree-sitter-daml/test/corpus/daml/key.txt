@@ -1,0 +1,203 @@
+================================================================================
+key: a tuple key and its maintainer
+================================================================================
+
+template Account
+  with
+    bank : Party
+    number : Text
+  where
+    signatory bank
+    key (bank, number) : (Party, Text)
+    maintainer key._1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (key_clause
+          expression: (tuple
+            element: (variable)
+            element: (variable))
+          type: (tuple
+            element: (name)
+            element: (name)))
+        (maintainer_clause
+          party: (projection
+            expression: (variable)
+            field: (field_name
+              (variable))))))))
+
+================================================================================
+key: an applied key with a named type, before a choice
+================================================================================
+
+template Reference
+  with
+    accountView : View
+  where
+    signatory accountView
+    key toKey accountView : AccountKey
+    maintainer key.custodian
+
+    nonconsuming choice GetCid : ()
+      controller accountView
+      do pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (key_clause
+          expression: (apply
+            function: (variable)
+            argument: (variable))
+          type: (name))
+        (maintainer_clause
+          party: (projection
+            expression: (variable)
+            field: (field_name
+              (variable))))
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+key: key and maintainer as ordinary names elsewhere
+================================================================================
+
+maintainer key = key
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+key: a key still being written
+================================================================================
+
+template Account
+  with
+    bank : Party
+  where
+    signatory bank
+    key (bank, bank) :
+    maintainer key._1
+
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (key_clause
+          expression: (tuple
+            element: (variable)
+            element: (variable))
+          type: (MISSING variable))
+        (maintainer_clause
+          party: (projection
+            expression: (variable)
+            field: (field_name
+              (variable))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+key: a record key written with with, its type on the same line
+================================================================================
+
+template Instruction
+  with
+    instructor : Party
+    id : Text
+  where
+    signatory instructor
+    key InstructionKey with instructor; id : InstructionKey
+    maintainer key.instructor
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (key_clause
+          expression: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable)))
+            field: (field_update
+              field: (field_name
+                (variable))))
+          type: (name))
+        (maintainer_clause
+          party: (projection
+            expression: (variable)
+            field: (field_name
+              (variable))))))))

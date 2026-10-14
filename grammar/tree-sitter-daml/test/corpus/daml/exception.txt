@@ -1,0 +1,182 @@
+================================================================================
+exception: fields and message
+================================================================================
+
+exception MyException
+  with
+    field1 : Int
+    field2 : Text
+  where
+    message "MyException(" <> show field1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (exception_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (exception_body
+        (message_clause
+          message: (infix
+            left_operand: (literal
+              (string))
+            operator: (operator)
+            right_operand: (apply
+              function: (variable)
+              argument: (variable))))))))
+
+================================================================================
+exception: try and catch with the alternatives below
+================================================================================
+
+f = try do
+      throw e
+    catch
+      (AssertionFailed msg) -> msg === expected
+      t@(TestFailureException _) -> assertFail t
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (try
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (variable))))
+          alternatives: (alternatives
+            alternative: (alternative
+              pattern: (parens
+                pattern: (apply
+                  function: (constructor)
+                  argument: (variable)))
+              match: (match
+                expression: (infix
+                  left_operand: (variable)
+                  operator: (operator)
+                  right_operand: (variable))))
+            alternative: (alternative
+              pattern: (as
+                bind: (variable)
+                pattern: (parens
+                  pattern: (apply
+                    function: (constructor)
+                    argument: (wildcard))))
+              match: (match
+                expression: (apply
+                  function: (variable)
+                  argument: (variable))))))))))
+
+================================================================================
+exception: catch and message as ordinary names elsewhere
+================================================================================
+
+catch message = message
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+exception: catch on its own line in a do block, with one alternative
+================================================================================
+
+g = do
+  isThrown <- try do
+      pure False
+    catch (_ : AnyException) -> pure True
+  pure isThrown
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (do
+          statement: (bind
+            pattern: (variable)
+            expression: (try
+              body: (do
+                statement: (exp
+                  (apply
+                    function: (variable)
+                    argument: (constructor))))
+              alternatives: (alternatives
+                alternative: (alternative
+                  pattern: (parens
+                    pattern: (signature
+                      pattern: (wildcard)
+                      type: (name)))
+                  match: (match
+                    expression: (apply
+                      function: (variable)
+                      argument: (constructor)))))))
+          statement: (exp
+            (apply
+              function: (variable)
+              argument: (variable))))))))
+
+================================================================================
+exception: catch in the column of the do block around the try
+================================================================================
+
+h = do
+  try do
+      pure ()
+  catch
+    (E _) -> pure ()
+
+k = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (do
+          statement: (exp
+            (try
+              body: (do
+                statement: (exp
+                  (apply
+                    function: (variable)
+                    argument: (unit))))
+              alternatives: (alternatives
+                alternative: (alternative
+                  pattern: (parens
+                    pattern: (apply
+                      function: (constructor)
+                      argument: (wildcard)))
+                  match: (match
+                    expression: (apply
+                      function: (variable)
+                      argument: (unit))))))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))

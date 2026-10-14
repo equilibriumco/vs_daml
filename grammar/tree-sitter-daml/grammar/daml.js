@@ -1,7 +1,7 @@
 // The constructs Daml adds to Haskell: templates and their clauses, choices, interfaces and their
-// instances, and the `with` blocks of fields they share with records. Kept apart from the modules
-// inherited from tree-sitter-haskell, so that taking upstream changes stays a matter of merging
-// those.
+// instances, exceptions, and the `with` blocks of fields they share with records. Kept apart from
+// the modules inherited from tree-sitter-haskell, so that taking upstream changes stays a matter of
+// merging those.
 
 const {
   sep1,
@@ -40,7 +40,8 @@ module.exports = {
   _exp_record_with: $ => seq('with', with_layout($, sep1(',', field('field', $.field_update)))),
 
   /**
-   * `V1 with payload -> …`: a record pattern, as with braces.
+   * `V1 with payload -> …`: a record pattern, as with braces. Before the `=` of a function head,
+   * `f Con with a; .. = …`, the block ends because that `=` can't give the `..` a value.
    */
   _pat_record_with: $ => seq('with', with_layout($, sep1(',', field('field', $.field_pattern)))),
 
@@ -65,6 +66,8 @@ module.exports = {
     $.signatory_clause,
     $.observer_clause,
     $.ensure_clause,
+    $.key_clause,
+    $.maintainer_clause,
     $.choice_declaration,
     $.interface_instance,
   ),
@@ -77,6 +80,17 @@ module.exports = {
   observer_clause: $ => seq('observer', sep1(',', field('party', $.expression))),
 
   ensure_clause: $ => seq('ensure', field('condition', $.expression)),
+
+  /**
+   * `key (bank, number) : (Party, Text)`: the contract key and its type. Keys compile again from
+   * SDK 3.6 (3.5 only with a development target).
+   */
+  key_clause: $ => seq('key', field('expression', $.expression), $._colon2, field('type', $.quantified_type)),
+
+  /**
+   * `maintainer key._1`: who maintains the key, computed from `key`.
+   */
+  maintainer_clause: $ => seq('maintainer', sep1(',', field('party', $.expression))),
 
   // ------------------------------------------------------------------------
   // choice
@@ -153,6 +167,37 @@ module.exports = {
     'for',
     field('for', $._tyconids),
     optional(seq($._where, optional(field('body', $.instance_declarations)))),
+  ),
+
+  // ------------------------------------------------------------------------
+  // exception
+  // ------------------------------------------------------------------------
+
+  /**
+   * `exception Name with <fields> where message …`. Deprecated since SDK 3.3 in favour of
+   * `failWithStatus`, but still compiled.
+   */
+  exception_declaration: $ => seq(
+    'exception',
+    field('name', $.name),
+    optional(seq('with', field('parameters', $.with_fields))),
+    optional(seq($._where, optional(field('body', $.exception_body)))),
+  ),
+
+  exception_body: $ => layout($, $.message_clause),
+
+  message_clause: $ => seq('message', field('message', $.expression)),
+
+  /**
+   * `try <body> catch <alternatives>`, the alternatives as in a `case`. The `catch` may stand in
+   * the column of the block around the `try`, so a layout semicolon may come before it.
+   */
+  _exp_try: $ => seq(
+    'try',
+    field('body', $._exp),
+    optional($._cond_layout_semicolon),
+    'catch',
+    optional(field('alternatives', $.alternatives)),
   ),
 
 }

@@ -134,6 +134,8 @@ typedef enum {
   ARROW,
   BAR,
   DERIVING,
+  COLON,
+  EQUALS,
   COMMENT,
   HADDOCK,
   CPP,
@@ -190,6 +192,8 @@ static const char *sym_names[] = {
   "arrow",
   "bar",
   "deriving",
+  "colon",
+  "equals",
   "comment",
   "haddock",
   "cpp",
@@ -2052,10 +2056,14 @@ static Symbol token_end_layout_texp(Env *env) {
 
 /**
  * Daml: inside parentheses, a comma or an equals sign ends any layout but the fields after `with`, where commas
- * separate fields and `=` gives a field its value.
+ * separate fields and `=` gives a field its value. An `=` that can't give a field its value (the grammar's phantom
+ * equals isn't valid) ends the fields wherever it is, as after the `..` of `f Con with a; .. = …`.
  */
 static Symbol end_layout_texp_closer(Env *env) {
-  if (current_context(env) == WithLayout && (char0(env, ',') || char0(env, '='))) return FAIL;
+  if (current_context(env) == WithLayout) {
+    if (char0(env, '=') && !valid(env, EQUALS)) return end_layout(env, "equals");
+    if (char0(env, ',') || char0(env, '=')) return FAIL;
+  }
   return token_end_layout_texp(env);
 }
 
@@ -3367,11 +3375,22 @@ static Symbol choice_body(Env *env) {
   return FAIL;
 }
 
+/**
+ * Daml: a lone `:` that can't annotate the expression before it ends the fields after `with`, as in
+ * `key K with a; b : T`. Where it can (`with x = e : T`), the grammar's phantom colon is valid and the block goes on.
+ */
+static Symbol end_layout_colon(Env *env) {
+  if (current_context(env) == WithLayout && char0(env, ':') && !symop_char(peek1(env)) && !valid(env, COLON))
+    return end_layout(env, "colon");
+  return FAIL;
+}
+
 static Symbol interior(Env *env, bool whitespace) {
   Lexed next = lex(env, false);
   dbg("interior, column %d, ws %d, token %s\n", column(env), whitespace, token_names[next]);
   SEQ(resolve_semicolon(env, next));
   SEQ(choice_body(env));
+  SEQ(end_layout_colon(env));
   SEQ(process_token_interior(env, next));
   SEQ(process_token_symop(env, whitespace, next));
   SEQ(process_token_constraint(env));

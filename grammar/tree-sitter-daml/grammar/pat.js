@@ -33,7 +33,8 @@ module.exports = {
 
   field_pattern: $ => choice(
     alias('..', $.wildcard),
-    seq(field('field', $._field_names), optional(seq('=', field('pattern', $._pat_texp)))),
+    // Daml: the phantom tells the scanner that an `=` here gives the field its pattern (grammar/externals.js).
+    seq(field('field', $._field_names), optional(seq(optional($._phantom_equals), '=', field('pattern', $._pat_texp)))),
   ),
 
   _pat_record: $ => prec('record', seq(
