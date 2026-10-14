@@ -1,0 +1,85 @@
+name: Grammar nightly
+
+# Long runs for the grammar that would slow every push down: the libFuzzer harness under the
+# address and undefined-behaviour sanitizers for at least ten minutes, and many more random edits
+# of real files than the push run makes. Hosted Linux is enough, unlike the main Nightly, which
+# waits for a self-hosted Windows runner. Scheduled runs use the default branch.
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: How long to fuzz, in minutes
+        default: '10'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: grammar/tree-sitter-daml
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: grammar/tree-sitter-daml/package-lock.json
+
+      - name: Install the pinned CLI
+        run: npm ci
+
+      - name: Generate the parser
+        run: npx tree-sitter generate
+
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: grammar/test/.cache
+          key: daml-corpus-${{ hashFiles('grammar/corpus-sources.psd1') }}
+
+      - name: Collect the real-world corpus
+        working-directory: .
+        shell: pwsh
+        run: ./scripts/collect-corpus.ps1
+
+      - name: Install libFuzzer
+        run: |
+          if ! printf 'int LLVMFuzzerTestOneInput(const char *d, unsigned long n) { return 0; }\n' | clang -x c -fsanitize=fuzzer -o "$RUNNER_TEMP/probe" - 2>/dev/null; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q libclang-rt-dev || sudo apt-get install -y -q "libclang-rt-$(clang -dumpversion | cut -d. -f1)-dev"
+          fi
+
+      - name: Build the sanitizer fuzzer
+        run: bash ../fuzz/build.sh "$RUNNER_TEMP/fuzz"
+
+      - name: Fuzz
+        env:
+          MINUTES: ${{ inputs.minutes || '10' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/fuzz-work" "$RUNNER_TEMP/crashes"
+          node ../scripts/fuzz-seeds.mjs "$RUNNER_TEMP/seeds"
+          seconds=$((MINUTES * 60))
+          if [ "$seconds" -lt 600 ] && [ "${{ github.event_name }}" = schedule ]; then seconds=600; fi
+          "$RUNNER_TEMP/fuzz/daml-fuzzer" -max_total_time="$seconds" -timeout=10 -max_len=16384 -rss_limit_mb=4096 \
+            -dict=../fuzz/daml.dict -artifact_prefix="$RUNNER_TEMP/crashes/" -print_final_stats=1 \
+            "$RUNNER_TEMP/fuzz-work" "$RUNNER_TEMP/seeds"
+
+      # Many more random edits of real files than a push makes, with a new seed every night.
+      - name: Incremental parsing of the real-world corpus
+        run: node ../scripts/edit-properties.mjs --cases 3000 --seed ${{ github.run_id }}
+
+      - name: Keep what crashed
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-crashes
+          path: ${{ runner.temp }}/crashes
+          if-no-files-found: ignore

@@ -2,3 +2,6 @@
 # corpus-sources.psd1 by scripts/collect-corpus.ps1, never committed.
 test/real-world/
 test/.cache/
+
+# The fuzzer's build and the runtime it compiles (fuzz/build.sh).
+fuzz/out/
