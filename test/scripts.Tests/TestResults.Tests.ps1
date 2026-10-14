@@ -131,3 +131,36 @@ Describe 'Get-RunCoverageReports' {
         @(Get-RunCoverageReports -ResultsRoot $script:dir -Categories @('Contract') -Framework 'net48').Count | Should Be 0
     }
 }
+
+Describe 'Get-TreeSitterTestCounters' {
+    It 'reads the totals from the summary line, colours and all' {
+        $lines = @(
+            "      724. `e[32m✓ varsym: operators with bar`e[0m",
+            '',
+            'Total parses: 725; successful parses: 724; failed parses: 1; success percentage: 99.86%; average speed: 2563 bytes/ms'
+        )
+
+        $counters = Get-TreeSitterTestCounters $lines
+
+        $counters.Found | Should Be $true
+        $counters.Executed | Should Be 725
+        $counters.Passed | Should Be 724
+        $counters.Failed | Should Be 1
+    }
+
+    It 'reports a run without a summary as not found, so it cannot pass as zero failures' {
+        $counters = Get-TreeSitterTestCounters @('Error: could not compile the parser', 'exit')
+
+        $counters.Found | Should Be $false
+        $counters.Executed | Should Be 0
+    }
+
+    It 'takes the last summary when the output has more than one' {
+        $lines = @(
+            'Total parses: 3; successful parses: 3; failed parses: 0; success percentage: 100.00%',
+            'Total parses: 10; successful parses: 8; failed parses: 2; success percentage: 80.00%'
+        )
+
+        (Get-TreeSitterTestCounters $lines).Failed | Should Be 2
+    }
+}

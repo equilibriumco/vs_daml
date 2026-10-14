@@ -1,0 +1,25 @@
+{
+  "name": "tree-sitter-daml",
+  "version": "0.1.0-dev.0",
+  "description": "Daml grammar for tree-sitter, forked from tree-sitter-haskell",
+  "license": "MIT",
+  "private": true,
+  "repository": "https://github.com/equilibriumco/vs_daml",
+  "keywords": [
+    "incremental",
+    "parsing",
+    "tree-sitter",
+    "daml"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "0.27.1"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  }
+}

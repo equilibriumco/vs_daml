@@ -27,3 +27,10 @@ third_party/canton-dotnet-sdk-mini-demo
   (https://github.com/hyperledger-labs/splice), Apache License, Version 2.0.
   A modified copy of the Daml package (SDK 3.6.0, renamed) is used as
   samples/mixed-dotnet; the changes are listed in samples/mixed-dotnet/README.md.
+
+------------------------------------------------------------------------------
+grammar/tree-sitter-daml
+  Source:  https://github.com/tree-sitter/tree-sitter-haskell (see grammar/UPSTREAM.md)
+  A modified copy (renamed, extended for Daml) of tree-sitter-haskell.
+  Copyright (c) 2014 Max Brunsfeld and the tree-sitter-haskell contributors.
+  Licensed under the MIT License (grammar/tree-sitter-daml/LICENSE).

@@ -183,9 +183,54 @@ $summary = foreach ($cat in $categories) {
     $outDir = Join-Path $resultsRoot $cat
     if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
 
+    if ($cat -eq 'Grammar') {
+        # The tree-sitter grammar: its CLI is pinned in the grammar's own package.json, the parser
+        # is generated from grammar.js every time (it isn't committed), and `tree-sitter test`
+        # runs the corpus. Its summary line is the only evidence; without it the run failed.
+        $grammarDir = Join-Path $root 'grammar\tree-sitter-daml'
+        if (-not (Test-Path (Join-Path $grammarDir 'grammar.js'))) {
+            if ($isRequired) { $problems.Add("$cat is required but there is no grammar") }
+            [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'no grammar' }
+            continue
+        }
+        if (-not (Get-Command npx -ErrorAction SilentlyContinue)) {
+            if ($isRequired) { $problems.Add("$cat is required but Node.js (npx) isn't installed") }
+            [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'Node.js not found (bootstrap.ps1 -WithParser)' }
+            continue
+        }
+        New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+        $log = Join-Path $outDir 'tree-sitter-test.log'
+        Push-Location $grammarDir
+        try {
+            $exitCode = 0
+            if (-not (Test-Path 'node_modules')) {
+                & npm ci --no-audit --no-fund | Out-Host
+                $exitCode = $LASTEXITCODE
+            }
+            if ($exitCode -eq 0) {
+                & npx tree-sitter generate | Out-Host
+                $exitCode = $LASTEXITCODE
+            }
+            if ($exitCode -eq 0) {
+                & npx tree-sitter test 2>&1 | Tee-Object -FilePath $log | Out-Host
+                $exitCode = $LASTEXITCODE
+            }
+        }
+        finally {
+            Pop-Location
+        }
+        $c = Get-TreeSitterTestCounters $(if (Test-Path $log) { Get-Content $log } else { @() })
+        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or -not $c.Found) { 'FAILED' }
+                  elseif ($c.Executed -eq 0) { 'N/A' }
+                  else { 'PASSED' }
+        if ($status -eq 'FAILED') { $problems.Add("$cat failed (exit code $exitCode, $($c.Failed) failing parse(s); log: $log)") }
+        if ($isRequired -and $c.Executed -eq 0) { $problems.Add("$cat is required but tree-sitter ran 0 tests") }
+        [pscustomobject]@{ Category = $cat; Status = $status; Note = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed) (tree-sitter test)" }
+        continue
+    }
+
     if ($cat -notin $vstestCategories) {
-        # Neither is a vstest run: Perf is BenchmarkDotNet (scripts/bench.ps1, budgets checked by
-        # hand at gates for now) and Grammar will be tree-sitter.
+        # Not a vstest run: Perf is BenchmarkDotNet (scripts/bench.ps1 -Check).
         if ($isRequired) { $problems.Add("$cat is required but has no runner yet") }
         [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'no runner yet' }
         continue

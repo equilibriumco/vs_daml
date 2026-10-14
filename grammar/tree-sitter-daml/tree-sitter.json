@@ -1,0 +1,41 @@
+{
+  "grammars": [
+    {
+      "name": "daml",
+      "camelcase": "Daml",
+      "scope": "source.daml",
+      "path": ".",
+      "file-types": [
+        "daml"
+      ],
+      "highlights": "queries/highlights.scm",
+      "injection-regex": "^daml$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Daml grammar for tree-sitter, forked from tree-sitter-haskell",
+    "authors": [
+      {
+        "name": "Rick Winfrey"
+      },
+      {
+        "name": "Max Brunsfeld",
+        "email": "maxbrunsfeld@gmail.com"
+      },
+      {
+        "name": "Owen Shepherd"
+      },
+      {
+        "name": "Torsten Schmits"
+      },
+      {
+        "name": "Equilibrium"
+      }
+    ],
+    "links": {
+      "repository": "https://github.com/equilibriumco/vs_daml"
+    }
+  }
+}

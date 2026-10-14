@@ -57,4 +57,30 @@ function Get-RunCoverageReports {
     }
 }
 
-Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports
+function Get-TreeSitterTestCounters {
+    <#
+    .SYNOPSIS
+        The totals of a `tree-sitter test` run, from the summary line it prints last:
+        "Total parses: N; successful parses: P; failed parses: F; ...". Found is false when
+        there is no such line (the parser didn't compile, the CLI failed), so a broken run can't
+        pass for one with no failures.
+    #>
+    param([string[]] $Lines)
+
+    $summary = $null
+    foreach ($line in $Lines) {
+        $match = [regex]::Match($line, 'Total parses:\s*(\d+);\s*successful parses:\s*(\d+);\s*failed parses:\s*(\d+)')
+        if ($match.Success) { $summary = $match }
+    }
+    if ($null -eq $summary) {
+        return [pscustomobject]@{ Found = $false; Executed = 0; Passed = 0; Failed = 0 }
+    }
+    [pscustomobject]@{
+        Found    = $true
+        Executed = [int] $summary.Groups[1].Value
+        Passed   = [int] $summary.Groups[2].Value
+        Failed   = [int] $summary.Groups[3].Value
+    }
+}
+
+Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters
