@@ -1,8 +1,8 @@
 ; Highlights for Daml.
 ;
-; When several patterns capture the same node, the last one wins, as in the tree-sitter CLI and
-; Neovim; general patterns come first and Daml's own at the end. Helix lets the first one win and
-; needs them in the opposite order.
+; When several patterns capture the same node, the last one wins, as in the tree-sitter CLI,
+; Neovim, Helix (25.07 and later) and Zed; general patterns come first and Daml's own at the end.
+; Helix's copy, with its own capture names, is generated from this one.
 
 ; ----------------------------------------------------------------------------
 ; Parameters and variables

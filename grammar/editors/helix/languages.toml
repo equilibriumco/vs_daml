@@ -1,0 +1,27 @@
+# Daml in Helix 25.07 or later. Merge into your languages.toml (~/.config/helix/ or
+# %AppData%\helix\ on Windows), copy queries/daml/ to runtime/queries/daml/ next to it, set the
+# grammar's path below and run `hx --grammar build`. See README.md.
+
+[[language]]
+name = "daml"
+scope = "source.daml"
+injection-regex = "^daml$"
+file-types = ["daml"]
+roots = ["daml.yaml", "multi-package.yaml"]
+comment-tokens = ["--"]
+block-comment-tokens = { start = "{-", end = "-}" }
+indent = { tab-width = 2, unit = "  " }
+language-servers = ["damlc"]
+
+# The Daml SDK's language server, started as the Daml extensions for VS Code and Visual Studio
+# start it: one server for all packages of the folder. Without dpm, use "daml" as the command;
+# for a single package, "ide" in place of "multi-ide".
+[language-server.damlc]
+command = "dpm"
+args = ["damlc", "multi-ide"]
+
+# Helix compiles src/parser.c and src/scanner.c of the grammar and doesn't generate the parser,
+# so point it at an unpacked tree-sitter-daml release archive, which has the generated parser.
+[[grammar]]
+name = "daml"
+source = { path = "/path/to/tree-sitter-daml-0.1.0" }
