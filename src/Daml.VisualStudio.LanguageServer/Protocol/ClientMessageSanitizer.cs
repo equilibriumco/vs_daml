@@ -13,11 +13,12 @@ internal enum SanitizeAction
 
 internal readonly struct SanitizedMessage
 {
-    public SanitizedMessage(SanitizeAction action, byte[] body, JToken? initializeRequestId)
+    public SanitizedMessage(SanitizeAction action, byte[] body, JToken? initializeRequestId, bool isInitialized = false)
     {
         Action = action;
         Body = body;
         InitializeRequestId = initializeRequestId;
+        IsInitialized = isInitialized;
     }
 
     public SanitizeAction Action { get; }
@@ -27,6 +28,9 @@ internal readonly struct SanitizedMessage
 
     // Set when the message is the initialize request, so its reply can be recognised.
     public JToken? InitializeRequestId { get; }
+
+    // The client's initialized notification, which completes the handshake.
+    public bool IsInitialized { get; }
 }
 
 // damlc decodes strictly and exits on the first enum value it doesn't know, while VS sends
@@ -49,6 +53,7 @@ internal static class ClientMessageSanitizer
 
     private static readonly byte[] NotificationReceived = Encoding.UTF8.GetBytes("\"NotificationReceived\"");
     private static readonly byte[] Initialize = Encoding.UTF8.GetBytes("\"initialize\"");
+    private static readonly byte[] Initialized = Encoding.UTF8.GetBytes("\"initialized\"");
     private static readonly byte[] Tags = Encoding.UTF8.GetBytes("\"tags\"");
     private static readonly byte[] Diagnostics = Encoding.UTF8.GetBytes("\"diagnostics\"");
 
@@ -59,8 +64,9 @@ internal static class ClientMessageSanitizer
         // sit inside echoed diagnostics.
         var mayBeNotification = Contains(body, NotificationReceived);
         var mayBeInitialize = Contains(body, Initialize);
+        var mayBeInitialized = Contains(body, Initialized);
         var mayHaveTags = Contains(body, Tags) && Contains(body, Diagnostics);
-        if (!mayBeNotification && !mayBeInitialize && !mayHaveTags)
+        if (!mayBeNotification && !mayBeInitialize && !mayBeInitialized && !mayHaveTags)
         {
             return new SanitizedMessage(SanitizeAction.Forward, body, null);
         }
@@ -74,6 +80,10 @@ internal static class ClientMessageSanitizer
         if (method == "NotificationReceived")
         {
             return new SanitizedMessage(SanitizeAction.Drop, body, null);
+        }
+        if (method == "initialized")
+        {
+            return new SanitizedMessage(SanitizeAction.Forward, body, null, isInitialized: true);
         }
 
         var changed = false;

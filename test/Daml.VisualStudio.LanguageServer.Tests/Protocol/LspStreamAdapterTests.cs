@@ -29,6 +29,8 @@ public class LspStreamAdapterTests
           "publishDiagnostics":{"tagSupport":{"valueSet":[1,2,2147483645,2147483646]}}}}}}
         """;
 
+    private const string Initialized = """{"jsonrpc":"2.0","method":"initialized","params":{}}""";
+
     private static JObject Json(byte[] body) => JObject.Parse(Encoding.UTF8.GetString(body));
 
     private static SanitizedMessage Sanitize(string json) => ClientMessageSanitizer.Sanitize(Encoding.UTF8.GetBytes(json));
@@ -148,15 +150,12 @@ public class LspStreamAdapterTests
     {
         var tracker = new InitializeTracker();
         var ready = false;
-        tracker.Responded += (_, _) => ready = true;
+        tracker.Initialized += (_, _) => ready = true;
         using var server = new MemoryStream();
-        using (var toServer = new ClientToServerStream(server, Settings, tracker, NullDamlLogger.Instance))
-        {
-            var data = Concat(Frame(VsInitialize), Frame("""{"jsonrpc":"2.0","method":"NotificationReceived","params":[]}"""));
-            toServer.Write(data, 0, 10);
-            toServer.Write(data, 10, data.Length - 10);
-            toServer.Flush();
-        }
+        using var toServer = new ClientToServerStream(server, Settings, tracker, NullDamlLogger.Instance);
+        var data = Concat(Frame(VsInitialize), Frame("""{"jsonrpc":"2.0","method":"NotificationReceived","params":[]}"""));
+        toServer.Write(data, 0, 10);
+        toServer.Write(data, 10, data.Length - 10);
         var reply = Frame("""{"jsonrpc":"2.0","id":0,"result":{}}""");
         using var fromServer = new ServerToClientStream(new MemoryStream(reply), Settings, tracker, NullDamlLogger.Instance);
         using var received = new MemoryStream();
@@ -166,9 +165,13 @@ public class LspStreamAdapterTests
         {
             received.Write(buffer, 0, n);
         }
+        var initialized = Frame(Initialized);
+        toServer.Write(initialized, 0, initialized.Length);
+        toServer.Flush();
 
         var forwarded = new LspFrameReader(new MemoryStream(server.ToArray()), Settings);
         Json(forwarded.ReadFrame()!)["method"]!.ToString().ShouldBe("initialize");
+        Json(forwarded.ReadFrame()!)["method"]!.ToString().ShouldBe("initialized");
         forwarded.ReadFrame().ShouldBeNull();
         received.ToArray().ShouldBe(reply);
         ready.ShouldBeTrue();
@@ -183,19 +186,19 @@ public class LspStreamAdapterTests
         await Should.ThrowAsync<LspFramingException>(() => toServer.WriteAsync(header, 0, header.Length));
     }
 
+    // Visual Studio counts a server as started once it has sent initialized; one that dies between
+    // the reply and that notification is reported as failed to start and never restarted by it.
     [Theory, Trait("Category", "Unit")]
     [InlineData(int.MaxValue)]
     [InlineData(1)]
-    public async Task Server_output_reaches_the_client_unchanged_and_the_initialize_reply_signals_ready(int chunk)
+    public async Task Server_output_reaches_the_client_unchanged_and_the_handshake_completes_when_the_client_says_initialized(int chunk)
     {
         var tracker = new InitializeTracker();
         var ready = 0;
-        tracker.Responded += (_, _) => ready++;
-        using (var toServer = new ClientToServerStream(new MemoryStream(), Settings, tracker, NullDamlLogger.Instance))
-        {
-            var init = Frame(VsInitialize);
-            await toServer.WriteAsync(init, 0, init.Length);
-        }
+        tracker.Initialized += (_, _) => ready++;
+        using var toServer = new ClientToServerStream(new MemoryStream(), Settings, tracker, NullDamlLogger.Instance);
+        var init = Frame(VsInitialize);
+        await toServer.WriteAsync(init, 0, init.Length);
         var serverOutput = Concat(
             Frame("""{"jsonrpc":"2.0","method":"window/logMessage","params":{"type":3,"message":"hi"}}"""),
             Frame("""{"jsonrpc":"2.0","id":0,"result":{"capabilities":{}}}"""),
@@ -203,9 +206,52 @@ public class LspStreamAdapterTests
         using var fromServer = new ServerToClientStream(new TrickleStream(serverOutput, chunk), Settings, tracker, NullDamlLogger.Instance);
 
         var received = await ReadToEndAsync(fromServer, 3);
+        var readyAfterReply = ready;
+        var initialized = Frame(Initialized);
+        await toServer.WriteAsync(initialized, 0, initialized.Length);
+        await toServer.WriteAsync(initialized, 0, initialized.Length);
 
         received.ShouldBe(serverOutput);
+        readyAfterReply.ShouldBe(0, "the reply alone doesn't finish the handshake");
         ready.ShouldBe(1);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_initialized_seen_before_the_reply_completes_the_handshake_when_the_reply_comes()
+    {
+        var tracker = new InitializeTracker();
+        var ready = 0;
+        tracker.Initialized += (_, _) => ready++;
+        using var toServer = new ClientToServerStream(new MemoryStream(), Settings, tracker, NullDamlLogger.Instance);
+        var messages = Concat(Frame(VsInitialize), Frame(Initialized));
+        await toServer.WriteAsync(messages, 0, messages.Length);
+        var readyBeforeReply = ready;
+
+        using var fromServer = new ServerToClientStream(new MemoryStream(Frame("""{"jsonrpc":"2.0","id":0,"result":{}}""")), Settings, tracker, NullDamlLogger.Instance);
+        await ReadToEndAsync(fromServer, 64);
+
+        readyBeforeReply.ShouldBe(0);
+        ready.ShouldBe(1);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_initialized_that_does_not_reach_the_server_leaves_the_handshake_open()
+    {
+        var tracker = new InitializeTracker();
+        var ready = 0;
+        tracker.Initialized += (_, _) => ready++;
+        var server = new ServerPipe();
+        using var toServer = new ClientToServerStream(server, Settings, tracker, NullDamlLogger.Instance);
+        var init = Frame(VsInitialize);
+        await toServer.WriteAsync(init, 0, init.Length);
+        using var fromServer = new ServerToClientStream(new MemoryStream(Frame("""{"jsonrpc":"2.0","id":0,"result":{}}""")), Settings, tracker, NullDamlLogger.Instance);
+        await ReadToEndAsync(fromServer, 64);
+
+        server.Gone = true;
+        var initialized = Frame(Initialized);
+        await Should.ThrowAsync<IOException>(() => toServer.WriteAsync(initialized, 0, initialized.Length));
+
+        ready.ShouldBe(0);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -255,5 +301,23 @@ public class LspStreamAdapterTests
             await all.WriteAsync(buffer, 0, n);
         }
         return all.ToArray();
+    }
+
+    // The pipe to a server process: writes fail once the process is gone.
+    private sealed class ServerPipe : MemoryStream
+    {
+        public bool Gone { get; set; }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            if (Gone)
+            {
+                throw new IOException("The pipe has been ended.");
+            }
+            base.Write(buffer, offset, count);
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+            Gone ? Task.FromException(new IOException("The pipe has been ended.")) : base.WriteAsync(buffer, offset, count, cancellationToken);
     }
 }

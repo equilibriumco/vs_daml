@@ -15,9 +15,12 @@ public sealed class InitializeFailedEventArgs : EventArgs
 }
 
 /// <summary>
-/// Spots the server's reply to <c>initialize</c> in the traffic of one session: the client side
-/// records the request id, the server side reports the matching reply. VS handles that reply
-/// before any middle layer sees it, so this is the only reliable "server is ready" signal.
+/// Follows the <c>initialize</c> handshake of one session in its traffic: the client side records
+/// the request id and later the client's <c>initialized</c>, the server side the matching reply.
+/// VS handles the reply before any middle layer sees it, so this is the only reliable signal. The
+/// session counts as initialized only once both have happened, in whichever order they are seen:
+/// VS treats a server that dies before its <c>initialized</c> as one that failed to start, and
+/// doesn't start it again by itself.
 /// </summary>
 public sealed class InitializeTracker
 {
@@ -25,10 +28,15 @@ public sealed class InitializeTracker
 
     private readonly object _gate = new();
     private JToken? _expectedId;
+    private bool _replied;
+    private bool _clientSaidInitialized;
     private bool _done;
 
-    /// <summary>The server answered <c>initialize</c> with a result.</summary>
-    public event EventHandler? Responded;
+    /// <summary>
+    /// The server answered <c>initialize</c> with a result and the client's <c>initialized</c>
+    /// reached it: the handshake is complete.
+    /// </summary>
+    public event EventHandler? Initialized;
 
     /// <summary>The server answered <c>initialize</c> with an error.</summary>
     public event EventHandler<InitializeFailedEventArgs>? Failed;
@@ -40,7 +48,7 @@ public sealed class InitializeTracker
         {
             lock (_gate)
             {
-                return _expectedId is not null && !_done;
+                return _expectedId is not null && !_replied;
             }
         }
     }
@@ -50,8 +58,29 @@ public sealed class InitializeTracker
         lock (_gate)
         {
             _expectedId = requestId.DeepClone();
+            _replied = false;
+            _clientSaidInitialized = false;
             _done = false;
         }
+    }
+
+    // Called once the client's initialized has been passed on to the server.
+    internal void ClientSaidInitialized()
+    {
+        lock (_gate)
+        {
+            if (_expectedId is null || _done)
+            {
+                return;
+            }
+            _clientSaidInitialized = true;
+            if (!_replied)
+            {
+                return;
+            }
+            _done = true;
+        }
+        Initialized?.Invoke(this, EventArgs.Empty);
     }
 
     internal void Inspect(byte[] body)
@@ -70,9 +99,15 @@ public sealed class InitializeTracker
             return; // a request or notification from the server, not a reply
         }
 
+        var failed = message["error"] is JObject;
         lock (_gate)
         {
-            if (_done || !JToken.DeepEquals(message["id"], _expectedId))
+            if (_replied || !JToken.DeepEquals(message["id"], _expectedId))
+            {
+                return;
+            }
+            _replied = true;
+            if (!failed && !_clientSaidInitialized)
             {
                 return;
             }
@@ -85,7 +120,7 @@ public sealed class InitializeTracker
         }
         else
         {
-            Responded?.Invoke(this, EventArgs.Empty);
+            Initialized?.Invoke(this, EventArgs.Empty);
         }
     }
 }

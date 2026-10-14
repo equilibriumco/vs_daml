@@ -276,7 +276,7 @@ public sealed class LanguageServerHost : IDisposable
         }
         var tracker = new InitializeTracker();
         var id = session.Id;
-        tracker.Responded += (_, _) => OnInitialized(id);
+        tracker.Initialized += (_, _) => OnInitialized(id);
         tracker.Failed += (_, e) => _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, $"The language server refused to initialize (session {id}): {e.Message}");
         // Per session: damlc of a new session has never seen any document.
         var documents = new OpenDocuments();

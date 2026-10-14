@@ -208,7 +208,7 @@ public sealed class LanguageServerHostTests
     // The fake language server stands in for dpm: it ignores its arguments, fails the version
     // and help commands (no stdin), and then serves LSP when started as the server.
     [Fact, Trait("Category", "Process")]
-    public async Task A_session_is_ready_once_initialize_is_answered_and_the_rpc_channel_belongs_to_it()
+    public async Task A_session_is_ready_once_the_client_has_said_initialized_and_the_rpc_channel_belongs_to_it()
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario());
         var files = new PhysicalFileSystem();
@@ -232,6 +232,9 @@ public sealed class LanguageServerHostTests
         rpc.StartListening();
         host.AttachRpc(rpc);
         await rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, capabilities = new { } });
+        host.Supervisor.State.ShouldBe(LanguageServerState.Initializing, "Visual Studio hasn't finished the handshake yet");
+        host.IsReady.ShouldBeFalse();
+        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
 
         (await Task.WhenAny(ready.Task, Task.Delay(Generous))).ShouldBe(ready.Task);
         (await ready.Task).ShouldBe(connection.SessionId);
@@ -280,6 +283,7 @@ public sealed class LanguageServerHostTests
         rpc.StartListening();
         host.AttachRpc(rpc);
         await rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, capabilities = new { } });
+        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
         (await Task.WhenAny(ready.Task, Task.Delay(Generous))).ShouldBe(ready.Task);
 
         time.Advance(TimeSpan.FromSeconds(60));

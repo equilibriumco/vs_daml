@@ -30,7 +30,7 @@ public class RealDamlcAdapterContractTests
         var settings = new LspAdapterSettings();
         var tracker = new InitializeTracker();
         var ready = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        tracker.Responded += (_, _) => ready.TrySetResult(true);
+        tracker.Initialized += (_, _) => ready.TrySetResult(true);
         using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(
             new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance),
             new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance),
@@ -47,6 +47,7 @@ public class RealDamlcAdapterContractTests
         (await Task.WhenAny(reply, Task.Delay(TimeSpan.FromMinutes(2)))).ShouldBe(reply, "damlc didn't answer initialize");
 
         (await reply)["capabilities"].ShouldNotBeNull();
+        await rpc.NotifyWithParameterObjectAsync("initialized", new { });
         (await Task.WhenAny(ready.Task, Task.Delay(TimeSpan.FromSeconds(10)))).ShouldBe(ready.Task);
         process.Exited.IsCompleted.ShouldBeFalse("damlc exited instead of serving");
         await rpc.NotifyAsync("exit");

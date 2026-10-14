@@ -178,6 +178,10 @@ public sealed class ClientToServerStream : Stream
         {
             LspFrameWriter.Write(_server, outgoing);
         }
+        if (message.IsInitialized)
+        {
+            _tracker.ClientSaidInitialized();
+        }
     }
 
     private LspFramingException Fail(LspFramingException error)
