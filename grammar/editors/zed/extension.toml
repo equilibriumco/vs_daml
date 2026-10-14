@@ -1,0 +1,15 @@
+id = "daml"
+name = "Daml"
+version = "0.1.0"
+schema_version = 1
+authors = ["Equilibrium"]
+description = "Daml highlighting, outline, brackets and indentation from tree-sitter-daml."
+repository = "https://github.com/equilibriumco/vs_daml"
+
+# Zed compiles src/parser.c and src/scanner.c at this commit to WebAssembly and doesn't generate
+# the parser, which this repository doesn't keep: point it at a git repository whose commit holds
+# the generated parser. Until tree-sitter-daml has a repository of its own, that is a local one
+# made from a release archive (README.md).
+[grammars.daml]
+repository = "file:///path/to/tree-sitter-daml-0.1.0"
+rev = "<the commit of that repository>"

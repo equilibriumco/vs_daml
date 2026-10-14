@@ -4,13 +4,16 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { splitQuery, captures, renameCaptures, helixHighlights, helixScope, generatedFiles } from './editor-queries.mjs';
+import { splitQuery, captures, renameCaptures, helixHighlights, helixScope, scopeOf, zedScopes, generatedFiles } from './editor-queries.mjs';
 
 const grammarDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 const packageDir = join(grammarDir, 'tree-sitter-daml');
 const helixDir = join(grammarDir, 'editors', 'helix', 'queries', 'daml');
+const zedDir = join(grammarDir, 'editors', 'zed', 'languages', 'daml');
 const cli = join(packageDir, 'node_modules', 'tree-sitter-cli', 'cli.js');
 const readQuery = path => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+const query = (file, fixture) =>
+  spawnSync(process.execPath, [cli, 'query', file, join(packageDir, 'test', 'highlight', fixture)], { cwd: packageDir, encoding: 'utf8' });
 
 // Brackets, semicolons and `@` inside strings and comments must not split a pattern or look
 // like captures.
@@ -104,10 +107,28 @@ test('the generated query files are current', () => {
   }
 });
 
-test("every query for Helix compiles against the grammar", () => {
-  const fixture = join(packageDir, 'test', 'highlight', 'template.daml');
-  for (const file of readdirSync(helixDir)) {
-    const run = spawnSync(process.execPath, [cli, 'query', join(helixDir, file), fixture], { cwd: packageDir, encoding: 'utf8' });
-    assert.equal(run.status, 0, `${file}: ${run.stderr}`);
+test("in Zed's copy only module names and predicate-only captures go uncoloured", () => {
+  const zed = readQuery(join(zedDir, 'highlights.scm'));
+  const names = splitQuery(zed).filter(s => s.kind === 'pattern').flatMap(s => captures(s.text));
+  const uncoloured = new Set(names.filter(n => !n.startsWith('_') && scopeOf(n, zedScopes) === null));
+
+  assert.equal(splitQuery(zed).filter(s => s.kind === 'pattern').length, 71, 'every pattern but @spell');
+  assert.deepEqual([...uncoloured], ['module']);
+});
+
+test("Zed's outline lists a template with its choices", () => {
+  const run = query(join(zedDir, 'outline.scm'), 'template.daml');
+  const named = [...run.stdout.matchAll(/capture: \d+ - name, .*text: `([^`]*)`/g)].map(m => m[1]);
+
+  assert.equal(run.status, 0, run.stderr);
+  assert.deepEqual(named, ['Asset', 'Look', 'Give']);
+});
+
+test('every query for Helix and Zed compiles against the grammar', () => {
+  for (const dir of [helixDir, zedDir]) {
+    for (const file of readdirSync(dir).filter(f => f.endsWith('.scm'))) {
+      const run = query(join(dir, file), 'template.daml');
+      assert.equal(run.status, 0, `${file}: ${run.stderr}`);
+    }
   }
 });

@@ -8,6 +8,10 @@
 // patterns that need predicate-only captures. Injections carry over as they are. Its locals,
 // indents and textobjects follow other conventions and are written by hand next to these.
 //
+// Zed lets the last pattern win too and skips captures its theme doesn't know, so its highlights
+// keep every pattern and only move a few names to the closest Zed theme capture. Its brackets,
+// outline and indents are written by hand.
+//
 //   node grammar/scripts/editor-queries.mjs            exit code 1 when a generated file is stale
 //   node grammar/scripts/editor-queries.mjs --update   writes them
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
@@ -128,8 +132,7 @@ export function renameCaptures(pattern, rename) {
   return out + pattern.slice(last);
 }
 
-// The highlight scopes of Helix 25.07 (its themes guide, markup and diff left out). A capture
-// gets the longest scope that is a dotted prefix of its name.
+// The highlight scopes of Helix 25.07 (its themes guide, markup and diff left out).
 export const helixScopes = new Set(`
   attribute type type.builtin type.parameter type.enum type.enum.variant constructor
   constant constant.builtin constant.builtin.boolean constant.character constant.character.escape
@@ -144,13 +147,27 @@ export const helixScopes = new Set(`
   operator function function.builtin function.method function.method.private function.macro function.special
   tag tag.builtin namespace special`.trim().split(/\s+/));
 
-/** The Helix scope a capture name ends up with, or null when none matches. */
-export function helixScope(name) {
+// The captures Zed's themes colour (its language extension guide).
+export const zedScopes = new Set(`
+  attribute boolean comment comment.doc constant constant.builtin constructor embedded emphasis
+  emphasis.strong enum function hint keyword label link_text link_uri number operator predictive
+  preproc primary property punctuation punctuation.bracket punctuation.delimiter
+  punctuation.list_marker punctuation.special string string.escape string.regex string.special
+  string.special.symbol tag tag.doctype text.literal title type type.builtin variable
+  variable.special variable.parameter variant`.trim().split(/\s+/));
+
+/**
+ * The scope of `scopes` a capture name ends up with, or null when none matches: both editors take
+ * the longest one that is a dotted prefix of the name.
+ */
+export function scopeOf(name, scopes) {
   for (let candidate = name; candidate; candidate = candidate.slice(0, Math.max(0, candidate.lastIndexOf('.')))) {
-    if (helixScopes.has(candidate)) return candidate;
+    if (scopes.has(candidate)) return candidate;
   }
   return null;
 }
+
+export const helixScope = name => scopeOf(name, helixScopes);
 
 // Our names (Neovim's) where Helix has a more specific scope than the prefix fallback would give,
 // or none at all. The rest fall back well: `function.call` to `function`, `keyword.contract`
@@ -170,18 +187,27 @@ export const helixRenames = {
   spell: null,
 };
 
-/** Helix's highlights from ours: renamed captures, no `@spell`, no patterns with predicate-only captures. */
-export function helixHighlights(source) {
+// The same for Zed, which has fewer captures; `module` has none there and stays uncoloured.
+export const zedRenames = {
+  character: 'string',
+  'comment.documentation': 'comment.doc',
+  'keyword.directive': 'preproc',
+  'variable.member': 'property',
+  spell: null,
+};
+
+// Our highlights with captures renamed; a pattern left without captures, or one `keep` refuses,
+// goes, with the comment right above it.
+function deriveHighlights(source, renames, keep) {
   let out = '';
   for (const segment of splitQuery(source)) {
     if (segment.kind === 'trivia') {
       out += segment.text;
       continue;
     }
-    const renamed = renameCaptures(segment.text, name => (Object.hasOwn(helixRenames, name) ? helixRenames[name] : name));
+    const renamed = renameCaptures(segment.text, name => (Object.hasOwn(renames, name) ? renames[name] : name));
     const names = captures(renamed);
-    if (names.length === 0 || names.some(n => n.startsWith('_'))) {
-      // The comment right above a pattern goes with it.
+    if (names.length === 0 || !keep(names)) {
       out = out.replace(/(^|\n)(?:[ \t]*;[^\n]*\n)+$/, '$1');
       continue;
     }
@@ -189,6 +215,12 @@ export function helixHighlights(source) {
   }
   return out.replace(/\n{3,}/g, '\n\n');
 }
+
+/** Helix's highlights from ours: renamed captures, no `@spell`, no patterns with predicate-only captures. */
+export const helixHighlights = source => deriveHighlights(source, helixRenames, names => !names.some(n => n.startsWith('_')));
+
+/** Zed's highlights from ours: every pattern, a few captures renamed, no `@spell`. */
+export const zedHighlights = source => deriveHighlights(source, zedRenames, () => true);
 
 const generatedNote = (source, ...how) =>
   [`; Generated from queries/${source} by grammar/scripts/editor-queries.mjs: edit that file and run`,
@@ -198,6 +230,7 @@ const generatedNote = (source, ...how) =>
 export function generatedFiles() {
   const read = name => readFileSync(join(queriesDir, name), 'utf8').replace(/\r\n/g, '\n');
   const helix = join(grammarDir, 'editors', 'helix', 'queries', 'daml');
+  const zed = join(grammarDir, 'editors', 'zed', 'languages', 'daml');
   return [
     {
       path: join(helix, 'highlights.scm'),
@@ -207,6 +240,12 @@ export function generatedFiles() {
         helixHighlights(read('highlights.scm')),
     },
     { path: join(helix, 'injections.scm'), content: generatedNote('injections.scm') + read('injections.scm') },
+    {
+      path: join(zed, 'highlights.scm'),
+      content: generatedNote('highlights.scm', '; A few captures renamed to Zed theme captures; `@spell` left out.') +
+        zedHighlights(read('highlights.scm')),
+    },
+    { path: join(zed, 'injections.scm'), content: generatedNote('injections.scm') + read('injections.scm') },
   ];
 }
 
