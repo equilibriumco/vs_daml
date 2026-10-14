@@ -31,6 +31,7 @@ public class ScriptResultsTests
     public async Task The_script_gets_a_results_row_that_opens_the_results_window()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         Ide.OpenFolder(folder);
         try
@@ -42,6 +43,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }
@@ -52,6 +55,7 @@ public class ScriptResultsTests
     public async Task Results_show_the_contracts_and_follow_an_edit_without_taking_the_focus()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         Ide.OpenFolder(folder);
         try
@@ -78,6 +82,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }
@@ -89,6 +95,7 @@ public class ScriptResultsTests
     public async Task Many_windows_and_open_close_cycles_leave_no_browser_processes_behind()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         var scripts = Path.Combine(folder, "daml", "Scripts.daml");
         var source = new StringBuilder("module Scripts where\n\nimport Daml.Script\n");
@@ -137,6 +144,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }
@@ -149,6 +158,7 @@ public class ScriptResultsTests
     public async Task Clicking_a_source_link_in_the_results_opens_the_source()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         Ide.OpenFolder(folder);
         try
@@ -175,6 +185,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }
@@ -187,6 +199,7 @@ public class ScriptResultsTests
     public async Task The_chosen_view_comes_back_when_the_window_opens_again()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         Ide.OpenFolder(folder);
         try
@@ -224,6 +237,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }
@@ -235,6 +250,7 @@ public class ScriptResultsTests
     public async Task The_results_page_can_reach_nothing_outside_itself()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
         var folder = Ide.CopySample("single-package");
         Ide.OpenFolder(folder);
         try
@@ -255,6 +271,8 @@ public class ScriptResultsTests
         }
         finally
         {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
         }

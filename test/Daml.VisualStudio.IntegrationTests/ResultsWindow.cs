@@ -75,6 +75,28 @@ internal static class ResultsWindow
         ErrorHandler.ThrowOnFailure(frame.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_NoSave));
     }
 
+    /// <summary>
+    /// Closes every results window. The tests share one Visual Studio, and windows stay open when
+    /// a test closes its folder; every test's script is "setup", so a window left over from an
+    /// earlier test would be found by its caption instead of the test's own.
+    /// </summary>
+    public static void CloseAll()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var results = new List<IVsWindowFrame>();
+        foreach (var frame in Frames())
+        {
+            if (Caption(frame) is { } text && text.StartsWith("Script: ", StringComparison.Ordinal))
+            {
+                results.Add(frame);
+            }
+        }
+        foreach (var frame in results)
+        {
+            Close(frame);
+        }
+    }
+
     /// <summary>The browser of a results window once it is up; null if it never comes.</summary>
     public static async Task<WebView2?> BrowserOfAsync(IVsWindowFrame frame)
     {
