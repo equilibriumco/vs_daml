@@ -1,0 +1,4 @@
+# The real-world corpus and the checkouts it is copied from: collected again from
+# corpus-sources.psd1 by scripts/collect-corpus.ps1, never committed.
+test/real-world/
+test/.cache/

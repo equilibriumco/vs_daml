@@ -6,11 +6,15 @@ on:
     paths:
       - 'grammar/**'
       - 'samples/**'
+      - 'scripts/collect-corpus.ps1'
+      - 'scripts/lib/Corpus.psm1'
       - '.github/workflows/grammar.yml'
   pull_request:
     paths:
       - 'grammar/**'
       - 'samples/**'
+      - 'scripts/collect-corpus.ps1'
+      - 'scripts/lib/Corpus.psm1'
       - '.github/workflows/grammar.yml'
 
 permissions:
@@ -46,10 +50,21 @@ jobs:
       - name: Corpus tests
         run: npx tree-sitter test
 
-      # How much of the repository's own Daml parses without errors. It reports and doesn't
-      # fail: the grammar learns Daml step by step, and the real-world corpus gets its own gate.
-      - name: Parse the samples
+      # The checkouts the corpus is copied from depend only on the pins.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: grammar/test/.cache
+          key: daml-corpus-${{ hashFiles('grammar/corpus-sources.psd1') }}
+
+      - name: Collect the real-world corpus
+        working-directory: .
+        shell: pwsh
+        run: ./scripts/collect-corpus.ps1
+
+      # How much of the corpus parses without errors. It reports and doesn't fail: the grammar
+      # learns Daml step by step, and the 99% gate comes with the quality gates.
+      - name: Parse the corpus
         run: |
-          find ../../samples -type f -name '*.daml' -not -path '*/.daml/*' > "$RUNNER_TEMP/daml-files"
-          npx tree-sitter parse --paths "$RUNNER_TEMP/daml-files" --quiet --stat | tee "$RUNNER_TEMP/parse-stat" || true
-          { echo '### Samples parsed by the grammar'; echo '```'; cat "$RUNNER_TEMP/parse-stat"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          find ../test/real-world -type f -name '*.daml' > "$RUNNER_TEMP/daml-files"
+          npx tree-sitter parse --paths "$RUNNER_TEMP/daml-files" --quiet --stat | tail -n 1 | tee "$RUNNER_TEMP/parse-stat" || true
+          { echo '### Real-world corpus parsed by the grammar'; echo '```'; cat "$RUNNER_TEMP/parse-stat"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
