@@ -27,6 +27,7 @@ internal static class DamlMenuIds
     public const int BuildCurrentPackage = 0x0202;
     public const int TestCurrentPackage = 0x0203;
     public const int OpenDocumentation = 0x0204;
+    public const int ShowScriptResultsAtCaret = 0x0205;
 
     public const string DocumentationUrl = "https://docs.digitalasset.com/";
 }

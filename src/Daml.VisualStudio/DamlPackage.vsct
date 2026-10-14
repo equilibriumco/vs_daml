@@ -68,6 +68,12 @@
           <ButtonText>Test Current Package</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidDamlCommandSet" id="ShowScriptResultsAtCaretCommand" priority="0x0300" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuBuildGroup" />
+        <Strings>
+          <ButtonText>Show Script Results at Caret</ButtonText>
+        </Strings>
+      </Button>
       <Button guid="guidDamlCommandSet" id="OpenDocumentationCommand" priority="0x0100" type="Button">
         <Parent guid="guidDamlCommandSet" id="DamlMenuHelpGroup" />
         <Strings>
@@ -99,6 +105,7 @@
       <IDSymbol name="BuildCurrentPackageCommand" value="0x0202" />
       <IDSymbol name="TestCurrentPackageCommand" value="0x0203" />
       <IDSymbol name="OpenDocumentationCommand" value="0x0204" />
+      <IDSymbol name="ShowScriptResultsAtCaretCommand" value="0x0205" />
     </GuidSymbol>
   </Symbols>
 
