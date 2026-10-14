@@ -36,6 +36,10 @@ public class LayoutBenchmarks
     /// <summary>Lexing and the tree together.</summary>
     [Benchmark]
     public DamlBlock LexAndAnalyzeFile() => LayoutAnalyzer.Analyze(LineTokens.Lex(_text));
+
+    /// <summary>Smart indent for Enter in the middle of the file, from lexed lines, as on every keystroke.</summary>
+    [Benchmark]
+    public int? IndentInTheMiddle() => IndentRules.GetDesiredIndentation(_lines, _lines.Count / 2, indentSize: 2);
     private sealed class ArrayLines(string[] lines) : ILineSource
     {
         public int LineCount => lines.Length;

@@ -18,8 +18,11 @@
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace.VSIntegration" />
     <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
-    <!-- WMI, to find which damlc processes belong to this Visual Studio. -->
+    <!-- WMI, to find which damlc and browser processes belong to this Visual Studio. -->
     <Reference Include="System.Management" />
+    <!-- To read and click the script results page. Compile only: the tests run inside
+         Visual Studio, which brings its own WebView2. -->
+    <PackageReference Include="Microsoft.Web.WebView2" ExcludeAssets="runtime;native;build;buildTransitive" />
   </ItemGroup>
 
   <!-- No shadow copies: when a test fails, the harness writes its failure log next to the test

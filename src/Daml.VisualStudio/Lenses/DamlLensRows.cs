@@ -33,14 +33,24 @@ internal sealed class DamlLensSources
 
     public IReadOnlyList<ILensSegmentProvider> Providers => _providers.Value;
 
-    /// <summary>Acts on a clicked or chosen segment; the user asked, so the results window comes up.</summary>
+    /// <summary>
+    /// Acts on a clicked or chosen segment; the user asked, so the results window comes up. A click
+    /// runs this with nobody waiting for it, so a failure is reported here rather than thrown.
+    /// </summary>
     public async Task InvokeAsync(LensSegment segment, CancellationToken cancellationToken)
     {
         switch (segment.Target)
         {
             case ScriptLens lens:
-                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Debug, $"Showing the results of {lens.Title}.");
-                await _client.Value.VirtualResources.ShowAsync(lens.Title, lens.Resource.ToString(), cancellationToken).ConfigureAwait(false);
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Showing the results of {lens.Title}.");
+                try
+                {
+                    await _client.Value.VirtualResources.ShowAsync(lens.Title, lens.Resource.ToString(), cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+                {
+                    _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Couldn't show the results of {lens.Title}.", ex);
+                }
                 break;
             default:
                 _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Nothing to do for the lens segment '{segment.Text}'.");
@@ -110,13 +120,9 @@ internal sealed class DamlLensRows
     public IReadOnlyList<LensSegment>? At(ITextSnapshotLine line) =>
         MapFor(line.Snapshot).TryGetValue(line.LineNumber, out var row) ? row.Segments : null;
 
-    /// <summary>The row of the declaration at or above <paramref name="line"/>, for commands run from the caret.</summary>
-    public IReadOnlyList<LensSegment>? AtOrAbove(ITextSnapshotLine line)
-    {
-        var map = MapFor(line.Snapshot);
-        var nearest = map.Keys.Where(k => k <= line.LineNumber).DefaultIfEmpty(-1).Max();
-        return nearest >= 0 ? map[nearest].Segments : null;
-    }
+    /// <summary>The row a command run with the caret on <paramref name="line"/> means.</summary>
+    public IReadOnlyList<LensSegment>? ForCaret(ITextSnapshotLine line) =>
+        LensRows.ForCaret(MapFor(line.Snapshot).ToDictionary(p => p.Key, p => p.Value.Segments), line.LineNumber, line.GetText());
 
     private void OnSegmentsChanged(object? sender, string documentUri)
     {

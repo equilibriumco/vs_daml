@@ -12,7 +12,11 @@ namespace Daml.VisualStudio.LanguageServer.Lenses;
 /// <param name="Text">What the row shows.</param>
 /// <param name="AutomationName">What a screen reader says, and the tooltip.</param>
 /// <param name="Target">What a click acts on; the provider that made the segment knows its type.</param>
-public sealed record LensSegment(int Line, int Order, string Text, string AutomationName, object Target);
+public sealed record LensSegment(int Line, int Order, string Text, string AutomationName, object Target)
+{
+    /// <summary>The top-level declaration the segment belongs to, e.g. <c>setup</c>; null if it names none.</summary>
+    public string? Declaration { get; init; }
+}
 
 /// <summary>A source of segments for the lens rows of a document.</summary>
 public interface ILensSegmentProvider
@@ -46,6 +50,57 @@ public static class LensRows
             .ToDictionary(
                 g => g.Key,
                 g => (IReadOnlyList<LensSegment>)g.OrderBy(s => s.Order).ThenBy(s => s.Text, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>
+    /// The row a command run at the caret means. A row sits on its declaration's equation line,
+    /// one below the type signature, so the declaration whose name starts the caret's line (its
+    /// signature or any of its equations) comes first; otherwise the nearest row at or above the
+    /// caret, i.e. the declaration whose body the caret is in.
+    /// </summary>
+    /// <param name="rows">The rows of the document, as <see cref="Build"/> gives them.</param>
+    /// <param name="caretLine">Zero-based line of the caret.</param>
+    /// <param name="caretLineText">That line's text.</param>
+    public static IReadOnlyList<LensSegment>? ForCaret(IReadOnlyDictionary<int, IReadOnlyList<LensSegment>> rows, int caretLine, string caretLineText)
+    {
+        if (rows is null)
+        {
+            throw new ArgumentNullException(nameof(rows));
+        }
+        if (LeadingName(caretLineText) is { } name)
+        {
+            foreach (var row in rows.Values)
+            {
+                if (row.Any(s => s.Declaration == name))
+                {
+                    return row;
+                }
+            }
+        }
+        var nearest = -1;
+        foreach (var line in rows.Keys)
+        {
+            if (line <= caretLine && line > nearest)
+            {
+                nearest = line;
+            }
+        }
+        return nearest >= 0 ? rows[nearest] : null;
+    }
+
+    // A top-level name at the very start of a line: `setup : …` or `setup = …`.
+    private static string? LeadingName(string? text)
+    {
+        if (string.IsNullOrEmpty(text) || !(char.IsLower(text![0]) || text[0] == '_'))
+        {
+            return null;
+        }
+        var end = 1;
+        while (end < text.Length && (char.IsLetterOrDigit(text[end]) || text[end] is '_' or '\''))
+        {
+            end++;
+        }
+        return end == text.Length || char.IsWhiteSpace(text[end]) || text[end] is ':' or '=' ? text.Substring(0, end) : null;
     }
 }
 
@@ -81,6 +136,6 @@ public sealed class ScriptLensSegments : ILensSegmentProvider
             throw new ArgumentNullException(nameof(lens));
         }
         var name = lens.Title.StartsWith(TitlePrefix, StringComparison.Ordinal) ? lens.Title.Substring(TitlePrefix.Length) : lens.Resource.TopLevelDecl;
-        return new LensSegment(lens.Range.StartLine, Order, "▶ Script results", $"Show the results of script {name}", lens);
+        return new LensSegment(lens.Range.StartLine, Order, "▶ Script results", $"Show the results of script {name}", lens) { Declaration = lens.Resource.TopLevelDecl };
     }
 }

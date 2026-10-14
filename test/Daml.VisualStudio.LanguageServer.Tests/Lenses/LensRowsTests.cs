@@ -48,6 +48,40 @@ public class LensRowsTests
         LensRows.Build([]).ShouldBeEmpty();
     }
 
+    // damlc puts a script's lens on its equation (`setup = script do`), the line after its
+    // signature (`setup : Script AssetId`); a caret on either line means that script.
+    private static readonly IReadOnlyDictionary<int, IReadOnlyList<LensSegment>> SampleRows = LensRows.Build(
+    [
+        new LensSegment(23, 0, "▶ Script results", "setup", Target: "setup") { Declaration = "setup" },
+        new LensSegment(40, 0, "▶ Script results", "other", Target: "other") { Declaration = "other" },
+    ]);
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(22, "setup : Script AssetId", "setup")]
+    [InlineData(23, "setup = script do", "setup")]
+    [InlineData(30, "  submit bob do", "setup")]
+    [InlineData(39, "other : Script ()", "other")]
+    [InlineData(45, "  pure ()", "other")]
+    public void The_caret_means_the_script_named_on_its_line_or_the_nearest_one_above(int line, string text, string expected)
+    {
+        LensRows.ForCaret(SampleRows, line, text).ShouldNotBeNull().ShouldHaveSingleItem().Target.ShouldBe(expected);
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(5, "template Asset")]
+    [InlineData(0, "module Main where")]
+    public void Above_every_script_the_caret_means_none(int line, string text)
+    {
+        LensRows.ForCaret(SampleRows, line, text).ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_name_that_only_starts_like_a_script_is_not_that_script()
+    {
+        // `setupTwo` begins with `setup` but is another declaration; the nearest row above wins.
+        LensRows.ForCaret(SampleRows, 39, "setupTwo : Script ()").ShouldNotBeNull().Single().Target.ShouldBe("setup");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_script_lens_becomes_a_results_segment_on_its_declaration_line()
     {

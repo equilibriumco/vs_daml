@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Community.VisualStudio.Toolkit;
 using Daml.VisualStudio.Commands;
+using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.LanguageServer.Lenses;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Language.Intellisense;
@@ -102,7 +103,10 @@ internal sealed class DamlLensActionsProvider : ISuggestedActionsSourceProvider
     }
 }
 
-/// <summary>Shows the results of the script the caret is in (the nearest lens at or above it).</summary>
+/// <summary>
+/// Shows the results of the script at the caret: the one named on the caret's line (its
+/// signature or an equation), or else the one whose body the caret is in.
+/// </summary>
 [Command(DamlMenuIds.CommandSetString, DamlMenuIds.ShowScriptResultsAtCaret)]
 internal sealed class ShowScriptResultsAtCaretCommand : BaseCommand<ShowScriptResultsAtCaretCommand>
 {
@@ -110,9 +114,12 @@ internal sealed class ShowScriptResultsAtCaretCommand : BaseCommand<ShowScriptRe
     {
         var view = await VS.Documents.GetActiveDocumentViewAsync();
         var caret = view?.TextView?.Caret.Position.BufferPosition;
-        var row = caret is { } position ? DamlLensRows.Existing(position.Snapshot.TextBuffer)?.AtOrAbove(position.GetContainingLine()) : null;
+        var row = caret is { } position ? DamlLensRows.Existing(position.Snapshot.TextBuffer)?.ForCaret(position.GetContainingLine()) : null;
         if (row?.FirstOrDefault(s => s.Target is ScriptLens) is not { } segment)
         {
+            var logger = await VS.GetMefServiceAsync<IDamlLogger>();
+            var where = caret is { } at ? $"line {at.GetContainingLine().LineNumber + 1} of {view!.FilePath}" : "no Daml editor";
+            logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Show Script Results at Caret: no script at the caret ({where}).");
             await VS.StatusBar.ShowMessageAsync("Daml: no script at the caret. Script results appear above scripts once the language server is ready.");
             return;
         }
