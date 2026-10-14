@@ -1,0 +1,672 @@
+================================================================================
+record: construction with the fields on the following lines
+================================================================================
+
+a = create Asset with
+  issuer = alice
+  owner = bob
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (apply
+          function: (variable)
+          argument: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (variable))
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (variable))))))))
+
+================================================================================
+record: puns, semicolons and commas, wildcard
+================================================================================
+
+b = Iou with issuer; owner, amount = 1.0
+
+c = exercise self $ Accept with ..
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            field: (field_name
+              (variable)))
+          field: (field_update
+            field: (field_name
+              (variable)))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (float))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (infix
+          left_operand: (apply
+            function: (variable)
+            argument: (variable))
+          operator: (operator)
+          right_operand: (record
+            expression: (constructor)
+            field: (field_update
+              (wildcard))))))))
+
+================================================================================
+record: update of a variable, of an expression in parentheses, of a nested field
+================================================================================
+
+d = this with owner = newOwner
+
+e = (view x) with lock = None
+
+g = acc with account.provider = None
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (variable)
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (variable)))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (parens
+            expression: (apply
+              function: (variable)
+              argument: (variable)))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (constructor)))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (variable)
+          field: (field_update
+            field: (field_path
+              field: (field_name
+                (variable))
+              subfield: (field_name
+                (variable)))
+            expression: (constructor)))))))
+
+================================================================================
+record: in parentheses and tuples, where commas separate fields
+================================================================================
+
+h = foo (Payment with dso, sender = user) cid
+
+t = (1, Pair with a = 1, b = 2)
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (apply
+          function: (apply
+            function: (variable)
+            argument: (parens
+              expression: (record
+                expression: (constructor)
+                field: (field_update
+                  field: (field_name
+                    (variable)))
+                field: (field_update
+                  field: (field_name
+                    (variable))
+                  expression: (variable)))))
+          argument: (variable))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (tuple
+          element: (literal
+            (integer))
+          element: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (literal
+                (integer)))
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (literal
+                (integer)))))))))
+
+================================================================================
+record: qualified constructor, a record in a field
+================================================================================
+
+i = V1.View with
+  inner = Inner with
+    x = 1
+  y = 2
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (qualified
+            module: (module
+              (module_id))
+            id: (constructor))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (record
+              expression: (constructor)
+              field: (field_update
+                field: (field_name
+                  (variable))
+                expression: (literal
+                  (integer)))))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (integer))))))))
+
+================================================================================
+record: a field holding a lambda with a do block
+================================================================================
+
+s = Script with
+  runScript = \s -> do
+    pure s
+  name = "x"
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (lambda
+              patterns: (patterns
+                (variable))
+              expression: (do
+                statement: (exp
+                  (apply
+                    function: (variable)
+                    argument: (variable))))))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (string))))))))
+
+================================================================================
+record: ended by then, else and in
+================================================================================
+
+r = if c then A with x = 1 else A with x = 2
+
+q = let a = A with x = 1 in a
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (conditional
+          if: (variable)
+          then: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (literal
+                (integer))))
+          else: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (literal
+                (integer)))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (let_in
+          binds: (local_binds
+            decl: (bind
+              name: (variable)
+              match: (match
+                expression: (record
+                  expression: (constructor)
+                  field: (field_update
+                    field: (field_name
+                      (variable))
+                    expression: (literal
+                      (integer)))))))
+          expression: (variable))))))
+
+================================================================================
+record: patterns in case alternatives
+================================================================================
+
+f v = case v of
+  V1 with payload -> payload
+  V2 with payload, extra -> extra
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (case
+          (variable)
+          alternatives: (alternatives
+            alternative: (alternative
+              pattern: (record
+                constructor: (constructor)
+                field: (field_pattern
+                  field: (field_name
+                    (variable))))
+              match: (match
+                expression: (variable)))
+            alternative: (alternative
+              pattern: (record
+                constructor: (constructor)
+                field: (field_pattern
+                  field: (field_name
+                    (variable)))
+                field: (field_pattern
+                  field: (field_name
+                    (variable))))
+              match: (match
+                expression: (variable)))))))))
+
+================================================================================
+record: patterns in parentheses
+================================================================================
+
+k (TimeLock with expiresAt; holders) = holders
+
+l p = let (Pair with a, b) = p in a
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (parens
+          pattern: (record
+            constructor: (constructor)
+            field: (field_pattern
+              field: (field_name
+                (variable)))
+            field: (field_pattern
+              field: (field_name
+                (variable))))))
+      match: (match
+        expression: (variable)))
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (let_in
+          binds: (local_binds
+            decl: (bind
+              pattern: (parens
+                pattern: (record
+                  constructor: (constructor)
+                  field: (field_pattern
+                    field: (field_name
+                      (variable)))
+                  field: (field_pattern
+                    field: (field_name
+                      (variable)))))
+              match: (match
+                expression: (variable))))
+          expression: (variable))))))
+
+================================================================================
+record: data declaration
+================================================================================
+
+data Point = Point with
+    x : Int
+    y : Int
+  deriving (Eq, Show)
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))))))
+      deriving: (deriving
+        classes: (tuple
+          (name)
+          (name))))))
+
+================================================================================
+record: data declaration on one line
+================================================================================
+
+data P = P with x : Int; y : Int deriving Eq
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))))))
+      deriving: (deriving
+        classes: (name)))))
+
+================================================================================
+record: variants, the constructors on their own lines
+================================================================================
+
+data Command
+  = Create with
+      arg : Int
+  | Exercise with
+      cid : Int
+      name : Text
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))))))
+
+================================================================================
+record: newtype
+================================================================================
+
+newtype RelTime = RelTime with microseconds : Int
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (newtype
+      name: (name)
+      constructor: (newtype_constructor
+        name: (constructor)
+        field: (record
+          field: (field
+            name: (field_name
+              (variable))
+            type: (name)))))))
+
+================================================================================
+record: a comment between with and the fields
+================================================================================
+
+a = create this with
+  -- The owner changes.
+  owner = bob
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (apply
+          function: (variable)
+          argument: (record
+            expression: (variable)
+            (comment)
+            field: (field_update
+              field: (field_name
+                (variable))
+              expression: (variable))))))))
+
+================================================================================
+record: variants on one line
+================================================================================
+
+data T = A with x : Int | B with y : Int
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))))))
+
+================================================================================
+record: a field still being written
+================================================================================
+
+a = create Asset with
+  issuer =
+
+b = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (apply
+          function: (variable)
+          argument: (record
+            expression: (constructor)
+            field: (field_update
+              field: (field_name
+                (variable)))
+            (ERROR)))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+record: field declarations separated by commas
+================================================================================
+
+data Claim = And with a1 : Int, a2 : [Int] | Scale with k : Int
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (list
+                  element: (name))))))
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))))))
+
+================================================================================
+record: semicolons between fields in braces
+================================================================================
+
+data Tuple2 a b = Tuple2{_1 : a; _2 : b}
+
+f AccountControllers{incoming; outgoing} = incoming
+
+r = x {a = 1; b = 2}
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      patterns: (type_params
+        bind: (variable)
+        bind: (variable))
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (variable))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (variable)))))))
+    (function
+      name: (variable)
+      patterns: (patterns
+        (record
+          constructor: (constructor)
+          field: (field_pattern
+            field: (field_name
+              (variable)))
+          field: (field_pattern
+            field: (field_name
+              (variable)))))
+      match: (match
+        expression: (variable)))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (variable)
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (integer)))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (integer))))))))

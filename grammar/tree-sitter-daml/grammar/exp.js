@@ -266,7 +266,12 @@ module.exports = {
 
   _exp_record: $ => prec('record', seq(
     field('expression', $.expression),
-    braces($, sep(',', field('field', $.field_update)))),
+    choice(
+      // Daml: `;` separates fields in braces too.
+      braces($, sep(choice(',', ';'), field('field', $.field_update))),
+      // Daml: `with` and a block of fields (grammar/daml.js).
+      $._exp_record_with,
+    )),
   ),
 
   _exp_projection_selector: $ => parens(

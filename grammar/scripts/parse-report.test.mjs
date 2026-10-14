@@ -85,6 +85,9 @@ template Asset
 
 interface Sellable where
   viewtype SellableView
+  price : Decimal
+  sell
+    : Party -> Update ()
 
 data Record = Record with
     field : Int
@@ -168,6 +171,9 @@ test('an error is named by the nearest Daml construct around it', () => {
     ['  -> Script ()', 'type signature with `:`'],
     // ...but a field under `with` belongs to its declaration.
     ['p : Party', 'template'],
+    // ...and so does a method of an interface, also when its type is on the next line.
+    ['price : Decimal', 'interface'],
+    [': Party -> Update ()', 'interface'],
     // The same declaration with its `with` on the next line.
     ['provider : Party', 'record with declaration'],
     // A `with` on a line of its own after an expression is a record update or construction.

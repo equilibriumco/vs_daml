@@ -5,7 +5,15 @@
 const {
   sep1,
   layout,
+  layout_sort,
 } = require('./util.js')
+
+/**
+ * The block after `with`. The scanner knows it apart from other blocks: inside parentheses, its
+ * commas and `=` don't end it as they would end other blocks, and an arrow that can't continue it
+ * does.
+ */
+const with_layout = ($, rule) => layout_sort($, $._cmd_layout_start_with, rule)
 
 module.exports = {
 
@@ -14,10 +22,26 @@ module.exports = {
   // ------------------------------------------------------------------------
 
   /**
-   * The fields after `with`: one per line, or several on a line separated by layout semicolons,
-   * `name : Type` each (`a, b : Party` declares two). Templates, choices and records use it.
+   * The fields after `with`: one per line, or several on a line separated by semicolons or commas,
+   * `name : Type` each (`a, b : Party` declares two). Templates and choices use it.
    */
-  with_fields: $ => layout($, field('field', $.field)),
+  with_fields: $ => with_layout($, sep1(',', field('field', $.field))),
+
+  /**
+   * `data P = P with x : Int`: the same record as `P {x : Int}`, so the node is the same too.
+   */
+  _record_fields_with: $ => seq('with', with_layout($, sep1(',', field('field', $.field)))),
+
+  /**
+   * `T with f = v`, `x with f = v`: record construction and update, as with braces. Fields are
+   * separated by semicolons or commas, `with a; b, c = 1`, and may be puns or `..`.
+   */
+  _exp_record_with: $ => seq('with', with_layout($, sep1(',', field('field', $.field_update)))),
+
+  /**
+   * `V1 with payload -> …`: a record pattern, as with braces.
+   */
+  _pat_record_with: $ => seq('with', with_layout($, sep1(',', field('field', $.field_pattern)))),
 
   // ------------------------------------------------------------------------
   // template

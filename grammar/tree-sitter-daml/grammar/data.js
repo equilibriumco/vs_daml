@@ -35,7 +35,12 @@ module.exports = {
     field('type', $._parameter_type),
   )),
 
-  _record_fields: $ => braces($, sep(',', field('field', $.field)), optional(',')),
+  _record_fields: $ => choice(
+    // Daml: `;` separates fields in braces too.
+    braces($, sep(choice(',', ';'), field('field', $.field)), optional(',')),
+    // Daml: `with` and a block of fields (grammar/daml.js).
+    $._record_fields_with,
+  ),
 
   // ------------------------------------------------------------------------
   // deriving

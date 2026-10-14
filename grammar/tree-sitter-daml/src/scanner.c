@@ -121,6 +121,7 @@ typedef enum {
   START_IF,
   START_LET,
   START_QUOTE,
+  START_WITH,
   START_EXPLICIT,
   END,
   END_EXPLICIT,
@@ -175,6 +176,7 @@ static const char *sym_names[] = {
   "start_if",
   "start_let",
   "start_quote",
+  "start_with",
   "start_explicit",
   "end",
   "end_explicit",
@@ -261,6 +263,11 @@ Debug debug_new(TSLexer *l) {
 
 /**
  * Different sorts of layout contexts that require special treatment.
+ *
+ * Daml: `WithLayout` is the block of fields after `with`, in records, templates and choices. Commas separate fields in
+ * it and `=` gives a field its value, so neither ends it even inside parentheses; an arrow does
+ * (`V1 with payload -> payload`).
+ * It must stay below `MultiWayIfLayout`, since that is where layout semicolons stop.
  */
 typedef enum {
   DeclLayout,
@@ -268,6 +275,7 @@ typedef enum {
   CaseLayout,
   LetLayout,
   QuoteLayout,
+  WithLayout,
   MultiWayIfLayout,
   Braces,
   TExp,
@@ -282,8 +290,9 @@ static char const *context_names[] = {
   "do",
   "case",
   "let",
-  "multi_way_if",
   "quote",
+  "with",
+  "multi_way_if",
   "braces",
   "texp",
   "module_header",
@@ -1199,6 +1208,7 @@ static void debug_contexts(Env *env) {
       else if (ctx.sort == CaseLayout) dbg("case ");
       else if (ctx.sort == MultiWayIfLayout) dbg("if ");
       else if (ctx.sort == QuoteLayout) dbg("quote ");
+      else if (ctx.sort == WithLayout) dbg("with ");
       dbg("%d", ctx.indent);
     }
     empty = false;
@@ -1736,6 +1746,8 @@ static ContextSort layout_sort(Symbol s) {
       return LetLayout;
     case START_QUOTE:
       return QuoteLayout;
+    case START_WITH:
+      return WithLayout;
     default:
       return DeclLayout;
   }
@@ -1972,9 +1984,11 @@ static Symbol end_layout_in(Env *env) {
 
 /**
  * For GADT constructor layouts.
+ * Daml: also for the fields of a record constructor, `data P = P with x : Int deriving Eq`.
  */
 static Symbol end_layout_deriving(Env *env) {
-  if (valid(env, END) && !valid(env, DERIVING) && !top_layout(env) && current_context(env) == DeclLayout)
+  ContextSort sort = current_context(env);
+  if (valid(env, END) && !valid(env, DERIVING) && !top_layout(env) && (sort == DeclLayout || sort == WithLayout))
     return end_layout(env, "deriving");
   return FAIL;
 }
@@ -2017,6 +2031,26 @@ static bool layouts_in_texp(Env *env) {
  */
 static Symbol token_end_layout_texp(Env *env) {
   return (valid(env, END) && layouts_in_texp(env)) ? end_layout(env, "texp") : FAIL;
+}
+
+/**
+ * Daml: inside parentheses, a comma or an equals sign ends any layout but the fields after `with`, where commas
+ * separate fields and `=` gives a field its value.
+ */
+static Symbol end_layout_texp_closer(Env *env) {
+  if (current_context(env) == WithLayout && (char0(env, ',') || char0(env, '='))) return FAIL;
+  return token_end_layout_texp(env);
+}
+
+/**
+ * Daml: an arrow that doesn't belong to the fields ends them, as in `V1 with payload -> payload`.
+ * Outside a `with`, only a layout in parentheses ends at such an arrow.
+ */
+static Symbol end_layout_arrow(Env *env) {
+  if (valid(env, ARROW)) return FAIL;
+  SEQ(token_end_layout_texp(env));
+  if (current_context(env) == WithLayout) return end_layout(env, "arrow");
+  return FAIL;
 }
 
 static Symbol force_end_context(Env *env) {
@@ -2741,10 +2775,9 @@ static Symbol process_token_safe(Env *env, Lexed next) {
       SEQ(token_end_layout_texp(env));
       return end_layout_infix(env);
     case LArrow:
-      if (!valid(env, ARROW)) return token_end_layout_texp(env);
-      break;
+      return end_layout_arrow(env);
     case LTexpCloser:
-      return token_end_layout_texp(env);
+      return end_layout_texp_closer(env);
     case LQuoteClose:
       return end_layout(env, "quote bracket");
       break;

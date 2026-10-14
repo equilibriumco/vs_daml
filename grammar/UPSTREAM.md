@@ -32,10 +32,20 @@
   Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
   test had to leave `test/corpus/haskell/`.
 - **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses, the
-  `with` blocks of fields). Upstream files are touched only to plug it in: `grammar.js` requires
-  the module and spreads it into the rules (`...daml`), and `declaration` in `grammar/module.js`
-  lists `template_declaration` first. Their nodes are listed in `grammar/docs/nodes.md`; our tests
-  are under `test/corpus/daml/`.
+  `with` blocks of fields, records with `with`). Upstream files are touched only to plug it in,
+  each place marked with a `Daml:` comment: `grammar.js` requires the module and spreads it into
+  the rules (`...daml`); `declaration` in `grammar/module.js` lists `template_declaration` first;
+  the record rules (`_record_fields` in `grammar/data.js`, `_exp_record` in `grammar/exp.js`,
+  `_pat_record` in `grammar/pat.js`) take `with` and a block as an alternative to braces, and accept
+  `;` between fields in braces; `grammar/externals.js` has one more layout start,
+  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`. Their nodes are listed in
+  `grammar/docs/nodes.md`; our tests are under `test/corpus/daml/`.
+- **The `with` block in the scanner** (`src/scanner.c`): a symbol `START_WITH` (mirroring the new
+  external) and a context sort `WithLayout` (below `MultiWayIfLayout`, so it gets layout
+  semicolons). Inside it a `,` or `=` doesn't end the block in parentheses
+  (`end_layout_texp_closer`), an arrow that can't continue it does (`end_layout_arrow`), and
+  `deriving` ends it as it ends GADT layouts (`end_layout_deriving`). The debug names of the
+  context sorts were reordered to match the enum (upstream had `quote` and `multi_way_if` swapped).
 - Our own `package.json` (private, only the pinned CLI), `tree-sitter.json` (file type `.daml`,
   scope `source.daml`), `.gitignore`, `.gitattributes`, `.editorconfig`, `README.md`; our
   copyright line added to `LICENSE`.
@@ -57,6 +67,7 @@
 3. Apply that diff to `tree-sitter-daml` (test files under `test/corpus/haskell/`; run
    `node grammar/scripts/swap-colons.mjs` on test files that are new upstream, once, since swapping
    twice gives the original back), redo the renames
-   above where the diff touches them, and keep the Daml rules (`grammar/daml.js` and the lines that
-   plug it in).
+   above where the diff touches them, and keep the Daml rules (`grammar/daml.js`, the lines that
+   plug it in and the scanner's `with` block; `grep -n Daml src/scanner.c grammar/*.js` finds them,
+   apart from the two `daml` lines in `grammar.js`).
 4. `npx tree-sitter generate` and `npx tree-sitter test` must pass; then update the table above.

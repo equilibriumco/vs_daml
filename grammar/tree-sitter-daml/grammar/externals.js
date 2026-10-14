@@ -56,6 +56,8 @@ module.exports = {
     $._cmd_layout_start_if,
     $._cmd_layout_start_let,
     $._cmd_layout_start_quote,
+    // Daml: the fields after `with`.
+    $._cmd_layout_start_with,
     // This variant is used in a `choice` with the others, and serves only to create a terminal node for explicit
     // braces.
     // If the scanner emitted the same symbol for virtual and explicit braces, we would either get an anonymous node

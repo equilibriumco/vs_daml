@@ -11,7 +11,23 @@ The rules live in `tree-sitter-daml/grammar/daml.js`.
 
 | Node | Fields | Notes |
 |---|---|---|
-| `with_fields` | `field`* (`field`) | The layout block after `with`: one field per line, or several on a line. Each `field` is upstream's node: `name` (`field_name`, more than one for `a, b : Party`) and `type`. Documentation comments between fields stay in the block; one after the last field follows the block. |
+| `with_fields` | `field`* (`field`) | The layout block after `with` in templates: one field per line, or several on a line separated by `;` or `,`. Each `field` is upstream's node: `name` (`field_name`, more than one for `a, b : Party`) and `type`. Documentation comments between fields stay in the block; one after the last field follows the block. |
+
+## Records
+
+A record written with `with` gives the same nodes as one written with braces, so queries treat
+both alike. In Daml both kinds separate fields with `,` or `;`.
+
+| Written as | Node | Fields |
+|---|---|---|
+| `data P = P with x : Int`, `\| C with …`, `P {x : Int}` | `record` in `data_constructor` | `name` (`constructor`), `fields` (`fields` with `field`*) |
+| `newtype N = N with x : Int` | `record` in `newtype_constructor` | `field`* (`field`) |
+| `T with f = v`, `x with f = v`, `(e) with a.b = v` | `record` (expression) | `expression`, `field`* (`field_update`: a name or `field_path` with an optional `expression`, a pun, or `wildcard` for `..`) |
+| `V1 with payload -> …`, `(T with a, b)` | `record` (pattern) | `constructor`, `field`* (`field_pattern`) |
+
+`with` binds tighter than application: `create Asset with …` is `create` applied to the record.
+The block after `with` ends where its indentation ends, or at `)`, `]`, `then`, `else`, `in`,
+`deriving`, `|` between constructors, and the `->` after a pattern.
 
 ## Templates
 

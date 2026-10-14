@@ -161,6 +161,8 @@ export function classify(lines, row) {
     }
   }
   const enclosing = chain(lines, row);
+  // An interface's methods are written as signatures, but they belong to the interface.
+  const inInterface = enclosing.some(line => /^\s*interface\b(?!\s+instance\b)/.test(lines[line]));
   for (let k = 0; k < enclosing.length; k++) {
     const text = lines[enclosing[k]];
     // The enclosing line as written, a bare `with` included, so a field knows it is one.
@@ -176,6 +178,9 @@ export function classify(lines, row) {
       continue;
     }
     for (const [rule, name] of rules) {
+      if (name === signature && inInterface) {
+        continue;
+      }
       if (matches(rule, text, parent)) {
         return { construct: typeof name === 'function' ? name(text) : name, line: enclosing[k] + 1, detail: '' };
       }

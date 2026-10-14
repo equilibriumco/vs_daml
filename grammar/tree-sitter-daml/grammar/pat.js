@@ -38,7 +38,12 @@ module.exports = {
 
   _pat_record: $ => prec('record', seq(
     field('constructor', $.pattern),
-    braces($, sep(',', field('field', $.field_pattern))),
+    choice(
+      // Daml: `;` separates fields in braces too.
+      braces($, sep(choice(',', ';'), field('field', $.field_pattern))),
+      // Daml: `with` and a block of fields (grammar/daml.js).
+      $._pat_record_with,
+    ),
   )),
 
   // ------------------------------------------------------------------------
