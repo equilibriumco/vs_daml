@@ -289,8 +289,30 @@ internal sealed class ScriptResultsView : IDisposable
             return;
         }
         e.Cancel = true;
+        Follow(decision);
+    }
+
+    // A link may also reach the window as a request for a new window (a middle click) or for an
+    // app that handles its scheme (`command:` is one Windows doesn't know); either way it goes
+    // where a plain click would, and nothing opens outside the window.
+    private void OnNewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs e)
+    {
+        e.Handled = true;
+        Follow(ResultsNavigation.Classify(e.Uri, e.IsUserInitiated));
+    }
+
+    private void OnLaunchingExternalUriScheme(object sender, CoreWebView2LaunchingExternalUriSchemeEventArgs e)
+    {
+        e.Cancel = true;
+        Follow(ResultsNavigation.Classify(e.Uri, e.IsUserInitiated));
+    }
+
+    private void Follow(NavigationDecision decision)
+    {
         switch (decision.Kind)
         {
+            case NavigationKind.OwnPage:
+                break; // the page itself, asked for in a new window: it is already here
             case NavigationKind.RevealLocation when _isAllowedSource(decision.Reveal!.File):
                 _joinableTaskFactory.RunAsync(() => SourceReveal.RevealAsync(decision.Reveal, _logger, _joinableTaskFactory))
                     .FileAndForget("daml/scriptResults/reveal");
@@ -346,15 +368,11 @@ internal sealed class ScriptResultsView : IDisposable
         }
     }
 
-    private void OnNewWindowRequested(object sender, CoreWebView2NewWindowRequestedEventArgs e) => e.Handled = true;
-
     private void OnDownloadStarting(object sender, CoreWebView2DownloadStartingEventArgs e)
     {
         e.Cancel = true;
         e.Handled = true;
     }
-
-    private void OnLaunchingExternalUriScheme(object sender, CoreWebView2LaunchingExternalUriSchemeEventArgs e) => e.Cancel = true;
 
     // One theme switch raises this several times; the page is restyled once, after the last.
     private void OnThemeChanged(ThemeChangedEventArgs e) =>
