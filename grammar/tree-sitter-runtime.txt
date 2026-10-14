@@ -1,0 +1,5 @@
+# The tree-sitter runtime built together with the grammar, into the fuzzer (fuzz/build.sh,
+# fuzz/build.ps1) and the native library (native/CMakeLists.txt): the release of the CLI pinned in
+# tree-sitter-daml/package.json, so what we ship parses the way the tests parse.
+version=0.27.1
+commit=10eb5ac119eec9cb4267a8e035066473983f5f3a

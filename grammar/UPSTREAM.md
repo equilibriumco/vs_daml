@@ -10,6 +10,7 @@
 | Taken | 2026-10-14 |
 | License | MIT (kept in `tree-sitter-daml/LICENSE`) |
 | tree-sitter CLI | `0.27.1`, pinned in `tree-sitter-daml/package.json` (upstream asked for `^0.27.0`) |
+| tree-sitter runtime | `v0.27.1` = `10eb5ac119eec9cb4267a8e035066473983f5f3a`, pinned in `tree-sitter-runtime.txt`; built into the fuzzer and the native library (`native/`). Bump it with the CLI. |
 
 ## What was taken
 

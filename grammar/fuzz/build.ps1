@@ -21,8 +21,7 @@ $ErrorActionPreference = 'Stop'
 $grammar = Join-Path $PSScriptRoot '..\tree-sitter-daml'
 New-Item -ItemType Directory -Force $Out | Out-Null
 
-# tree-sitter v0.27.1, the runtime of the pinned CLI.
-$runtimeCommit = '10eb5ac119eec9cb4267a8e035066473983f5f3a'
+$runtimeCommit = (Get-Content -Raw (Join-Path $PSScriptRoot '..\tree-sitter-runtime.txt') | ConvertFrom-StringData).commit.Trim()
 $runtime = Join-Path $Out 'tree-sitter'
 if ((git -C $runtime rev-parse HEAD 2>$null) -ne $runtimeCommit) {
     Remove-Item -Recurse -Force $runtime -ErrorAction SilentlyContinue

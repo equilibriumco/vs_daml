@@ -5,6 +5,7 @@ on:
     branches: [master, main]
     paths:
       - 'grammar/**'
+      - 'native/**'
       - 'samples/**'
       - 'scripts/collect-corpus.ps1'
       - 'scripts/lib/Corpus.psm1'
@@ -12,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'grammar/**'
+      - 'native/**'
       - 'samples/**'
       - 'scripts/collect-corpus.ps1'
       - 'scripts/lib/Corpus.psm1'
@@ -85,7 +87,7 @@ jobs:
       - name: Incremental parsing of the real-world corpus
         run: node ../scripts/edit-properties.mjs --cases 300 --seed ${{ github.run_number }}
 
-      # Parsing speed against the budgets (5 000 lines in 20 ms, an edit in 2 ms). Shared runners
+      # Parsing speed against the budgets (5 000 lines in 40 ms, an edit in 25 ms). Shared runners
       # are too noisy to judge timings, so this reports and doesn't fail; the budgets are checked
       # on a quiet machine with the same command.
       - name: Parsing speed (report only)
@@ -124,3 +126,35 @@ jobs:
           name: fuzz-crashes
           path: ${{ runner.temp }}/crashes
           if-no-files-found: ignore
+
+  # daml_ts.dll, the runtime and the grammar in one library, for x64 and ARM64. The smoke test runs
+  # on x64; ARM64 is cross-compiled and only built (there is no ARM64 machine to run it on).
+  native:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: grammar/tree-sitter-daml/package-lock.json
+
+      - name: Install the pinned CLI
+        working-directory: grammar/tree-sitter-daml
+        run: npm ci
+
+      - name: Build daml_ts for x64 and ARM64
+        shell: pwsh
+        run: ./native/build.ps1
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: daml_ts-windows
+          path: |
+            build/native/*/Release/daml_ts.dll
+            build/native/*/Release/daml_ts.pdb
+            build/native/*/Release/daml_ts.lib
+          if-no-files-found: error

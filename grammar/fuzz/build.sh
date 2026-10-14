@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Daml grammar's fuzzer (fuzzer.c) with clang, libFuzzer and the address and
-# undefined-behaviour sanitizers: the tree-sitter runtime at the commit of the CLI pinned in
-# tree-sitter-daml/package.json, the generated parser and the scanner. Run
+# undefined-behaviour sanitizers: the tree-sitter runtime pinned in grammar/tree-sitter-runtime.txt
+# (the release of the pinned CLI), the generated parser and the scanner. Run
 # `npx tree-sitter generate` in grammar/tree-sitter-daml first.
 #
 #   grammar/fuzz/build.sh [out dir]        (default grammar/fuzz/out)
@@ -17,8 +17,7 @@ grammar="$here/../tree-sitter-daml"
 out="${1:-$here/out}"
 mkdir -p "$out"
 
-# tree-sitter v0.27.1, the runtime of the pinned CLI.
-runtime_commit=10eb5ac119eec9cb4267a8e035066473983f5f3a
+runtime_commit="$(sed -n 's/^commit=\([0-9a-f]*\).*/\1/p' "$here/../tree-sitter-runtime.txt")"
 runtime="$out/tree-sitter"
 if [ "$(git -C "$runtime" rev-parse HEAD 2>/dev/null || true)" != "$runtime_commit" ]; then
   rm -rf "$runtime"
