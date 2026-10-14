@@ -119,6 +119,10 @@ pattern Nothing : Maybe a
 
 data NatSyn (n : Nat)
 
+data Key = Key
+  with
+    provider : Party
+
 allocate
   : Party -> Text
   -> Script ()
@@ -164,6 +168,8 @@ test('an error is named by the nearest Daml construct around it', () => {
     ['  -> Script ()', 'type signature with `:`'],
     // ...but a field under `with` belongs to its declaration.
     ['p : Party', 'template'],
+    // The same declaration with its `with` on the next line.
+    ['provider : Party', 'record with declaration'],
     // A `with` on a line of its own after an expression is a record update or construction.
     ['sender = p', 'record with expression'],
     ['      context', 'record with expression'],

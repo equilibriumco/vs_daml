@@ -2,12 +2,12 @@
 foreign: decl
 ================================================================================
 
-foreign import prim safe "fun" a :: (# A#, A# #)
-foreign import capi unsafe "fun" a :: A
-foreign import ccall interruptible "fun" a :: A
-foreign import ccall "fun" a :: A
-foreign export stdcall "fun" a :: A
-foreign export javascript "fun" a :: A
+foreign import prim safe "fun" a : (# A#, A# #)
+foreign import capi unsafe "fun" a : A
+foreign import ccall interruptible "fun" a : A
+foreign import ccall "fun" a : A
+foreign export stdcall "fun" a : A
+foreign export javascript "fun" a : A
 
 --------------------------------------------------------------------------------
 

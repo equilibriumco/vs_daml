@@ -263,7 +263,7 @@ cpp: #include as function body
 ================================================================================
 
 -- From GHC.
-allThePrimOps :: [PrimOp]
+allThePrimOps : [PrimOp]
 allThePrimOps =
 #include "primop-list.hs-incl"
 

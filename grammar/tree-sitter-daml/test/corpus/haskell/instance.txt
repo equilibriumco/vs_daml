@@ -34,7 +34,7 @@ instance A A a A
 instance: forall
 ================================================================================
 
-instance forall a (a :: *) . A
+instance forall a (a : *) . A
 
 --------------------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ instance: signature
 ================================================================================
 
 instance A a where
-  a :: A a => a -> a
+  a : A a => a -> a
   a a = a
 
 --------------------------------------------------------------------------------
@@ -225,12 +225,12 @@ instance: associated data instance
 ================================================================================
 
 instance A where
-  data A a = A a | A { a :: A }
+  data A a = A a | A { a : A }
 
   data instance ∀ a . A a => A a = A
 
   newtype A A where
-    A :: A %1 -> A A
+    A : A %1 -> A A
 
 --------------------------------------------------------------------------------
 
@@ -428,8 +428,8 @@ instance A where
 instance: annotation
 ================================================================================
 
-instance (A :: Constraint)
-instance ((A :: Type -> Constraint) A :: Constraint)
+instance (A : Constraint)
+instance ((A : Type -> Constraint) A : Constraint)
 
 --------------------------------------------------------------------------------
 

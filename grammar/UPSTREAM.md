@@ -14,7 +14,7 @@
 ## What was taken
 
 - `grammar.js`, `grammar/*.js`, `src/scanner.c`, `src/unicode.h`, `queries/*.scm`: as they were.
-- `test/corpus/*.txt`: moved to `test/corpus/haskell/`.
+- `test/corpus/*.txt`: moved to `test/corpus/haskell/`, inputs rewritten to Daml's colons (below).
 
 ## What was changed
 
@@ -22,6 +22,15 @@
   the scanner's five exported functions `tree_sitter_daml_external_scanner_*` (were
   `tree_sitter_haskell_external_scanner_*`); the root node `(daml` in the inherited test
   expectations (was `(haskell`).
+- **Daml's colons** (Haskell's swapped: `:` annotates a type, `::` is list cons):
+  `_colon2` in `grammar/lexeme.js` is `:` (the name kept to keep merges simple); in `src/scanner.c` a
+  lone `:` is reserved (`lex_symop`), `::` is an ordinary operator and so a constructor operator
+  (`valid_symop_two_chars`), and the data-head lookahead stops at a lone `:` (`ctr_top`);
+  `queries/highlights.scm` highlights `":"` (was `"::"`). Operators like `:|` or `:::` are unchanged.
+- The inputs of the inherited tests were rewritten by `grammar/scripts/swap-colons.mjs` (exactly `:`
+  and `::` swapped, also when qualified, `A.:` → `A.::`; strings, characters and comments untouched).
+  Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
+  test had to leave `test/corpus/haskell/`.
 - Our own `package.json` (private, only the pinned CLI), `tree-sitter.json` (file type `.daml`,
   scope `source.daml`), `.gitignore`, `.gitattributes`, `.editorconfig`, `README.md`; our
   copyright line added to `LICENSE`.
@@ -40,6 +49,8 @@
 
 1. Clone tree-sitter-haskell at the new release tag next to this repository.
 2. Diff the upstream release against the one recorded above (`git diff v0.24.1 <new tag> -- grammar.js grammar src/scanner.c src/unicode.h queries test/corpus`).
-3. Apply that diff to `tree-sitter-daml` (test files under `test/corpus/haskell/`), redo the renames
+3. Apply that diff to `tree-sitter-daml` (test files under `test/corpus/haskell/`; run
+   `node grammar/scripts/swap-colons.mjs` on test files that are new upstream, once, since swapping
+   twice gives the original back), redo the renames
    above where the diff touches them, and keep the Daml rules.
 4. `npx tree-sitter generate` and `npx tree-sitter test` must pass; then update the table above.

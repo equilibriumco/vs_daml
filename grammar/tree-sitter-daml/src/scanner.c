@@ -2063,8 +2063,7 @@ static bool valid_symop_two_chars(int32_t first_char, int32_t second_char) {
       return second_char != '>';
     case '<':
       return second_char != '-';
-    case ':':
-      return second_char != ':';
+    // Daml: `::` is list cons, an ordinary constructor operator (Haskell reserves it for types).
     default:
       return true;
   }
@@ -2142,6 +2141,8 @@ static Lexed lex_symop(Env *env) {
       case '*':
       case '-':
         return LSymopSpecial;
+      // Daml: a lone `:` annotates a type (Haskell's `::`) and is reserved; Haskell's cons is `::`.
+      case ':':
       case '\\':
       case 0x2190: // ←
       case 0x2200: // ∀
@@ -3119,11 +3120,11 @@ static CtrResult ctr_stop_on_token(Env *env, const char * restrict target) {
  * initial lexer position.
  * Otherwise the token belongs to a later, nested expression.
  *
- * Certain tokens are proof that no context can start at the current position, like `::` or `forall`, so lookahead is
- * terminated.
+ * Certain tokens are proof that no context can start at the current position, like `:` (Daml's type annotation) or
+ * `forall`, so lookahead is terminated.
  * It is still possible that an infix class can be parsed, for example in this type when starting at the at `C` and
- * terminating at `::`:
- * > `a :: (C + D :: Constraint) => E`
+ * terminating at `:`:
+ * > `a : (C + D : Constraint) => E`
  */
 static CtrResult ctr_top(Env *env, Lexed next) {
   switch (next) {
@@ -3151,13 +3152,14 @@ static CtrResult ctr_top(Env *env, Lexed next) {
       break;
     default:
       switch (peek0(env)) {
-        // Symop is processed in `ctr_lookahead_step`, so `=` and `::` can not be a prefix
+        // Symop is processed in `ctr_lookahead_step`, so `=` and `:` can not be a prefix
         case '=':
           return CtrEqualsFound;
         case 0x2200: // ∀
           break;
+        // Daml: a lone `:` annotates a type and isn't an operator; `::` (cons) was lexed as one above.
         case ':':
-          if (char1(env, ':')) break;
+          if (!char1(env, ':')) break;
           return CtrUndecided;
         case 'f':
           SEQ(ctr_stop_on_token(env, "forall"));

@@ -18,7 +18,9 @@ module.exports = {
   _arrow: _ => choice('->', '→'),
   _linear_arrow: _ => choice('->.', '⊸'),
   _larrow: _ => choice('<-', '←'),
-  _colon2: _ => choice('::', '∷'),
+  // Daml swaps Haskell's colons: one colon annotates a type, two are list cons (an operator, from
+  // the scanner). The name stays upstream's to keep merges simple.
+  _colon2: _ => choice(':', '∷'),
   _promote: _ => '\'',
 
   _qual_dot: $ => seq($._cond_qual_dot, '.'),

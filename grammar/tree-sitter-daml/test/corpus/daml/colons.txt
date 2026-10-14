@@ -1,0 +1,251 @@
+================================================================================
+colons: signature with one colon
+================================================================================
+
+f : Int -> Int
+f x = x
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (signature
+      name: (variable)
+      type: (function
+        parameter: (name)
+        result: (name)))
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+colons: signature over several lines
+================================================================================
+
+mkInteger : Bool
+         -> [Int]
+         -> Integer
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (signature
+      name: (variable)
+      type: (function
+        parameter: (name)
+        result: (function
+          parameter: (list
+            element: (name))
+          result: (name))))))
+
+================================================================================
+colons: signature of several names
+================================================================================
+
+f, g : Int
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (signature
+      names: (binding_list
+        name: (variable)
+        name: (variable))
+      type: (name))))
+
+================================================================================
+colons: class method signature
+================================================================================
+
+class C a where
+  m : a -> a
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (class
+      name: (name)
+      patterns: (type_params
+        bind: (variable))
+      declarations: (class_declarations
+        declaration: (signature
+          name: (variable)
+          type: (function
+            parameter: (variable)
+            result: (variable)))))))
+
+================================================================================
+colons: signature in let
+================================================================================
+
+f =
+  let g : Int
+      g = 1
+  in g
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (let_in
+          binds: (local_binds
+            decl: (signature
+              name: (variable)
+              type: (name))
+            decl: (bind
+              name: (variable)
+              match: (match
+                expression: (literal
+                  (integer)))))
+          expression: (variable))))))
+
+================================================================================
+colons: cons in an expression
+================================================================================
+
+xs = 1 :: 2 :: []
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (infix
+          left_operand: (literal
+            (integer))
+          operator: (constructor_operator)
+          right_operand: (infix
+            left_operand: (literal
+              (integer))
+            operator: (constructor_operator)
+            right_operand: (list)))))))
+
+================================================================================
+colons: cons in a pattern
+================================================================================
+
+f (x :: xs) = x
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (function
+      name: (variable)
+      patterns: (patterns
+        (parens
+          pattern: (infix
+            left_operand: (variable)
+            operator: (constructor_operator)
+            right_operand: (variable))))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+colons: cons as a section
+================================================================================
+
+g = (::)
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (prefix_id
+          (constructor_operator))))))
+
+================================================================================
+colons: record fields in braces
+================================================================================
+
+data R = R { a : Int, b : Text }
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))))))
+
+================================================================================
+colons: kind annotation
+================================================================================
+
+data NatSyn (n : Nat)
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      patterns: (type_params
+        (parens
+          (annotated
+            bind: (variable)
+            kind: (name)))))))
+
+================================================================================
+colons: type annotation in an expression
+================================================================================
+
+x = (1 : Int)
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (bind
+      name: (variable)
+      match: (match
+        expression: (parens
+          expression: (signature
+            expression: (literal
+              (integer))
+            type: (name)))))))
+
+================================================================================
+colons: other colon operators stay constructor operators
+================================================================================
+
+data T = Int :| Int
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (infix
+            left_operand: (name)
+            operator: (constructor_operator)
+            right_operand: (name)))))))

@@ -168,6 +168,10 @@ export function classify(lines, row) {
     if (bareWith.test(text) && parent !== undefined && !declaresFields.test(parent)) {
       return { construct: 'record with expression', line: enclosing[k] + 1, detail: '' };
     }
+    // `data X = X` with its `with` on the next line.
+    if (bareWith.test(text) && parent !== undefined && /^\s*data\b.*=/.test(parent)) {
+      return { construct: 'record with declaration', line: enclosing[k + 1] + 1, detail: '' };
+    }
     if (layoutOnly.test(text)) {
       continue;
     }

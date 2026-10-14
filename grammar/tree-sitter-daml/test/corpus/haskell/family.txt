@@ -83,7 +83,7 @@ type family A a b c where
 family: closed, signature
 ================================================================================
 
-type family A a :: (k -> *) -> 'Just k where
+type family A a : (k -> *) -> 'Just k where
   A a = a
 
 --------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ type family A a :: (k -> *) -> 'Just k where
 family: closed, variable kind
 ================================================================================
 
-type family A (a :: ([k] -> *) -> k) where
+type family A (a : ([k] -> *) -> k) where
   A a = a
 
 --------------------------------------------------------------------------------
@@ -179,7 +179,7 @@ type family A a where
 family: open
 ================================================================================
 
-type family A (a :: a) :: *
+type family A (a : a) : *
 type instance A [A] = A
 type instance A (A A) = A
 
@@ -214,7 +214,7 @@ type instance A (A A) = A
 family: data family
 ================================================================================
 
-data family A a (a :: [a]) :: Type -> *
+data family A a (a : [a]) : Type -> *
 
 --------------------------------------------------------------------------------
 
@@ -240,7 +240,7 @@ family: data instance adt
 data instance ∀ a . A a A =
   A a A a
   |
-  A { a :: A }
+  A { a : A }
 
 --------------------------------------------------------------------------------
 
@@ -276,7 +276,7 @@ family: data instance gadt
 ================================================================================
 
 data instance A a where
-  A :: A -> A a
+  A : A -> A a
   deriving (A, A)
 
 --------------------------------------------------------------------------------
@@ -330,10 +330,10 @@ family: data instance newtype gadt
 ================================================================================
 
 newtype instance A A where
-  A :: A %1 -> A A
+  A : A %1 -> A A
 
-newtype instance ∀ a . A a => A (a :: a) :: A where
-  A :: A %1 -> A [a] deriving A
+newtype instance ∀ a . A a => A (a : a) : A where
+  A : A %1 -> A [a] deriving A
 
 --------------------------------------------------------------------------------
 
@@ -392,7 +392,7 @@ newtype instance ∀ a . A a => A (a :: a) :: A where
 family: data instance newtype record
 ================================================================================
 
-newtype instance A = A { a :: A }
+newtype instance A = A { a : A }
 
 --------------------------------------------------------------------------------
 
@@ -416,7 +416,7 @@ module A where
 
 type family A a = r
 
-type family A a = (r :: A) | r -> a where
+type family A a = (r : A) | r -> a where
   A a = a
 
 --------------------------------------------------------------------------------
@@ -517,7 +517,7 @@ family: kind signature in pattern
 ================================================================================
 
 type family A where
-  A (a :: A, a) = a
+  A (a : A, a) = a
 
 --------------------------------------------------------------------------------
 
@@ -541,7 +541,7 @@ family: kind application
 ================================================================================
 
 type family A where
-  A @A @a @(A a) @(∀ a . A a :: A a) a = a
+  A @A @a @(A a) @(∀ a . A a : A a) a = a
 
 type instance A @a A = a
 
