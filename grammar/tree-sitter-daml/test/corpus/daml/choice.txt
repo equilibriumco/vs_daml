@@ -1,0 +1,567 @@
+================================================================================
+choice: parameters, controller and do
+================================================================================
+
+template Asset
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice Give : ContractId Asset
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (apply
+            constructor: (name)
+            argument: (name))
+          parameters: (with_fields
+            field: (field
+              name: (field_name
+                (variable))
+              type: (name)))
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (record
+                  expression: (variable)
+                  field: (field_update
+                    field: (field_name
+                      (variable))
+                    expression: (variable)))))))))))
+
+================================================================================
+choice: modifiers, no parameters, do on the same line
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    nonconsuming choice Look : ()
+      controller p
+      do pure ()
+
+    preconsuming choice Pre : ()
+      controller p
+      do pure ()
+
+    postconsuming choice Post : ()
+      controller p do pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+choice: with on the header line, several controllers
+================================================================================
+
+template Cash
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice Transfer : ContractId Cash with
+        newOwner : Party
+      controller [owner, newOwner]
+      do
+        create this with owner = newOwner
+
+    choice Split : (ContractId Cash, [Cash])
+      controller owner, issuer
+      do
+        pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (apply
+            constructor: (name)
+            argument: (name))
+          parameters: (with_fields
+            field: (field
+              name: (field_name
+                (variable))
+              type: (name)))
+          controller: (controller_clause
+            party: (list
+              element: (variable)
+              element: (variable)))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (record
+                  expression: (variable)
+                  field: (field_update
+                    field: (field_name
+                      (variable))
+                    expression: (variable)))))))
+        (choice_declaration
+          name: (name)
+          return_type: (tuple
+            element: (apply
+              constructor: (name)
+              argument: (name))
+            element: (list
+              element: (name)))
+          controller: (controller_clause
+            party: (variable)
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+choice: the type on its own line, observers
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    choice NameOfChoiceWithObserver
+      : ()
+      with
+        party : Party
+      observer party
+      controller p
+      do
+        return ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          parameters: (with_fields
+            field: (field
+              name: (field_name
+                (variable))
+              type: (name)))
+          observer: (observer_clause
+            party: (variable))
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+choice: with in the column of the fields, do below the controller
+================================================================================
+
+template Iou
+  with
+    owner : Party
+    amount : Decimal
+  where
+    signatory owner
+
+    choice Iou_Split : ()
+        with
+        splitAmount : Decimal
+      controller owner
+        do
+          pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          parameters: (with_fields
+            field: (field
+              name: (field_name
+                (variable))
+              type: (name)))
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+choice: comments between the parts
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    -- | Gives the asset away.
+    nonconsuming choice Create : ()
+      -- ^ Create an observation.
+      with
+        provider : Party
+          -- ^ The provider.
+      controller p
+        -- The body starts here.
+        do
+          pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (haddock)
+        (choice_declaration
+          modifier: (choice_modifier)
+          name: (name)
+          return_type: (unit)
+          (haddock)
+          parameters: (with_fields
+            field: (field
+              name: (field_name
+                (variable))
+              type: (name)))
+          (haddock)
+          controller: (controller_clause
+            party: (variable))
+          (comment)
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))))
+
+================================================================================
+choice: between clauses and other choices
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+    choice A : ()
+      controller p
+      do pure ()
+    observer p
+    choice B : ()
+      controller p
+      do pure ()
+    ensure True
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (observer_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (ensure_clause
+          condition: (constructor))))))
+
+================================================================================
+choice: choice and controller as ordinary names elsewhere
+================================================================================
+
+data Exercised = Exercised
+  with
+    choice : Text
+    controller : Party
+
+f choice = choice
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (data_type
+      name: (name)
+      constructors: (data_constructors
+        constructor: (data_constructor
+          constructor: (record
+            name: (constructor)
+            fields: (fields
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name))
+              field: (field
+                name: (field_name
+                  (variable))
+                type: (name)))))))
+    (function
+      name: (variable)
+      patterns: (patterns
+        (variable))
+      match: (match
+        expression: (variable)))))
+
+================================================================================
+choice: a controller still being written
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    choice Go : ()
+      controller
+
+f : Int
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (ERROR
+          (name)
+          (unit))))
+    (signature
+      name: (variable)
+      type: (name))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+choice: an empty with before the controller
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+    choice Accept : ()
+      with
+        controller p
+      do
+        pure ()
+
+    choice Expire : ()
+      with
+      controller p
+      do
+        pure ()
+
+f = Foo with
+  controller
+  other = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))
+        (choice_declaration
+          name: (name)
+          return_type: (unit)
+          controller: (controller_clause
+            party: (variable))
+          body: (do
+            statement: (exp
+              (apply
+                function: (variable)
+                argument: (unit)))))))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (record
+          expression: (constructor)
+          field: (field_update
+            field: (field_name
+              (variable)))
+          field: (field_update
+            field: (field_name
+              (variable))
+            expression: (literal
+              (integer))))))))

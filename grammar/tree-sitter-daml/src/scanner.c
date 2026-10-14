@@ -1759,6 +1759,19 @@ typedef struct {
 } StartLayout;
 
 /**
+ * Daml: a choice may have a `with` without fields right before its `controller`, as in
+ * `with controller p`. A field or a pun named `controller` is followed by `:`, `,`, `=` or the end of the line, not by
+ * a party.
+ */
+static bool controller_follows(Env *env) {
+  if (!token(env, "controller")) return false;
+  uint32_t i = (uint32_t) strlen("controller");
+  while (is_space_or_tab(peek(env, i))) i++;
+  int32_t c = peek(env, i);
+  return varid_start_char(c) || is_conid_start_char(c) || c == '[' || c == '(';
+}
+
+/**
  * Determine whether the layout sort corresponding to the potentially valid symbol can start at this position.
  * If the context stack is `uninitialized`, the first layout is added by `process_token_init`.
  * In newline processing mode, brace layouts cannot be started because there may be comments before the brace that need
@@ -1781,6 +1794,8 @@ static StartLayout valid_layout_start(Env *env, Lexed next) {
       break;
     default:
       if (sort == MultiWayIfLayout) return start;
+      // Daml: an empty `with` before a choice's `controller` has no fields to start.
+      if (sort == WithLayout && controller_follows(env)) return start;
       break;
   }
   start.sort = sort;

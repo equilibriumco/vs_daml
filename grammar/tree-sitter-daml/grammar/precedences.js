@@ -19,6 +19,15 @@ module.exports = {
       $.quantified_type,
     ],
 
+    /**
+     * Daml: a clause like `controller p` ends before the `do` that follows it, instead of taking the
+     * `do` block as an argument of its last expression (grammar/daml.js).
+     */
+    [
+      'daml-clause',
+      'apply',
+    ],
+
     // ------------------------------------------------
     // negation
     // ------------------------------------------------

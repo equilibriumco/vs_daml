@@ -31,20 +31,24 @@
   and `::` swapped, also when qualified, `A.:` → `A.::`; strings, characters and comments untouched).
   Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
   test had to leave `test/corpus/haskell/`.
-- **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses, the
-  `with` blocks of fields, records with `with`). Upstream files are touched only to plug it in,
+- **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses,
+  choices, the `with` blocks of fields, records with `with`). Upstream files are touched only to plug it in,
   each place marked with a `Daml:` comment: `grammar.js` requires the module and spreads it into
   the rules (`...daml`); `declaration` in `grammar/module.js` lists `template_declaration` first;
   the record rules (`_record_fields` in `grammar/data.js`, `_exp_record` in `grammar/exp.js`,
   `_pat_record` in `grammar/pat.js`) take `with` and a block as an alternative to braces, and accept
   `;` between fields in braces; `grammar/externals.js` has one more layout start,
-  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`. Their nodes are listed in
-  `grammar/docs/nodes.md`; our tests are under `test/corpus/daml/`.
+  `_cmd_layout_start_with`, after `_cmd_layout_start_quote`; `grammar/precedences.js` has one more
+  group, `['daml-clause', 'apply']`, so that `controller p` ends before the `do` of a choice instead
+  of taking it as an argument. Their nodes are listed in `grammar/docs/nodes.md`; our tests are
+  under `test/corpus/daml/`.
 - **The `with` block in the scanner** (`src/scanner.c`): a symbol `START_WITH` (mirroring the new
   external) and a context sort `WithLayout` (below `MultiWayIfLayout`, so it gets layout
   semicolons). Inside it a `,` or `=` doesn't end the block in parentheses
   (`end_layout_texp_closer`), an arrow that can't continue it does (`end_layout_arrow`), and
-  `deriving` ends it as it ends GADT layouts (`end_layout_deriving`). The debug names of the
+  `deriving` ends it as it ends GADT layouts (`end_layout_deriving`). It isn't started at all when
+  the next word is `controller` followed by a party, a choice's empty `with`
+  (`controller_follows`, in `valid_layout_start`). The debug names of the
   context sorts were reordered to match the enum (upstream had `quote` and `multi_way_if` swapped).
 - Our own `package.json` (private, only the pinned CLI), `tree-sitter.json` (file type `.daml`,
   scope `source.daml`), `.gitignore`, `.gitattributes`, `.editorconfig`, `README.md`; our

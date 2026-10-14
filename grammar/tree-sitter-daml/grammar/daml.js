@@ -1,5 +1,5 @@
-// The constructs Daml adds to Haskell: templates and their clauses, and the `with` blocks of
-// fields they share with records and choices. Kept apart from the modules inherited from
+// The constructs Daml adds to Haskell: templates and their clauses, choices, and the `with`
+// blocks of fields they share with records. Kept apart from the modules inherited from
 // tree-sitter-haskell, so that taking upstream changes stays a matter of merging those.
 
 const {
@@ -64,6 +64,7 @@ module.exports = {
     $.signatory_clause,
     $.observer_clause,
     $.ensure_clause,
+    $.choice_declaration,
   ),
 
   /**
@@ -74,5 +75,36 @@ module.exports = {
   observer_clause: $ => seq('observer', sep1(',', field('party', $.expression))),
 
   ensure_clause: $ => seq('ensure', field('condition', $.expression)),
+
+  // ------------------------------------------------------------------------
+  // choice
+  // ------------------------------------------------------------------------
+
+  /**
+   * `choice Name : Type with <fields> observer … controller … do …`, in a template or an
+   * interface. The parts after the type may each start a line of their own, indented more than
+   * the choice; the type may too. A `with` may have no fields before the `controller`.
+   */
+  choice_declaration: $ => seq(
+    optional(field('modifier', $.choice_modifier)),
+    'choice',
+    field('name', $.name),
+    $._colon2,
+    field('return_type', $.quantified_type),
+    optional(seq('with', optional(field('parameters', $.with_fields)))),
+    optional(field('observer', $.observer_clause)),
+    field('controller', $.controller_clause),
+    field('body', alias($._exp_do, $.do)),
+  ),
+
+  choice_modifier: _ => choice('nonconsuming', 'preconsuming', 'postconsuming'),
+
+  /**
+   * `controller a, b`: who may exercise the choice. The `do` after it starts the body, it isn't an
+   * argument of the last party.
+   */
+  controller_clause: $ => seq('controller', sep1(',', field('party', $._controller_party))),
+
+  _controller_party: $ => prec('daml-clause', $.expression),
 
 }
