@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -106,7 +107,9 @@ public class ScriptResultsTests
                 Assert.True(await ResultsWindow.WaitForAsync($"Script: s{i}") is not null, $"No results window titled 'Script: s{i}' opened. " + await DiagnosticsAsync(view));
             }
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            Assert.Equal(10, ResultsWindow.CountCaptionedLike(c => c.StartsWith("Script: s", StringComparison.Ordinal)));
+            // Exactly these ten: "Script: setup" windows of earlier tests start the same way.
+            var ten = new HashSet<string>(Enumerable.Range(1, 10).Select(i => $"Script: s{i}"));
+            Assert.Equal(10, ResultsWindow.CountCaptionedLike(ten.Contains));
             var withTen = ResultsWindow.BrowserProcesses();
             for (var i = 1; i <= 10; i++)
             {
@@ -169,6 +172,55 @@ public class ScriptResultsTests
             }
             Assert.False(view.Selection.IsEmpty, "Clicking the source link selected nothing in Main.daml.");
             Assert.Equal("Main.daml", Ide.Dte().ActiveWindow?.Document?.Name);
+        }
+        finally
+        {
+            Ide.CloseAllDocuments();
+            await Ide.CloseFolderAsync();
+        }
+    }
+
+    // The view chosen on the page (transactions instead of the table) is the user's choice for
+    // that script: closing the window and opening it again brings it back, and it is kept in the
+    // workspace's .vs folder for the next session.
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 8 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public async Task The_chosen_view_comes_back_when_the_window_opens_again()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var folder = Ide.CopySample("single-package");
+        Ide.OpenFolder(folder);
+        try
+        {
+            var view = await OpenWithRowsAsync(Path.Combine(folder, "daml", "Main.daml"), expectedRows: 1);
+            await ShowResultsOfAsync(view, "setup");
+            var browser = await BrowserAsync("Script: setup", view);
+            await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV"));
+            Assert.Equal(false, (bool?)await ResultsWindow.EvalAsync(browser, "document.body.classList.contains('hide_table')"));
+
+            // The page's own switch, as its button would call it.
+            await ResultsWindow.EvalAsync(browser, "toggle_view()");
+            var saved = Path.Combine(folder, ".vs", "DamlVisualStudio", "view-state.json");
+            var deadline = DateTime.UtcNow + Patience;
+            while (DateTime.UtcNow < deadline && !(File.Exists(saved) && File.ReadAllText(saved).Contains("transaction")))
+            {
+                await Task.Delay(250);
+            }
+            Assert.True(File.Exists(saved) && File.ReadAllText(saved).Contains("transaction"), $"The chosen view wasn't saved to {saved}.");
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.Close(ResultsWindow.Find("Script: setup")!);
+            await ShowResultsOfAsync(view, "setup");
+            var reopened = await BrowserAsync("Script: setup", view);
+            await ResultsWindow.WaitForTextAsync(reopened, t => t.Contains("TV"));
+
+            deadline = DateTime.UtcNow + Patience;
+            bool? transaction = false;
+            while (DateTime.UtcNow < deadline && transaction != true)
+            {
+                transaction = (bool?)await ResultsWindow.EvalAsync(reopened, "document.body.classList.contains('hide_table')");
+                await Task.Delay(250);
+            }
+            Assert.True(transaction, "The reopened window shows the table, not the transactions chosen before.");
         }
         finally
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Windows.Controls;
 using Microsoft.VisualStudio.Shell;
 
 namespace Daml.VisualStudio.ScriptResults;
@@ -11,11 +12,17 @@ namespace Daml.VisualStudio.ScriptResults;
 [Guid(PackageGuids.ScriptResultsWindowString)]
 public sealed class ScriptResultsToolWindow : ToolWindowPane
 {
+    // Visual Studio wraps the pane's content into the window frame as soon as it creates the
+    // window, and fails with E_UNEXPECTED when there is none; the view comes only later, so the
+    // pane starts with this host and the view goes into it.
+    private readonly ContentControl _host = new();
+
     /// <summary>Created by Visual Studio through the package.</summary>
     public ScriptResultsToolWindow()
         : base(null)
     {
         Caption = "Daml Script Results";
+        Content = _host;
     }
 
     internal ScriptResultsView? View { get; private set; }
@@ -24,7 +31,7 @@ public sealed class ScriptResultsToolWindow : ToolWindowPane
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         View = view;
-        Content = view.Element;
+        _host.Content = view.Element;
     }
 
     /// <inheritdoc />

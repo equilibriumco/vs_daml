@@ -237,9 +237,20 @@ internal static class Ide
                 if (pane.Name == title)
                 {
                     var document = pane.TextDocument;
-                    // Stack traces push out the lines that tell what happened; keep only log entries.
+                    // Stack traces push out the lines that tell what happened; keep the log entries and,
+                    // of an error's exception, only the lines that name it: the one right after the
+                    // entry and any inner exception.
                     var lines = document.StartPoint.CreateEditPoint().GetText(document.EndPoint).Split(LineBreaks, StringSplitOptions.None);
-                    var text = string.Join(Environment.NewLine, lines.Where(l => l.StartsWith("[", StringComparison.Ordinal)));
+                    var kept = new List<string>();
+                    for (var i = 0; i < lines.Length; i++)
+                    {
+                        var afterError = i > 0 && lines[i - 1].StartsWith("[", StringComparison.Ordinal) && lines[i - 1].Contains(" fail ");
+                        if (lines[i].StartsWith("[", StringComparison.Ordinal) || afterError || lines[i].Contains(" ---> "))
+                        {
+                            kept.Add(lines[i]);
+                        }
+                    }
+                    var text = string.Join(Environment.NewLine, kept);
                     return text.Length <= maxLength ? text : text.Substring(text.Length - maxLength);
                 }
             }

@@ -66,7 +66,7 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     public async Task ShowAsync(string resource, string title, CancellationToken cancellationToken)
     {
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-        var window = await GetOrCreateAsync(resource, cancellationToken);
+        var window = await GetOrCreateAsync(resource, title, cancellationToken);
         window.Caption = title;
         if (window.Frame is IVsWindowFrame frame)
         {
@@ -97,7 +97,10 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     /// <summary>Stops saving views; Visual Studio is shutting down.</summary>
     public void Dispose() => _views.Dispose();
 
-    private async Task<ScriptResultsToolWindow> GetOrCreateAsync(string resource, CancellationToken cancellationToken)
+    // A window counts as open only once it is complete: titled, with its view and its close
+    // handler. If any step fails, the half-made frame is closed and its id freed, so the next
+    // show starts over instead of bringing up an empty window that can never fill.
+    private async Task<ScriptResultsToolWindow> GetOrCreateAsync(string resource, string title, CancellationToken cancellationToken)
     {
         await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
         if (_open.TryGetValue(resource, out var existing))
@@ -107,20 +110,41 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
 
         var package = await LoadPackageAsync(cancellationToken);
         var id = _ids.GetOrAdd(resource);
-        var window = (ScriptResultsToolWindow)await package.FindToolWindowAsync(typeof(ScriptResultsToolWindow), id, create: true, cancellationToken);
-        _open[resource] = window;
-        var workspace = await WorkspaceFolderAsync();
-        var state = await _views.GetAsync(workspace, resource);
-        await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-
-        var view = new ScriptResultsView(resource, state, GetEnvironmentAsync, changed => _views.Set(resource, changed), _logger, _joinableTaskFactory, SourcesFor(workspace).Contains);
-        window.Attach(view);
-        if (window.Frame is IVsWindowFrame frame)
+        ScriptResultsToolWindow? window = null;
+        try
         {
-            ErrorHandler.ThrowOnFailure(frame.SetProperty((int)__VSFPROPID.VSFPROPID_ViewHelper, new FrameEvents(() => OnClosed(resource, id, frame))));
+            window = (ScriptResultsToolWindow)await package.FindToolWindowAsync(typeof(ScriptResultsToolWindow), id, create: true, cancellationToken);
+            window.Caption = title;
+            var workspace = await WorkspaceFolderAsync();
+            var state = await _views.GetAsync(workspace, resource);
+            await _joinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+            if (_open.TryGetValue(resource, out existing))
+            {
+                return existing; // another show of the same results got there first
+            }
+
+            var view = new ScriptResultsView(resource, state, GetEnvironmentAsync, changed => _views.Set(resource, changed), _logger, _joinableTaskFactory, SourcesFor(workspace).Contains);
+            window.Attach(view);
+            if (window.Frame is IVsWindowFrame frame)
+            {
+                ErrorHandler.ThrowOnFailure(frame.SetProperty((int)__VSFPROPID.VSFPROPID_ViewHelper, new FrameEvents(() => OnClosed(resource, id, frame))));
+            }
+            _open[resource] = window;
+            _joinableTaskFactory.RunAsync(() => view.InitializeAsync(CancellationToken.None)).FileAndForget("daml/scriptResults/initialize");
+            return window;
         }
-        _joinableTaskFactory.RunAsync(() => view.InitializeAsync(CancellationToken.None)).FileAndForget("daml/scriptResults/initialize");
-        return window;
+        catch
+        {
+            // Registering is the last step, so a window that got here was never registered. The
+            // clean-up runs even when the show was cancelled.
+            await _joinableTaskFactory.SwitchToMainThreadAsync(CancellationToken.None);
+            _ids.Remove(id);
+            if (window?.Frame is IVsWindowFrame orphan)
+            {
+                orphan.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_NoSave);
+            }
+            throw;
+        }
     }
 
     // Closing a tool window only hides it; ours are destroyed instead, so the browser and its
