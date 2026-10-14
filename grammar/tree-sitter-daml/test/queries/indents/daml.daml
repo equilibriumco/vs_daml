@@ -1,0 +1,48 @@
+module Main where
+
+import DA.List
+import DA.Map qualified as M
+
+{- A block comment
+   over two lines. -}
+template Asset
+  with
+    owner : Party
+    amount : Decimal
+  where
+    signatory owner
+    ensure amount > 0.0
+
+    choice Split : ()
+      with
+        part : Decimal
+      controller owner
+      do
+        let rest = amount - part
+        case rest of
+          0.0 -> pure ()
+          _ -> pure ()
+
+    interface instance Holding for Asset where
+      view = HoldingView with owner
+      getOwner = owner
+
+interface Holding where
+  viewtype HoldingView
+  getOwner : Party
+
+exception Oops
+  with
+    why : Text
+  where
+    message why
+
+data Colour
+  = Red
+  | Green
+
+total : [Int] -> Int
+total xs = go xs
+  where
+    go [] = 0
+    go (x :: rest) = x + go rest

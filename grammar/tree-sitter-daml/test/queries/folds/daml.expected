@@ -1,0 +1,16 @@
+@fold 3:1-8:1 import DA.List
+@fold 6:1-7:22 {- A block comment
+@fold 8:1-28:23 template Asset
+@fold 16:5-24:23 choice Split : ()
+@fold 20:7-24:23 do
+@fold 21:13-21:33 rest = amount - part
+@fold 22:9-24:23 case rest of
+@fold 26:5-28:23 interface instance Holding for Asset where
+@fold 27:7-27:36 view = HoldingView with owner
+@fold 28:7-28:23 getOwner = owner
+@fold 30:1-32:19 interface Holding where
+@fold 34:1-38:16 exception Oops
+@fold 40:1-42:10 data Colour
+@fold 45:1-48:33 total xs = go xs
+@fold 47:5-47:14 go [] = 0
+@fold 48:5-48:33 go (x :: rest) = x + go rest

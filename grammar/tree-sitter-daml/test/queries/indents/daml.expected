@@ -1,0 +1,16 @@
+@indent.auto 6:1-7:22 {- A block comment
+@indent.begin 8:1-28:23 template Asset
+@indent.begin 16:5-24:23 choice Split : ()
+@indent.begin 20:7-24:23 do
+@indent.begin 21:13-21:33 rest = amount - part
+@indent.begin 22:9-24:23 case rest of
+@indent.begin 26:5-28:23 interface instance Holding for Asset where
+@indent.begin 27:7-27:36 view = HoldingView with owner
+@indent.begin 27:14-27:36 HoldingView with owner
+@indent.begin 28:7-28:23 getOwner = owner
+@indent.begin 30:1-32:19 interface Holding where
+@indent.begin 34:1-38:16 exception Oops
+@indent.begin 40:1-42:10 data Colour
+@indent.begin 45:1-48:33 total xs = go xs
+@indent.begin 47:5-47:14 go [] = 0
+@indent.begin 48:5-48:33 go (x :: rest) = x + go rest

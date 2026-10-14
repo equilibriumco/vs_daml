@@ -72,6 +72,9 @@
   definitions (pattern variables, `let`/`where` bindings, the fields after `with`) and references.
 - **Tags** (`queries/tags.scm`) are ours (upstream has none), with tests under `test/tags/`;
   `tree-sitter.json` names the injections, locals and tags queries next to the highlights.
+- **Folds and indents** (`queries/folds.scm`, `queries/indents.scm`) are ours (upstream has
+  none). `tree-sitter test` can't check them, so `test/queries/<query>/*.daml` with reviewed
+  `.expected` snapshots are checked by `grammar/scripts/query-snapshots.mjs`.
 - **The body of a choice in the scanner** (`src/scanner.c`): a symbol `CHOICE_BODY` (mirroring
   `_cmd_choice_body`, before `UPDATE`), emitted with zero width before a `do` where a choice's body
   may start (`choice_body`, first in `interior`). Haskell lets a `do` block be an argument, so
