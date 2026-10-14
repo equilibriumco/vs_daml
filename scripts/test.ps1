@@ -215,6 +215,15 @@ $summary = foreach ($cat in $categories) {
                 & npx tree-sitter test 2>&1 | Tee-Object -FilePath $log | Out-Host
                 $exitCode = $LASTEXITCODE
             }
+            # Random edits to every corpus test, parsed incrementally and undone: the tree must
+            # come back as the test expects it.
+            $fuzz = 'not run'
+            $fuzzExit = 0
+            if ($exitCode -eq 0) {
+                & npx tree-sitter fuzz 2>&1 | Tee-Object -FilePath (Join-Path $outDir 'tree-sitter-fuzz.log') | Out-Null
+                $fuzzExit = $LASTEXITCODE
+                $fuzz = if ($fuzzExit -eq 0) { 'passed' } else { 'FAILED' }
+            }
         }
         finally {
             Pop-Location
@@ -238,12 +247,12 @@ $summary = foreach ($cat in $categories) {
         elseif ($isRequired) { $problems.Add("$cat is required but the corpus isn't collected (scripts/collect-corpus.ps1)") }
         $c = Get-TreeSitterTestCounters $(if (Test-Path $log) { Get-Content $log } else { @() })
         $s = Get-NodeTestCounters (Get-Content $scriptsLog)
-        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or $c.QueryFailed -gt 0 -or -not $c.Found -or $scriptsExit -ne 0 -or $s.Failed -gt 0 -or -not $s.Found -or $gateExit -ne 0) { 'FAILED' }
+        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or $c.QueryFailed -gt 0 -or -not $c.Found -or $scriptsExit -ne 0 -or $s.Failed -gt 0 -or -not $s.Found -or $gateExit -ne 0 -or $fuzzExit -ne 0) { 'FAILED' }
                   elseif ($c.Executed -eq 0) { 'N/A' }
                   else { 'PASSED' }
-        if ($status -eq 'FAILED') { $problems.Add("$cat failed (tree-sitter exit code $exitCode, $($c.Failed) failing parse(s), $($c.QueryFailed) failing highlight/tag file(s); node exit code $scriptsExit, $($s.Failed) failing script test(s); corpus gate $gate; logs in $outDir)") }
+        if ($status -eq 'FAILED') { $problems.Add("$cat failed (tree-sitter exit code $exitCode, $($c.Failed) failing parse(s), $($c.QueryFailed) failing highlight/tag file(s), fuzz $fuzz; node exit code $scriptsExit, $($s.Failed) failing script test(s); corpus gate $gate; logs in $outDir)") }
         if ($isRequired -and ($c.Executed -eq 0 -or $s.Executed -eq 0)) { $problems.Add("$cat is required but ran 0 tree-sitter or 0 script tests") }
-        [pscustomobject]@{ Category = $cat; Status = $status; Note = "executed $($c.Executed + $c.QueryFiles + $s.Executed), passed $($c.Passed + $c.QueryFiles - $c.QueryFailed + $s.Passed), failed $($c.Failed + $c.QueryFailed + $s.Failed) (tree-sitter test $($c.Passed)/$($c.Executed), highlight/tag files $($c.QueryFiles - $c.QueryFailed)/$($c.QueryFiles) with $($c.Assertions) assertions, scripts $($s.Passed)/$($s.Executed), corpus gate $gate)" }
+        [pscustomobject]@{ Category = $cat; Status = $status; Note = "executed $($c.Executed + $c.QueryFiles + $s.Executed), passed $($c.Passed + $c.QueryFiles - $c.QueryFailed + $s.Passed), failed $($c.Failed + $c.QueryFailed + $s.Failed) (tree-sitter test $($c.Passed)/$($c.Executed), highlight/tag files $($c.QueryFiles - $c.QueryFailed)/$($c.QueryFiles) with $($c.Assertions) assertions, fuzz $fuzz, scripts $($s.Passed)/$($s.Executed), corpus gate $gate)" }
         continue
     }
 

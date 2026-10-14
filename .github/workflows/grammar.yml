@@ -50,6 +50,11 @@ jobs:
       - name: Corpus tests
         run: npx tree-sitter test
 
+      # Random edits to every corpus test, parsed incrementally, then undone: the tree must come
+      # back as the test expects it.
+      - name: Fuzz the corpus tests
+        run: npx tree-sitter fuzz
+
       - name: Tests of the grammar's scripts
         working-directory: .
         run: node --test --test-reporter=spec 'grammar/scripts/*.test.mjs'
@@ -74,3 +79,8 @@ jobs:
           node ../scripts/corpus-gate.mjs --out "$RUNNER_TEMP/corpus.md" || status=$?
           cat "$RUNNER_TEMP/corpus.md" >> "$GITHUB_STEP_SUMMARY"
           exit $status
+
+      # Incremental parsing after random edits to real files gives what a full parse gives. A new
+      # seed every run covers new edits over time; a failure prints its seed and edits to replay.
+      - name: Incremental parsing of the real-world corpus
+        run: node ../scripts/edit-properties.mjs --cases 300 --seed ${{ github.run_number }}
