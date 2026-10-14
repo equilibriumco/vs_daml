@@ -85,14 +85,14 @@ public class VirtualResourceUriTests
     public void The_address_comparer_treats_two_spellings_of_one_resource_as_one_and_other_text_ordinally()
     {
         var comparer = VirtualResourceAddressComparer.Instance;
-        const string a = "daml://compiler?file=C%3A%2Fwork%2FMain.daml&top-level-decl=setup";
-        const string b = "daml://compiler?top-level-decl=setup&file=c%3A%5CWORK%5Cmain.daml";
+        const string OneSpelling = "daml://compiler?file=C%3A%2Fwork%2FMain.daml&top-level-decl=setup";
+        const string OtherSpelling = "daml://compiler?top-level-decl=setup&file=c%3A%5CWORK%5Cmain.daml";
 
-        comparer.Equals(a, b).ShouldBeTrue();
-        comparer.GetHashCode(a).ShouldBe(comparer.GetHashCode(b));
-        comparer.Equals(a, a.Replace("setup", "other")).ShouldBeFalse();
+        comparer.Equals(OneSpelling, OtherSpelling).ShouldBeTrue();
+        comparer.GetHashCode(OneSpelling).ShouldBe(comparer.GetHashCode(OtherSpelling));
+        comparer.Equals(OneSpelling, OneSpelling.Replace("setup", "other")).ShouldBeFalse();
         comparer.Equals("x", "x").ShouldBeTrue();
         comparer.Equals("x", "X").ShouldBeFalse();
-        comparer.Equals(a, "x").ShouldBeFalse();
+        comparer.Equals(OneSpelling, "x").ShouldBeFalse();
     }
 }
