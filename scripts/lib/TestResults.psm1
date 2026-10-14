@@ -83,4 +83,28 @@ function Get-TreeSitterTestCounters {
     }
 }
 
-Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters
+function Get-NodeTestCounters {
+    <#
+    .SYNOPSIS
+        The totals of a `node --test` run, as its spec ("ℹ tests 8") or TAP ("# tests 8") reporter
+        prints them. Found is false when the totals are missing, e.g. a test file didn't load.
+    #>
+    param([string[]] $Lines)
+
+    $values = @{}
+    foreach ($line in $Lines) {
+        $match = [regex]::Match($line, '^\s*(?:ℹ|#)\s+(tests|pass|fail)\s+(\d+)\s*$')
+        if ($match.Success) { $values[$match.Groups[1].Value] = [int] $match.Groups[2].Value }
+    }
+    if (-not $values.ContainsKey('tests')) {
+        return [pscustomobject]@{ Found = $false; Executed = 0; Passed = 0; Failed = 0 }
+    }
+    [pscustomobject]@{
+        Found    = $true
+        Executed = $values['tests']
+        Passed   = [int] $values['pass']
+        Failed   = [int] $values['fail']
+    }
+}
+
+Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters, Get-NodeTestCounters

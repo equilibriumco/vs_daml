@@ -50,6 +50,10 @@ jobs:
       - name: Corpus tests
         run: npx tree-sitter test
 
+      - name: Tests of the grammar's scripts
+        working-directory: .
+        run: node --test --test-reporter=spec 'grammar/scripts/*.test.mjs'
+
       # The checkouts the corpus is copied from depend only on the pins.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

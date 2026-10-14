@@ -219,13 +219,20 @@ $summary = foreach ($cat in $categories) {
         finally {
             Pop-Location
         }
+        # The grammar's own scripts (the corpus report) have node tests next to them. TAP, because
+        # its summary is plain ASCII: PowerShell decodes node's output with the console code page,
+        # which turns the spec reporter's symbols into something else.
+        $scriptsLog = Join-Path $outDir 'node-test.log'
+        & node --test --test-reporter=tap (Join-Path $root 'grammar/scripts/*.test.mjs') 2>&1 | Tee-Object -FilePath $scriptsLog | Out-Host
+        $scriptsExit = $LASTEXITCODE
         $c = Get-TreeSitterTestCounters $(if (Test-Path $log) { Get-Content $log } else { @() })
-        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or -not $c.Found) { 'FAILED' }
+        $s = Get-NodeTestCounters (Get-Content $scriptsLog)
+        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or -not $c.Found -or $scriptsExit -ne 0 -or $s.Failed -gt 0 -or -not $s.Found) { 'FAILED' }
                   elseif ($c.Executed -eq 0) { 'N/A' }
                   else { 'PASSED' }
-        if ($status -eq 'FAILED') { $problems.Add("$cat failed (exit code $exitCode, $($c.Failed) failing parse(s); log: $log)") }
-        if ($isRequired -and $c.Executed -eq 0) { $problems.Add("$cat is required but tree-sitter ran 0 tests") }
-        [pscustomobject]@{ Category = $cat; Status = $status; Note = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed) (tree-sitter test)" }
+        if ($status -eq 'FAILED') { $problems.Add("$cat failed (tree-sitter exit code $exitCode, $($c.Failed) failing parse(s); node exit code $scriptsExit, $($s.Failed) failing script test(s); logs in $outDir)") }
+        if ($isRequired -and ($c.Executed -eq 0 -or $s.Executed -eq 0)) { $problems.Add("$cat is required but ran 0 tree-sitter or 0 script tests") }
+        [pscustomobject]@{ Category = $cat; Status = $status; Note = "executed $($c.Executed + $s.Executed), passed $($c.Passed + $s.Passed), failed $($c.Failed + $s.Failed) (tree-sitter test $($c.Passed)/$($c.Executed), scripts $($s.Passed)/$($s.Executed))" }
         continue
     }
 

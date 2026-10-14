@@ -164,3 +164,27 @@ Describe 'Get-TreeSitterTestCounters' {
         (Get-TreeSitterTestCounters $lines).Failed | Should Be 2
     }
 }
+
+Describe 'Get-NodeTestCounters' {
+    It 'reads the totals node --test prints with the spec reporter' {
+        $lines = @('✔ a test (1.2ms)', 'ℹ tests 8', 'ℹ suites 0', 'ℹ pass 7', 'ℹ fail 1', 'ℹ cancelled 0', 'ℹ skipped 0')
+
+        $counters = Get-NodeTestCounters $lines
+
+        $counters.Found | Should Be $true
+        $counters.Executed | Should Be 8
+        $counters.Passed | Should Be 7
+        $counters.Failed | Should Be 1
+    }
+
+    It 'reads them from TAP output too' {
+        $counters = Get-NodeTestCounters @('ok 1 - a test', '# tests 3', '# pass 3', '# fail 0')
+
+        $counters.Executed | Should Be 3
+        $counters.Failed | Should Be 0
+    }
+
+    It 'reports a run without totals as not found' {
+        (Get-NodeTestCounters @('SyntaxError: Unexpected token')).Found | Should Be $false
+    }
+}
