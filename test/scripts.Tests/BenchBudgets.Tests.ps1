@@ -1,6 +1,18 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 Import-Module (Join-Path $here '..\..\scripts\lib\BenchBudgets.psm1') -Force
 
+# The message of what $Script throws, or null. Pester 3.4's `Should Throw` misses every exception
+# under PowerShell 7 (it works in Windows PowerShell 5.1), so the tests catch it themselves.
+function Get-ThrownMessage([scriptblock] $Script) {
+    try {
+        & $Script | Out-Null
+        return $null
+    }
+    catch {
+        return $_.Exception.Message
+    }
+}
+
 # A brief BenchmarkDotNet report with the given medians, in milliseconds, for one class.
 function New-BriefReport([string] $Folder, [string] $Type, [hashtable] $MediansMs) {
     New-Item -ItemType Directory -Force -Path $Folder | Out-Null
@@ -78,12 +90,12 @@ Describe 'Test-BenchBudgets' {
     It 'rejects duplicate measurements instead of silently selecting a report' {
         New-BriefReport (Join-Path $results 'duplicate') 'Lexer' @{ Whole = 10 }
         Copy-Item (Join-Path $results 'duplicate\Daml.VisualStudio.Benchmarks.Lexer-report-brief.json') (Join-Path $results 'duplicate\another-report-brief.json')
-        { Test-BenchBudgets -ResultsPath (Join-Path $results 'duplicate') -Budgets @{ 'Lexer.Whole' = 30 } } | Should Throw
+        Get-ThrownMessage { Test-BenchBudgets -ResultsPath (Join-Path $results 'duplicate') -Budgets @{ 'Lexer.Whole' = 30 } } | Should Match 'Duplicate benchmark result: Lexer\.Whole'
     }
 
     It 'requires net48 x64 Release evidence for the VS budgets' {
         New-BriefReport (Join-Path $results 'wrong-host') 'Lexer' @{ Whole = 10 }
-        { Test-BenchBudgets -ResultsPath (Join-Path $results 'wrong-host') -Budgets @{ 'Lexer.Whole' = 30 } -ValidateHost } | Should Throw
+        Get-ThrownMessage { Test-BenchBudgets -ResultsPath (Join-Path $results 'wrong-host') -Budgets @{ 'Lexer.Whole' = 30 } -ValidateHost } | Should Match 'Unsupported benchmark host'
     }
 
     Remove-Item -Recurse -Force $results -ErrorAction SilentlyContinue
