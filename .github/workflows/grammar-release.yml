@@ -1,0 +1,58 @@
+name: Grammar release
+
+# A draft GitHub release of tree-sitter-daml from a tag tree-sitter-daml-v<version>, where the
+# version is the one tree-sitter.json gives: daml_ts.dll for x64 and ARM64, the WebAssembly module
+# and the sources with the generated parser. A person reviews and publishes the draft. Started by
+# hand, the workflow builds the same files and stops there.
+on:
+  push:
+    tags: ['tree-sitter-daml-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  artifacts:
+    uses: ./.github/workflows/grammar-artifacts.yml
+
+  release:
+    needs: artifacts
+    if: startsWith(github.ref, 'refs/tags/tree-sitter-daml-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The tag names the grammar's version
+        run: |
+          version="$(node -p "require('./grammar/tree-sitter-daml/tree-sitter.json').metadata.version")"
+          if [ "$GITHUB_REF_NAME" != "tree-sitter-daml-v$version" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME doesn't name version $version from tree-sitter.json."
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "RUNTIME=$(sed -n 's/^version=//p' grammar/tree-sitter-runtime.txt)" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/release
+          merge-multiple: true
+
+      - name: Draft the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          A tree-sitter grammar for Daml, forked from tree-sitter-haskell 0.24.1, built with the tree-sitter $RUNTIME runtime.
+
+          - \`daml_ts-$VERSION-windows-x64.zip\`, \`daml_ts-$VERSION-windows-arm64.zip\`: the tree-sitter runtime and the grammar in one DLL that exports the runtime's C API and \`tree_sitter_daml\`, with headers, import library, symbols and licenses. The ARM64 build is compiled, not tested on ARM64 hardware.
+          - \`tree-sitter-daml-$VERSION.wasm\`: for web-tree-sitter $RUNTIME and \`tree-sitter playground\`.
+          - \`tree-sitter-daml-$VERSION.tar.gz\`: the grammar's sources with the generated parser, its queries and tests.
+          EOF
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+            --title "tree-sitter-daml $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
+            "$RUNNER_TEMP"/release/*

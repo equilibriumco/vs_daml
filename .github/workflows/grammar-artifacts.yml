@@ -1,0 +1,86 @@
+name: Grammar artifacts
+
+# What a release of tree-sitter-daml publishes, built the same way on every change to the grammar
+# and for the release itself: daml_ts.dll for x64 and ARM64, the WebAssembly module, and the
+# sources with the generated parser.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  # The smoke test runs on x64; ARM64 is cross-compiled and only built (there is no ARM64 machine
+  # to run it on).
+  native:
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: grammar/tree-sitter-daml/package-lock.json
+
+      - name: Install the pinned CLI
+        working-directory: grammar/tree-sitter-daml
+        run: npm ci
+
+      - name: Build daml_ts for x64 and ARM64
+        shell: pwsh
+        run: ./native/build.ps1 -Package
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: daml_ts-windows
+          path: build/native/*.zip
+          if-no-files-found: error
+
+  wasm-and-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: grammar/tree-sitter-daml
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: grammar/tree-sitter-daml/package-lock.json
+
+      - name: Install the pinned CLI
+        run: npm ci
+
+      - name: Generate the parser
+        run: |
+          npx tree-sitter generate
+          echo "VERSION=$(node -p "require('./tree-sitter.json').metadata.version")" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/release"
+
+      # The CLI downloads the wasi-sdk release it was built with on first use.
+      - name: Build the WebAssembly module
+        run: npx tree-sitter build --wasm -o "$RUNNER_TEMP/release/tree-sitter-daml-$VERSION.wasm"
+
+      - name: Check the module
+        run: node ../scripts/check-wasm.mjs "$RUNNER_TEMP/release/tree-sitter-daml-$VERSION.wasm" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The files the repository has plus what `tree-sitter generate` made, so the grammar builds
+      # without the CLI.
+      - name: Source archive
+        run: |
+          { git ls-files -z; printf '%s\0' src/parser.c src/grammar.json src/node-types.json src/tree_sitter; } |
+            tar -czf "$RUNNER_TEMP/release/tree-sitter-daml-$VERSION.tar.gz" --null -T - --transform "s,^,tree-sitter-daml-$VERSION/,"
+          tar -tzf "$RUNNER_TEMP/release/tree-sitter-daml-$VERSION.tar.gz" | grep -qx "tree-sitter-daml-$VERSION/src/parser.c"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tree-sitter-daml-wasm-and-sources
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error

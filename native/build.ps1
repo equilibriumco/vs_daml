@@ -6,27 +6,35 @@
     architecture of this machine.
 
 .DESCRIPTION
-    Generates the parser first when grammar.js changed since it was last generated (or it never
-    was). CMake fetches the tree-sitter runtime pinned in grammar/tree-sitter-runtime.txt into each
-    build directory. ARM64 is cross-compiled; its smoke test needs an ARM64 machine.
+    Generates the parser first when the grammar or its version changed since it was last generated
+    (or it never was). CMake fetches the tree-sitter runtime pinned in
+    grammar/tree-sitter-runtime.txt into each build directory. ARM64 is cross-compiled; its smoke
+    test needs an ARM64 machine.
+
+    -Package zips each architecture for a release: the DLL, its PDB and import library, the
+    headers, and the licenses of the grammar and the runtime.
 
 .EXAMPLE
     pwsh native/build.ps1                          both → build/native/<arch>/Release/daml_ts.dll
     pwsh native/build.ps1 -Architecture x64
+    pwsh native/build.ps1 -Package                 also build/native/daml_ts-<version>-windows-<arch>.zip
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('x64', 'ARM64')]
     [string[]] $Architecture = @('x64', 'ARM64'),
-    [string] $Out = (Join-Path $PSScriptRoot '..\build\native')
+    [string] $Out = (Join-Path $PSScriptRoot '..\build\native'),
+    [switch] $Package
 )
 
 $ErrorActionPreference = 'Stop'
 $Out = [IO.Path]::GetFullPath($Out)
 $grammar = Join-Path $PSScriptRoot '..\grammar\tree-sitter-daml'
+$version = (Get-Content -Raw (Join-Path $grammar 'tree-sitter.json') | ConvertFrom-Json).metadata.version
 
 $parser = Join-Path $grammar 'src\parser.c'
-$sources = Get-ChildItem (Join-Path $grammar 'grammar.js'), (Join-Path $grammar 'grammar') -Recurse -File -Filter *.js
+$sources = @(Get-ChildItem (Join-Path $grammar 'grammar.js'), (Join-Path $grammar 'grammar') -Recurse -File -Filter *.js) +
+    (Get-Item (Join-Path $grammar 'tree-sitter.json'))
 if (-not (Test-Path $parser) -or ($sources | Where-Object LastWriteTime -gt (Get-Item $parser).LastWriteTime)) {
     Push-Location $grammar
     try {
@@ -66,4 +74,17 @@ foreach ($arch in $Architecture) {
         Write-Warning "$arch built, not run: this machine is $machine."
     }
     "Built $(Join-Path $dir 'Release\daml_ts.dll')"
+
+    if ($Package) {
+        $stage = Join-Path $dir 'package'
+        Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
+        $headers = New-Item -ItemType Directory -Force (Join-Path $stage 'include\tree_sitter')
+        Copy-Item (Join-Path $dir 'Release\daml_ts.*') $stage -Include *.dll, *.pdb, *.lib
+        Copy-Item (Join-Path $dir 'tree-sitter\lib\include\tree_sitter\api.h'), (Join-Path $PSScriptRoot 'include\tree_sitter\tree-sitter-daml.h') $headers
+        Copy-Item (Join-Path $grammar 'LICENSE') $stage
+        Copy-Item (Join-Path $dir 'tree-sitter\LICENSE') (Join-Path $stage 'LICENSE.tree-sitter')
+        $zip = Join-Path $Out "daml_ts-$version-windows-$($arch.ToLowerInvariant()).zip"
+        Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+        "Packaged $zip"
+    }
 }

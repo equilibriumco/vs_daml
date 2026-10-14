@@ -5,8 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tree_sitter/api.h>
-
-__declspec(dllimport) const TSLanguage *tree_sitter_daml(void);
+#include <tree_sitter/tree-sitter-daml.h>
 
 static const char source[] =
     "module Main where\n"
@@ -52,8 +51,12 @@ int main(void) {
   uint32_t abi = ts_language_abi_version(language);
   check(abi >= TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION && abi <= TREE_SITTER_LANGUAGE_VERSION,
         "the runtime accepts the language's ABI version");
+  // A parser generated before tree-sitter.json last changed would carry another version.
   const TSLanguageMetadata *version = ts_language_metadata(language);
-  check(version != NULL, "the language carries the grammar's version");
+  check(version != NULL && version->major_version == DAML_TS_VERSION_MAJOR &&
+            version->minor_version == DAML_TS_VERSION_MINOR &&
+            version->patch_version == DAML_TS_VERSION_PATCH,
+        "the language carries the grammar's version from tree-sitter.json");
 
   TSParser *parser = ts_parser_new();
   check(ts_parser_set_language(parser, language), "the parser takes the language");
