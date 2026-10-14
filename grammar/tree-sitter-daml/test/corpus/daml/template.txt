@@ -1,0 +1,270 @@
+================================================================================
+template: fields and clauses
+================================================================================
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+    observer owner
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (observer_clause
+          party: (variable))))))
+
+================================================================================
+template: with on the header line
+================================================================================
+
+template Coin with
+    owner : Party
+    amount : Decimal
+  where
+    signatory owner
+    ensure amount > 0.0
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (ensure_clause
+          condition: (infix
+            left_operand: (variable)
+            operator: (operator)
+            right_operand: (literal
+              (float))))))))
+
+================================================================================
+template: several names in a field, several parties in a clause
+================================================================================
+
+template Pair
+  with
+    a, b : Party
+  where
+    signatory a, b
+    observer [a, b]
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable)
+          party: (variable))
+        (observer_clause
+          party: (list
+            element: (variable)
+            element: (variable)))))))
+
+================================================================================
+template: a clause over several lines
+================================================================================
+
+template Bond
+  with
+    issuer : Party
+    amount : Decimal
+  where
+    signatory issuer
+    ensure
+      amount > 0.0
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))
+        (ensure_clause
+          condition: (infix
+            left_operand: (variable)
+            operator: (operator)
+            right_operand: (literal
+              (float))))))))
+
+================================================================================
+template: between other declarations
+================================================================================
+
+module Main where
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+f : Int
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  (header
+    module: (module
+      (module_id)))
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))))
+    (signature
+      name: (variable)
+      type: (name))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))
+
+================================================================================
+template: fields with their documentation
+================================================================================
+
+template T
+  with
+    p : Party
+      -- ^ Inside the block: another field follows.
+    q : Party
+      -- ^ After the last field: the block has closed, as for any layout block.
+  where
+    signatory p
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name))
+        (haddock)
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      (haddock)
+      body: (template_body
+        (signatory_clause
+          party: (variable))))))
+
+================================================================================
+template: on one line
+================================================================================
+
+template T with p : Party where signatory p
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (signatory_clause
+          party: (variable))))))
+
+================================================================================
+template: a clause still being written
+================================================================================
+
+template T
+  with
+    p : Party
+  where
+    signatory
+
+f : Int
+f = 1
+
+--------------------------------------------------------------------------------
+
+(daml
+  declarations: (declarations
+    (template_declaration
+      name: (name)
+      parameters: (with_fields
+        field: (field
+          name: (field_name
+            (variable))
+          type: (name)))
+      body: (template_body
+        (ERROR)))
+    (signature
+      name: (variable)
+      type: (name))
+    (bind
+      name: (variable)
+      match: (match
+        expression: (literal
+          (integer))))))

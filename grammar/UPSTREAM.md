@@ -31,6 +31,11 @@
   and `::` swapped, also when qualified, `A.:` → `A.::`; strings, characters and comments untouched).
   Expected trees name nodes, not colons, so all of them stayed as they were and all still pass; no
   test had to leave `test/corpus/haskell/`.
+- **Daml's constructs** live in our own module, `grammar/daml.js` (templates and their clauses, the
+  `with` blocks of fields). Upstream files are touched only to plug it in: `grammar.js` requires
+  the module and spreads it into the rules (`...daml`), and `declaration` in `grammar/module.js`
+  lists `template_declaration` first. Their nodes are listed in `grammar/docs/nodes.md`; our tests
+  are under `test/corpus/daml/`.
 - Our own `package.json` (private, only the pinned CLI), `tree-sitter.json` (file type `.daml`,
   scope `source.daml`), `.gitignore`, `.gitattributes`, `.editorconfig`, `README.md`; our
   copyright line added to `LICENSE`.
@@ -52,5 +57,6 @@
 3. Apply that diff to `tree-sitter-daml` (test files under `test/corpus/haskell/`; run
    `node grammar/scripts/swap-colons.mjs` on test files that are new upstream, once, since swapping
    twice gives the original back), redo the renames
-   above where the diff touches them, and keep the Daml rules.
+   above where the diff touches them, and keep the Daml rules (`grammar/daml.js` and the lines that
+   plug it in).
 4. `npx tree-sitter generate` and `npx tree-sitter test` must pass; then update the table above.

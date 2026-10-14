@@ -2,6 +2,7 @@ const
   class_ = require('./grammar/class.js'),
   conflicts = require('./grammar/conflicts.js'),
   context = require('./grammar/context.js'),
+  daml = require('./grammar/daml.js'),
   data = require('./grammar/data.js'),
   decl = require('./grammar/decl.js'),
   exp = require('./grammar/exp.js'),
@@ -43,6 +44,7 @@ module.exports = grammar({
     ...id,
     ...operator,
     ...lexeme,
+    ...daml,
 
   },
 

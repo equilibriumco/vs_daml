@@ -126,6 +126,8 @@ module.exports = {
    * This is a supertype.
    */
   declaration: $ => choice(
+    // Daml's own declarations (grammar/daml.js).
+    $.template_declaration,
     $.decl,
     $.type_synonym,
     $.kind_signature,
