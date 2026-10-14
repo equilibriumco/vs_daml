@@ -35,10 +35,37 @@ public sealed class LanguageServerSupervisorTests : IDisposable
                 _transitions.Add((e.OldState, e.NewState, e.SessionId));
             }
         };
-        _supervisor.RestartRequested += (_, e) => _restartRequests.Add(e.Reasons);
+        _supervisor.RestartRequested += (_, e) =>
+        {
+            lock (_restartRequests)
+            {
+                _restartRequests.Add(e.Reasons);
+            }
+        };
     }
 
     public void Dispose() => _supervisor.Dispose();
+
+    // A restart request that follows a crash is raised on the thread that noticed the exit.
+    private async Task<IReadOnlyList<string>?> RestartRequestAsync(TimeSpan within)
+    {
+        var deadline = DateTime.UtcNow + within;
+        while (true)
+        {
+            lock (_restartRequests)
+            {
+                if (_restartRequests.Count > 0)
+                {
+                    return _restartRequests[0];
+                }
+            }
+            if (DateTime.UtcNow >= deadline)
+            {
+                return null;
+            }
+            await Task.Delay(10);
+        }
+    }
 
     private Task<LanguageServerSession?> StartAsync(CancellationToken cancellationToken = default) => _supervisor.StartAsync(cancellationToken);
 
@@ -307,6 +334,56 @@ public sealed class LanguageServerSupervisorTests : IDisposable
 
         _supervisor.State.ShouldBe(LanguageServerState.Initializing);
         _runner.Started[0].Disposed.ShouldBeFalse();
+    }
+
+    // Visual Studio gives up on a server that dies before answering initialize ("failed to
+    // start") and never asks for another session, so nothing would start again.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_crash_during_startup_asks_for_a_restart()
+    {
+        await StartAsync();
+
+        await CrashAsync(0);
+
+        var reasons = (await RestartRequestAsync(Generous)).ShouldNotBeNull("nothing asked for a restart");
+        reasons.ShouldContain(r => r.Contains("during startup"));
+    }
+
+    // After a crash of a server that was ready, Visual Studio asks for a new session itself.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_crash_of_a_ready_server_is_left_to_visual_studio()
+    {
+        var session = (await StartAsync()).ShouldNotBeNull();
+        _supervisor.MarkReady(session.Id);
+
+        await CrashAsync(0);
+
+        (await RestartRequestAsync(TimeSpan.FromMilliseconds(300))).ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_crash_during_startup_that_opens_the_circuit_asks_for_nothing()
+    {
+        var supervisor = new LanguageServerSupervisor(_runner, _ => Task.FromResult(Command), NullDamlLogger.Instance, _time,
+            new RestartPolicy([TimeSpan.Zero], maxCrashes: 0, window: TimeSpan.FromMinutes(3)));
+        var requests = 0;
+        var faulted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        supervisor.RestartRequested += (_, _) => Interlocked.Increment(ref requests);
+        supervisor.StateChanged += (_, e) =>
+        {
+            if (e.NewState == LanguageServerState.Faulted)
+            {
+                faulted.TrySetResult(true);
+            }
+        };
+
+        (await supervisor.StartAsync(CancellationToken.None)).ShouldNotBeNull();
+        _runner.Started[0].Exit(1);
+
+        (await Task.WhenAny(faulted.Task, Task.Delay(Generous))).ShouldBe(faulted.Task);
+        await Task.Delay(100);
+        Volatile.Read(ref requests).ShouldBe(0);
+        supervisor.Dispose();
     }
 
     [Fact, Trait("Category", "Unit")]

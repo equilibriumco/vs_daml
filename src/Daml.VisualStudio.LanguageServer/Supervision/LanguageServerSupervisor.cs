@@ -12,8 +12,9 @@ namespace Daml.VisualStudio.LanguageServer.Supervision;
 /// <summary>
 /// Owns the damlc process and decides when it may start. It never swaps a process under a live
 /// connection: the LSP client asks for a session when VS activates it (VS does that by itself
-/// after a crash), and the supervisor answers with a fresh process after the backoff, or with
-/// nothing once the circuit is open. Restarts it wants for other reasons are requested through
+/// after a crash of a server that had initialized), and the supervisor answers with a fresh
+/// process after the backoff, or with nothing once the circuit is open. Restarts it wants for
+/// other reasons, a crash during startup among them, are requested through
 /// <see cref="RestartRequested"/> and carried out by the client.
 /// </summary>
 public sealed class LanguageServerSupervisor : IDisposable
@@ -643,6 +644,13 @@ public sealed class LanguageServerSupervisor : IDisposable
         if (crash.Old != crash.New)
         {
             StateChanged?.Invoke(this, new LanguageServerStateChangedEventArgs(crash.Old, crash.New, crash.SessionId));
+        }
+        // Visual Studio starts a crashed server again by itself only once it has initialized; one
+        // that dies before answering initialize is reported as failed to start and left there. So
+        // that restart is asked for here, and goes through the backoff and the circuit like any.
+        if (crash.Old == LanguageServerState.Initializing && !crash.OpenCircuit)
+        {
+            RequestRestart("The language server exited during startup");
         }
     }
 

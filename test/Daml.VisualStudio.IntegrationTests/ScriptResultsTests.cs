@@ -171,6 +171,8 @@ public class ScriptResultsTests
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             view.Selection.Clear();
             Microsoft.VisualStudio.ErrorHandler.ThrowOnFailure(ResultsWindow.Find("Script: setup")!.Show());
+            // The source links are in the transaction view; the table, shown first, has none.
+            await ResultsWindow.EvalAsync(browser, "if (!document.body.classList.contains('hide_table')) toggle_view(); true");
             // What the mouse lands on, so a miss can be told from a link the window refused.
             await ResultsWindow.EvalAsync(browser, "window.clickedOn = 'nothing'; document.addEventListener('click', e => { window.clickedOn = (e.target.closest('a') || e.target).outerHTML.slice(0, 160); }, true); true");
 
@@ -185,7 +187,7 @@ public class ScriptResultsTests
             // The Daml pane says whether the window refused the link (not a click, outside the
             // workspace) or the source didn't open.
             var diagnostics = view.Selection.IsEmpty
-                ? $"The click landed on: {await ResultsWindow.EvalAsync(browser, "window.clickedOn")}. " + await DiagnosticsAsync(view)
+                ? $"The click landed on: {await ResultsWindow.EvalAsync(browser, "window.clickedOn")}; the click measured {ResultsWindow.LastClick}. " + await DiagnosticsAsync(view)
                 : "";
             Assert.False(view.Selection.IsEmpty, "Clicking the source link selected nothing in Main.daml. " + diagnostics);
             Assert.Equal("Main.daml", Ide.Dte().ActiveWindow?.Document?.Name);

@@ -21,6 +21,9 @@ internal static class ResultsWindow
 {
     public static readonly TimeSpan Patience = TimeSpan.FromSeconds(90);
 
+    /// <summary>What the last click measured: the point on the page, whether the element was there, the screen point.</summary>
+    public static string LastClick { get; private set; } = "no click";
+
     public static IVsWindowFrame? Find(string caption)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -146,17 +149,43 @@ internal static class ResultsWindow
     /// </summary>
     public static async Task<bool> ClickAsync(WebView2 browser, string selector)
     {
-        var rect = await EvalAsync(browser, $$"""
-            (() => { const e = document.querySelector({{JsonString(selector)}}); if (!e) return null;
-                     e.scrollIntoView({block: 'center'}); const r = e.getBoundingClientRect();
-                     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()
+        // Scrolled at once and measured afterwards, until the middle of the element is the element
+        // there: a scroll or a layout still under way moves it away from the point first measured.
+        var scrolled = await EvalAsync(browser, $$"""
+            (() => { const e = Array.from(document.querySelectorAll({{JsonString(selector)}})).find(x => x.getClientRects().length > 0); if (!e) return false;
+                     e.scrollIntoView({block: 'center', behavior: 'instant'}); return true; })()
             """);
-        if (rect is not JObject { } point)
+        if (scrolled is not JValue { Type: JTokenType.Boolean } found || !(bool)found)
+        {
+            return false;
+        }
+        JObject? point = null;
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            point = await EvalAsync(browser, $$"""
+                (() => { const e = Array.from(document.querySelectorAll({{JsonString(selector)}})).find(x => x.getClientRects().length > 0); if (!e) return null;
+                         const r = e.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+                         const there = document.elementFromPoint(x, y);
+                         return { x, y, hits: !!there && (there === e || e.contains(there)) }; })()
+                """) as JObject;
+            if (point is null)
+            {
+                return false;
+            }
+            if ((bool)point["hits"]!)
+            {
+                break;
+            }
+            await Task.Delay(100);
+        }
+        if (point is null)
         {
             return false;
         }
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var screen = browser.PointToScreen(new Point((double)point["x"]!, (double)point["y"]!));
+        var scale = PresentationSource.FromVisual(browser)?.CompositionTarget?.TransformToDevice.M11;
+        LastClick = $"page ({point["x"]}, {point["y"]}), element there: {point["hits"]}, screen ({screen.X:0}, {screen.Y:0}), device scale {scale}";
         SetCursorPos((int)screen.X, (int)screen.Y);
         mouse_event(MouseLeftDown, 0, 0, 0, UIntPtr.Zero);
         mouse_event(MouseLeftUp, 0, 0, 0, UIntPtr.Zero);
