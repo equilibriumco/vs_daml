@@ -107,6 +107,61 @@ public class SnippetTests
         SnippetContext.ApplicableSpan(lines, 1, 5).ShouldBeNull();
     }
 
+    private const string Asset = "module Main where\n\ntemplate Asset\n  with\n    owner : Party\n  where\n    signatory owner\n";
+
+    // A choice typed at the top level is a declaration Daml doesn't have; only where a snippet
+    // compiles is it offered.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("module Main where\n\n‸", SnippetPlace.TopLevel)]
+    [InlineData(Asset + "\n‸", SnippetPlace.TopLevel)]
+    [InlineData(Asset + "    ‸", SnippetPlace.ContractBody)]
+    [InlineData(Asset + "    -- a note\n\n    {- and\n       more -}\n    ‸", SnippetPlace.ContractBody)]
+    [InlineData("template Asset\n  with\n    owner : Party\n  where\n    ‸", SnippetPlace.ContractBody)]
+    [InlineData("template Asset with\n    owner : Party\n  where\n    ‸", SnippetPlace.ContractBody)]
+    [InlineData("interface IAsset where\n  viewtype AssetView\n  ‸", SnippetPlace.ContractBody)]
+    [InlineData(Asset + "    choice Give : ()\n      controller owner\n      do\n        ‸", SnippetPlace.None)]
+    [InlineData("template Asset\n  with\n    ‸", SnippetPlace.None)]
+    [InlineData(Asset + "    interface instance IAsset for Asset where\n      ‸", SnippetPlace.None)]
+    [InlineData("f x = y\n  where\n    ‸", SnippetPlace.None)]
+    [InlineData("class C a where\n  ‸", SnippetPlace.None)]
+    [InlineData(Asset + "      ‸", SnippetPlace.None)]
+    public void A_snippet_belongs_at_the_top_level_or_among_the_declarations_of_a_template_or_interface(string file, SnippetPlace place)
+    {
+        var (lines, line, column) = ParseFile(file);
+
+        SnippetContext.Place(lines, line, column).ShouldBe(place);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Each_place_offers_the_snippets_that_compile_there()
+    {
+        DamlSnippets.For(SnippetPlace.TopLevel).Select(s => s.Shortcut).ShouldBe(["template", "interface", "script", "module"], ignoreOrder: true);
+        DamlSnippets.For(SnippetPlace.ContractBody).Select(s => s.Shortcut).ShouldBe(["choice", "nonconsuming choice", "interface instance"], ignoreOrder: true);
+        DamlSnippets.For(SnippetPlace.None).ShouldBeEmpty();
+    }
+
+    // Where the build test proves a snippet compiles, completion must offer it.
+    [Fact, Trait("Category", "Unit")]
+    public void Every_snippet_is_offered_where_the_build_test_puts_it()
+    {
+        foreach (var snippet in DamlSnippets.All.Where(s => s.Shortcut != "module"))
+        {
+            var file = SnippetBuildContractTests.Header.Replace("{name}", "Host") + SnippetBuildContractTests.Hosts[snippet.Shortcut].Replace("{snippet}", "‸");
+            var (lines, line, column) = ParseFile(file);
+
+            DamlSnippets.For(SnippetContext.Place(lines, line, column)).ShouldContain(snippet, snippet.Shortcut);
+        }
+    }
+
+    private static (System.Collections.Generic.IReadOnlyList<LineTokens> Lines, int Line, int Column) ParseFile(string file)
+    {
+        var all = file.Split('\n');
+        var line = System.Array.FindIndex(all, l => l.Contains('‸'));
+        var column = all[line].IndexOf('‸');
+        all[line] = all[line].Replace("‸", "");
+        return (LineTokens.Lex(all), line, column);
+    }
+
     private static (System.Collections.Generic.IReadOnlyList<LineTokens> Lines, int Column) Parse(string line)
     {
         var column = line.IndexOf('‸');

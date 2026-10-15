@@ -17,10 +17,10 @@ namespace Daml.VisualStudio.Core.Tests.Snippets;
 // the real dpm: what completion inserts has to compile before anyone changes a single field.
 public sealed class SnippetBuildContractTests : IDisposable
 {
-    private const string Header = "module {name} where\n\nimport Daml.Script\n\n";
+    internal const string Header = "module {name} where\n\nimport Daml.Script\n\n";
 
     // Where each snippet goes: the module around it, with {snippet} where it's inserted.
-    private static readonly Dictionary<string, string> Hosts = new()
+    internal static readonly Dictionary<string, string> Hosts = new()
     {
         ["template"] = "{snippet}",
         ["choice"] = Template("{snippet}"),
@@ -49,7 +49,7 @@ public sealed class SnippetBuildContractTests : IDisposable
         }
     }
 
-    private static string Template(string body, string name = "Host") =>
+    internal static string Template(string body, string name = "Host") =>
         $"template {name}\n  with\n    owner : Party\n  where\n    signatory owner\n\n    {body}";
 
     [SkippableFact, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]

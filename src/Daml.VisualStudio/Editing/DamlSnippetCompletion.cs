@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.ComponentModel.Composition;
 using System.Linq;
@@ -23,19 +24,28 @@ namespace Daml.VisualStudio.Editing;
 internal sealed class DamlSnippetCompletionSourceProvider : IAsyncCompletionSourceProvider
 {
     public IAsyncCompletionSource GetOrCreate(ITextView textView) =>
-        textView.Properties.GetOrCreateSingletonProperty(() => new DamlSnippetCompletionSource());
+        textView.Properties.GetOrCreateSingletonProperty(() => new DamlSnippetCompletionSource(textView));
 }
 
 /// <summary>
-/// Offers the snippets for the first word of a line. Committing one is left to
-/// <see cref="DamlSnippetCommitManager"/>, which finds the snippet on the item.
+/// Offers the snippets that compile where the first word of a line is: the top-level ones in
+/// the first column, choices and interface instances among a template's or interface's
+/// declarations. Committing one is left to <see cref="DamlSnippetCommitManager"/>, which finds
+/// the snippet on the item.
 /// </summary>
-internal sealed class DamlSnippetCompletionSource : IAsyncCompletionSource
+internal sealed class DamlSnippetCompletionSource(ITextView view) : IAsyncCompletionSource
 {
     /// <summary>The property under which an item carries its <see cref="DamlSnippet"/>.</summary>
     public const string SnippetProperty = "Daml.Snippet";
 
     private static readonly ImageElement Icon = new(KnownMonikers.Snippet.ToImageId(), "Snippet");
+
+    private IReadOnlyList<DamlSnippet> SnippetsAt(SnapshotPoint start)
+    {
+        var line = start.GetContainingLine();
+        var lines = DamlTokenCache.For(start.Snapshot.TextBuffer).Get(start.Snapshot);
+        return DamlSnippets.For(SnippetContext.Place(lines, line.LineNumber, start.Position - line.Start.Position, view.Options.GetOptionValue(DefaultOptions.TabSizeOptionId)));
+    }
 
     public CompletionStartData InitializeCompletion(CompletionTrigger trigger, SnapshotPoint triggerLocation, CancellationToken token)
     {
@@ -47,7 +57,8 @@ internal sealed class DamlSnippetCompletionSource : IAsyncCompletionSource
         }
         var line = triggerLocation.GetContainingLine();
         var lines = DamlTokenCache.For(triggerLocation.Snapshot.TextBuffer).Get(triggerLocation.Snapshot);
-        if (SnippetContext.ApplicableSpan(lines, line.LineNumber, triggerLocation.Position - line.Start.Position) is not { } span)
+        if (SnippetContext.ApplicableSpan(lines, line.LineNumber, triggerLocation.Position - line.Start.Position) is not { } span
+            || SnippetsAt(line.Start + span.Start).Count == 0)
         {
             return CompletionStartData.DoesNotParticipateInCompletion;
         }
@@ -56,7 +67,7 @@ internal sealed class DamlSnippetCompletionSource : IAsyncCompletionSource
 
     public Task<CompletionContext> GetCompletionContextAsync(IAsyncCompletionSession session, CompletionTrigger trigger, SnapshotPoint triggerLocation, SnapshotSpan applicableToSpan, CancellationToken token)
     {
-        var items = DamlSnippets.All.Select(snippet =>
+        var items = SnippetsAt(applicableToSpan.Start).Select(snippet =>
         {
             var item = new CompletionItem(snippet.Shortcut, this, Icon, ImmutableArray<CompletionFilter>.Empty, snippet.Title,
                 snippet.Shortcut, snippet.Shortcut, snippet.Shortcut, ImmutableArray<ImageElement>.Empty);
