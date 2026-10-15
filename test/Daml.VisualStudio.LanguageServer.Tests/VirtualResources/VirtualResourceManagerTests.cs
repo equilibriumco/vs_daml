@@ -115,6 +115,22 @@ public sealed class VirtualResourceManagerTests : IDisposable
         _windows.Calls.Last().ShouldBe("note " + Setup + " Script failed");
     }
 
+    // A note ("no longer compiles") stays until the contents are replaced, and once the file
+    // compiles again the server sends the results it sent before the note.
+    [Fact, Trait("Category", "Unit")]
+    public async Task After_a_note_the_same_contents_are_shown_again()
+    {
+        await _manager.ShowAsync("Script: setup", Setup, CancellationToken.None);
+        _manager.Changed(new VirtualResourceChangedParams(Setup, Results));
+
+        _manager.Noted(new VirtualResourceNoteParams(Setup, "The source file containing this script no longer compiles"));
+        _manager.Changed(new VirtualResourceChangedParams(Setup, Results));
+        await _manager.IdleAsync();
+
+        _windows.Calls.Count(c => c.StartsWith("update", StringComparison.Ordinal)).ShouldBe(2);
+        _windows.Calls.Last().ShouldBe("update " + Setup + " " + Results);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Progress_of_a_run_started_before_the_latest_results_is_ignored()
     {

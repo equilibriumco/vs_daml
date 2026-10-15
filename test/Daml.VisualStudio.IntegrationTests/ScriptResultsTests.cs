@@ -88,6 +88,46 @@ public class ScriptResultsTests
         }
     }
 
+    // A file that stops compiling gets a note in the window, as text. Once it compiles again the
+    // server sends the results it sent before, and the window shows them without the note.
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 8 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public async Task A_file_that_compiles_again_brings_its_results_back_without_the_note()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
+        var folder = Ide.CopySample("single-package");
+        Ide.OpenFolder(folder);
+        try
+        {
+            var view = await OpenWithRowsAsync(Path.Combine(folder, "daml", "Main.daml"), expectedRows: 1);
+            await ShowResultsOfAsync(view, "setup");
+            var browser = await BrowserAsync("Script: setup", view);
+            Assert.Contains("TV", await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV")));
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            var at = view.TextBuffer.CurrentSnapshot.GetText().IndexOf("\"TV\"", StringComparison.Ordinal);
+            view.TextBuffer.Replace(new Span(at, 4), "TV"); // an unknown name: the file no longer compiles
+            Ide.Dte().Documents.Item("Main.daml").Save();
+            var broken = await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("no longer compiles"));
+            Assert.Contains("no longer compiles", broken);
+            Assert.DoesNotContain("<span", broken);
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            view.TextBuffer.Replace(new Span(at, 2), "\"TV\"");
+            Ide.Dte().Documents.Item("Main.daml").Save();
+            var again = await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV") && !t.Contains("no longer compiles"));
+            Assert.DoesNotContain("no longer compiles", again);
+            Assert.Contains("TV", again);
+        }
+        finally
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
+            Ide.CloseAllDocuments();
+            await Ide.CloseFolderAsync();
+        }
+    }
+
     // Edit the script, save: the open window shows the new results without taking the focus.
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 8 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
     public async Task Results_show_the_contracts_and_follow_an_edit_without_taking_the_focus()

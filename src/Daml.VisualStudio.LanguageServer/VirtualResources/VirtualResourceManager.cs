@@ -166,6 +166,12 @@ public sealed class VirtualResourceManager : IVirtualResourceSink, IDisposable
     {
         if (note is not null && Current(note.Uri) is { } resource)
         {
+            // A note stays until the contents are replaced, and the server may send the very
+            // contents it sent before the note (a file that compiles again), so those must go through.
+            lock (_gate)
+            {
+                resource.Contents = null;
+            }
             Enqueue(() => _windows.AddNoteAsync(resource.Address, note.Note));
         }
     }

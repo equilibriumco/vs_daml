@@ -170,6 +170,8 @@ internal sealed class ScriptResultsView : IDisposable
         if (!_disposed && _browser?.CoreWebView2 is { } core)
         {
             core.PostWebMessageAsJson(PageMessages.AddNote(text));
+            // Only a new page removes the note, so the results shown before it must load again.
+            _updates.Forget();
         }
     }
 
