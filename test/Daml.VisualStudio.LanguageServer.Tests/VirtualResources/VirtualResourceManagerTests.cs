@@ -234,6 +234,20 @@ public sealed class VirtualResourceManagerTests : IDisposable
         _windows.Calls.Last().ShouldBe("update " + Other + " " + Results);
     }
 
+    // A window that never came up (it failed, or its folder closed meanwhile) can't be closed, so
+    // nothing would ever forget its resource, and the next show wouldn't ask the server again.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_show_whose_window_does_not_open_leaves_nothing_behind()
+    {
+        _windows.FailShowsOf = Setup;
+        await Should.ThrowAsync<OperationCanceledException>(() => _manager.ShowAsync("Script: setup", Setup, CancellationToken.None));
+        _windows.FailShowsOf = null;
+
+        await _manager.ShowAsync("Script: setup", Setup, CancellationToken.None);
+
+        _sent.ShouldBe([(1, "textDocument/didOpen", Setup)]);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Something_that_isnt_a_virtual_resource_is_refused()
     {
@@ -249,10 +263,16 @@ public sealed class VirtualResourceManagerTests : IDisposable
 
         public string? FailUpdatesOf { get; set; }
 
+        public string? FailShowsOf { get; set; }
+
         public event EventHandler<string>? Closed;
 
         public Task ShowAsync(string resource, string title, CancellationToken cancellationToken)
         {
+            if (resource == FailShowsOf)
+            {
+                return Task.FromException(new OperationCanceledException("the folder closed"));
+            }
             Record($"show {title} {resource}");
             return Task.CompletedTask;
         }

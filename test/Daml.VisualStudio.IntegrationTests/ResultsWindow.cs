@@ -72,6 +72,25 @@ internal static class ResultsWindow
         return null;
     }
 
+    /// <summary>Waits for the window titled <paramref name="caption"/> to close; false if it is still there after <paramref name="within"/>.</summary>
+    public static async Task<bool> WaitForGoneAsync(string caption, TimeSpan within)
+    {
+        var deadline = DateTime.UtcNow + within;
+        while (true)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            if (Find(caption) is null)
+            {
+                return true;
+            }
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+            await Task.Delay(250);
+        }
+    }
+
     public static void Close(IVsWindowFrame frame)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -79,9 +98,10 @@ internal static class ResultsWindow
     }
 
     /// <summary>
-    /// Closes every results window. The tests share one Visual Studio, and windows stay open when
-    /// a test closes its folder; every test's script is "setup", so a window left over from an
-    /// earlier test would be found by its caption instead of the test's own.
+    /// Closes every results window. The tests share one Visual Studio; closing a folder closes its
+    /// windows, but a test that fails before it gets there leaves them open, and every test's
+    /// script is "setup", so a window left over from an earlier test would be found by its
+    /// caption instead of the test's own.
     /// </summary>
     public static void CloseAll()
     {

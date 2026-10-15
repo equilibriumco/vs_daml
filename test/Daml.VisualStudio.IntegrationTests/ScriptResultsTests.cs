@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Text;
@@ -47,6 +48,43 @@ public class ScriptResultsTests
             ResultsWindow.CloseAll();
             Ide.CloseAllDocuments();
             await Ide.CloseFolderAsync();
+        }
+    }
+
+    // A closed folder's results can't refresh and their links lead nowhere, and a script of the
+    // same name in the next folder would get a second window with the same title.
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 6 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public async Task Closing_the_folder_closes_its_results_windows()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
+        var folder = Ide.CopySample("single-package");
+        Ide.OpenFolder(folder);
+        var folderOpen = true;
+        try
+        {
+            var view = await OpenWithRowsAsync(Path.Combine(folder, "daml", "Main.daml"), expectedRows: 1);
+            await ShowResultsOfAsync(view, "setup");
+            var browser = await BrowserAsync("Script: setup", view);
+            Assert.Contains("TV", await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV")));
+
+            Ide.CloseAllDocuments();
+            await Ide.CloseFolderAsync();
+            folderOpen = false;
+
+            var gone = await ResultsWindow.WaitForGoneAsync("Script: setup", TimeSpan.FromSeconds(15));
+            var left = ResultsWindow.Find("Script: setup");
+            Assert.True(gone, $"The results window stayed open after its folder closed (visible: {left?.IsVisible() == VSConstants.S_OK}). " + await DiagnosticsAsync(null));
+        }
+        finally
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
+            if (folderOpen)
+            {
+                Ide.CloseAllDocuments();
+                await Ide.CloseFolderAsync();
+            }
         }
     }
 

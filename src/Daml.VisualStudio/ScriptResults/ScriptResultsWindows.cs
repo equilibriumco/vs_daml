@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Logging;
@@ -34,6 +35,9 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     private readonly Dictionary<string, ScriptResultsToolWindow> _open = new(VirtualResourceAddressComparer.Instance);
     private readonly ViewStateStore _views;
     private AsyncLazy<CoreWebView2Environment>? _environment;
+    // How many times the windows were closed with their folder; a window being made when that
+    // happens is abandoned, since it belongs to the closed folder too.
+    private int _closings;
 
     [ImportingConstructor]
     public ScriptResultsWindows(JoinableTaskContext joinableTaskContext, IDamlLogger logger, [Import(typeof(SAsyncServiceProvider))] IAsyncServiceProvider services)
@@ -94,6 +98,33 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
         }
     }
 
+    /// <summary>
+    /// Closes every results window as if the user had: their folder or solution has closed, so
+    /// their server is gone, their source links lead nowhere, and the next folder may have
+    /// scripts of the same names. The views chosen in them stay saved with the folder.
+    /// </summary>
+    public async Task CloseAllAsync()
+    {
+        await _joinableTaskFactory.SwitchToMainThreadAsync();
+        _closings++;
+        if (_open.Count > 0)
+        {
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Closing {_open.Count} script results window(s) of the closed folder.");
+        }
+        foreach (var resource in _open.Keys.ToList())
+        {
+            // Closed the way the user closes it: that hides the window and reports it, and the
+            // report destroys it. One that reports nothing is let go here the same way (an open
+            // window's resource has its id already; GetOrAdd only looks it up).
+            var frame = _open[resource].Frame as IVsWindowFrame;
+            frame?.CloseFrame((uint)__FRAMECLOSE.FRAMECLOSE_NoSave);
+            if (_open.ContainsKey(resource))
+            {
+                OnClosed(resource, _ids.GetOrAdd(resource), frame);
+            }
+        }
+    }
+
     /// <summary>Stops saving views; Visual Studio is shutting down.</summary>
     public void Dispose() => _views.Dispose();
 
@@ -108,6 +139,7 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
             return existing;
         }
 
+        var closings = _closings;
         var package = await LoadPackageAsync(cancellationToken);
         var id = _ids.GetOrAdd(resource);
         ScriptResultsToolWindow? window = null;
@@ -121,6 +153,10 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
             if (_open.TryGetValue(resource, out existing))
             {
                 return existing; // another show of the same results got there first
+            }
+            if (closings != _closings)
+            {
+                throw new OperationCanceledException("The folder closed while its script results window was opening.");
             }
 
             var view = new ScriptResultsView(resource, state, GetEnvironmentAsync, changed => _views.Set(resource, changed), _logger, _joinableTaskFactory, SourcesFor(workspace).Contains);
@@ -148,8 +184,9 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     }
 
     // Closing a tool window only hides it; ours are destroyed instead, so the browser and its
-    // processes go with them and the next show starts afresh.
-    private void OnClosed(string resource, int id, IVsWindowFrame frame)
+    // processes go with them and the next show starts afresh. Destroying the frame notifies
+    // again, which finds the resource already gone.
+    private void OnClosed(string resource, int id, IVsWindowFrame? frame)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         if (!_open.Remove(resource))
@@ -158,6 +195,10 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
         }
         _ids.Remove(id);
         Closed?.Invoke(this, resource);
+        if (frame is null)
+        {
+            return;
+        }
         _joinableTaskFactory.RunAsync(async () =>
         {
             // Not from inside the frame's own notification.

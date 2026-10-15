@@ -95,7 +95,23 @@ public sealed class VirtualResourceManager : IVirtualResourceSink, IDisposable
                 _resources[key!] = entry;
             }
         }
-        await _windows.ShowAsync(entry.Address, title, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _windows.ShowAsync(entry.Address, title, cancellationToken).ConfigureAwait(false);
+        }
+        catch when (isNew)
+        {
+            // No window came up, so none will ever be closed to forget the resource: forget it
+            // here, and the next show starts over and asks the server again.
+            lock (_gate)
+            {
+                if (_resources.TryGetValue(key!, out var current) && ReferenceEquals(current, entry))
+                {
+                    _resources.Remove(key!);
+                }
+            }
+            throw;
+        }
         if (isNew)
         {
             await OpenAsync(entry).ConfigureAwait(false);

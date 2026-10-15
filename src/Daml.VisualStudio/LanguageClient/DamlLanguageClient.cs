@@ -46,6 +46,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private readonly WorkspaceDiscovery _discovery;
     private readonly WorkspaceWatcher _watcher;
     private readonly LanguageServerNotifier _notifier;
+    private readonly ScriptResultsWindows _scriptResults;
     private readonly DamlSettingsMonitor _settings = new();
     private int _version;
     private string? _openedFolder;
@@ -55,6 +56,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     {
         _joinableTaskFactory = joinableTaskContext.Factory;
         _logger = logger;
+        _scriptResults = scriptResults;
         var files = new PhysicalFileSystem();
         var manifests = new YamlManifestReader(files);
         var runner = new ProcessRunner();
@@ -259,10 +261,12 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private void OnFolderClosed(string? folder) => OnWorkspaceClosed();
 
     // Nothing left to serve: the server of the closed folder stops instead of idling until the
-    // next folder opens.
+    // next folder opens, and the folder's script results go with it.
     private void OnWorkspaceClosed()
     {
+        _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "The folder or solution closed.");
         Volatile.Write(ref _openedFolder, null);
+        _joinableTaskFactory.RunAsync(_scriptResults.CloseAllAsync).FileAndForget("daml/scriptResults/closeAll");
         OnWorkspaceOpened();
     }
 
