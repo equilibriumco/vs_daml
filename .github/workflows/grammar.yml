@@ -55,9 +55,20 @@ jobs:
         run: npx tree-sitter test
 
       # Random edits to every corpus test, parsed incrementally, then undone: the tree must come
-      # back as the test expects it.
+      # back as the test expects it. The CLI exits 0 even when tests fail, so its summary line
+      # ("N daml corpus tests failed fuzzing") decides; each failure above it names its seed,
+      # which TREE_SITTER_SEED replays. The seed is fixed: about one random seed in four hits a
+      # layout bug inherited from tree-sitter-haskell. The nightly run tries a new one each night.
       - name: Fuzz the corpus tests
-        run: npx tree-sitter fuzz
+        env:
+          TREE_SITTER_SEED: '1'
+        run: |
+          set -o pipefail
+          npx tree-sitter fuzz 2>&1 | tee "$RUNNER_TEMP/tree-sitter-fuzz.log"
+          if grep -q 'corpus tests failed fuzzing' "$RUNNER_TEMP/tree-sitter-fuzz.log"; then
+            echo "::error::$(grep 'corpus tests failed fuzzing' "$RUNNER_TEMP/tree-sitter-fuzz.log")"
+            exit 1
+          fi
 
       - name: Tests of the grammar's scripts
         working-directory: .

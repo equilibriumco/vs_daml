@@ -40,6 +40,19 @@ jobs:
       - name: Generate the parser
         run: npx tree-sitter generate
 
+      # The corpus tests with a new random seed every night, reported but not failing the run:
+      # about one seed in four hits a layout bug inherited from tree-sitter-haskell, which the
+      # push run steps around with a fixed seed. A new kind of failure shows up here first.
+      - name: Fuzz the corpus tests with a random seed (report only)
+        run: |
+          npx tree-sitter fuzz > "$RUNNER_TEMP/tree-sitter-fuzz.log" 2>&1 || true
+          {
+            echo '### tree-sitter fuzz, random seed'
+            echo '```'
+            grep -E '^fuzz seed:|Incorrect|Unexpected scope change|failed fuzzing' "$RUNNER_TEMP/tree-sitter-fuzz.log" || echo 'every corpus test passed'
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: grammar/test/.cache

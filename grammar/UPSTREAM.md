@@ -23,6 +23,9 @@
   the scanner's five exported functions `tree_sitter_daml_external_scanner_*` (were
   `tree_sitter_haskell_external_scanner_*`); the root node `(daml` in the inherited test
   expectations (was `(haskell`).
+- `tree_sitter_daml_external_scanner_create` is declared with `(void)` (upstream had `()`, which
+  before C23 is a different function type from the `void *(*)(void)` the runtime calls it
+  through; the undefined-behaviour sanitizer's `-fsanitize=function` stops on that call).
 - **Daml's colons** (Haskell's swapped: `:` annotates a type, `::` is list cons):
   `_colon2` in `grammar/lexeme.js` is `:` (the name kept to keep merges simple); in `src/scanner.c` a
   lone `:` is reserved (`lex_symop`), `::` is an ordinary operator and so a constructor operator
@@ -105,3 +108,18 @@
    plug it in and the scanner's `with` block; `grep -n Daml src/scanner.c grammar/*.js` finds them,
    apart from the two `daml` lines in `grammar.js`).
 4. `npx tree-sitter generate` and `npx tree-sitter test` must pass; then update the table above.
+## Known issues inherited from upstream
+
+- **A layout block closed by a token is rebuilt wrongly after an edit is undone.** When a block
+  ends at a token rather than at its indentation (`in`, `)`, `|]`, an infix operator) and an edit
+  deletes that token, undoing the edit and parsing incrementally can give an `ERROR` or a
+  differently closed block, while a parse from scratch is right. `tree-sitter fuzz` hits it with
+  about one random seed in four: 12 of the 796 corpus tests over 1 000 trials each. Unmodified
+  tree-sitter-haskell 0.24.1 fails 9 of them, at the same seeds (it doesn't run `tree-sitter
+  fuzz` in its CI, and the CLI exits 0 on fuzz failures); `colons: signature in let` fails at the
+  same seeds as its Haskell twin; `record: ended by then, else and in` and `record: patterns in
+  parentheses` (a `with` block inside a one-line `let … in`) show the same pattern and have no
+  upstream counterpart. To replay one, in `tree-sitter-daml`:
+  `TREE_SITTER_SEED=<seed from the failure> npx tree-sitter fuzz --iterations 1 -i "<test name>"`.
+  Our CI and the Grammar test category fuzz with a fixed seed that passes; the nightly run tries a
+  new seed and reports. Worth reporting upstream; a fix belongs in the scanner's layout handling.

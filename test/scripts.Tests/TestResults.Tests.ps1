@@ -193,6 +193,80 @@ Describe 'Get-TreeSitterTestCounters' {
     }
 }
 
+Describe 'Get-TreeSitterFuzzCounters' {
+    It 'counts the tests a clean run listed and finds no failures' {
+        $lines = @(
+            'fuzz seed: 7091589735194505817',
+            '',
+            '  0. daml - corpus - daml - choice - choice: parameters, controller and do',
+            '  1. daml - corpus - haskell - varsym - varsym: operators with dollar'
+        )
+
+        $counters = Get-TreeSitterFuzzCounters $lines
+
+        $counters.Executed | Should Be 2
+        $counters.Failed | Should Be 0
+        @($counters.Failures).Count | Should Be 0
+    }
+
+    It 'reads the failures from the summary and names them, though the CLI exits 0' {
+        $lines = @(
+            '  705. daml - corpus - haskell - th - Close nested layouts at closing bracket in decl quote',
+            'Incorrect parse for daml - corpus - haskell - th - Close nested layouts at closing bracket in decl quote - seed 15330765409034137429',
+            '',
+            "correct / `e[32mexpected`e[0m / `e[31munexpected`e[0m",
+            "`e[31m(daml (declarations (bind (variable) (match (quote (quoted_decls (instance (name))) (ERROR (variable))))))`e[0m",
+            '',
+            '  706. daml - corpus - haskell - th - th: typed expression quotation',
+            '1 daml corpus tests failed fuzzing'
+        )
+
+        $counters = Get-TreeSitterFuzzCounters $lines
+
+        $counters.Executed | Should Be 2
+        $counters.Failed | Should Be 1
+        @($counters.Failures).Count | Should Be 1
+        $counters.Failures[0] | Should Match 'seed 15330765409034137429$'
+    }
+
+    It 'counts a failure named in the output even without the summary line' {
+        $lines = @(
+            '  0. daml - corpus - daml - template - template: signatory',
+            'Incorrect initial parse for daml - corpus - daml - template - template: signatory',
+            '  1. daml - corpus - daml - template - template: observer',
+            '',
+            'Unexpected scope change in seed 42 with start seed 41'
+        )
+
+        $counters = Get-TreeSitterFuzzCounters $lines
+
+        $counters.Failed | Should Be 2
+        @($counters.Failures).Count | Should Be 2
+    }
+
+    It 'names a scope change printed on the line of its error prefix too' {
+        $lines = @(
+            '  565. daml - corpus - haskell - pragma - pragma: instance method with cpp',
+            'Error: Unexpected scope change in seed 1000930 with start seed 1000000',
+            'Position: (7, 0)',
+            '2 daml corpus tests failed fuzzing'
+        )
+
+        $counters = Get-TreeSitterFuzzCounters $lines
+
+        $counters.Failed | Should Be 2
+        @($counters.Failures).Count | Should Be 1
+        $counters.Failures[0] | Should Be 'Error: Unexpected scope change in seed 1000930 with start seed 1000000'
+    }
+
+    It 'reports a run that listed no tests as executing none' {
+        $counters = Get-TreeSitterFuzzCounters @('Error: could not compile the parser')
+
+        $counters.Executed | Should Be 0
+        $counters.Failed | Should Be 0
+    }
+}
+
 Describe 'Get-NodeTestCounters' {
     It 'reads the totals node --test prints with the spec reporter' {
         $lines = @('✔ a test (1.2ms)', 'ℹ tests 8', 'ℹ suites 0', 'ℹ pass 7', 'ℹ fail 1', 'ℹ cancelled 0', 'ℹ skipped 0')

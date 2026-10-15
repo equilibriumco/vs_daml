@@ -102,6 +102,35 @@ function Get-TreeSitterTestCounters {
     }
 }
 
+function Get-TreeSitterFuzzCounters {
+    <#
+    .SYNOPSIS
+        What a `tree-sitter fuzz` run found, from its output: the CLI exits 0 even when tests fail
+        fuzzing, so the output is the evidence. Executed counts the corpus tests it listed
+        ("  12. daml - corpus - ..."); Failed comes from the line it prints last when any failed,
+        "N daml corpus tests failed fuzzing", or from the lines naming the failures when that one
+        is missing. Failures are those lines ("Incorrect parse for <test> - seed S", "Incorrect
+        initial parse for <test>", "Unexpected scope change in seed S ...", which may follow
+        "Error: " on the same line).
+    #>
+    param([string[]] $Lines)
+
+    $executed = 0
+    $failed = 0
+    $failures = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in $Lines) {
+        $plain = [regex]::Replace($line, "`e\[[0-9;]*m", '').TrimEnd()
+        if ($plain -match '^\s+\d+\.\s+\S') { $executed++ }
+        elseif ($plain -match '^(\d+) .*corpus tests failed fuzzing$') { $failed = [int] $Matches[1] }
+        elseif ($plain -match '^(Incorrect (initial )?parse for |(Error: )?Unexpected scope change in seed )') { $failures.Add($plain) }
+    }
+    [pscustomobject]@{
+        Executed = $executed
+        Failed   = [Math]::Max($failed, $failures.Count)
+        Failures = $failures.ToArray()
+    }
+}
+
 function Get-NodeTestCounters {
     <#
     .SYNOPSIS
@@ -126,4 +155,4 @@ function Get-NodeTestCounters {
     }
 }
 
-Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters, Get-NodeTestCounters
+Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters, Get-TreeSitterFuzzCounters, Get-NodeTestCounters

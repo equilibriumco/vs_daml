@@ -3478,7 +3478,7 @@ typedef struct {
 /**
  * This function allocates the persistent state of the parser that is passed into the other API functions.
  */
-void *tree_sitter_daml_external_scanner_create() {
+void *tree_sitter_daml_external_scanner_create(void) {
   State *state = ts_calloc(1, sizeof(State));
   array_reserve(&state->contexts, 8);
   array_reserve(&state->lookahead, 8);

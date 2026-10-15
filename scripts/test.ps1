@@ -216,17 +216,35 @@ $summary = foreach ($cat in $categories) {
                 $exitCode = $LASTEXITCODE
             }
             # Random edits to every corpus test, parsed incrementally and undone: the tree must
-            # come back as the test expects it.
+            # come back as the test expects it. The edits come from a fixed seed, as in CI:
+            # about one random seed in four hits a layout bug inherited from tree-sitter-haskell.
+            # A TREE_SITTER_SEED of your own wins, to replay a failure.
             $fuzz = 'not run'
             $fuzzExit = 0
+            $fuzzLog = Join-Path $outDir 'tree-sitter-fuzz.log'
             if ($exitCode -eq 0) {
-                & npx tree-sitter fuzz 2>&1 | Tee-Object -FilePath (Join-Path $outDir 'tree-sitter-fuzz.log') | Out-Null
-                $fuzzExit = $LASTEXITCODE
-                $fuzz = if ($fuzzExit -eq 0) { 'passed' } else { 'FAILED' }
+                $ownSeed = [bool]$env:TREE_SITTER_SEED
+                if (-not $ownSeed) { $env:TREE_SITTER_SEED = '1' }
+                try {
+                    & npx tree-sitter fuzz 2>&1 | Tee-Object -FilePath $fuzzLog | Out-Null
+                    $fuzzExit = $LASTEXITCODE
+                }
+                finally {
+                    if (-not $ownSeed) { Remove-Item Env:TREE_SITTER_SEED }
+                }
             }
         }
         finally {
             Pop-Location
+        }
+        # The CLI exits 0 even when tests fail fuzzing, so its log decides as well. Each failure
+        # names a seed; TREE_SITTER_SEED=<seed> with --iterations 1 and --include <test> replays it.
+        $fuzzFailed = $false
+        if (Test-Path $fuzzLog) {
+            $f = Get-TreeSitterFuzzCounters (Get-Content $fuzzLog)
+            $fuzzFailed = $fuzzExit -ne 0 -or $f.Failed -gt 0 -or $f.Executed -eq 0
+            $fuzz = if ($fuzzFailed) { "FAILED ($($f.Failed) of $($f.Executed) tests, exit code $fuzzExit)" } else { "passed ($($f.Executed) tests)" }
+            foreach ($failure in $f.Failures) { $problems.Add("$cat fuzz: $failure") }
         }
         # The grammar's own scripts (the corpus report) have node tests next to them. TAP, because
         # its summary is plain ASCII: PowerShell decodes node's output with the console code page,
@@ -247,7 +265,7 @@ $summary = foreach ($cat in $categories) {
         elseif ($isRequired) { $problems.Add("$cat is required but the corpus isn't collected (scripts/collect-corpus.ps1)") }
         $c = Get-TreeSitterTestCounters $(if (Test-Path $log) { Get-Content $log } else { @() })
         $s = Get-NodeTestCounters (Get-Content $scriptsLog)
-        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or $c.QueryFailed -gt 0 -or -not $c.Found -or $scriptsExit -ne 0 -or $s.Failed -gt 0 -or -not $s.Found -or $gateExit -ne 0 -or $fuzzExit -ne 0) { 'FAILED' }
+        $status = if ($exitCode -ne 0 -or $c.Failed -gt 0 -or $c.QueryFailed -gt 0 -or -not $c.Found -or $scriptsExit -ne 0 -or $s.Failed -gt 0 -or -not $s.Found -or $gateExit -ne 0 -or $fuzzFailed) { 'FAILED' }
                   elseif ($c.Executed -eq 0) { 'N/A' }
                   else { 'PASSED' }
         if ($status -eq 'FAILED') { $problems.Add("$cat failed (tree-sitter exit code $exitCode, $($c.Failed) failing parse(s), $($c.QueryFailed) failing highlight/tag file(s), fuzz $fuzz; node exit code $scriptsExit, $($s.Failed) failing script test(s); corpus gate $corpusGate; logs in $outDir)") }
