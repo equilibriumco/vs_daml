@@ -108,6 +108,8 @@ public sealed class ClientRestartSequence : IDisposable
                 }
                 cancellationToken.ThrowIfCancellationRequested();
                 _host.Log(DamlLogLevel.Information, "Stopping the language client for the restart.");
+                // The client's stop ends the server, maybe before the host's own stop below.
+                _host.Supervisor.ExpectExit();
                 await _raiseStop().ConfigureAwait(false);
                 await _host.StopAsync(cancellationToken).ConfigureAwait(false);
                 _clientStarted = false;

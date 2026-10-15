@@ -109,6 +109,41 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _runner.Started[0].Killed.ShouldBeFalse();
     }
 
+    // VS's StopAsync sends shutdown and exit, so damlc may be gone before the host hears that the
+    // client stopped. That is the stop the restart asked for: counted as a crash, it would make
+    // the new start wait out a backoff and bring the circuit breaker closer.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_server_that_leaves_while_the_client_stops_it_is_stopped_not_crashed()
+    {
+        var states = new List<LanguageServerState>();
+        _host.Supervisor.StateChanged += (_, e) => { lock (states) { states.Add(e.NewState); } };
+        var sequence = new ClientRestartSequence(
+            _host,
+            _ => Task.FromResult<(WorkspaceContext?, LanguageServerOptions)>((_discovered, new LanguageServerOptions { DpmPath = Dpm })),
+            async () =>
+            {
+                var handled = _host.Supervisor.ExitsHandled;
+                _runner.Started[^1].Exit(0);
+                while (_host.Supervisor.ExitsHandled == handled)
+                {
+                    await Task.Delay(10);
+                }
+            },
+            () => _host.ActivateAsync(CancellationToken.None));
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+
+        var restart = sequence.RestartAsync(CancellationToken.None);
+
+        (await Task.WhenAny(restart, Task.Delay(TimeSpan.FromSeconds(10)))).ShouldBe(restart, "the new start is waiting out a crash backoff");
+        await restart;
+        lock (states)
+        {
+            states.ShouldNotContain(LanguageServerState.Crashed);
+        }
+        _runner.Started.Count.ShouldBe(2);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task A_server_that_is_not_ready_is_killed_before_the_client_is_stopped()
     {

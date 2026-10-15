@@ -32,6 +32,8 @@ public sealed class LanguageServerSupervisor : IDisposable
     private LanguageServerState _state = LanguageServerState.Stopped;
     private int _sessionId;
     private Session? _current;
+    // The session the client is stopping itself; its exit is a stop, not a crash.
+    private Session? _leaving;
     private StartAttempt? _start;
     private TimeSpan _backoff;
     private bool _disposed;
@@ -101,6 +103,19 @@ public sealed class LanguageServerSupervisor : IDisposable
 
     // For tests: how many process exits have been looked at, those of replaced sessions included.
     internal int ExitsHandled => Volatile.Read(ref _exitsHandled);
+
+    /// <summary>
+    /// The client is about to stop the running server itself: Visual Studio's StopAsync sends it
+    /// shutdown and exit, possibly before <see cref="StopAsync"/> is called. Its leaving from now
+    /// on is the stop that was asked for, not a crash.
+    /// </summary>
+    public void ExpectExit()
+    {
+        lock (_gate)
+        {
+            _leaving = _current;
+        }
+    }
 
     /// <summary>The last stderr lines of any session, oldest first, for diagnostics.</summary>
     public IReadOnlyList<string> RecentStderr
@@ -276,6 +291,7 @@ public sealed class LanguageServerSupervisor : IDisposable
             {
                 session = _current;
                 _current = null;
+                _leaving = null;
             }
             if (session is null)
             {
@@ -459,6 +475,7 @@ public sealed class LanguageServerSupervisor : IDisposable
     {
         Interlocked.Increment(ref _exitsHandled);
         Crash crash;
+        bool stopped;
         lock (_gate)
         {
             if (!ReferenceEquals(_current, session))
@@ -466,9 +483,18 @@ public sealed class LanguageServerSupervisor : IDisposable
                 return; // replaced or stopped: not a crash
             }
             _current = null;
+            stopped = ReferenceEquals(_leaving, session);
+            _leaving = null;
             // Under the same lock: a stop arriving now finds the crash already recorded, so it
             // can't end up Stopped and then be overwritten by this crash.
-            crash = RecordCrashLocked();
+            crash = stopped ? default : RecordCrashLocked();
+        }
+        if (stopped)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"The language server (session {session.Id}) left as the client stopped it.");
+            session.Dispose();
+            SetState(LanguageServerState.Stopped);
+            return;
         }
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"The language server (session {session.Id}) exited with code {exitCode}.");
         session.Dispose();

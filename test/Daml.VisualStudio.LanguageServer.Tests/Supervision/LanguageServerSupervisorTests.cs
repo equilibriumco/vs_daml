@@ -371,6 +371,40 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         reasons.ShouldContain(r => r.Contains("during startup"));
     }
 
+    // Visual Studio's StopAsync ends the server, possibly before the host's own stop; once the
+    // client said it is stopping it, that exit is a stop, and the next start waits for nothing.
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_exit_the_client_asked_for_is_a_stop_not_a_crash()
+    {
+        var session = (await StartAsync()).ShouldNotBeNull();
+        _supervisor.MarkReady(session.Id);
+        _supervisor.ExpectExit();
+
+        await CrashAsync(0, LanguageServerState.Stopped);
+        var next = StartAsync();
+
+        _transitions.ShouldNotContain(t => t.To == LanguageServerState.Crashed);
+        (await Task.WhenAny(next, Task.Delay(Generous))).ShouldBe(next, "the start is waiting out a crash backoff");
+        (await next).ShouldNotBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task An_exit_after_the_host_took_the_stop_over_is_never_excused_later()
+    {
+        var first = (await StartAsync()).ShouldNotBeNull();
+        _supervisor.MarkReady(first.Id);
+        _supervisor.ExpectExit();
+        var stop = _supervisor.StopAsync(CancellationToken.None);
+        _runner.Started[0].Exit(0);
+        await stop;
+        var second = (await StartAsync()).ShouldNotBeNull();
+        _supervisor.MarkReady(second.Id);
+
+        await CrashAsync(1);
+
+        _transitions.ShouldContain(t => t.To == LanguageServerState.Crashed && t.SessionId == second.Id);
+    }
+
     // After a crash of a server that was ready, Visual Studio asks for a new session itself.
     [Fact, Trait("Category", "Unit")]
     public async Task A_crash_of_a_ready_server_is_left_to_visual_studio()
