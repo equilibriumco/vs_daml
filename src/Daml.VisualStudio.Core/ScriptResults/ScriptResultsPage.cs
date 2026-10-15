@@ -34,8 +34,11 @@ public static class ScriptResultsPage
         "script-src " + Origin + " 'unsafe-inline'; style-src " + Origin + " 'unsafe-inline'; img-src " + Origin + " data:; " +
         "connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">";
 
-    // The shim goes first: webview.js asks for the VS Code API as soon as it loads.
+    // The charset first: the page is served as a file with none of its own, and the transaction
+    // tree draws with characters outside ASCII. The shim before the page's scripts: webview.js
+    // asks for the VS Code API as soon as it loads.
     private const string Head =
+        "<meta charset=\"utf-8\">" +
         Policy +
         "<script src=\"" + Origin + ShimName + "\"></script>" +
         "<link rel=\"stylesheet\" href=\"" + Origin + ThemeName + "\">";

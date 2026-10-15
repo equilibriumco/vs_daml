@@ -70,6 +70,8 @@ public sealed class ScriptResultsTheme : IEquatable<ScriptResultsTheme>
             .Append("body { background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); ")
             .Append("font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }\n")
             .Append("table, th, td { border-color: var(--vscode-editor-foreground); }\n")
+            // VS Code's link colours; the browser's own blue is unreadable on a dark background.
+            .Append("a, a:visited { color: ").Append(IsDark ? "#3794ff" : "#006ab1").Append("; }\n")
             .ToString();
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -97,11 +98,21 @@ public static class PageMessages
     }
 
     /// <summary>
-    /// The message that shows a note above the results. The page puts the value into innerHTML
-    /// and the note is plain text from the server, so it goes in encoded.
+    /// The message that shows a note above the results. The server writes a note as a small HTML
+    /// document; the page puts the value into innerHTML and allows inline handlers for its own
+    /// controls, so only the note's text goes in, encoded, styled as a warning when it was one.
     /// </summary>
-    public static string AddNote(string text) =>
-        new JObject { ["command"] = "add_note", ["value"] = WebUtility.HtmlEncode(text ?? "") }.ToString(Formatting.None);
+    public static string AddNote(string text)
+    {
+        var note = text ?? "";
+        var plain = Regex.Replace(WebUtility.HtmlDecode(Regex.Replace(note, "<[^>]*>", " ")), @"\s+", " ").Trim();
+        var value = WebUtility.HtmlEncode(plain);
+        if (note.IndexOf("da-hl-warning", StringComparison.Ordinal) >= 0)
+        {
+            value = "<span class=\"da-hl-warning\">" + value + "</span>";
+        }
+        return new JObject { ["command"] = "add_note", ["value"] = value }.ToString(Formatting.None);
+    }
 
     private static string WithoutAnchor(string uri)
     {

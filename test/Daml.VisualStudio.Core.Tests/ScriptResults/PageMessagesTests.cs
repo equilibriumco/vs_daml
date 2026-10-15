@@ -67,12 +67,25 @@ public class PageMessagesTests
         JToken.DeepEquals(json, JObject.Parse("""{"command":"set_view","value":{"selected":"transaction","showArchived":true,"showDetailedDisclosure":false}}""")).ShouldBeTrue(json.ToString());
     }
 
+    // damlc writes a note as a small HTML document; shown as it came, it read as raw markup.
     [Fact, Trait("Category", "Unit")]
-    public void A_note_reaches_the_page_as_text_because_the_page_puts_it_into_innerHTML()
+    public void A_note_from_the_server_shows_its_text_in_the_warning_style()
     {
-        var json = JObject.Parse(PageMessages.AddNote("<img src=x onerror=alert(1)> & done"));
+        var note = "<!DOCTYPE HTML> <html><span class=\"da-hl-warning\">The source file containing this script no longer compiles: M:/work/daml/Main.daml</span></html>";
+
+        var json = JObject.Parse(PageMessages.AddNote(note));
 
         ((string)json["command"]!).ShouldBe("add_note");
-        ((string)json["value"]!).ShouldBe("&lt;img src=x onerror=alert(1)&gt; &amp; done");
+        ((string)json["value"]!).ShouldBe("<span class=\"da-hl-warning\">The source file containing this script no longer compiles: M:/work/daml/Main.daml</span>");
+    }
+
+    // The page puts the value into innerHTML and allows inline handlers for its own buttons, so
+    // nothing of the note's markup may get there, only its text.
+    [Fact, Trait("Category", "Unit")]
+    public void Markup_in_a_note_never_reaches_the_page()
+    {
+        var json = JObject.Parse(PageMessages.AddNote("<img src=x onerror=alert(1)> 1 &lt; 2 &amp; done"));
+
+        ((string)json["value"]!).ShouldBe("1 &lt; 2 &amp; done");
     }
 }

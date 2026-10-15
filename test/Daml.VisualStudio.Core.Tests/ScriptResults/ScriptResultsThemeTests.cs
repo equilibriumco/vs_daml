@@ -19,6 +19,18 @@ public class ScriptResultsThemeTests
         css.ShouldContain("--vscode-font-size: 12px;", Case.Sensitive, "9 points is 12 pixels");
     }
 
+    // Left to the browser, links are dark blue: unreadable on a dark background.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("#1e1e1e", "#3794ff")]
+    [InlineData("#000000", "#3794ff")]
+    [InlineData("#ffffff", "#006ab1")]
+    public void Links_get_a_colour_that_reads_on_the_background(string background, string link)
+    {
+        var css = new ScriptResultsTheme(background, "#808080", "Segoe UI", 9).ToCss();
+
+        css.ShouldContain($"a, a:visited {{ color: {link}; }}");
+    }
+
     [Theory, Trait("Category", "Unit")]
     [InlineData("#1e1e1e", "#f14c4c")]
     [InlineData("#252526", "#f14c4c")]

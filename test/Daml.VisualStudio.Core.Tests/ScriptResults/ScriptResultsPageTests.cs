@@ -22,6 +22,22 @@ public class ScriptResultsPageTests
         page.ShouldContain("<link rel=\"stylesheet\" href=\"https://daml-webview.invalid/webview.css\">");
     }
 
+    // The page is a file served from the virtual host, with no charset of its own; without the
+    // declaration WebView2 reads it in the Windows code page and the transaction tree's box
+    // drawing characters come out garbled.
+    [Fact, Trait("Category", "Unit")]
+    public void The_page_says_it_is_utf_8_before_anything_else()
+    {
+        var page = ScriptResultsPage.Compose("<!DOCTYPE HTML><html><head><title>x</title></head><body>│ └─></body></html>");
+        var message = ScriptResultsPage.Message("nothing yet");
+
+        foreach (var html in new[] { page, message })
+        {
+            var head = html.IndexOf("<head>", System.StringComparison.OrdinalIgnoreCase) + "<head>".Length;
+            html.Substring(head).ShouldStartWith("<meta charset=\"utf-8\">");
+        }
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void The_policy_shim_and_theme_come_first_in_the_head()
     {
@@ -52,7 +68,7 @@ public class ScriptResultsPageTests
     {
         var page = ScriptResultsPage.Compose("<p>hi</p>");
 
-        page.ShouldStartWith("<meta http-equiv=\"Content-Security-Policy\"");
+        page.ShouldStartWith("<meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\"");
         page.ShouldEndWith("<p>hi</p>");
     }
 
