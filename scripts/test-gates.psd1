@@ -57,6 +57,20 @@
                 }
             }
         }
+        # M2: what M1 requires, now also covering the native editor and the script results; the
+        # demo is the human's part of the gate.
+        M2 = @{
+            Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
+            Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
+            Tools    = @('dpm')
+            Coverage = @{
+                'net10.0' = @{
+                    'Daml.VisualStudio.Core'           = 85
+                    'Daml.VisualStudio.LanguageServer' = 80
+                    'Daml.Build.Core'                  = 80
+                }
+            }
+        }
         # M4: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
         # highlight and tag tests, `tree-sitter fuzz`, the scripts' tests and the corpus gate,
         # which in a gate run needs the collected real-world corpus.

@@ -42,12 +42,13 @@ if ($vsix.Count -ne 1) {
 }
 
 Import-Module (Join-Path $PSScriptRoot 'lib\VsixContents.psm1') -Force
-$vsixProblems = @(Test-Vsix $vsix[0].FullName)
+$version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root 'src\Daml.VisualStudio\bin\Release\net48\Daml.VisualStudio.dll')).FileVersion
+$vsixProblems = @(Test-Vsix $vsix[0].FullName -ExpectedVersion $version)
 if ($vsixProblems) {
     $vsixProblems | ForEach-Object { Write-Host "VSIX check: $_" -ForegroundColor Red }
     exit 1
 }
-Write-Host "VSIX check passed: $($vsix[0].Name) (VS 2026 [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
+Write-Host "VSIX check passed: $($vsix[0].Name) $version (VS 2026 [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
 $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }

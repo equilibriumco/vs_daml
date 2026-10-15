@@ -19,7 +19,7 @@ function Get-CodeBases([string] $Pkgdef) {
     $result
 }
 
-function Test-Vsix([string] $Path) {
+function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
     $problems = [System.Collections.Generic.List[string]]::new()
     $zip = [System.IO.Compression.ZipFile]::OpenRead($Path)
     $scratch = Join-Path ([System.IO.Path]::GetTempPath()) ("daml-vsix-check-" + [guid]::NewGuid().ToString('N'))
@@ -57,6 +57,14 @@ function Test-Vsix([string] $Path) {
             Get-ChildItem -LiteralPath $scratch -File | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
             Remove-Item -LiteralPath $scratch
         }
+    }
+
+    # The manifest is written from the project's version, and a build that kept an older one
+    # would ship it under the old number.
+    if ($ExpectedVersion) {
+        $identity = $manifest.SelectSingleNode("//*[local-name()='Identity']")
+        $version = if ($identity) { $identity.GetAttribute('Version') } else { '(none)' }
+        if ($version -ne $ExpectedVersion) { $problems.Add("the manifest says version $version, the build $ExpectedVersion") }
     }
 
     $targets = @($manifest.PackageManifest.Installation.InstallationTarget)

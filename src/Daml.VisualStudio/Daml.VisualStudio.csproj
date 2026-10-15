@@ -79,6 +79,18 @@
   <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
   <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
 
+  <!-- The SDK rewrites the manifest only when source.extension.vsixmanifest changes, so after a
+       version change it would keep shipping the old one; one written for another version goes. -->
+  <Target Name="ForgetManifestOfAnotherVersion" BeforeTargets="DetokenizeVsixManifestFile" Condition="Exists('$(IntermediateVsixManifest)')">
+    <ReadLinesFromFile File="$(IntermediateVsixManifest)">
+      <Output TaskParameter="Lines" ItemName="_WrittenManifestLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_WrittenManifest>@(_WrittenManifestLines)</_WrittenManifest>
+    </PropertyGroup>
+    <Delete Files="$(IntermediateVsixManifest)" Condition="!$(_WrittenManifest.Contains('Version=&quot;$(FileVersion)&quot;'))" />
+  </Target>
+
   <!-- Documentation never ships; Release also excludes referenced-project symbols. -->
   <Target Name="DropDevelopmentFilesFromVsix" AfterTargets="GetVsixSourceItems">
     <ItemGroup>

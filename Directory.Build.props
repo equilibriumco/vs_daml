@@ -43,12 +43,12 @@
 
   <!-- One version for everything. The VSIX manifest only accepts numeric versions, so the
        build number goes into the fourth part there and into the prerelease label on NuGet:
-         VSIX / FileVersion   0.1.0.42
-         NuGet                0.1.0-preview.42
+         VSIX / FileVersion   0.2.0.42
+         NuGet                0.2.0-preview.42
        Local builds use build number 0; CI passes its run number. Drop DamlPrerelease for a
        stable release. -->
   <PropertyGroup>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>0.2.0</VersionPrefix>
     <DamlPrerelease>true</DamlPrerelease>
     <DamlBuildNumber Condition="'$(DamlBuildNumber)' == '' and '$(GITHUB_RUN_NUMBER)' != ''">$(GITHUB_RUN_NUMBER)</DamlBuildNumber>
     <DamlBuildNumber Condition="'$(DamlBuildNumber)' == ''">0</DamlBuildNumber>
