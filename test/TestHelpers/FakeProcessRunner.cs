@@ -15,7 +15,7 @@ namespace Daml.TestHelpers;
 /// </summary>
 public sealed class FakeProcessRunner : IProcessRunner
 {
-    private readonly List<(string FileName, string[] Arguments, Func<Task<ProcessResult>> Answer)> _script = new();
+    private readonly List<(string FileName, string[] Arguments, Func<ProcessSpec, Task<ProcessResult>> Answer)> _script = new();
     private readonly List<ProcessSpec> _calls = new();
     private readonly List<FakeRunningProcess> _started = new();
     private Exception? _startFailure;
@@ -26,7 +26,7 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Answers <paramref name="fileName"/> with exactly <paramref name="arguments"/> by <paramref name="result"/>.</summary>
     public FakeProcessRunner On(string fileName, string[] arguments, ProcessResult result)
     {
-        _script.Add((fileName, arguments, () => Task.FromResult(result)));
+        _script.Add((fileName, arguments, _ => Task.FromResult(result)));
         return this;
     }
 
@@ -37,21 +37,35 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Makes the call fail with <paramref name="exception"/>, as a timeout or a missing program would.</summary>
     public FakeProcessRunner On(string fileName, string[] arguments, Exception exception)
     {
-        _script.Add((fileName, arguments, () => Task.FromException<ProcessResult>(exception)));
+        _script.Add((fileName, arguments, _ => Task.FromException<ProcessResult>(exception)));
+        return this;
+    }
+
+    /// <summary>
+    /// Answers with what <paramref name="run"/> does with the call, for a program whose effect
+    /// on disk matters: it sees the working directory and environment it was started with.
+    /// </summary>
+    public FakeProcessRunner On(string fileName, string[] arguments, Func<ProcessSpec, Task<ProcessResult>> run)
+    {
+        _script.Add((fileName, arguments, run));
         return this;
     }
 
     /// <inheritdoc />
     public Task<ProcessResult> RunAsync(ProcessSpec spec, CancellationToken cancellationToken)
     {
-        _calls.Add(spec);
-        var entry = _script.LastOrDefault(s =>
-            string.Equals(s.FileName, spec.FileName, StringComparison.OrdinalIgnoreCase) && s.Arguments.SequenceEqual(spec.Arguments));
+        (string FileName, string[] Arguments, Func<ProcessSpec, Task<ProcessResult>> Answer) entry;
+        lock (_calls)
+        {
+            _calls.Add(spec);
+            entry = _script.LastOrDefault(s =>
+                string.Equals(s.FileName, spec.FileName, StringComparison.OrdinalIgnoreCase) && s.Arguments.SequenceEqual(spec.Arguments));
+        }
         if (entry.Answer is null)
         {
             throw new InvalidOperationException($"Unscripted process: {spec.FileName} {string.Join(" ", spec.Arguments)}");
         }
-        return entry.Answer();
+        return entry.Answer(spec);
     }
 
     /// <summary>Processes handed out by <see cref="Start"/>, oldest first.</summary>

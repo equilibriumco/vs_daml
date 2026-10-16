@@ -94,6 +94,17 @@ internal sealed class SyntheticGeneratorCache
 
     public string ComponentFile(string name) => Path.Combine(Component, name.Replace('/', '\\'));
 
+    /// <summary>Copies this home into <paramref name="home"/>, as a download of the pin into another dpm home would leave it.</summary>
+    public void CopyHomeTo(string home)
+    {
+        foreach (var file in Directory.GetFiles(Home, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(home, file.Substring(Home.Length + 1));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, overwrite: true);
+        }
+    }
+
     public static string Sha256(byte[] bytes)
     {
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
