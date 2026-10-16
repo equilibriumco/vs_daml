@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -72,5 +73,16 @@ public static class GenerationIdentity
             label.Append(c is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '.' or '_' or '-' ? c : '_');
         }
         return (label.Length == 0 ? "reference" : label.ToString()) + "-" + generationId;
+    }
+
+    /// <summary>The generation id at the end of a <see cref="FolderName"/>.</summary>
+    /// <exception cref="ArgumentException"><paramref name="folderName"/> doesn't end in one.</exception>
+    public static string IdOfFolder(string folderName)
+    {
+        var dash = (folderName ?? throw new ArgumentNullException(nameof(folderName))).LastIndexOf('-');
+        var id = dash < 0 ? "" : folderName.Substring(dash + 1);
+        return id.Length == 16 && id.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'))
+            ? id
+            : throw new ArgumentException($"{folderName} isn't the name of a generation's folder.", nameof(folderName));
     }
 }

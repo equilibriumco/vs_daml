@@ -65,8 +65,8 @@ public sealed class GeneratorRun
         }
         var reference = generation.Input.Reference;
         var dar = generation.Input.DarPath;
-        // A sibling of the staging folder, so recovery removes it with the staging when a run dies.
-        var run = staging + ".run";
+        // Recovery removes it with the staging when a run dies.
+        var run = GenerationPublisher.RunFolderOf(staging);
         var temp = Path.Combine(run, "tmp");
         Directory.CreateDirectory(temp);
         try
@@ -118,27 +118,16 @@ public sealed class GeneratorRun
                     SecretRedaction.Redact(string.Join("\n", lines.Skip(Math.Max(0, lines.Count - QuotedLines)))));
             }
 
-            var files = Directory.GetFiles(staging, "*", SearchOption.AllDirectories)
-                .Select(f => f.Substring(staging.Length).TrimStart(Path.DirectorySeparatorChar))
-                .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            if (!files.Any(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+            try
             {
-                return new ConfigurationError(DamlDiagnosticCodes.CodegenFailed, $"dpm codegen-cs wrote no C# for {reference.Include} from {dar}.");
+                return WriteManifest(tools, generation, staging, owner);
             }
-            new GenerationManifest(
-                reference.GenerationId,
-                generation.Fingerprint,
-                owner,
-                reference.Kind,
-                reference.Path,
-                reference.Namespace,
-                dar,
-                Hashing.Sha256File(dar),
-                tools.Cache.Pin.Reference,
-                files.Select(f => new GenerationManifestFile(f, Hashing.Sha256File(Path.Combine(staging, f)))).ToList())
-                .Write(Path.Combine(staging, GenerationManifest.FileName));
-            return null;
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return new ConfigurationError(
+                    DamlDiagnosticCodes.CodegenFailed,
+                    $"dpm codegen-cs ran for {reference.Include}, but what it wrote to {staging} couldn't be read back: {ex.Message}");
+            }
         }
         finally
         {
@@ -155,5 +144,32 @@ public sealed class GeneratorRun
                 // Same as above.
             }
         }
+    }
+
+    private static ConfigurationError? WriteManifest(CodegenTools tools, PlannedGeneration generation, string staging, string owner)
+    {
+        var reference = generation.Input.Reference;
+        var dar = generation.Input.DarPath;
+        var files = Directory.GetFiles(staging, "*", SearchOption.AllDirectories)
+            .Select(f => f.Substring(staging.Length).TrimStart(Path.DirectorySeparatorChar))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (!files.Any(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new ConfigurationError(DamlDiagnosticCodes.CodegenFailed, $"dpm codegen-cs wrote no C# for {reference.Include} from {dar}.");
+        }
+        new GenerationManifest(
+            reference.GenerationId,
+            generation.Fingerprint,
+            owner,
+            reference.Kind,
+            reference.Path,
+            reference.Namespace,
+            dar,
+            Hashing.Sha256File(dar),
+            tools.Cache.Pin.Reference,
+            files.Select(f => new GenerationManifestFile(f, Hashing.Sha256File(Path.Combine(staging, f)))).ToList())
+            .Write(Path.Combine(staging, GenerationManifest.FileName));
+        return null;
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -64,4 +65,17 @@ public class GenerationIdentityTests
     [InlineData(@"C:\vendor\.dar", "reference")]
     public void The_folder_is_named_after_the_reference_and_its_id(string path, string label) =>
         GenerationIdentity.FolderName(path, "0123456789abcdef").ShouldBe(label + "-0123456789abcdef");
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\work\Contracts\Contracts.msbuildproj")]
+    [InlineData(@"C:\vendor\a-very-long-package-name-that-goes-on-and-on.dar")]
+    public void The_id_is_read_back_from_the_folder_name(string path) =>
+        GenerationIdentity.IdOfFolder(GenerationIdentity.FolderName(path, "0123456789abcdef")).ShouldBe("0123456789abcdef");
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("Contracts")]
+    [InlineData("Contracts-0123")]
+    [InlineData("Contracts-0123456789ABCDEF")]
+    public void A_name_without_an_id_isnt_a_generations_folder(string folderName) =>
+        Should.Throw<ArgumentException>(() => GenerationIdentity.IdOfFolder(folderName));
 }

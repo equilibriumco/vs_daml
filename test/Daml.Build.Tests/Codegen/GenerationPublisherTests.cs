@@ -10,7 +10,8 @@ namespace Daml.Build.Tests.Codegen;
 
 public sealed class GenerationPublisherTests : IDisposable
 {
-    private const string Folder = "Contracts-0123456789abcdef";
+    private const string Id = "0123456789abcdef";
+    private const string Folder = "Contracts-" + Id;
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "daml-publish-" + Guid.NewGuid().ToString("N"), "Daml");
 
@@ -27,9 +28,11 @@ public sealed class GenerationPublisherTests : IDisposable
 
     private string Work => Path.Combine(_root, GenerationPublisher.WorkFolderName);
 
-    private string Backup => Path.Combine(Work, Folder + ".backup");
+    private string Backup => Path.Combine(Work, Id + ".old");
 
-    private string Journal => Path.Combine(Work, Folder + ".journal");
+    private string Journal => Path.Combine(Work, Id + ".journal");
+
+    private string LeftStaging => Path.Combine(Work, Id + ".new");
 
     private static void Fill(string folder, string content)
     {
@@ -185,7 +188,7 @@ public sealed class GenerationPublisherTests : IDisposable
     public void Killed_before_the_old_generation_moved_the_next_build_drops_the_staging()
     {
         Fill(Active, "old");
-        var staging = Path.Combine(Work, Folder + ".staging-0001");
+        var staging = LeftStaging;
         Fill(staging, "new");
         File.WriteAllText(Journal, $"staging={Path.GetFileName(staging)}\nphase=staged\n");
 
@@ -199,7 +202,7 @@ public sealed class GenerationPublisherTests : IDisposable
     public void Killed_with_the_old_generation_aside_the_next_build_puts_it_back()
     {
         Fill(Backup, "old");
-        var staging = Path.Combine(Work, Folder + ".staging-0001");
+        var staging = LeftStaging;
         Fill(staging, "new");
         File.WriteAllText(Journal, $"staging={Path.GetFileName(staging)}\nphase=old-moved\n");
 
@@ -214,7 +217,7 @@ public sealed class GenerationPublisherTests : IDisposable
     {
         Fill(Active, "new");
         Fill(Backup, "old");
-        File.WriteAllText(Journal, $"staging={Folder}.staging-0001\nphase=new-moved\n");
+        File.WriteAllText(Journal, $"staging={Id}.new\nphase=new-moved\n");
 
         new GenerationPublisher(_root).Recover(Folder).ShouldBe(RecoveryOutcome.Completed);
 
@@ -222,16 +225,40 @@ public sealed class GenerationPublisherTests : IDisposable
         (Directory.Exists(Backup), File.Exists(Journal)).ShouldBe((false, false));
     }
 
-    // A generator killed mid-run leaves its staging behind and no journal.
+    // A generator killed mid-run leaves its staging and run folder behind and no journal.
     [Fact, Trait("Category", "Unit")]
     public void Stagings_left_by_a_killed_generator_are_removed_and_other_generations_are_not_touched()
     {
-        Fill(Path.Combine(Work, Folder + ".staging-0001"), "half");
-        Fill(Path.Combine(Work, "Finance-fedcba9876543210.staging-0002"), "other");
+        Fill(LeftStaging, "half");
+        Fill(GenerationPublisher.RunFolderOf(LeftStaging), "temp");
+        Fill(Path.Combine(Work, "fedcba9876543210.new"), "other");
 
         new GenerationPublisher(_root).Recover(Folder).ShouldBe(RecoveryOutcome.Cleaned);
 
-        Directory.GetDirectories(Work).Select(Path.GetFileName).ShouldBe(["Finance-fedcba9876543210.staging-0002"]);
+        Directory.GetDirectories(Work).Select(Path.GetFileName).ShouldBe(["fedcba9876543210.new"]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_staging_left_by_an_earlier_run_must_be_recovered_before_a_new_one()
+    {
+        Fill(LeftStaging, "half");
+        var publisher = new GenerationPublisher(_root);
+
+        Should.Throw<InvalidOperationException>(() => publisher.NewStaging(Folder));
+
+        publisher.Recover(Folder);
+        Directory.GetFiles(publisher.NewStaging(Folder)).ShouldBeEmpty();
+    }
+
+    // The generator's file names are long; a staged file mustn't hit Windows' path limit long
+    // before the same file published would.
+    [Fact, Trait("Category", "Unit")]
+    public void A_staged_path_is_hardly_longer_than_the_published_one()
+    {
+        var staging = new GenerationPublisher(_root).NewStaging(Folder);
+
+        (Path.Combine(staging, "Asset.cs").Length - Path.Combine(Active, "Asset.cs").Length).ShouldBeLessThanOrEqualTo(5);
+        (GenerationPublisher.RunFolderOf(staging).Length - Active.Length).ShouldBeLessThanOrEqualTo(5);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -252,7 +279,7 @@ public sealed class GenerationPublisherTests : IDisposable
     public void A_journal_with_nothing_behind_it_is_just_removed()
     {
         Directory.CreateDirectory(Work);
-        File.WriteAllText(Journal, $"staging={Folder}.staging-0001\nphase=staged\n");
+        File.WriteAllText(Journal, $"staging={Id}.new\nphase=staged\n");
 
         new GenerationPublisher(_root).Recover(Folder).ShouldBe(RecoveryOutcome.Cleaned);
 

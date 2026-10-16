@@ -93,6 +93,16 @@ public sealed class GenerationUpdateTests : IDisposable
             .Write(Path.Combine(folder, GenerationManifest.FileName));
     }
 
+    // What a build killed between moving the old generation aside and moving the new one in leaves.
+    private string KilledWithTheOldGenerationAside()
+    {
+        var staging = Path.Combine(Work, Id + ".new");
+        Published(Path.Combine(Work, Id + ".old"));
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(Work, Id + ".journal"), $"staging={Id}.new\nphase=old-moved\n");
+        return staging;
+    }
+
     private string Content() => File.ReadAllText(Path.Combine(Folder, "Asset.cs"));
 
     private IEnumerable<string> WorkLeftovers() =>
@@ -163,9 +173,7 @@ public sealed class GenerationUpdateTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public async Task A_publish_another_configuration_left_unfinished_is_undone_before_the_generation_is_judged()
     {
-        Published(Path.Combine(Work, FolderName + ".backup"));
-        Directory.CreateDirectory(Path.Combine(Work, FolderName + ".staging-0001"));
-        File.WriteAllText(Path.Combine(Work, FolderName + ".journal"), $"staging={FolderName}.staging-0001\nphase=old-moved\n");
+        KilledWithTheOldGenerationAside();
 
         var result = await Update(Plan(GenerationStatus.Stale), Request(configuration: "Release"));
 
@@ -213,10 +221,7 @@ public sealed class GenerationUpdateTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public async Task An_unfinished_publish_that_cant_be_recovered_is_DAML0109_and_nothing_is_generated()
     {
-        var staging = Path.Combine(Work, FolderName + ".staging-0001");
-        Published(Path.Combine(Work, FolderName + ".backup"));
-        Directory.CreateDirectory(staging);
-        File.WriteAllText(Path.Combine(Work, FolderName + ".journal"), $"staging={FolderName}.staging-0001\nphase=old-moved\n");
+        var staging = KilledWithTheOldGenerationAside();
         using (new FileStream(Path.Combine(staging, "Asset.cs"), FileMode.Create, FileAccess.Write, FileShare.None))
         {
             var result = await Update();

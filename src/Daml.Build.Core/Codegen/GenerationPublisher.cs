@@ -30,14 +30,19 @@ public enum RecoveryOutcome
 /// what happened, which <see cref="Recover"/> reads before anything else looks at the generation.
 /// Staging, backup and journal live in a work folder inside the generation root: on the same
 /// volume as the generations, so every move is a rename, and shared by every build writing to
-/// that root, so any of them finds what another left behind.
+/// that root, so any of them finds what another left behind. They are named by the generation's
+/// id alone (<c>&lt;id&gt;.new</c>, <c>.old</c>, <c>.journal</c>, and <c>.run</c> for the
+/// generator's own folder), so a staged file's path is hardly longer than it will be once
+/// published: the generator's file names are long, and Windows limits paths to 260 characters
+/// unless long paths are turned on. Only one build publishes into a root at a time, under its
+/// lock, so the names need nothing to tell two runs apart.
 /// </summary>
 public sealed class GenerationPublisher
 {
     /// <summary>The work folder's name inside a generation root.</summary>
     public const string WorkFolderName = ".daml-work";
 
-    private const string StagingInfix = ".staging-";
+    private const string RunSuffix = ".run";
 
     private readonly string _root;
     private readonly IPublishSteps _steps;
@@ -56,14 +61,28 @@ public sealed class GenerationPublisher
 
     private string Work => Path.Combine(_root, WorkFolderName);
 
-    /// <summary>Makes an empty staging folder for a new generation of <paramref name="folderName"/>.</summary>
+    /// <summary>
+    /// Makes the empty staging folder for a new generation of <paramref name="folderName"/>. Call
+    /// <see cref="Recover"/> first.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A staging folder of an earlier run is still there.</exception>
     public string NewStaging(string folderName)
     {
         EnsureWork();
-        var staging = Path.Combine(Work, folderName + StagingInfix + Guid.NewGuid().ToString("N").Substring(0, 8));
+        var staging = Staging(folderName);
+        if (Directory.Exists(staging))
+        {
+            throw new InvalidOperationException($"{staging} is still there; recover {folderName} before generating it again.");
+        }
         Directory.CreateDirectory(staging);
         return staging;
     }
+
+    /// <summary>
+    /// The folder next to <paramref name="staging"/> for whatever the generator itself leaves
+    /// while it runs; <see cref="Recover"/> removes it with the staging.
+    /// </summary>
+    public static string RunFolderOf(string staging) => Path.ChangeExtension(staging ?? throw new ArgumentNullException(nameof(staging)), RunSuffix);
 
     /// <summary>Removes a staging folder that won't be published.</summary>
     public void Discard(string staging)
@@ -217,9 +236,11 @@ public sealed class GenerationPublisher
             outcome = RecoveryOutcome.Cleaned;
         }
 
-        if (Directory.Exists(Work))
+        // A generator killed before its publish leaves its staging and its run folder.
+        var leftStaging = Staging(folderName);
+        foreach (var orphan in new[] { leftStaging, RunFolderOf(leftStaging) })
         {
-            foreach (var orphan in Directory.GetDirectories(Work, folderName + StagingInfix + "*"))
+            if (Directory.Exists(orphan))
             {
                 _steps.Delete(orphan);
                 outcome = outcome == RecoveryOutcome.Nothing ? RecoveryOutcome.Cleaned : outcome;
@@ -228,9 +249,11 @@ public sealed class GenerationPublisher
         return outcome;
     }
 
-    private string Backup(string folderName) => Path.Combine(Work, folderName + ".backup");
+    private string Staging(string folderName) => Path.Combine(Work, GenerationIdentity.IdOfFolder(folderName) + ".new");
 
-    private string Journal(string folderName) => Path.Combine(Work, folderName + ".journal");
+    private string Backup(string folderName) => Path.Combine(Work, GenerationIdentity.IdOfFolder(folderName) + ".old");
+
+    private string Journal(string folderName) => Path.Combine(Work, GenerationIdentity.IdOfFolder(folderName) + ".journal");
 
     private static string Entry(string staging, string phase) => $"staging={staging}\nphase={phase}\n";
 

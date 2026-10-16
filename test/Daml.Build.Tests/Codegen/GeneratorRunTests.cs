@@ -180,6 +180,25 @@ public sealed class GeneratorRunTests : IDisposable
         problem.Message.ShouldContain("DamlProcessTimeoutSeconds");
     }
 
+    // A file the generator wrote but something holds can't be hashed; that is a diagnostic, not a crash.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Output_that_cant_be_read_back_is_DAML0104()
+    {
+        var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
+        FileStream? held = null;
+        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), _ =>
+        {
+            held = new FileStream(Path.Combine(staging, "Asset.cs"), FileMode.Create, FileAccess.Write, FileShare.None);
+            return Task.FromResult(new ProcessResult(0, "", ""));
+        });
+
+        var problem = (await Run(staging)).ShouldNotBeNull();
+        Release(held!);
+
+        problem.Code.ShouldBe(DamlDiagnosticCodes.CodegenFailed);
+        problem.Message.ShouldContain("couldn't be read back");
+    }
+
     private static void Release(FileStream file) => file.Dispose();
 
     // A file still held in the run folder mustn't fail a generation that worked.
