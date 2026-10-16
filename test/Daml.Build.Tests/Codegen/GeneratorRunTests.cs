@@ -26,8 +26,7 @@ public sealed class GeneratorRunTests : IDisposable
     public GeneratorRunTests()
     {
         _generator = SyntheticGeneratorCache.Create(Path.Combine(_root, "codegen"));
-        Directory.CreateDirectory(Path.GetDirectoryName(Dar)!);
-        File.WriteAllText(Dar, "a DAR");
+        TestDar.Write(Dar);
         _publisher = new GenerationPublisher(Path.Combine(_root, @"App\obj\Debug\net10.0\Daml"));
     }
 
@@ -39,13 +38,15 @@ public sealed class GeneratorRunTests : IDisposable
 
     private string Dar => Path.Combine(_root, @"Contracts\.daml\dist\contracts-1.2.0.dar");
 
+    private static readonly SourceProvenance Sources = new(@"C:\work\Contracts\daml.yaml", "50c");
+
     private CodegenTools Tools => new(Dpm, Java, "1.0.22", new GeneratorCache(_generator.Root, _generator.Pin));
 
     private PlannedGeneration Planned(string? @namespace = "Contracts")
     {
         var reference = new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
             @"C:\work\Contracts\Contracts.msbuildproj", @namespace, "0123456789abcdef", "Contracts-0123456789abcdef");
-        return new PlannedGeneration(new CodegenInput(reference, Dar), @"C:\unused", "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
+        return new PlannedGeneration(new CodegenInput(reference, Dar, Sources), @"C:\unused", "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
     }
 
     private static string[] Arguments(string dar, string staging, string? @namespace) =>
@@ -96,6 +97,8 @@ public sealed class GeneratorRunTests : IDisposable
         var manifest = GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName)).ShouldNotBeNull();
         (manifest.GenerationId, manifest.Fingerprint, manifest.Owner, manifest.Namespace, manifest.Dar).ShouldBe(("0123456789abcdef", "f1n9", Project, "Contracts", Dar));
         (manifest.DarSha256, manifest.Generator).ShouldBe((Hashing.Sha256File(Dar), _generator.Pin.Reference));
+        manifest.Package.ShouldBe(new DarProvenance("contracts", "1.2.0", "3.6.0", TestDar.MainPackageId, [TestDar.DependencyPackageId]));
+        manifest.Source.ShouldBe(Sources);
         manifest.Files.ShouldBe(
         [
             new GenerationManifestFile(@"Contracts\S09\Asset\Asset.cs", Hashing.Sha256Text("public sealed partial record Asset")),
@@ -148,6 +151,19 @@ public sealed class GeneratorRunTests : IDisposable
         problem.Message.ShouldBe(
             @"dpm codegen-cs failed for ..\Contracts\Contracts.msbuildproj (exit code 1):" + "\n" +
             "dpm-codegen-cs: failed to read https://***@mirror.example/dar\nError: unsupported Daml-LF version 2.99");
+    }
+
+    // Said before the generator starts, rather than in its own words after it fails.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_DAR_that_isnt_one_is_DAML0104_and_nothing_runs()
+    {
+        File.WriteAllText(Dar, "not a DAR");
+
+        var problem = (await Run(_publisher.NewStaging("Contracts-0123456789abcdef"))).ShouldNotBeNull();
+
+        problem.Code.ShouldBe(DamlDiagnosticCodes.CodegenFailed);
+        problem.Message.ShouldContain($"{Dar} isn't a DAR");
+        _runner.Calls.ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]

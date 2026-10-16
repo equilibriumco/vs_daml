@@ -32,8 +32,7 @@ public sealed class GenerationUpdateTests : IDisposable
     public GenerationUpdateTests()
     {
         _cache = SyntheticGeneratorCache.Create(Path.Combine(_root, "codegen"));
-        Directory.CreateDirectory(Path.GetDirectoryName(Dar)!);
-        File.WriteAllText(Dar, "a DAR");
+        TestDar.Write(Dar);
     }
 
     public void Dispose() => DeepPath.Delete(_root);

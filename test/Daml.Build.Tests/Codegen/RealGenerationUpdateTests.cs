@@ -115,6 +115,10 @@ public sealed class RealGenerationUpdateTests : IDisposable
         var committed = Path.Combine(MiniDemo, @"src\MiniDemo.Contracts\Generated");
         Tree(Folder, result.Files.Select(f => f.Path)).ShouldBe(Tree(committed, Directory.GetFiles(committed, "*", SearchOption.AllDirectories)));
         _generator.Calls.ShouldBe(1);
+        // The package id read from the DAR is the one the generator registers.
+        var package = GenerationManifest.Read(Path.Combine(Folder, GenerationManifest.FileName))!.Package.ShouldNotBeNull();
+        (package.PackageName, package.PackageVersion, package.SdkVersion).ShouldBe(("canton-mini-demo-hbde402d4f83a", "0.1.0", "3.5.2"));
+        result.Files.ShouldContain(f => Path.GetFileName(f.Path) == $"PackageRegistration_{package.MainPackageId}.cs");
 
         var again = await PlanAsync(request);
         again.Generations.Single().State.Status.ShouldBe(GenerationStatus.Current);

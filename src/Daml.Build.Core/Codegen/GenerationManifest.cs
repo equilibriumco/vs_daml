@@ -40,6 +40,12 @@ public sealed record GenerationManifest(
     /// <summary>The format version this build reads and writes.</summary>
     public const int Schema = 1;
 
+    /// <summary>The package and package ids the DAR names; null when the manifest doesn't record them.</summary>
+    public DarProvenance? Package { get; init; }
+
+    /// <summary>The sources a project reference's DAR was built from; null when unknown or for a DAR reference.</summary>
+    public SourceProvenance? Source { get; init; }
+
     /// <summary>Writes the manifest to <paramref name="path"/>.</summary>
     public void Write(string path)
     {
@@ -54,6 +60,22 @@ public sealed record GenerationManifest(
             .Append("dar=").Append(Dar).Append('\n')
             .Append("darSha256=").Append(DarSha256).Append('\n')
             .Append("generator=").Append(Generator).Append('\n');
+        if (Package is { } package)
+        {
+            text.Append("darPackage=").Append(package.PackageName).Append('\n')
+                .Append("darVersion=").Append(package.PackageVersion).Append('\n')
+                .Append("darSdk=").Append(package.SdkVersion ?? "").Append('\n')
+                .Append("mainPackageId=").Append(package.MainPackageId).Append('\n');
+            foreach (var id in package.DependencyPackageIds)
+            {
+                text.Append("dependencyPackageId=").Append(id).Append('\n');
+            }
+        }
+        if (Source is { } source)
+        {
+            text.Append("sourceManifest=").Append(source.ManifestPath).Append('\n')
+                .Append("sourceFingerprint=").Append(source.Fingerprint).Append('\n');
+        }
         foreach (var file in Files)
         {
             text.Append("file=").Append(file.Sha256).Append(' ').Append(file.Path).Append('\n');
@@ -70,6 +92,7 @@ public sealed record GenerationManifest(
         }
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var files = new List<GenerationManifestFile>();
+        var dependencies = new List<string>();
         foreach (var line in File.ReadAllText(path, Encoding.UTF8).Split('\n').Select(l => l.TrimEnd('\r')))
         {
             var equals = line.IndexOf('=');
@@ -86,6 +109,10 @@ public sealed record GenerationManifest(
                     return null;
                 }
                 files.Add(new GenerationManifestFile(value.Substring(space + 1), value.Substring(0, space)));
+            }
+            else if (key == "dependencyPackageId")
+            {
+                dependencies.Add(value);
             }
             else
             {
@@ -114,6 +141,14 @@ public sealed record GenerationManifest(
             dar,
             darSha256,
             generator,
-            files);
+            files)
+        {
+            Package = Value("darPackage") is { } package && Value("darVersion") is { } version && Value("mainPackageId") is { } main
+                ? new DarProvenance(package, version, Value("darSdk") is { Length: > 0 } sdk ? sdk : null, main, dependencies)
+                : null,
+            Source = Value("sourceManifest") is { } sourceManifest && Value("sourceFingerprint") is { } sourceFingerprint
+                ? new SourceProvenance(sourceManifest, sourceFingerprint)
+                : null,
+        };
     }
 }

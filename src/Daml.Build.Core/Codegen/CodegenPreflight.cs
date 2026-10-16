@@ -119,7 +119,7 @@ public sealed class CodegenPreflight
             }
             var folder = Path.Combine(root, input.Reference.FolderName);
             var fingerprint = GenerationFingerprint.Compute(new GenerationFingerprintInputs(
-                input.Reference.GenerationId, Hashing.Sha256File(input.DarPath), pin.Digest, dpmVersion));
+                input.Reference.GenerationId, Hashing.Sha256File(input.DarPath), pin.Digest, dpmVersion, input.Source?.Fingerprint));
             var state = GenerationState.Evaluate(folder, fingerprint, request.ProjectPath);
             if (state.Status == GenerationStatus.Conflict)
             {

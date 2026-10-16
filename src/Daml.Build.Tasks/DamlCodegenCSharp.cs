@@ -185,11 +185,12 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
         item.ItemSpec,
         item.GetMetadata("Namespace"));
 
-    // A project's DAR comes from the project; a DAR reference is its own input.
+    // A project's DAR, and the sources it was built from, come from the project; a DAR reference is its own input.
     private List<CodegenInput> Inputs(IReadOnlyList<GenerationReference> references, List<ConfigurationError> errors)
     {
         var projectDirectory = Path.GetDirectoryName(DamlPath.Normalize(ProjectPath))!;
         var darByProject = new Dictionary<string, string>(DamlPath.Comparer);
+        var sourcesByProject = new Dictionary<string, SourceProvenance>(DamlPath.Comparer);
         foreach (var item in References)
         {
             var dar = item.GetMetadata("DarPath");
@@ -197,6 +198,11 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
             if (dar.Length > 0 && !darByProject.ContainsKey(project))
             {
                 darByProject.Add(project, dar);
+            }
+            var (manifest, fingerprint) = (item.GetMetadata("DamlManifest"), item.GetMetadata("DamlSourceFingerprint"));
+            if (manifest.Length > 0 && fingerprint.Length > 0 && !sourcesByProject.ContainsKey(project))
+            {
+                sourcesByProject.Add(project, new SourceProvenance(DamlPath.Resolve(projectDirectory, manifest), fingerprint));
             }
         }
         var inputs = new List<CodegenInput>();
@@ -210,7 +216,8 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
                     $"{reference.Include} didn't say which DAR it builds, so there is nothing to generate from. Check that it is a Daml project."));
                 continue;
             }
-            inputs.Add(new CodegenInput(reference, DamlPath.Resolve(projectDirectory, dar)));
+            var sources = reference.Kind == DamlReferenceKind.Project && sourcesByProject.TryGetValue(reference.Path, out var found) ? found : null;
+            inputs.Add(new CodegenInput(reference, DamlPath.Resolve(projectDirectory, dar), sources));
         }
         return inputs;
     }

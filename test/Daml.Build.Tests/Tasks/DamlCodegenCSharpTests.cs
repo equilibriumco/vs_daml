@@ -70,6 +70,21 @@ public class DamlCodegenCSharpTests
         ]);
     }
 
+    // What the Daml project's build says about the sources its DAR came from goes into the generation's manifest.
+    [Fact, Trait("Category", "Unit")]
+    public void A_project_reference_brings_the_sources_its_DAR_was_built_from()
+    {
+        var contracts = Contracts();
+        contracts.SetMetadata("DamlManifest", @"..\Contracts\daml.yaml");
+        contracts.SetMetadata("DamlSourceFingerprint", "50c");
+
+        Task(contracts, Reference("DamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"), Reference("DamlReference", @"..\Other\Other.msbuildproj", null, @"C:\work\Other\other.dar"))
+            .Execute().ShouldBeTrue();
+
+        _orchestrator.Requests.ShouldHaveSingleItem().Inputs.Select(i => i.Source).ShouldBe(
+            [new SourceProvenance(@"C:\work\Contracts\daml.yaml", "50c"), null, null]);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Generated_files_come_back_as_compile_items_owned_by_their_generation()
     {

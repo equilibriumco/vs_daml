@@ -25,6 +25,7 @@ public static class GenerationFingerprint
             "contract=" + ReleaseTools.GenerationContract.ToString(CultureInfo.InvariantCulture),
             "id=" + inputs.GenerationId,
             "dar=" + inputs.DarSha256,
+            "source=" + inputs.SourceFingerprint,
             "generator=" + inputs.GeneratorDigest,
             "runtime=" + ReleaseTools.Runtime.Line,
             "dpm=" + inputs.DpmVersion,

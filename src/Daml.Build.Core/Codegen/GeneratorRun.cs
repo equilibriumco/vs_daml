@@ -65,6 +65,15 @@ public sealed class GeneratorRun
         }
         var reference = generation.Input.Reference;
         var dar = generation.Input.DarPath;
+        DarProvenance package;
+        try
+        {
+            package = DarProvenance.Read(dar);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            return new ConfigurationError(DamlDiagnosticCodes.CodegenFailed, $"No C# can be generated for {reference.Include}: {ex.Message}");
+        }
         // Recovery removes it with the staging when a run dies.
         var run = GenerationPublisher.RunFolderOf(staging);
         var temp = Path.Combine(run, "tmp");
@@ -120,7 +129,7 @@ public sealed class GeneratorRun
 
             try
             {
-                return WriteManifest(tools, generation, staging, owner);
+                return WriteManifest(tools, generation, package, staging, owner);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -146,7 +155,7 @@ public sealed class GeneratorRun
         }
     }
 
-    private static ConfigurationError? WriteManifest(CodegenTools tools, PlannedGeneration generation, string staging, string owner)
+    private static ConfigurationError? WriteManifest(CodegenTools tools, PlannedGeneration generation, DarProvenance package, string staging, string owner)
     {
         var reference = generation.Input.Reference;
         var dar = generation.Input.DarPath;
@@ -168,6 +177,10 @@ public sealed class GeneratorRun
             Hashing.Sha256File(dar),
             tools.Cache.Pin.Reference,
             files.Select(f => new GenerationManifestFile(f, Hashing.Sha256File(Path.Combine(staging, f)))).ToList())
+        {
+            Package = package,
+            Source = generation.Input.Source,
+        }
             .Write(Path.Combine(staging, GenerationManifest.FileName));
         return null;
     }
