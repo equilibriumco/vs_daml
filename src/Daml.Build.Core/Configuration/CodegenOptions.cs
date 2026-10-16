@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
 
@@ -102,6 +103,15 @@ public sealed record CodegenOptions(
                 DamlDiagnosticCodes.InvalidConfiguration,
                 $"{name} is '{chosen}', but in Intermediate mode it has to be a folder inside the build's intermediate folder {intermediate}. Use Source mode to put generated code elsewhere.");
             return null;
+        }
+        // Every inner build of a multi-targeted project would publish into the one Source folder.
+        var frameworks = reader.Text("TargetFrameworks");
+        if (mode == GeneratedOutputMode.Source && frameworks is not null && frameworks.Split(';').Count(f => f.Trim().Length > 0) > 1)
+        {
+            reader.Error(
+                DamlDiagnosticCodes.OutputConflict,
+                $"The project targets several frameworks ({frameworks}), but generates its Daml bindings into {root} (Source mode), which only one of them can own. " +
+                $"Target a single framework, or set {DamlProperties.GeneratedOutputMode.Name} to Intermediate.");
         }
         return root;
     }

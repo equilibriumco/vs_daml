@@ -49,6 +49,24 @@ public class CodegenOptionsTests
         options.GeneratedRoot.ShouldBe(@"C:\work\App\Generated\Daml");
     }
 
+    // One folder in the project can't belong to several target frameworks at once.
+    [Fact, Trait("Category", "Unit")]
+    public void Source_mode_takes_a_single_target_framework()
+    {
+        var error = Read(("DamlGeneratedOutputMode", "Source"), ("TargetFrameworks", "net10.0; net11.0")).Errors.ShouldHaveSingleItem();
+
+        error.Code.ShouldBe(DamlDiagnosticCodes.OutputConflict);
+        error.Message.ShouldContain("net10.0; net11.0");
+        error.Message.ShouldContain("Intermediate");
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("Source", "net10.0")]
+    [InlineData("Source", "net10.0;")]
+    [InlineData("Intermediate", "net10.0;net11.0")]
+    public void One_target_framework_or_intermediate_mode_is_fine(string mode, string targetFrameworks) =>
+        Read(("DamlGeneratedOutputMode", mode), ("TargetFrameworks", targetFrameworks)).Errors.ShouldBeEmpty();
+
     [Theory, Trait("Category", "Unit")]
     [InlineData("Intermediate", @"obj\Debug\net10.0\Bindings", @"C:\work\App\obj\Debug\net10.0\Bindings")]
     [InlineData("Source", @"Bindings\", @"C:\work\App\Bindings")]

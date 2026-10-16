@@ -47,6 +47,9 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
     [Required]
     public string TargetFramework { get; set; } = "";
 
+    /// <summary><c>$(TargetFrameworks)</c>; empty for a project with a single target framework.</summary>
+    public string? TargetFrameworks { get; set; }
+
     /// <summary>
     /// The Daml references as written, each with <c>DamlReferenceSource</c> (<c>DamlReference</c>,
     /// <c>DamlDar</c> or <c>ProjectReference</c>), its <c>Namespace</c> and, for a project, the
@@ -120,6 +123,7 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
         {
             ["MSBuildProjectDirectory"] = projectDirectory,
             ["IntermediateOutputPath"] = IntermediateOutputPath,
+            ["TargetFrameworks"] = TargetFrameworks,
             [DamlProperties.CodegenEnabled.Name] = CodegenEnabled,
             [DamlProperties.CodegenComponent.Name] = CodegenComponent,
             [DamlProperties.GeneratedOutputMode.Name] = GeneratedOutputMode,

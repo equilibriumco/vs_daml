@@ -70,6 +70,19 @@ public class DamlCodegenCSharpTests
         ]);
     }
 
+    [Fact, Trait("Category", "Unit")]
+    public void A_multi_targeted_project_generating_into_its_sources_stops_before_anything_runs()
+    {
+        var task = Task(Contracts());
+        task.GeneratedOutputMode = "Source";
+        task.TargetFrameworks = "net10.0;net11.0";
+
+        task.Execute().ShouldBeFalse();
+
+        _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.OutputConflict);
+        _orchestrator.Requests.ShouldBeEmpty();
+    }
+
     // What the Daml project's build says about the sources its DAR came from goes into the generation's manifest.
     [Fact, Trait("Category", "Unit")]
     public void A_project_reference_brings_the_sources_its_DAR_was_built_from()

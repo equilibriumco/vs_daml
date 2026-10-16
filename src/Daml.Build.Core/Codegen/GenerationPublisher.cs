@@ -84,6 +84,12 @@ public sealed class GenerationPublisher
     /// </summary>
     public static string RunFolderOf(string staging) => Path.ChangeExtension(staging ?? throw new ArgumentNullException(nameof(staging)), RunSuffix);
 
+    /// <summary>
+    /// Whether a publish of <paramref name="folderName"/> was cut short and waits for a real
+    /// build's <see cref="Recover"/>; only reads.
+    /// </summary>
+    public bool HasUnfinishedPublish(string folderName) => File.Exists(Journal(folderName));
+
     /// <summary>Removes a staging folder that won't be published.</summary>
     public void Discard(string staging)
     {
