@@ -76,9 +76,10 @@
     <!-- VS-MEF, at the version VS 17.14 resolves; tests use its part discovery to check our MEF exports. -->
     <PackageVersion Include="Microsoft.VisualStudio.Composition" Version="17.13.41" />
     <!-- StreamJsonRpc 2.22 and the VS test framework pull MessagePack 2.5.192, which has open
-         advisories (fixed in 2.5.301). Test-side projects that use them reference this directly;
-         product code never ships MessagePack, devenv provides its own. -->
-    <PackageVersion Include="MessagePack" Version="2.5.301" />
+         advisories (2.5.301 fixed the first ones, 2.5.307 GHSA-qhrr-8q5h-9q3h). Test-side projects
+         that use them reference this directly; product code never ships MessagePack, devenv
+         provides its own. -->
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
     <!-- In-IDE test harness ([IdeFact]). Only on the vssdk feed (see nuget.config) and only as
          daily prereleases: the original repo was archived and the code now builds from
          dotnet/roslyn. Pin a build at least two weeks old; the middle number of the suffix is
