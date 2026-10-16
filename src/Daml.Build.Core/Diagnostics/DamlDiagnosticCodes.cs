@@ -49,6 +49,12 @@ public static class DamlDiagnosticCodes
     public const string CancelledOrTimedOut = "DAML0110";
 
     /// <summary>
+    /// A warning: a generated file's path is longer than Windows takes without long paths turned
+    /// on, so the compiler or the editor may not open it.
+    /// </summary>
+    public const string LongGeneratedPath = "DAML0111";
+
+    /// <summary>
     /// The project has no Daml runtime the generated code works with, or targets a framework the
     /// runtime doesn't support.
     /// </summary>

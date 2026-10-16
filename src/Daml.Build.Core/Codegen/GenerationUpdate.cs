@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Daml.Build.Core.Building;
 using Daml.Build.Core.Configuration;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Locking;
 
 namespace Daml.Build.Core.Codegen;
@@ -65,6 +66,20 @@ public sealed class GenerationUpdate
         void Report(DamlDiagnosticSeverity severity, string? code, string text) =>
             messages.Add(new BuildMessage(severity, code, null, request.ProjectPath, 0, 0, 0, 0, text));
 
+        // Our own steps take any length; the compiler and the editor may not.
+        void Collect(IReadOnlyList<string> generated, GenerationReference reference)
+        {
+            files.AddRange(generated.Select(f => new GeneratedFile(f, reference.GenerationId)));
+            var longest = generated.OrderByDescending(f => f.Length).FirstOrDefault();
+            if (longest is not null && longest.Length > LongPaths.MaxPathLength)
+            {
+                Report(DamlDiagnosticSeverity.Warning, DamlDiagnosticCodes.LongGeneratedPath,
+                    $"C# generated for {reference.Include} has paths longer than the {LongPaths.MaxPathLength} characters Windows takes unless long paths are turned on; " +
+                    $"the longest has {longest.Length.ToString(CultureInfo.InvariantCulture)}: {longest}. The compiler or Visual Studio may not open such files. " +
+                    $"Set {DamlProperties.GeneratedDir.Name} to a shorter folder, or turn on long paths in Windows (LongPathsEnabled).");
+            }
+        }
+
         FileLock held;
         try
         {
@@ -116,7 +131,7 @@ public sealed class GenerationUpdate
                             Report(DamlDiagnosticSeverity.Information, null,
                                 $"C# for {reference.Include} in {planned.Folder} was brought up to date by another build while this one waited.");
                         }
-                        files.AddRange(state.Files.Select(f => new GeneratedFile(f, reference.GenerationId)));
+                        Collect(state.Files, reference);
                         break;
                     default:
                         if (await GenerateAsync(publisher, tools, planned, request, cancellationToken).ConfigureAwait(false) is { } problem)
@@ -126,7 +141,7 @@ public sealed class GenerationUpdate
                         }
                         Report(DamlDiagnosticSeverity.Information, null, $"Generated C# for {reference.Include} into {planned.Folder}. {state.Reason}");
                         var manifest = GenerationManifest.Read(Path.Combine(planned.Folder, GenerationManifest.FileName))!;
-                        files.AddRange(manifest.Files.Select(f => new GeneratedFile(Path.Combine(planned.Folder, f.Path), reference.GenerationId)));
+                        Collect(manifest.Files.Select(f => Path.Combine(planned.Folder, f.Path)).ToList(), reference);
                         break;
                 }
             }

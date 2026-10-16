@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Daml.Build.Core.Codegen;
 using Daml.Build.Core.FileSystem;
+using Daml.Build.Tests.FileSystem;
 using Shouldly;
 using Xunit;
 
@@ -15,14 +16,7 @@ public sealed class GenerationStateTests : IDisposable
 
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "daml-generation-" + Guid.NewGuid().ToString("N"), "Contracts-0123456789abcdef");
 
-    public void Dispose()
-    {
-        var parent = Path.GetDirectoryName(_folder)!;
-        if (Directory.Exists(parent))
-        {
-            Directory.Delete(parent, recursive: true);
-        }
-    }
+    public void Dispose() => DeepPath.Delete(Path.GetDirectoryName(_folder)!);
 
     private static GenerationManifest Manifest(params (string Path, string Content)[] files) => new(
         GenerationId: "0123456789abcdef",
@@ -61,6 +55,18 @@ public sealed class GenerationStateTests : IDisposable
 
         state.Status.ShouldBe(GenerationStatus.Current);
         state.Files.ShouldBe([Path.Combine(_folder, @"S09\Asset\Asset.cs"), Path.Combine(_folder, @"S09\Asset\Asset.Give.cs")]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_generation_with_files_past_the_path_limit_is_judged_like_any_other()
+    {
+        var path = DeepPath.Write(_folder, DeepPath.Relative, "class Registration { }");
+        Manifest((DeepPath.Relative, "class Registration { }")).Write(Path.Combine(_folder, GenerationManifest.FileName));
+
+        Evaluate().Files.ShouldBe([path]);
+
+        DeepPath.Write(_folder, DeepPath.Relative, "class Changed { }");
+        Evaluate().Status.ShouldBe(GenerationStatus.Stale);
     }
 
     [Fact, Trait("Category", "Unit")]

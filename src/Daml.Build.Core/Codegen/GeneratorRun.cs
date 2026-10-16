@@ -133,7 +133,7 @@ public sealed class GeneratorRun
         {
             try
             {
-                Directory.Delete(run, recursive: true);
+                LongPaths.DeleteFolder(run);
             }
             catch (IOException)
             {
@@ -150,8 +150,7 @@ public sealed class GeneratorRun
     {
         var reference = generation.Input.Reference;
         var dar = generation.Input.DarPath;
-        var files = Directory.GetFiles(staging, "*", SearchOption.AllDirectories)
-            .Select(f => f.Substring(staging.Length).TrimStart(Path.DirectorySeparatorChar))
+        var files = LongPaths.RelativeFiles(staging)
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (!files.Any(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))

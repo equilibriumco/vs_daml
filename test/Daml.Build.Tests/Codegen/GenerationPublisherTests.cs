@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using Daml.Build.Core.Codegen;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Tests.FileSystem;
 using Shouldly;
 using Xunit;
 
@@ -15,14 +17,7 @@ public sealed class GenerationPublisherTests : IDisposable
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "daml-publish-" + Guid.NewGuid().ToString("N"), "Daml");
 
-    public void Dispose()
-    {
-        var parent = Path.GetDirectoryName(_root)!;
-        if (Directory.Exists(parent))
-        {
-            Directory.Delete(parent, recursive: true);
-        }
-    }
+    public void Dispose() => DeepPath.Delete(Path.GetDirectoryName(_root)!);
 
     private string Active => Path.Combine(_root, Folder);
 
@@ -106,6 +101,19 @@ public sealed class GenerationPublisherTests : IDisposable
         (Directory.Exists(Backup), File.Exists(Journal)).ShouldBe((false, false));
         // Inside a Source folder the work folder is in the project's tree, but never in git.
         File.ReadAllText(Path.Combine(Work, ".gitignore")).Trim().ShouldBe("*");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void An_old_generation_with_files_past_the_path_limit_is_replaced_and_its_backup_removed()
+    {
+        DeepPath.Write(Active, DeepPath.Relative, "old");
+        var publisher = new GenerationPublisher(_root);
+
+        publisher.Publish(Folder, Staged(publisher, "new"));
+
+        Content(Active).ShouldBe("new");
+        LongPaths.FileExists(Path.Combine(Active, DeepPath.Relative)).ShouldBeFalse();
+        Directory.Exists(Backup).ShouldBeFalse();
     }
 
     [Fact, Trait("Category", "Unit")]

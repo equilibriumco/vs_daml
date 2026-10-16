@@ -27,6 +27,7 @@ Diagnostic codes
   DAML0108 OutputConflict
   DAML0109 RollbackFailed
   DAML0110 CancelledOrTimedOut
+  DAML0111 LongGeneratedPath
   DAML0201 RuntimeMismatch
   DAML0202 TypeCollision
   DAML0203 NavigationUnavailable

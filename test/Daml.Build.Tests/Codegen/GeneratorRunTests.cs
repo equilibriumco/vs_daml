@@ -8,6 +8,7 @@ using Daml.Build.Core.Codegen;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Processes;
+using Daml.Build.Tests.FileSystem;
 using Daml.TestHelpers;
 using Shouldly;
 using Xunit;
@@ -30,13 +31,7 @@ public sealed class GeneratorRunTests : IDisposable
         _publisher = new GenerationPublisher(Path.Combine(_root, @"App\obj\Debug\net10.0\Daml"));
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-    }
+    public void Dispose() => DeepPath.Delete(_root);
 
     private const string Dpm = @"C:\dpm\bin\dpm.exe";
     private const string Java = @"C:\jdk-21\bin\java.exe";
@@ -178,6 +173,22 @@ public sealed class GeneratorRunTests : IDisposable
         problem.Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
         problem.Message.ShouldContain("90 s");
         problem.Message.ShouldContain("DamlProcessTimeoutSeconds");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_file_past_the_path_limit_goes_into_the_manifest()
+    {
+        var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
+        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), _ =>
+        {
+            DeepPath.Write(staging, DeepPath.Relative, "class Registration { }");
+            return Task.FromResult(new ProcessResult(0, "", ""));
+        });
+
+        (await Run(staging)).ShouldBeNull();
+
+        GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName))!.Files
+            .ShouldBe([new GenerationManifestFile(DeepPath.Relative, Hashing.Sha256Text("class Registration { }"))]);
     }
 
     // A file the generator wrote but something holds can't be hashed; that is a diagnostic, not a crash.

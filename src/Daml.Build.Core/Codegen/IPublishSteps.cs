@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -21,7 +22,8 @@ internal sealed class FileSystemPublishSteps : IPublishSteps
 
     public void Move(string from, string to) => Step(() => Directory.Move(from, to));
 
-    public void Delete(string folder) => Step(() => Directory.Delete(folder, recursive: true));
+    // A generation's files may be past the path limit even when its folder isn't.
+    public void Delete(string folder) => Step(() => LongPaths.DeleteFolder(folder));
 
     public void Write(string file, string text) => Step(() => File.WriteAllText(file, text));
 

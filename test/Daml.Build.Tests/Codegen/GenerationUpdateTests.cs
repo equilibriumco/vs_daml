@@ -11,6 +11,7 @@ using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Locking;
 using Daml.Build.Core.Processes;
+using Daml.Build.Tests.FileSystem;
 using Shouldly;
 using Xunit;
 
@@ -35,13 +36,7 @@ public sealed class GenerationUpdateTests : IDisposable
         File.WriteAllText(Dar, "a DAR");
     }
 
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-    }
+    public void Dispose() => DeepPath.Delete(_root);
 
     private string Dar => Path.Combine(_root, @"Contracts\.daml\dist\contracts-1.2.0.dar");
 
@@ -124,6 +119,23 @@ public sealed class GenerationUpdateTests : IDisposable
         ]);
         GenerationState.Evaluate(Folder, Fingerprint, Project).Status.ShouldBe(GenerationStatus.Current);
         WorkLeftovers().ShouldBeEmpty();
+    }
+
+    // Our own steps take any length; the warning is for the compiler and the editor, which may not.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Files_past_the_path_limit_are_compiled_with_a_DAML0111_warning()
+    {
+        _generator.Writes(new() { [DeepPath.Relative] = "class Registration { }", ["Asset.cs"] = "class Asset { }" });
+
+        var result = await Update();
+
+        var warning = result.Messages.Where(m => m.Severity == DamlDiagnosticSeverity.Warning).ShouldHaveSingleItem();
+        warning.Code.ShouldBe(DamlDiagnosticCodes.LongGeneratedPath);
+        var longest = Path.Combine(Folder, DeepPath.Relative);
+        warning.Text.ShouldContain($"{longest.Length}: {longest}");
+        warning.Text.ShouldContain("DamlGeneratedDir");
+        result.Messages.ShouldNotContain(m => m.Severity == DamlDiagnosticSeverity.Error);
+        result.Files.Select(f => f.Path).ShouldBe([Path.Combine(Folder, "Asset.cs"), longest]);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -291,9 +303,7 @@ public sealed class GenerationUpdateTests : IDisposable
         {
             foreach (var file in files)
             {
-                var path = Path.Combine(output, file.Key);
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                File.WriteAllText(path, file.Value);
+                DeepPath.Write(output, file.Key, file.Value);
             }
             return new ProcessResult(0, "", "");
         };

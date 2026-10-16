@@ -45,8 +45,7 @@ public sealed record GenerationState(GenerationStatus Status, string? Reason, IR
             return Stale("There is no generation yet.");
         }
         var manifestPath = Path.Combine(folder, GenerationManifest.FileName);
-        var onDisk = Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
-            .Select(f => f.Substring(folder.Length).TrimStart(Path.DirectorySeparatorChar))
+        var onDisk = LongPaths.RelativeFiles(folder)
             .Where(f => !string.Equals(f, GenerationManifest.FileName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -79,7 +78,7 @@ public sealed record GenerationState(GenerationStatus Status, string? Reason, IR
         foreach (var file in manifest.Files)
         {
             var path = Path.Combine(folder, file.Path);
-            if (!File.Exists(path))
+            if (!LongPaths.FileExists(path))
             {
                 return Stale($"{file.Path} was deleted.");
             }

@@ -16,10 +16,10 @@ public static class Hashing
         return Hex(sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? throw new ArgumentNullException(nameof(text)))));
     }
 
-    /// <summary>The SHA-256 of the file at <paramref name="path"/>.</summary>
+    /// <summary>The SHA-256 of the file at <paramref name="path"/>, however long the path is.</summary>
     public static string Sha256File(string path)
     {
-        using var stream = File.OpenRead(path ?? throw new ArgumentNullException(nameof(path)));
+        using var stream = File.OpenRead(LongPaths.Safe(path ?? throw new ArgumentNullException(nameof(path))));
         using var sha = SHA256.Create();
         return Hex(sha.ComputeHash(stream));
     }

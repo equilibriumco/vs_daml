@@ -11,6 +11,7 @@ using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Locking;
 using Daml.Build.Core.Processes;
+using Daml.Build.Tests.FileSystem;
 using Daml.TestHelpers;
 using Shouldly;
 using Xunit;
@@ -27,15 +28,8 @@ public sealed class RealGenerationUpdateTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "daml-real-update-" + Guid.NewGuid().ToString("N"));
     private readonly CountingRunner _generator = new(new ProcessRunner());
 
-    // dpm build's package database has paths past 260 characters, which .NET Framework only
-    // deletes in their extended form.
-    public void Dispose()
-    {
-        if (Directory.Exists(_root))
-        {
-            Directory.Delete(@"\\?\" + _root, recursive: true);
-        }
-    }
+    // dpm build's package database has paths past 260 characters.
+    public void Dispose() => DeepPath.Delete(_root);
 
     private static string MiniDemo => Path.Combine(Repository.Root, "third_party", "canton-dotnet-sdk-mini-demo");
 
