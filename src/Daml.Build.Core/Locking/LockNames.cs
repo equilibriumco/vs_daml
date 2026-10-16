@@ -1,9 +1,5 @@
 using System;
-using System.Globalization;
 using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Locking;
@@ -36,12 +32,7 @@ public static class LockNames
     /// </summary>
     public static string Output(string root, string folder)
     {
-        var canonical = DamlPath.Normalize(folder).ToUpperInvariant();
-        byte[] hash;
-        using (var sha = SHA256.Create())
-        {
-            hash = sha.ComputeHash(Encoding.UTF8.GetBytes(canonical));
-        }
-        return Path.Combine(root, "output-" + string.Concat(hash.Take(8).Select(b => b.ToString("x2", CultureInfo.InvariantCulture))) + ".lock");
+        var hash = Hashing.Sha256Text(DamlPath.Normalize(folder).ToUpperInvariant());
+        return Path.Combine(root, "output-" + hash.Substring(0, 16) + ".lock");
     }
 }

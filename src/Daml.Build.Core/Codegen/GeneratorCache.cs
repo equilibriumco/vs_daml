@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using Daml.Build.Core.Configuration;
+using Daml.Build.Core.FileSystem;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
@@ -190,10 +190,5 @@ public sealed class GeneratorCache
 
     private static string? Text(YamlMappingNode node, string key) => (Child(node, key) as YamlScalarNode)?.Value;
 
-    private static string Sha256(string path)
-    {
-        using var stream = File.OpenRead(path);
-        using var sha = SHA256.Create();
-        return string.Concat(sha.ComputeHash(stream).Select(b => b.ToString("x2", CultureInfo.InvariantCulture)));
-    }
+    private static string Sha256(string path) => Hashing.Sha256File(path);
 }
