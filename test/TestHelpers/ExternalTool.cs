@@ -8,4 +8,10 @@ public enum ExternalTool
 
     /// <summary>A JDK; the C# code generator and the script service run on it.</summary>
     Java,
+
+    /// <summary>MSBuild.exe of Visual Studio 2026 (18.x), one of the hosts the MSBuild packages support.</summary>
+    MSBuild,
+
+    /// <summary>The dotnet host, whose MSBuild is the other host the packages support.</summary>
+    Dotnet,
 }

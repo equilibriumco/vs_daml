@@ -26,8 +26,8 @@
     # PR is the pull-request/CI profile: required tests are enforced, coverage is only reported.
     Gates = @{
         PR = @{
-            Required = @('Unit', 'Process', 'Editor')
-            Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
+            Required = @('Unit', 'Process', 'Editor', 'MSBuild')
+            Pending  = @{}
             Tools    = @()
             Coverage = @{}
         }
@@ -47,7 +47,7 @@
         # extension inside Visual Studio (Integration) join the gate; both need dpm.
         M1 = @{
             Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
-            Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
+            Pending  = @{}
             Tools    = @('dpm')
             Coverage = @{
                 'net10.0' = @{
@@ -61,7 +61,7 @@
         # demo is the human's part of the gate.
         M2 = @{
             Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
-            Pending  = @{ MSBuild = 'MSBuild tests arrive with the MSBuild packages' }
+            Pending  = @{}
             Tools    = @('dpm')
             Coverage = @{
                 'net10.0' = @{

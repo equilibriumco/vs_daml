@@ -1,14 +1,19 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace Daml.TestHelpers;
 
 /// <summary>Finds external tools the same way the build scripts do.</summary>
 public static class ToolLocator
 {
+    private static readonly Lazy<string?> VisualStudioMSBuild = new(FindVisualStudioMSBuild);
+
     /// <summary>Full path of <paramref name="tool"/>, or <c>null</c> when it isn't installed.</summary>
-    public static string? Find(ExternalTool tool) => Find(tool, Environment.GetEnvironmentVariable, File.Exists);
+    public static string? Find(ExternalTool tool) =>
+        tool == ExternalTool.MSBuild ? VisualStudioMSBuild.Value : Find(tool, Environment.GetEnvironmentVariable, File.Exists);
 
     internal static string? Find(ExternalTool tool, Func<string, string?> getEnvironmentVariable, Func<string, bool> fileExists)
     {
@@ -24,8 +29,13 @@ public static class ToolLocator
 
     private static IEnumerable<string> Candidates(ExternalTool tool, Func<string, string?> env)
     {
-        // dpm is a .cmd shim on Windows; java is a real exe.
-        var fileNames = tool == ExternalTool.Dpm ? new[] { "dpm.exe", "dpm.cmd" } : new[] { "java.exe" };
+        // dpm is a .cmd shim on Windows; java and dotnet are real exes.
+        var fileNames = tool switch
+        {
+            ExternalTool.Dpm => new[] { "dpm.exe", "dpm.cmd" },
+            ExternalTool.Dotnet => new[] { "dotnet.exe" },
+            _ => new[] { "java.exe" },
+        };
 
         // The codegen puts JAVA_HOME\bin ahead of PATH, so that java is the one that runs.
         if (tool == ExternalTool.Java && env("JAVA_HOME") is { Length: > 0 } javaHome)
@@ -63,5 +73,40 @@ public static class ToolLocator
                 yield return Path.Combine(home, "bin", fileName);
             }
         }
+
+        // The installer's folder, for a machine whose PATH lacks it.
+        if (tool == ExternalTool.Dotnet && env("ProgramFiles") is { Length: > 0 } programFiles)
+        {
+            yield return Path.Combine(programFiles, "dotnet", "dotnet.exe");
+        }
+    }
+
+    // Visual Studio may live anywhere, so ask vswhere, for the newest 18.x with MSBuild; the
+    // build scripts pick from the same list. DAML_TEST_MSBUILD names one directly.
+    private static string? FindVisualStudioMSBuild()
+    {
+        if (Environment.GetEnvironmentVariable("DAML_TEST_MSBUILD") is { Length: > 0 } chosen)
+        {
+            return File.Exists(chosen) ? chosen : null;
+        }
+        var vswhere = Path.Combine(Environment.GetEnvironmentVariable("ProgramFiles(x86)") ?? "", @"Microsoft Visual Studio\Installer\vswhere.exe");
+        if (!File.Exists(vswhere))
+        {
+            return null;
+        }
+        var startInfo = new ProcessStartInfo(vswhere, @"-latest -prerelease -products * -version [18.0,19.0) -requires Microsoft.Component.MSBuild -find MSBuild\Current\Bin\MSBuild.exe")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true,
+        };
+        using var process = Process.Start(startInfo);
+        if (process is null)
+        {
+            return null;
+        }
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        return output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).FirstOrDefault(File.Exists);
     }
 }

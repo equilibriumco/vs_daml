@@ -5,6 +5,9 @@
        dotnet build. MSBuild's own assemblies come from the host. -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- The output folder is what the packages ship next to the tasks: their own assemblies and
+         YamlDotNet. MSBuild's, excluded below, never land in it. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
   <ItemGroup>
