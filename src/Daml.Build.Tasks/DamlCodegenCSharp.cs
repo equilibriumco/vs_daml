@@ -90,6 +90,9 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
     /// <summary><c>DamlLockTimeoutSeconds</c>.</summary>
     public string? LockTimeoutSeconds { get; set; }
 
+    /// <summary>The version of <c>Daml.Runtime</c> the project resolved; empty when it doesn't reference it.</summary>
+    public string? RuntimeVersion { get; set; }
+
     /// <summary>The generated files to compile, with <c>DamlGenerated=true</c> and their <c>DamlGenerationId</c>.</summary>
     [Output]
     public ITaskItem[] GeneratedFiles { get; private set; } = [];
@@ -151,7 +154,7 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
             return false;
         }
 
-        var request = new CodegenRequest(projectPath, Configuration, TargetFramework, tools, codegen, inputs, DesignTime);
+        var request = new CodegenRequest(projectPath, Configuration, TargetFramework, tools, codegen, inputs, DesignTime, RuntimeVersion);
         CodegenResult result;
         using (var cancellation = new CancellationTokenSource())
         {

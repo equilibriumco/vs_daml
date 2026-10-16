@@ -54,12 +54,14 @@ public class DamlCodegenCSharpTests
     {
         var task = Task(Contracts(), Reference("DamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"));
         task.Offline = "true";
+        task.RuntimeVersion = "0.6.0";
 
         task.Execute().ShouldBeTrue();
 
         var request = _orchestrator.Requests.ShouldHaveSingleItem();
         (request.ProjectPath, request.Configuration, request.TargetFramework, request.DesignTime).ShouldBe((Project + @"\App.csproj", "Debug", "net10.0", false));
         request.Tools.Offline.ShouldBeTrue();
+        request.RuntimeVersion.ShouldBe("0.6.0");
         request.Codegen.GeneratedRoot.ShouldBe(Project + @"\obj\Debug\net10.0\Daml");
         request.Inputs.Select(i => (i.Reference.Kind, i.Reference.Path, i.Reference.Namespace, i.DarPath)).ShouldBe(
         [

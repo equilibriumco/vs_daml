@@ -14,6 +14,7 @@ namespace Daml.Build.Core.Codegen;
 /// A design-time build: nothing is generated, recovered or written; the result lists what the
 /// last confirmed generations hold.
 /// </param>
+/// <param name="RuntimeVersion">The version of the runtime package the project resolved; null when it doesn't reference it.</param>
 public sealed record CodegenRequest(
     string ProjectPath,
     string Configuration,
@@ -21,4 +22,5 @@ public sealed record CodegenRequest(
     ToolOptions Tools,
     CodegenOptions Codegen,
     IReadOnlyList<CodegenInput> Inputs,
-    bool DesignTime);
+    bool DesignTime,
+    string? RuntimeVersion);
