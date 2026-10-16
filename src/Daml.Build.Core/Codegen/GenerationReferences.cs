@@ -60,21 +60,22 @@ public static class GenerationReferences
         }
 
         var result = new List<GenerationReference>();
-        var ids = new HashSet<string>(StringComparer.Ordinal);
+        var byId = new Dictionary<string, GenerationReference>(StringComparer.Ordinal);
         foreach (var reference in candidates)
         {
             if (reference.Source == DamlReferenceSource.ProjectReference && explicitProjects.Contains(reference.Path))
             {
                 continue;
             }
-            if (!ids.Add(reference.GenerationId))
+            if (byId.TryGetValue(reference.GenerationId, out var first))
             {
                 var how = reference.Namespace is null ? "without a Namespace" : $"with Namespace '{reference.Namespace}'";
                 errors.Add(new ConfigurationError(
                     DamlDiagnosticCodes.OutputConflict,
-                    $"{reference.Include} is referenced twice {how}, so both would generate into {reference.FolderName}. Remove one of them."));
+                    $"{reference.Include} is referenced again {how} after {first.Include}, so both would generate into {first.FolderName}. Remove one of them."));
                 continue;
             }
+            byId.Add(reference.GenerationId, reference);
             result.Add(reference);
         }
         return result;

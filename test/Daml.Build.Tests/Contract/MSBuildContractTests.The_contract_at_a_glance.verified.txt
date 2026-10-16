@@ -1,0 +1,59 @@
+﻿Properties
+  Shared        DamlDpmPath = '' (the path of dpm or a command on PATH)
+  Shared        DamlOffline = 'false' (true or false)
+  Shared        DamlAllowToolInstall = 'false' (true or false)
+  Shared        DamlSkipPreflight = 'false' (true or false)
+  Shared        DamlProcessTimeoutSeconds = '1800' (a whole number of seconds, or 0 for no limit)
+  Shared        DamlLockTimeoutSeconds = '600' (a whole number of seconds from 1 up)
+  DamlProject   DamlManifestPath = '$(MSBuildProjectDirectory)\daml.yaml' (the path of the package's daml.yaml)
+  DamlProject   DamlBuildEnabled = 'true' (true or false)
+  CSharpProject DamlCodegenEnabled = 'true' (true or false)
+  CSharpProject DamlCodegenComponent = 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548' (oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>)
+  CSharpProject DamlGeneratedOutputMode = 'Intermediate' (Intermediate or Source)
+  CSharpProject DamlGeneratedDir = '' (a folder of its own)
+  CSharpProject DamlJavaHome = '$(JAVA_HOME)' (a JDK folder)
+
+Diagnostic codes
+  DAML0001 CompileError
+  DAML0002 CompileWarning
+  DAML0100 InvalidConfiguration
+  DAML0101 MissingTool
+  DAML0102 MissingJava
+  DAML0103 DpmTooOld
+  DAML0104 CodegenFailed
+  DAML0105 LockTimeout
+  DAML0106 GeneratorPinConflict
+  DAML0107 MissingToolOffline
+  DAML0108 OutputConflict
+  DAML0109 RollbackFailed
+  DAML0110 CancelledOrTimedOut
+  DAML0201 RuntimeMismatch
+  DAML0202 TypeCollision
+  DAML0203 NavigationUnavailable
+
+Daml.Sdk targets
+  CoreBuildDependsOn += DamlBuild
+  CleanDependsOn += DamlClean
+  CollectUpToDateCheckInputDesignTimeDependsOn += DamlCollectUpToDateCheckItems
+  CollectUpToDateCheckBuiltDesignTimeDependsOn += DamlCollectUpToDateCheckItems
+  DamlResolveManifest
+  DamlComputeBuildState <- DamlResolveManifest
+  DamlBuild <- DamlResolveManifest; DamlComputeBuildState
+  GetDamlDar <- DamlResolveManifest
+  DamlTest <- DamlBuild
+  DamlClean <- DamlResolveManifest
+  DamlCollectUpToDateCheckItems <- DamlResolveManifest
+
+Daml.Build.CSharp targets
+  CoreCompileDependsOn = DamlCollectGeneratedCompile;$(CoreCompileDependsOn)
+  CleanDependsOn += DamlCleanGenerated
+  CollectUpToDateCheckInputDesignTimeDependsOn += DamlCollectUpToDateCheckItems
+  CollectUpToDateCheckBuiltDesignTimeDependsOn += DamlCollectUpToDateCheckItems
+  DamlResolveDars <- ResolveProjectReferences
+  DamlComputeGenerationState <- DamlResolveDars
+  DamlGenerateCSharp <- DamlComputeGenerationState
+  DamlCollectGeneratedCompile <- DamlGenerateCSharp
+  DamlBuildReferences
+  DamlRefreshBindings <- DamlBuildReferences; DamlResolveDars; DamlComputeGenerationState; DamlGenerateCSharp; DamlCollectGeneratedCompile
+  DamlCleanGenerated
+  DamlCollectUpToDateCheckItems <- DamlResolveDars
