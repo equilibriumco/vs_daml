@@ -6,26 +6,6 @@ using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Manifests;
 
-/// <summary>What a package's <c>source</c> names.</summary>
-public enum DamlSourceKind
-{
-    /// <summary>A folder of modules.</summary>
-    Folder,
-
-    /// <summary>One module; damlc follows its imports.</summary>
-    File,
-}
-
-/// <summary>A package's sources as the build sees them.</summary>
-/// <param name="Kind">Folder or single file.</param>
-/// <param name="Path">Its full path.</param>
-public sealed record DamlSource(DamlSourceKind Kind, string Path);
-
-/// <summary>An entry of <c>dependencies</c> or <c>data-dependencies</c>.</summary>
-/// <param name="Text">As the manifest writes it.</param>
-/// <param name="DarPath">The full path when the entry is a DAR file; null for a package name such as <c>daml-stdlib</c>.</param>
-public sealed record DamlDependency(string Text, string? DarPath);
-
 /// <summary>What building a package needs from its <c>daml.yaml</c>, checked the way dpm would need it.</summary>
 /// <param name="ManifestPath">Full path of the manifest.</param>
 /// <param name="PackageRoot">The folder dpm builds in.</param>
