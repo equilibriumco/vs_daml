@@ -41,7 +41,7 @@ public static class DamlProperties
     public static DamlProperty CodegenComponent { get; } = new(
         "DamlCodegenComponent",
         DamlPropertyScope.CSharpProject,
-        "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548",
+        Codegen.ReleaseTools.CodegenComponent.Reference,
         "oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>");
 
     /// <summary>Whether generated code goes under <c>obj</c> or into the project.</summary>

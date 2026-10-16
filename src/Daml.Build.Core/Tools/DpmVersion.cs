@@ -16,7 +16,7 @@ public static class DpmVersion
     private static readonly Regex VersionLine = new(@"^version:\s*(?<version>\d+\.\d+\.\d+)", RegexOptions.CultureInvariant);
 
     /// <summary>The oldest dpm the build was tested with.</summary>
-    public static Version Minimum { get; } = new(1, 0, 22);
+    public static Version Minimum => Codegen.ReleaseTools.MinimumDpm;
 
     /// <summary>The arguments that make dpm print its own version.</summary>
     public static IReadOnlyList<string> Arguments { get; } = ["--version"];
