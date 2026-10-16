@@ -36,6 +36,7 @@ public sealed class DpmToolTaskTests : IDisposable
     {
         var scenario = new FakeDpmScenario();
         scenario.Commands.AddRange(commands);
+        scenario.Commands.Add(Version("version: 1.0.22\nbuild: b65a815\nbuildDate: b65a815\n"));
         _dpm.SetScenario(scenario);
         task.BuildEngine = _engine;
         task.ManifestPath = Manifest;
@@ -45,6 +46,20 @@ public sealed class DpmToolTaskTests : IDisposable
     }
 
     private DamlBuildTask Build(params FakeDpmCommand[] commands) => Prepare(new DamlBuildTask { DarPath = Dar }, commands);
+
+    private static FakeDpmCommand Version(string stdout)
+    {
+        var command = new FakeDpmCommand { Stdout = stdout };
+        command.Args.Add("--version");
+        return command;
+    }
+
+    private static bool IsVersionProbe(FakeDpmCall call) => call.Args.Count == 1 && call.Args[0] == "--version";
+
+    // The calls of the command under test, without the version check before it.
+    private System.Collections.Generic.List<FakeDpmCall> ToolCalls() => _dpm.ReadCalls().Where(c => !IsVersionProbe(c)).ToList();
+
+    private int VersionProbes() => _dpm.ReadCalls().Count(IsVersionProbe);
 
     private static FakeDpmCommand Command(string verb, string stderr, int exitCode = 0, int delay = 0)
     {
@@ -67,7 +82,7 @@ public sealed class DpmToolTaskTests : IDisposable
 
         task.CreatedDar.ShouldBe(Dar);
         (_engine.Errors.Count, _engine.Warnings.Count).ShouldBe((0, 0));
-        var call = _dpm.ReadCalls().ShouldHaveSingleItem();
+        var call = ToolCalls().ShouldHaveSingleItem();
         call.Args.ShouldBe(["build"]);
         call.WorkingDirectory.ShouldBe(Package);
         call.Environment["DPM_AUTO_INSTALL"].ShouldBe("false");
@@ -110,7 +125,7 @@ public sealed class DpmToolTaskTests : IDisposable
         task.Execute().ShouldBeFalse();
 
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.MissingToolOffline);
-        _dpm.ReadCalls().ShouldHaveSingleItem().Environment["DPM_AUTO_INSTALL"].ShouldBe("false");
+        ToolCalls().ShouldHaveSingleItem().Environment["DPM_AUTO_INSTALL"].ShouldBe("false");
     }
 
     // The user's own DPM_AUTO_INSTALL must not override what the build allows.
@@ -124,7 +139,7 @@ public sealed class DpmToolTaskTests : IDisposable
 
         task.Execute().ShouldBeTrue();
 
-        _dpm.ReadCalls().ShouldHaveSingleItem().Environment["DPM_AUTO_INSTALL"].ShouldBe("true");
+        ToolCalls().ShouldHaveSingleItem().Environment["DPM_AUTO_INSTALL"].ShouldBe("true");
     }
 
     // dpm.cmd starting dpm.exe, like the real one: the limit has to stop both.
@@ -152,7 +167,7 @@ public sealed class DpmToolTaskTests : IDisposable
     {
         var task = Build(Command("build", "Compiling contracts to a DAR.\n", delay: 60_000));
         var run = Task.Run(task.Execute);
-        SpinWait.SpinUntil(() => _dpm.ReadCalls().Count > 0, TimeSpan.FromSeconds(30)).ShouldBeTrue("dpm never started");
+        SpinWait.SpinUntil(() => ToolCalls().Count > 0, TimeSpan.FromSeconds(30)).ShouldBeTrue("dpm never started");
 
         task.Cancel();
 
@@ -171,7 +186,7 @@ public sealed class DpmToolTaskTests : IDisposable
         task.Execute().ShouldBeFalse();
 
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.MissingTool);
-        _dpm.ReadCalls().ShouldBeEmpty();
+        ToolCalls().ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Process")]
@@ -184,7 +199,7 @@ public sealed class DpmToolTaskTests : IDisposable
         task.Execute().ShouldBeFalse();
 
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        _dpm.ReadCalls().ShouldBeEmpty();
+        ToolCalls().ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Process")]
@@ -198,12 +213,65 @@ public sealed class DpmToolTaskTests : IDisposable
 
         var error = _engine.Errors.ShouldHaveSingleItem();
         (error.Code, error.Subcategory, error.File, error.LineNumber).ShouldBe(("DAML0001", "Script", Path.Combine(Package, @"daml\Main.daml"), 47));
-        _dpm.ReadCalls().ShouldHaveSingleItem().Args.ShouldBe(["test"]);
+        ToolCalls().ShouldHaveSingleItem().Args.ShouldBe(["test"]);
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_dpm_older_than_the_build_supports_stops_it_before_anything_runs()
+    {
+        var task = Build(Version("version: 1.0.10\n"), Command("build", ""));
+
+        task.Execute().ShouldBeFalse();
+
+        var error = _engine.Errors.ShouldHaveSingleItem();
+        (error.Code, error.File).ShouldBe((DamlDiagnosticCodes.DpmTooOld, _engine.ProjectFileOfTaskNode));
+        error.Message!.ShouldStartWith("dpm 1.0.10 is older than 1.0.22");
+        ToolCalls().ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_dpm_that_cant_say_its_version_stops_the_build()
+    {
+        var task = Build(Version("   3.5.2 \n * 3.6.0 \n"), Command("build", ""));
+
+        task.Execute().ShouldBeFalse();
+
+        _engine.Errors.ShouldHaveSingleItem().Message!.ShouldContain("It printed:\n3.5.2\n* 3.6.0");
+        ToolCalls().ShouldBeEmpty();
+    }
+
+    // Asking dpm costs a process; a build of many projects asks once, until dpm itself changes.
+    [Fact, Trait("Category", "Process")]
+    public void The_version_is_asked_once_per_dpm_until_the_file_changes()
+    {
+        var created = Command("build", "Created .daml\\dist\\contracts-1.2.0.dar\n");
+
+        Build(created).Execute().ShouldBeTrue();
+        Build(created).Execute().ShouldBeTrue();
+        VersionProbes().ShouldBe(1);
+
+        File.SetLastWriteTimeUtc(_dpm.ExecutablePath, DateTime.UtcNow.AddMinutes(1));
+        Build(created).Execute().ShouldBeTrue();
+        VersionProbes().ShouldBe(2);
+        ToolCalls().Count.ShouldBe(3);
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void Skipping_the_preflight_asks_nothing_and_says_so()
+    {
+        var task = Build(Command("build", "Created .daml\\dist\\contracts-1.2.0.dar\n"));
+        task.SkipPreflight = "true";
+
+        task.Execute().ShouldBeTrue();
+
+        VersionProbes().ShouldBe(0);
+        var warning = _engine.Warnings.ShouldHaveSingleItem();
+        (warning.Code, warning.Message).ShouldBe((DamlDiagnosticCodes.DpmTooOld, "DamlSkipPreflight is true, so the build doesn't check that dpm is new enough."));
     }
 
     private void WaitUntilNoFakeDpmRuns()
     {
-        var call = _dpm.ReadCalls().ShouldHaveSingleItem();
+        var call = ToolCalls().ShouldHaveSingleItem();
         call.ProcessId.ShouldBeGreaterThan(0);
         bool Running()
         {

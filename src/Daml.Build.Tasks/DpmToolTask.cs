@@ -46,6 +46,9 @@ public abstract class DpmToolTask : ToolTask
     /// <summary><c>DamlProcessTimeoutSeconds</c>.</summary>
     public string? ProcessTimeoutSeconds { get; set; }
 
+    /// <summary><c>DamlSkipPreflight</c>: don't check dpm's version.</summary>
+    public string? SkipPreflight { get; set; }
+
     /// <summary>The dpm command this task runs.</summary>
     protected abstract DpmCommandKind Command { get; }
 
@@ -89,6 +92,7 @@ public abstract class DpmToolTask : ToolTask
             [DamlProperties.Offline.Name] = Offline,
             [DamlProperties.AllowToolInstall.Name] = AllowToolInstall,
             [DamlProperties.ProcessTimeoutSeconds.Name] = ProcessTimeoutSeconds,
+            [DamlProperties.SkipPreflight.Name] = SkipPreflight,
         };
         var errors = new List<ConfigurationError>();
         var options = ToolOptions.Read(name => properties.TryGetValue(name, out var value) ? value : null, errors);
@@ -110,8 +114,29 @@ public abstract class DpmToolTask : ToolTask
         Timeout = options.ProcessTimeout is { } limit ? (int)Math.Min(int.MaxValue, limit.TotalMilliseconds) : System.Threading.Timeout.Infinite;
         // Last, so the build's own setting wins over one passed in or inherited.
         EnvironmentVariables = (EnvironmentVariables ?? []).Concat(options.DpmEnvironment.Select(v => $"{v.Key}={v.Value}")).ToArray();
+        if (!DpmIsSupported(options.SkipPreflight, project))
+        {
+            return false;
+        }
         _report = new DpmOutputReport(Command, GetWorkingDirectory(), FullManifestPath, options);
         return true;
+    }
+
+    private bool DpmIsSupported(bool skip, string project)
+    {
+        if (skip)
+        {
+            Log.LogWarning(null, DamlDiagnosticCodes.DpmTooOld, null, project, 0, 0, 0, 0,
+                $"{DamlProperties.SkipPreflight.Name} is true, so the build doesn't check that dpm is new enough.");
+            return true;
+        }
+        var (version, output) = DpmVersionProbe.Read(_dpm!, BuildEngine, EnvironmentVariables);
+        if (DpmVersion.Problem(version, output) is not { } problem)
+        {
+            return true;
+        }
+        Log.LogError(null, problem.Code, null, project, 0, 0, 0, 0, problem.Message);
+        return false;
     }
 
     /// <inheritdoc />

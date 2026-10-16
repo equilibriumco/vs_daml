@@ -119,7 +119,17 @@ public sealed class FakeDpm : IDisposable
             return Array.Empty<FakeDpmCall>();
         }
 
-        return File.ReadAllLines(_callsPath)
+        // The fake may be appending right now: share the file with its writer, and leave out a
+        // line it hasn't finished.
+        string text;
+        using (var stream = new FileStream(_callsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        using (var reader = new StreamReader(stream))
+        {
+            text = reader.ReadToEnd();
+        }
+        var complete = text.Substring(0, text.LastIndexOf('\n') + 1);
+        return complete.Split('\n')
+            .Select(line => line.TrimEnd('\r'))
             .Where(line => line.Length > 0)
             .Select(line =>
             {
