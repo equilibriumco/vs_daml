@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The MSBuild tasks of the Daml packages: thin adapters over Daml.Build.Core. netstandard2.0
+       and no Runtime on UsingTask, so the same assembly loads in-proc in MSBuild.exe and in
+       dotnet build. MSBuild's own assemblies come from the host. -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Daml.Build.Core\Daml.Build.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Daml.Build.Tests" />
+  </ItemGroup>
+
+</Project>
