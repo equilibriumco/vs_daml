@@ -127,7 +127,8 @@ public sealed class FakeDpm : IDisposable
                 return new FakeDpmCall(
                     json["args"]!.ToObject<string[]>()!,
                     (string)json["workingDirectory"]!,
-                    json["environment"]!.ToObject<Dictionary<string, string>>()!);
+                    json["environment"]!.ToObject<Dictionary<string, string>>()!,
+                    (int?)json["processId"] ?? 0);
             })
             .ToList();
     }

@@ -11,7 +11,7 @@ namespace Daml.TestFakes.Dpm;
 /// Fake dpm. FAKE_DPM_SCENARIO points at a JSON file:
 /// <code>
 /// { "commands": [ { "args": ["codegen-cs", "--dar", "*"], "stdout": "...", "stderr": "...",
-///                   "exitCode": 0, "writeFiles": { "out/A.cs": "..." } } ] }
+///                   "exitCode": 0, "delayMilliseconds": 0, "writeFiles": { "out/A.cs": "..." } } ] }
 /// </code>
 /// The first entry whose args match wins; "*" matches any single argument. Files are written
 /// relative to the working directory. Every invocation is appended to FAKE_DPM_CALLS as one
@@ -65,6 +65,12 @@ internal static class Program
 
         Console.Out.Write(command.Stdout);
         Console.Error.Write(command.Stderr);
+        Console.Out.Flush();
+        Console.Error.Flush();
+        if (command.DelayMilliseconds > 0)
+        {
+            System.Threading.Thread.Sleep(command.DelayMilliseconds);
+        }
         return command.ExitCode;
     }
 
@@ -88,7 +94,7 @@ internal static class Program
                      || e.Key.Equals("JAVA_HOME", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(e => e.Key.ToUpperInvariant(), e => e.Value);
 
-        var line = JsonSerializer.Serialize(new { args, workingDirectory = Environment.CurrentDirectory, environment }, Json);
+        var line = JsonSerializer.Serialize(new { args, workingDirectory = Environment.CurrentDirectory, environment, processId = Environment.ProcessId }, Json);
         File.AppendAllText(callsPath, line + Environment.NewLine);
     }
 
@@ -103,6 +109,7 @@ internal static class Program
         public string Stdout { get; set; } = "";
         public string Stderr { get; set; } = "";
         public int ExitCode { get; set; }
+        public int DelayMilliseconds { get; set; }
         public Dictionary<string, string> WriteFiles { get; set; } = new();
     }
 }

@@ -17,6 +17,9 @@ public sealed class FakeDpmCommand
     /// <summary>Process exit code.</summary>
     public int ExitCode { get; set; }
 
+    /// <summary>How long to wait, after writing the output, before exiting; for timeouts and cancellation.</summary>
+    public int DelayMilliseconds { get; set; }
+
     /// <summary>Files to create, keyed by path relative to the working directory.</summary>
     public Dictionary<string, string> WriteFiles { get; } = new();
 }
