@@ -67,6 +67,16 @@ public class ToolOptionsTests
         error.Message.ShouldContain($"'{value}'");
     }
 
+    // dpm installs nothing unless asked, but the variable is always set: a user's own
+    // DPM_AUTO_INSTALL must not decide what an offline build does.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("false", "false", "false")]
+    [InlineData("false", "true", "true")]
+    [InlineData("true", "false", "false")]
+    public void Dpm_installs_tools_only_when_the_build_allows_it(string offline, string install, string expected) =>
+        Read(("DamlOffline", offline), ("DamlAllowToolInstall", install)).Options.DpmEnvironment
+            .ShouldBe(new Dictionary<string, string> { ["DPM_AUTO_INSTALL"] = expected });
+
     // Offline promises no downloads; installing a missing tool is one.
     [Fact, Trait("Category", "Unit")]
     public void Offline_and_tool_install_cannot_both_be_on()

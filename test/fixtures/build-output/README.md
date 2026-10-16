@@ -13,6 +13,7 @@ the original CRLF line endings and timestamps.
 | `test-broken.stderr.txt` | `dpm test` | copy of `samples/broken` | 1 |
 | `test-single-package.stdout.txt`, `test-single-package.stderr.txt` | `dpm test` | copy of `samples/single-package` | 0 |
 | `clean-single-package.stderr.txt` | `dpm clean` | copy of `samples/single-package` | 0 |
+| `test-failing-script.stdout.txt`, `test-failing-script.stderr.txt` | `dpm test` | copy of `samples/single-package` with a `failing` script (`assertMsg "the total is wrong" False`) appended to `Main.daml`; captured on 2026-10-16 | 1 |
 
 `dpm build` and `dpm clean` printed nothing on stdout; `dpm test` printed only its summary there. damlc colours message text with ANSI escape sequences (e.g. `ESC[0;91m` … `ESC[0m`) even though its output was redirected; they are kept here as captured.
 

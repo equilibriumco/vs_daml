@@ -19,6 +19,16 @@ public sealed record ToolOptions(
     TimeSpan? ProcessTimeout,
     TimeSpan LockTimeout)
 {
+    /// <summary>
+    /// The variables dpm runs with. <c>DPM_AUTO_INSTALL</c> is always set, so the user's own
+    /// value never decides whether a build downloads anything; it is true only when installing
+    /// is allowed and the build isn't offline.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> DpmEnvironment => new Dictionary<string, string>
+    {
+        ["DPM_AUTO_INSTALL"] = AllowToolInstall && !Offline ? "true" : "false",
+    };
+
     /// <summary>Reads the options from a project's properties.</summary>
     /// <param name="property">A property's value by name; null or empty when unset.</param>
     /// <param name="errors">Gets an error for each value that can't be used; such values fall back to their defaults.</param>

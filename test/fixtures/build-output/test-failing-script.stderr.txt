@@ -1,0 +1,23 @@
+
+2026-10-16 10:05:36.28 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+
+2026-10-16 10:05:36.29 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.apache.pekko.util.Unsafe (file:/C:/Users/<user>/AppData/Roaming/dpm/cache/components/daml-script/3.6.2/script-service.jar)
+
+2026-10-16 10:05:36.29 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: Please consider reporting this to the maintainers of class org.apache.pekko.util.Unsafe
+
+2026-10-16 10:05:36.29 [ERROR]  [test ScriptService] 
+SCRIPT SERVICE STDERR: WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+File:     daml/Main.daml
+Hidden:   no
+Range:    47:1-47:8
+Source:   Script
+Severity: DsError
+Message: 
+[0;91mScript execution failed:
+  Failed with status: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: the total is wrong
+  Using Canton Error Category InvalidGivenCurrentSystemStateOther
+
+Ledger time: 1970-01-01T00:00:00Z[0m

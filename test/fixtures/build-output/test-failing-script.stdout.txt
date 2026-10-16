@@ -1,0 +1,38 @@
+[4;1m
+Test Summary[m
+
+daml/Main.daml:failing: failed
+daml/Main.daml:setup: ok, 1 active contracts, 3 transactions.
+Modules internal to this package:
+- Internal templates
+  1 defined
+  1 (100.0%) created
+- Internal template choices
+  2 defined
+  1 ( 50.0%) exercised
+- Internal interface implementations
+  0 defined
+    0 internal interfaces
+    0 external interfaces
+- Internal interface choices
+  0 defined
+  0 (100.0%) exercised
+Modules external to this package:
+- External templates
+  0 defined
+  0 (100.0%) created in any tests
+  0 (100.0%) created in internal tests
+  0 (100.0%) created in external tests
+- External template choices
+  0 defined
+  0 (100.0%) exercised in any tests
+  0 (100.0%) exercised in internal tests
+  0 (100.0%) exercised in external tests
+- External interface implementations
+  0 defined
+- External interface choices
+  0 defined
+  0 (100.0%) exercised in any tests
+  0 (100.0%) exercised in internal tests
+  0 (100.0%) exercised in external tests
+

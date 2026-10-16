@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Tools;
 
 namespace Daml.VisualStudio.Core.Sdk;
 
@@ -11,8 +11,6 @@ namespace Daml.VisualStudio.Core.Sdk;
 /// </summary>
 public sealed class AssistantLocator
 {
-    private static readonly string[] Extensions = [".exe", ".cmd", ".bat"];
-
     private readonly IDamlFileSystem _fileSystem;
     private readonly Func<string, string?> _environment;
 
@@ -44,19 +42,8 @@ public sealed class AssistantLocator
                 : throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml doesn't exist: {configuredPath}");
         }
 
-        var name = kind == AssistantKind.Dpm ? "dpm" : "daml";
-        foreach (var directory in SearchDirectories(kind))
-        {
-            foreach (var extension in Extensions)
-            {
-                var candidate = Path.Combine(directory, name + extension);
-                if (_fileSystem.FileExists(candidate))
-                {
-                    return new AssistantLocation(kind, candidate);
-                }
-            }
-        }
-        return null;
+        var found = ToolSearch.Find(kind == AssistantKind.Dpm ? "dpm" : "daml", _environment("PATH"), InstallFolder(kind), _fileSystem);
+        return found is null ? null : new AssistantLocation(kind, found);
     }
 
     internal static string ToolName(AssistantKind kind) => kind == AssistantKind.Dpm ? "dpm" : "daml assistant";
@@ -74,24 +61,13 @@ public sealed class AssistantLocator
         }
     }
 
-    private IEnumerable<string> SearchDirectories(AssistantKind kind)
+    private string? InstallFolder(AssistantKind kind)
     {
-        foreach (var entry in (_environment("PATH") ?? "").Split(';'))
-        {
-            // PATH is user-edited; an entry that isn't a path must not stop the search.
-            var directory = entry.Trim().Trim('"');
-            if (directory.Length > 0 && directory.IndexOfAny(Path.GetInvalidPathChars()) < 0 && Path.IsPathRooted(directory))
-            {
-                yield return directory;
-            }
-        }
-
         var installRoot = kind == AssistantKind.Dpm ? _environment("APPDATA") : _environment("USERPROFILE");
-        if (!string.IsNullOrEmpty(installRoot))
+        if (string.IsNullOrEmpty(installRoot))
         {
-            yield return kind == AssistantKind.Dpm
-                ? Path.Combine(installRoot, @"dpm\bin")
-                : Path.Combine(installRoot, @".daml\bin");
+            return null;
         }
+        return kind == AssistantKind.Dpm ? Path.Combine(installRoot, @"dpm\bin") : Path.Combine(installRoot, @".daml\bin");
     }
 }
