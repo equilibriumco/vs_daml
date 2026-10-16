@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 /// <summary>
 /// <see cref="IProcessRunner"/> that creates every process inside its own kill-on-close Job

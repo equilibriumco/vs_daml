@@ -33,7 +33,7 @@ public sealed class ClientRestartSequenceTests : IDisposable
         files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
         files.AddFile(Dpm, "");
         _runner.On(Dpm, ["versions", "-o", "json"], """[{"version":"3.6.0","installed":true,"active":true}]""");
-        _runner.On(Dpm, ["damlc", "--help"], new Core.Processes.ProcessResult(1, "", "no help"));
+        _runner.On(Dpm, ["damlc", "--help"], new Daml.Build.Core.Processes.ProcessResult(1, "", "no help"));
         var resolver = new SdkResolver(_runner, new AssistantLocator(files, _ => null), new YamlManifestReader(files));
         _host = new LanguageServerHost(_runner, resolver, NullDamlLogger.Instance, _time);
         _host.ProblemRaised += (_, e) => _problems.Add(e.Problem.Kind);

@@ -2,7 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 internal static class JobNativeMethods
 {

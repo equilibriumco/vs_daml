@@ -7,10 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.Processes;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Build;
 using Daml.VisualStudio.Core.Logging;
-using Daml.VisualStudio.Core.Processes;
 using Shouldly;
 using Xunit;
 

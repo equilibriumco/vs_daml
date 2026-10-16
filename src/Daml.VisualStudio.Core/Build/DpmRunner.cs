@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core;
 using Daml.Build.Core.Diagnostics;
-using Daml.VisualStudio.Core.Processes;
+using Daml.Build.Core.Processes;
 
 namespace Daml.VisualStudio.Core.Build;
 

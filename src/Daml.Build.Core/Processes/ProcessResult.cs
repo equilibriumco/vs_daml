@@ -1,4 +1,4 @@
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 /// <summary>Outcome of a process that ran to completion.</summary>
 /// <param name="ExitCode">Exit code.</param>

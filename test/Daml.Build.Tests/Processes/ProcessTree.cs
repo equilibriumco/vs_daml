@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
-namespace Daml.VisualStudio.Core.Tests.Processes;
+namespace Daml.Build.Tests.Processes;
 
 // Lists the processes a test process started, to check they are gone after a kill. Walks
 // parent IDs from a Toolhelp snapshot, since Process has no notion of children.

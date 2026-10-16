@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Daml.VisualStudio.Core.Processes;
+using Daml.Build.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
 

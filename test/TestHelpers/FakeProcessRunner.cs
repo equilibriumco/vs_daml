@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Daml.VisualStudio.Core.Processes;
+using Daml.Build.Core.Processes;
 
 namespace Daml.TestHelpers;
 

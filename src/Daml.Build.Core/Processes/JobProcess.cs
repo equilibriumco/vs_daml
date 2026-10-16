@@ -11,9 +11,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32.SafeHandles;
-using static Daml.VisualStudio.Core.Processes.JobNativeMethods;
+using static Daml.Build.Core.Processes.JobNativeMethods;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 // A process created inside its own kill-on-close Job Object. The process is placed in the job by
 // CreateProcess itself, so there's no window in which it, or anything it starts, runs outside;

@@ -1,9 +1,9 @@
 using System;
-using Daml.VisualStudio.Core.Processes;
+using Daml.Build.Core.Processes;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.Core.Tests.Processes;
+namespace Daml.Build.Tests.Processes;
 
 public class CommandLineTests
 {

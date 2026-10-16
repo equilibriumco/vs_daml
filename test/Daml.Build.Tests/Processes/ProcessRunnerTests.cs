@@ -9,12 +9,12 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Processes;
 using Daml.TestHelpers;
-using Daml.VisualStudio.Core.Processes;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.Core.Tests.Processes;
+namespace Daml.Build.Tests.Processes;
 
 // Runs real processes: the fake dpm directly, and through a .cmd wrapper shaped like the
 // dpm.cmd that the dpm installer puts on PATH. Every process is created inside a kill-on-close

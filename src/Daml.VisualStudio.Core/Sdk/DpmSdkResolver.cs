@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Daml.VisualStudio.Core.Processes;
+using Daml.Build.Core.Processes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

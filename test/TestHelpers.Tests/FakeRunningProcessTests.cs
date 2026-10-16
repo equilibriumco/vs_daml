@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
+using Daml.Build.Core.Processes;
 using Daml.TestHelpers;
-using Daml.VisualStudio.Core.Processes;
 using Shouldly;
 using Xunit;
 

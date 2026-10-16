@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 /// <summary>What to run and how.</summary>
 /// <param name="FileName">

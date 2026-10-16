@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Daml.VisualStudio.Core.Processes;
+namespace Daml.Build.Core.Processes;
 
 // Windows passes a program one command-line string, so the argument list has to be encoded in
 // a way the receiving side decodes back into the same list.

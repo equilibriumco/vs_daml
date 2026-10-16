@@ -1,9 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Processes;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Logging;
-using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.LanguageServer.Supervision;
 using Shouldly;
 using Xunit;

@@ -4,8 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Processes;
 using Daml.VisualStudio.Core.Logging;
-using Daml.VisualStudio.Core.Processes;
 
 namespace Daml.VisualStudio.LanguageServer.Supervision;
 
