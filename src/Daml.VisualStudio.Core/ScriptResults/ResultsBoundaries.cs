@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.VisualStudio.Core.ScriptResults;
 

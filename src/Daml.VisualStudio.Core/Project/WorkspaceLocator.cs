@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
 
 namespace Daml.VisualStudio.Core.Project;
 

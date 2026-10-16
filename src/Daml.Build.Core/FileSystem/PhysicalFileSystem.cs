@@ -1,7 +1,7 @@
 using System.IO;
 using System.Text;
 
-namespace Daml.VisualStudio.Core.FileSystem;
+namespace Daml.Build.Core.FileSystem;
 
 /// <summary><see cref="IDamlFileSystem"/> over the real disk.</summary>
 public sealed class PhysicalFileSystem : IDamlFileSystem

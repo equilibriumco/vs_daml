@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Project;

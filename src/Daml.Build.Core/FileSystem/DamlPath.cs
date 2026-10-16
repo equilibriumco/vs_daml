@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Daml.VisualStudio.Core.FileSystem;
+namespace Daml.Build.Core.FileSystem;
 
 /// <summary>
 /// Windows path helpers with one canonical spelling: full path, backslashes, no trailing
@@ -41,6 +41,13 @@ public static class DamlPath
     /// </summary>
     public static string Resolve(string baseDirectory, string path) =>
         Normalize(Path.Combine(baseDirectory, path.Replace('/', '\\')));
+
+    /// <summary>True when <paramref name="path"/> is a drive or share root, such as <c>C:\</c> or <c>\\server\share</c>.</summary>
+    public static bool IsRoot(string path)
+    {
+        var full = Normalize(path);
+        return string.Equals(full, Path.GetPathRoot(full), StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>True when <paramref name="path"/> is <paramref name="directory"/> or lies inside it.</summary>
     public static bool IsSameOrUnder(string path, string directory)

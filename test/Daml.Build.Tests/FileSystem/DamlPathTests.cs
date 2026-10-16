@@ -1,8 +1,8 @@
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.Core.Tests.FileSystem;
+namespace Daml.Build.Tests.FileSystem;
 
 public class DamlPathTests
 {
@@ -27,8 +27,19 @@ public class DamlPathTests
     [InlineData(@"C:\work\repo", @"C:\work\repo", true)]
     [InlineData(@"C:\work\repository\x", @"C:\work\repo", false)]
     [InlineData(@"C:\work", @"C:\work\repo", false)]
+    [InlineData(@"C:\work\repo", @"C:\", true)]
     public void IsSameOrUnder_compares_whole_segments_ignoring_case(string path, string directory, bool expected) =>
         DamlPath.IsSameOrUnder(path, directory).ShouldBe(expected);
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\", true)]
+    [InlineData(@"C:/", true)]
+    [InlineData(@"\\server\share", true)]
+    [InlineData(@"\\server\share\", true)]
+    [InlineData(@"C:\work", false)]
+    [InlineData(@"\\server\share\folder", false)]
+    public void IsRoot_recognises_drive_and_share_roots(string path, bool expected) =>
+        DamlPath.IsRoot(path).ShouldBe(expected);
 
     [Fact, Trait("Category", "Unit")]
     public void Paths_compare_case_insensitively() =>

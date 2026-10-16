@@ -1,6 +1,7 @@
 using System;
 using System.IO;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
 using Daml.VisualStudio.Core.Project;
 
 namespace Daml.VisualStudio.LanguageServer.Hosting;

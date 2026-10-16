@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>
 /// <see cref="IManifestReader"/> on YamlDotNet's node model, which keeps positions so every problem

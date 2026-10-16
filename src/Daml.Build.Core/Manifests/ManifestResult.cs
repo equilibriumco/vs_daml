@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>
 /// Outcome of reading a manifest. <see cref="Value"/> is <c>null</c> when the file could not be read

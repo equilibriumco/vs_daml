@@ -1,4 +1,4 @@
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>Reads Daml manifests. Never throws for bad content: problems come back as diagnostics.</summary>
 public interface IManifestReader

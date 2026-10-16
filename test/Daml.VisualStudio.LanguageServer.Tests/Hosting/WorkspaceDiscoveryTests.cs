@@ -1,3 +1,4 @@
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.LanguageServer.Hosting;
@@ -73,7 +74,7 @@ public class WorkspaceDiscoveryTests
     [InlineData(null)]
     public void A_file_of_the_multi_package_sample_is_served_from_its_root(string? activeFile)
     {
-        var files = new Daml.VisualStudio.Core.FileSystem.PhysicalFileSystem();
+        var files = new Daml.Build.Core.FileSystem.PhysicalFileSystem();
         var root = Repository.Sample("multi-package");
 
         var context = new WorkspaceDiscovery(files, new YamlManifestReader(files))

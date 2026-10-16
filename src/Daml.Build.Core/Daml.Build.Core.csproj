@@ -7,6 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- daml.yaml and multi-package.yaml. The tasks carry it next to their own assembly; the VSIX
+         ships it with its own codebase entry. Its only dependency. -->
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Daml.Build.Tests" />
   </ItemGroup>
 

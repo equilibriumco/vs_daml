@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Project;
 using Shouldly;

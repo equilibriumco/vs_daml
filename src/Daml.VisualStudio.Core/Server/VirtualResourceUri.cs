@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.VisualStudio.Core.Server;
 

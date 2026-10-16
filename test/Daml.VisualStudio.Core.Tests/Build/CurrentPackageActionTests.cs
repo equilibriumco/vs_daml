@@ -1,4 +1,5 @@
 using Daml.Build.Core;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Build;
 using Daml.VisualStudio.Core.Project;

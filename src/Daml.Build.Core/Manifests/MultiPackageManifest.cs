@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>A <c>multi-package.yaml</c>, with every path resolved against its folder.</summary>
 public sealed record MultiPackageManifest

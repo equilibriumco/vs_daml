@@ -1,3 +1,4 @@
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Project;

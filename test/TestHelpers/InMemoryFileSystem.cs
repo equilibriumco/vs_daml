@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.TestHelpers;
 

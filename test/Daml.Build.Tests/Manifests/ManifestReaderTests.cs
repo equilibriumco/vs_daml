@@ -1,10 +1,10 @@
 using System.Linq;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
-using Daml.VisualStudio.Core.Project;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.Core.Tests.Project;
+namespace Daml.Build.Tests.Manifests;
 
 public class ManifestReaderTests
 {

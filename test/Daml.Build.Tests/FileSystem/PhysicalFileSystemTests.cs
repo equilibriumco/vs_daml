@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using Shouldly;
 using Xunit;
 
-namespace Daml.VisualStudio.Core.Tests.FileSystem;
+namespace Daml.Build.Tests.FileSystem;
 
 public sealed class PhysicalFileSystemTests : IDisposable
 {

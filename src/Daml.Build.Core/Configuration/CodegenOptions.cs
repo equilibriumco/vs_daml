@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Configuration;
 
@@ -78,20 +79,15 @@ public sealed record CodegenOptions(
     private static string? Root(PropertyReader reader, GeneratedOutputMode mode)
     {
         // MSBuild gives the project folder as a full path; the process's current folder means nothing in a build node.
-        var projectText = reader.Required("MSBuildProjectDirectory");
-        if (!Path.IsPathRooted(projectText))
-        {
-            throw new ArgumentException($"MSBuildProjectDirectory '{projectText}' isn't a full path.");
-        }
-        var project = CanonicalPath.Resolve(projectText, projectText);
-        var intermediate = CanonicalPath.Resolve(reader.Required("IntermediateOutputPath"), project);
+        var project = DamlPath.Normalize(reader.Required("MSBuildProjectDirectory"));
+        var intermediate = DamlPath.Resolve(project, reader.Required("IntermediateOutputPath"));
         var chosen = reader.Text(DamlProperties.GeneratedDir);
-        var root = CanonicalPath.Resolve(
-            chosen ?? (mode == GeneratedOutputMode.Source ? @"Generated\Daml" : Path.Combine(intermediate, "Daml")),
-            project);
+        var root = DamlPath.Resolve(
+            project,
+            chosen ?? (mode == GeneratedOutputMode.Source ? @"Generated\Daml" : Path.Combine(intermediate, "Daml")));
 
         var name = DamlProperties.GeneratedDir.Name;
-        if (CanonicalPath.IsRoot(root) || CanonicalPath.IsSameOrInside(project, root))
+        if (DamlPath.IsRoot(root) || DamlPath.IsSameOrUnder(project, root))
         {
             reader.Error(
                 DamlDiagnosticCodes.InvalidConfiguration,
@@ -100,7 +96,7 @@ public sealed record CodegenOptions(
         }
         // Each configuration and target framework generates on its own in intermediate mode;
         // only a folder inside that build's intermediate folder keeps them apart.
-        if (mode == GeneratedOutputMode.Intermediate && (!CanonicalPath.IsSameOrInside(root, intermediate) || root.Length == intermediate.Length))
+        if (mode == GeneratedOutputMode.Intermediate && (!DamlPath.IsSameOrUnder(root, intermediate) || root.Length == intermediate.Length))
         {
             reader.Error(
                 DamlDiagnosticCodes.InvalidConfiguration,

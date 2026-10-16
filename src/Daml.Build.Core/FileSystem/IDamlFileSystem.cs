@@ -1,4 +1,4 @@
-namespace Daml.VisualStudio.Core.FileSystem;
+namespace Daml.Build.Core.FileSystem;
 
 /// <summary>
 /// The file system as project discovery sees it. Only what Core needs, so tests can run

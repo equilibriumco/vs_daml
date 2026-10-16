@@ -1,5 +1,6 @@
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
-using Daml.VisualStudio.Core.FileSystem;
 using Daml.VisualStudio.Core.Project;
 using Shouldly;
 using Xunit;

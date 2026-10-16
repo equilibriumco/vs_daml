@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using Daml.Build.Core.Configuration;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -45,7 +46,7 @@ public static class GenerationReferences
             throw new ArgumentNullException(nameof(errors));
         }
         var candidates = new List<GenerationReference>();
-        var explicitProjects = new HashSet<string>(CanonicalPath.Comparer);
+        var explicitProjects = new HashSet<string>(DamlPath.Comparer);
         foreach (var reference in declared)
         {
             if (Check(reference, projectDirectory, generatorDigest, errors) is not { } resolved)
@@ -83,7 +84,7 @@ public static class GenerationReferences
 
     private static GenerationReference? Check(DeclaredDamlReference reference, string projectDirectory, string generatorDigest, ICollection<ConfigurationError> errors)
     {
-        var path = CanonicalPath.Resolve(reference.Include, projectDirectory);
+        var path = DamlPath.Resolve(projectDirectory, reference.Include);
         var isDar = path.EndsWith(DarExtension, StringComparison.OrdinalIgnoreCase);
         if (reference.Source == DamlReferenceSource.DamlDar && !isDar)
         {

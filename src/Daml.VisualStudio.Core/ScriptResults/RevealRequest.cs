@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 

@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Server;

@@ -4,7 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Daml.VisualStudio.Core.FileSystem;
+using Daml.Build.Core.FileSystem;
 using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;

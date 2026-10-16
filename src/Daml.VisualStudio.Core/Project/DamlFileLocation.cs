@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Daml.Build.Core.Manifests;
 
 namespace Daml.VisualStudio.Core.Project;
 

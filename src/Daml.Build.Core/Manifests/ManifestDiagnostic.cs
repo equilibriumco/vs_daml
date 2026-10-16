@@ -1,4 +1,4 @@
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>How serious a manifest problem is.</summary>
 public enum ManifestSeverity

@@ -6,8 +6,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Manifest parsing (daml.yaml, multi-package.yaml); ships in the VSIX with its own codebase entry. -->
-    <PackageReference Include="YamlDotNet" />
     <!-- Reads dpm's JSON output. VS ships it, so it stays out of the VSIX. -->
     <PackageReference Include="Newtonsoft.Json" />
     <!-- ReadOnlySpan for the lexer on netstandard2.0. -->
@@ -17,8 +15,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Diagnostic parsing and dpm arguments, shared with the MSBuild tasks. Build.Core itself
-         depends on nothing, so the tasks don't load this assembly or its packages. -->
+    <!-- Manifests, paths, diagnostic parsing and dpm arguments, shared with the MSBuild tasks.
+         Build.Core depends on YamlDotNet alone, so the tasks never load this assembly or its packages. -->
     <ProjectReference Include="..\Daml.Build.Core\Daml.Build.Core.csproj" />
   </ItemGroup>
 

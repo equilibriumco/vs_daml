@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Daml.VisualStudio.Core.Project;
+namespace Daml.Build.Core.Manifests;
 
 /// <summary>
 /// The fields of a package's <c>daml.yaml</c> that the extension uses. Values are as written in the

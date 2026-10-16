@@ -1,7 +1,8 @@
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
 using Daml.TestHelpers;
-using Daml.VisualStudio.Core.FileSystem;
 using Daml.VisualStudio.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Sdk;
