@@ -259,6 +259,24 @@ public sealed class GenerationPublisherTests : IDisposable
         (Directory.Exists(Active), File.Exists(Journal)).ShouldBe((false, false));
     }
 
+    // Denied access is what Windows says about a read-only file; it must not escape the rollback.
+    [Fact, Trait("Category", "Unit")]
+    public void A_read_only_file_in_the_way_fails_a_step_as_an_IO_error()
+    {
+        var folder = Path.Combine(_root, "read-only");
+        Fill(folder, "kept");
+        var file = Path.Combine(folder, "Asset.cs");
+        File.SetAttributes(file, FileAttributes.ReadOnly);
+        try
+        {
+            Should.Throw<IOException>(() => FileSystemPublishSteps.Instance.Delete(folder)).InnerException.ShouldBeOfType<UnauthorizedAccessException>();
+        }
+        finally
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Nothing_to_recover_changes_nothing()
     {
