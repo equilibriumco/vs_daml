@@ -68,29 +68,47 @@ public sealed class CodegenOrchestratorTests : IDisposable
         designTime,
         runtime);
 
-    private Task<CodegenResult> Run(CodegenRequest request)
+    // The same project in another configuration, target framework or output mode.
+    private CodegenRequest Request(string configuration, string targetFramework, GeneratedOutputMode mode, string root) => Request() with
+    {
+        Configuration = configuration,
+        TargetFramework = targetFramework,
+        Codegen = Request().Codegen with { OutputMode = mode, GeneratedRoot = root },
+    };
+
+    private CodegenOrchestrator Orchestrator()
     {
         Func<string, string?> environment = name => _environment.TryGetValue(name, out var value) ? value : null;
         var locks = Path.Combine(_root, "locks");
         return new CodegenOrchestrator(
-                new CodegenPreflight(_runner, new PhysicalFileSystem(), environment, _generator.Root, locks, new ToolVersionCache()),
-                new GenerationUpdate(new GeneratorRun(_runner, environment), locks))
-            .RunAsync(request, CancellationToken.None);
+            new CodegenPreflight(_runner, new PhysicalFileSystem(), environment, _generator.Root, locks, new ToolVersionCache()),
+            new GenerationUpdate(new GeneratorRun(_runner, environment), locks));
     }
 
+    private Task<CodegenResult> Run(CodegenRequest request) => Orchestrator().RunAsync(request, CancellationToken.None);
+
     // The generator for one reference, writing what a test gives it into its staging folder.
-    private void Generates(GenerationReference reference, params string[] files)
+    private void Generates(GenerationReference reference, params string[] files) => GeneratesInto(Root, reference, null, files);
+
+    // The same, into another root, doing whileRunning first, as a generator that takes its time.
+    private void GeneratesInto(string root, GenerationReference reference, Func<Task>? whileRunning, params string[] files)
     {
-        var staging = Path.Combine(Root, GenerationPublisher.WorkFolderName, reference.GenerationId + ".new");
-        _runner.On(Dpm, ["codegen-cs", "--dar", Dar, "--out", staging, "--", "-n", "Contracts"], _ =>
+        var staging = Path.Combine(root, GenerationPublisher.WorkFolderName, reference.GenerationId + ".new");
+        _runner.On(Dpm, ["codegen-cs", "--dar", Dar, "--out", staging, "--", "-n", reference.Namespace!], async _ =>
         {
+            if (whileRunning is not null)
+            {
+                await whileRunning();
+            }
             foreach (var file in files)
             {
                 DeepPath.Write(staging, file, "class " + Path.GetFileNameWithoutExtension(file).Replace('.', '_') + " { }");
             }
-            return Task.FromResult(new ProcessResult(0, "", ""));
+            return new ProcessResult(0, "", "");
         });
     }
+
+    private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
 
     private IEnumerable<ProcessSpec> GeneratorCalls => _runner.Calls.Where(c => c.Arguments.Count > 0 && c.Arguments[0] == "codegen-cs");
 
@@ -176,6 +194,109 @@ public sealed class CodegenOrchestratorTests : IDisposable
 
         Errors(result).ShouldBeEmpty();
         Directory.Exists(Root).ShouldBeFalse();
+    }
+
+    // Builds started together, as two command lines or an IDE and a command line may: the root's
+    // lock lets one generate; the other then finds the generation current and compiles it.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Two_builds_of_the_same_project_at_once_run_the_generator_once()
+    {
+        using var started = new SemaphoreSlim(0);
+        using var go = new SemaphoreSlim(0);
+        GeneratesInto(Root, Contracts, async () => { started.Release(); await go.WaitAsync(); }, @"Contracts\Asset.cs");
+
+        var first = Run(Request());
+        (await started.WaitAsync(Patience)).ShouldBeTrue("the first build's generator should be running");
+        var second = Run(Request());
+        go.Release();
+        var results = await Task.WhenAll(first, second);
+
+        GeneratorCalls.Count().ShouldBe(1);
+        results.SelectMany(Errors).ShouldBeEmpty();
+        results[1].Files.ShouldBe(results[0].Files);
+        // Only what a manifest lists is compiled; nothing from the work folder ever is.
+        results.SelectMany(r => r.Files).ShouldNotContain(f => f.Path.Contains(GenerationPublisher.WorkFolderName));
+    }
+
+    // Source mode: Debug and Release share one folder and one fingerprint.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Debug_and_Release_generating_into_the_sources_at_once_share_one_generation()
+    {
+        var source = Path.Combine(_root, @"App\Generated\Daml");
+        using var started = new SemaphoreSlim(0);
+        using var go = new SemaphoreSlim(0);
+        GeneratesInto(source, Contracts, async () => { started.Release(); await go.WaitAsync(); }, @"Contracts\Asset.cs");
+
+        var debug = Run(Request("Debug", "net10.0", GeneratedOutputMode.Source, source));
+        (await started.WaitAsync(Patience)).ShouldBeTrue("the Debug build's generator should be running");
+        var release = Run(Request("Release", "net10.0", GeneratedOutputMode.Source, source));
+        go.Release();
+        var results = await Task.WhenAll(debug, release);
+
+        GeneratorCalls.Count().ShouldBe(1);
+        results.SelectMany(Errors).ShouldBeEmpty();
+        results[1].Files.ShouldBe(results[0].Files);
+    }
+
+    // Each target framework has a root, and a lock, of its own: neither waits for the other.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Two_target_frameworks_generate_side_by_side_into_folders_of_their_own()
+    {
+        var net10 = Path.Combine(_root, @"App\obj\Debug\net10.0\Daml");
+        var net11 = Path.Combine(_root, @"App\obj\Debug\net11.0\Daml");
+        using var started = new SemaphoreSlim(0);
+        using var go = new SemaphoreSlim(0);
+        foreach (var root in new[] { net10, net11 })
+        {
+            GeneratesInto(root, Contracts, async () => { started.Release(); await go.WaitAsync(); }, @"Contracts\Asset.cs");
+        }
+
+        var first = Run(Request("Debug", "net10.0", GeneratedOutputMode.Intermediate, net10));
+        var second = Run(Request("Debug", "net11.0", GeneratedOutputMode.Intermediate, net11));
+        (await started.WaitAsync(Patience) && await started.WaitAsync(Patience)).ShouldBeTrue("both generators should run at once");
+        go.Release(2);
+        var results = await Task.WhenAll(first, second);
+
+        GeneratorCalls.Count().ShouldBe(2);
+        results.SelectMany(Errors).ShouldBeEmpty();
+        results[0].Files.ShouldHaveSingleItem().Path.ShouldStartWith(net10);
+        results[1].Files.ShouldHaveSingleItem().Path.ShouldStartWith(net11);
+    }
+
+    // Clean waits for the build it overlaps and then removes the whole generation, never half of it.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_clean_during_a_build_waits_for_it_and_takes_what_it_published()
+    {
+        using var started = new SemaphoreSlim(0);
+        using var go = new SemaphoreSlim(0);
+        GeneratesInto(Root, Contracts, async () => { started.Release(); await go.WaitAsync(); }, @"Contracts\Asset.cs");
+
+        var build = Run(Request());
+        (await started.WaitAsync(Patience)).ShouldBeTrue("the build's generator should be running");
+        var clean = Orchestrator().CleanAsync(Request(), CancellationToken.None);
+        clean.IsCompleted.ShouldBeFalse("the clean waits for the build's lock");
+        go.Release();
+        var (built, cleaned) = (await build, await clean);
+
+        Errors(built).ShouldBeEmpty();
+        Errors(cleaned).ShouldBeEmpty();
+        Directory.Exists(Root).ShouldBeFalse();
+    }
+
+    // A new Namespace is a new generation; the old one goes in the same build.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Changing_the_namespace_replaces_the_generation_in_one_build()
+    {
+        Generates(Contracts, @"Contracts\Asset.cs");
+        await Run(Request());
+        var billing = Contracts with { Namespace = "Billing", GenerationId = "1111111111111111", FolderName = "Contracts-1111111111111111" };
+        Generates(billing, @"Billing\Asset.cs");
+
+        var result = await Run(Request(references: billing));
+
+        Errors(result).ShouldBeEmpty();
+        result.Files.ShouldHaveSingleItem().Path.ShouldBe(Path.Combine(Root, @"Contracts-1111111111111111\Billing\Asset.cs"));
+        Directory.Exists(Path.Combine(Root, Contracts.FolderName)).ShouldBeFalse();
     }
 
     // Two generations writing the same file would give the compiler every type twice (CS0101).

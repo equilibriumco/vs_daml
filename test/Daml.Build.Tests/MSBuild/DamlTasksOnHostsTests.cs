@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Daml.Build.Core.Codegen;
 using Daml.Build.Tests.Codegen;
 using Daml.Build.Tests.FileSystem;
@@ -38,10 +39,14 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     private readonly MSBuildSandbox _sandbox = new();
     private readonly FakeDpm _dpm = FakeDpm.Create(new FakeDpmScenario());
 
+    // As short as a real one: blob paths in a generator cache are long, and the 32-bit MSBuild.exe can't take more than 260 characters.
+    private readonly string _localAppData = Path.Combine(Path.GetTempPath(), $"dla-{Guid.NewGuid():N}".Substring(0, 12));
+
     public void Dispose()
     {
         _dpm.Dispose();
         _sandbox.Dispose();
+        DeepPath.Delete(_localAppData);
     }
 
     private static string HostPath(MSBuildHost host) =>
@@ -269,42 +274,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void A_DAR_turns_into_bindings_on_each_host_and_the_next_build_runs_nothing(MSBuildHost host)
     {
-        // As short as a real one: blob paths in the cache are long, and the 32-bit MSBuild.exe can't take more than 260 characters.
-        var localAppData = Path.Combine(Path.GetTempPath(), $"dla-{Guid.NewGuid():N}".Substring(0, 12));
-        try
-        {
-            GeneratesOnHost(host, localAppData);
-        }
-        finally
-        {
-            DeepPath.Delete(localAppData);
-        }
-    }
-
-    private void GeneratesOnHost(MSBuildHost host, string localAppData)
-    {
-        var cache = SyntheticGeneratorCache.Create(Path.Combine(localAppData, @"DamlVisualStudio\codegen"));
-        new GeneratorCache(cache.Root, cache.Pin).MarkReady();
-        var generator = new FakeDpmCommand();
-        generator.Args.AddRange(["codegen-cs", "--dar", "*", "--out", "*"]);
-        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.cs"] = "public sealed partial record Asset;\n";
-        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.Give.cs"] = "public sealed partial record Asset;\n";
-        Scenario(generator);
-        var dar = Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar");
-        TestDar.Write(dar);
-        // Never run: the version checks are skipped.
-        _sandbox.Write(@"jdk\bin\java.exe", "");
-        var app = _sandbox.Write(@"App\App.proj", AppProject);
-        var environment = new Dictionary<string, string>(_dpm.Environment.ToDictionary(e => e.Key, e => e.Value)) { ["LOCALAPPDATA"] = localAppData };
-        var properties = new Dictionary<string, string>
-        {
-            ["DamlDarFile"] = dar,
-            ["DamlDpmPath"] = _dpm.ExecutablePath,
-            ["DamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
-            ["DamlRuntimeVersion"] = "0.6.0",
-            ["DamlCodegenComponent"] = cache.Pin.Reference,
-            ["DamlSkipPreflight"] = "true",
-        };
+        var (app, environment, properties) = FakeCodegen();
 
         var first = _sandbox.Build(host, HostPath(host), app, environment, properties);
         var second = _sandbox.Build(host, HostPath(host), app, environment, properties);
@@ -322,6 +292,54 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         clean.ExitCode.ShouldBe(0, clean.Log);
         clean.Log.ShouldContain("Removed the generated C# in");
         Directory.Exists(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml")).ShouldBeFalse();
+    }
+
+    // Two processes building one project at once, as two command lines may: the lock on its
+    // generation root lets one run the generator, and the other compiles what it published.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public async Task Two_builds_of_one_project_at_once_on_each_host_run_the_generator_once(MSBuildHost host)
+    {
+        var (app, environment, properties) = FakeCodegen(generatorDelay: 1500);
+
+        var builds = await Task.WhenAll(
+            Task.Run(() => _sandbox.Build(host, HostPath(host), app, environment, properties)),
+            Task.Run(() => _sandbox.Build(host, HostPath(host), app, environment, properties)));
+
+        builds.ShouldAllBe(b => b.ExitCode == 0, string.Join("\n----\n", builds.Select(b => b.Log)));
+        builds.ShouldAllBe(b => b.Log.Contains("Generated: Asset.cs;Asset.Give.cs"));
+        builds.Count(b => b.Log.Contains("Generated C# for")).ShouldBe(1);
+        _dpm.ReadCalls().Count(c => c.Args.Count > 0 && c.Args[0] == "codegen-cs").ShouldBe(1);
+    }
+
+    // The codegen task with a fake generator that takes generatorDelay ms, and a synthetic generator
+    // cache and the locks in a LOCALAPPDATA of their own, away from the machine's.
+    private (string App, Dictionary<string, string> Environment, Dictionary<string, string> Properties) FakeCodegen(int generatorDelay = 0)
+    {
+        var cache = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"));
+        new GeneratorCache(cache.Root, cache.Pin).MarkReady();
+        var generator = new FakeDpmCommand { DelayMilliseconds = generatorDelay };
+        generator.Args.AddRange(["codegen-cs", "--dar", "*", "--out", "*"]);
+        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.cs"] = "public sealed partial record Asset;\n";
+        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.Give.cs"] = "public sealed partial record Asset;\n";
+        Scenario(generator);
+        var dar = Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar");
+        TestDar.Write(dar);
+        // Never run: the version checks are skipped.
+        _sandbox.Write(@"jdk\bin\java.exe", "");
+        var app = _sandbox.Write(@"App\App.proj", AppProject);
+        var environment = new Dictionary<string, string>(_dpm.Environment.ToDictionary(e => e.Key, e => e.Value)) { ["LOCALAPPDATA"] = _localAppData };
+        var properties = new Dictionary<string, string>
+        {
+            ["DamlDarFile"] = dar,
+            ["DamlDpmPath"] = _dpm.ExecutablePath,
+            ["DamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
+            ["DamlRuntimeVersion"] = "0.6.0",
+            ["DamlCodegenComponent"] = cache.Pin.Reference,
+            ["DamlSkipPreflight"] = "true",
+        };
+        return (app, environment, properties);
     }
 
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
