@@ -15,22 +15,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Built first and never referenced as an assembly: its output folder is what tasks\ ships. -->
-    <ProjectReference Include="..\Daml.Build.Tasks\Daml.Build.Tasks.csproj" ReferenceOutputAssembly="false" Private="false" />
     <None Include="Sdk\**" Pack="true" PackagePath="Sdk\" />
   </ItemGroup>
 
-  <!-- The tasks and their own dependencies, which are all Daml.Build.Tasks puts in its output folder. -->
-  <Target Name="DamlPackTasks" BeforeTargets="_GetPackageFiles">
-    <MSBuild Projects="..\Daml.Build.Tasks\Daml.Build.Tasks.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
-      <Output TaskParameter="TargetOutputs" ItemName="_DamlTasksAssembly" />
-    </MSBuild>
-    <PropertyGroup>
-      <_DamlTasksFolder>@(_DamlTasksAssembly->'%(RootDir)%(Directory)')</_DamlTasksFolder>
-    </PropertyGroup>
-    <ItemGroup>
-      <None Include="$(_DamlTasksFolder)*.dll" Pack="true" PackagePath="tasks\netstandard2.0\" />
-    </ItemGroup>
-  </Target>
+  <Import Project="..\DamlPackageTasks.targets" />
 
 </Project>

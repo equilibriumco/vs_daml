@@ -1,0 +1,22 @@
+<!-- Packs the Daml build tasks into tasks\netstandard2.0\ of the package project that imports this,
+     with their own dependencies: everything Daml.Build.Tasks puts in its output folder. The tasks
+     project is built first and never referenced as an assembly. -->
+<Project>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Daml.Build.Tasks\Daml.Build.Tasks.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <Target Name="DamlPackTasks" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)Daml.Build.Tasks\Daml.Build.Tasks.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlTasksAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_DamlTasksFolder>@(_DamlTasksAssembly->'%(RootDir)%(Directory)')</_DamlTasksFolder>
+    </PropertyGroup>
+    <ItemGroup>
+      <None Include="$(_DamlTasksFolder)*.dll" Pack="true" PackagePath="tasks\netstandard2.0\" />
+    </ItemGroup>
+  </Target>
+
+</Project>

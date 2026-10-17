@@ -1,0 +1,26 @@
+<!-- Daml.Build.CSharp, a build-only package for C# projects: build\ holds the props and targets NuGet
+     imports into the project that references it, tasks\ the tasks they run. Its files are named
+     after the package id, as NuGet requires, so they take PackageIdPrefix when packed. -->
+<Project Sdk="Microsoft.Build.NoTargets">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>$(PackageIdPrefix).Build.CSharp</PackageId>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- Never flows on to the projects that reference the C# project. -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- Nothing for lib\: the tasks are loaded by MSBuild, never referenced. -->
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <Description>Generates C# from the DARs a project references (Daml projects in the solution or DAR files) with the pinned dpm-codegen-cs, and compiles it with the project in the same build.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="build\Daml.Build.CSharp.props" Pack="true" PackagePath="build\$(PackageId).props" />
+    <None Include="build\Daml.Build.CSharp.targets" Pack="true" PackagePath="build\$(PackageId).targets" />
+  </ItemGroup>
+
+  <Import Project="..\DamlPackageTasks.targets" />
+
+</Project>

@@ -1,0 +1,3 @@
+<!-- Stops MSBuild from picking up the repository's own Directory.Build.targets: this solution stands for a user's, built
+     with nothing but its projects, global.json and nuget.config. -->
+<Project />

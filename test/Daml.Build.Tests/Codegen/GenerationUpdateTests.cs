@@ -210,6 +210,23 @@ public sealed class GenerationUpdateTests : IDisposable
         WorkLeftovers().ShouldBeEmpty();
     }
 
+    // As when the root is too long for the host to make folders in, or a file is where the work folder goes.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_work_folder_that_cant_be_made_fails_the_generation_without_running_the_generator()
+    {
+        _generator.Writes(new() { ["Asset.cs"] = "class Asset { }" });
+        Directory.CreateDirectory(Root);
+        File.WriteAllText(Work, "a file where the work folder goes");
+
+        var result = await Update();
+
+        var error = result.Messages.ShouldHaveSingleItem();
+        (error.Severity, error.Code).ShouldBe((DamlDiagnosticSeverity.Error, DamlDiagnosticCodes.CodegenFailed));
+        error.Text.ShouldContain(Work);
+        result.Files.ShouldBeEmpty();
+        _generator.Calls.ShouldBeEmpty();
+    }
+
     // A file a tool holds open keeps Windows from moving the folder it is in.
     [Fact, Trait("Category", "Unit")]
     public async Task A_previous_generation_that_cant_be_moved_aside_stays_and_the_build_fails()

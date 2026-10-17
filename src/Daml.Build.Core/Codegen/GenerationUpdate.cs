@@ -252,7 +252,19 @@ public sealed class GenerationUpdate
         CancellationToken cancellationToken)
     {
         var folderName = planned.Input.Reference.FolderName;
-        var staging = publisher.NewStaging(folderName);
+        string staging;
+        try
+        {
+            staging = publisher.NewStaging(folderName);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Most often a root too long for this host to make folders in.
+            return new ConfigurationError(
+                DamlDiagnosticCodes.CodegenFailed,
+                $"The generator's work folder {Path.Combine(Path.GetDirectoryName(planned.Folder)!, GenerationPublisher.WorkFolderName)} couldn't be made ready ({ex.Message}). " +
+                $"If the path is long, a shorter {DamlProperties.GeneratedDir.Name} or long paths enabled in Windows helps.");
+        }
         try
         {
             if (await _run.RunAsync(tools, planned, staging, request.ProjectPath, request.Tools.ProcessTimeout, cancellationToken).ConfigureAwait(false) is { } problem)

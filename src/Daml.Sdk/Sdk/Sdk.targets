@@ -22,6 +22,11 @@
     <_DamlSourceFolder Condition="'$(_DamlSourceSetting)' != ''">$([MSBuild]::NormalizeDirectory('$(_DamlPackageRoot)', '$(_DamlSourceSetting)'))</_DamlSourceFolder>
     <_DamlSourceFolder Condition="'$(_DamlSourceSetting)' != '' and $(_DamlSourceSetting.EndsWith('.daml'))">$([MSBuild]::NormalizeDirectory('$(_DamlPackageRoot)', '$([System.IO.Path]::GetDirectoryName('$(_DamlSourceSetting)'))'))</_DamlSourceFolder>
     <_DamlBuildStatePath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'daml.build.state'))</_DamlBuildStatePath>
+    <!-- A Daml project has no NuGet packages to resolve, and may never have been restored: a C#
+         project's DamlReference becomes a project reference only in that project's package
+         targets, which its restore doesn't see, so building the C# project alone builds this one
+         unrestored. -->
+    <SkipResolvePackageAssets Condition="'$(SkipResolvePackageAssets)' == '' and !Exists('$(ProjectAssetsFile)')">true</SkipResolvePackageAssets>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_DamlSourceFolder)' != ''">

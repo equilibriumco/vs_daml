@@ -15,7 +15,8 @@ namespace Daml.TestFakes.Dpm;
 /// </code>
 /// The first entry whose args match wins; "*" matches any single argument. Files are written
 /// relative to the working directory, or, starting with "{out}/", to the folder given after
-/// "--out", as the generator writes its code. Every invocation is appended to FAKE_DPM_CALLS as one
+/// "--out", as the generator writes its code; content starting with "base64:" is written as the bytes
+/// it encodes, as a DAR is. Every invocation is appended to FAKE_DPM_CALLS as one
 /// JSON line, before the command runs, so even a crash leaves a trace.
 /// </summary>
 internal static class Program
@@ -58,6 +59,7 @@ internal static class Program
         }
 
         const string OutToken = "{out}/";
+        const string Base64Prefix = "base64:";
         var outIndex = Array.IndexOf(args, "--out");
         foreach (var (relativePath, content) in command.WriteFiles)
         {
@@ -65,7 +67,14 @@ internal static class Program
                 ? Path.GetFullPath(relativePath.Substring(OutToken.Length), args[outIndex + 1])
                 : Path.GetFullPath(relativePath, Environment.CurrentDirectory);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-            File.WriteAllText(target, content);
+            if (content.StartsWith(Base64Prefix, StringComparison.Ordinal))
+            {
+                File.WriteAllBytes(target, Convert.FromBase64String(content.Substring(Base64Prefix.Length)));
+            }
+            else
+            {
+                File.WriteAllText(target, content);
+            }
         }
 
         Console.Out.Write(command.Stdout);

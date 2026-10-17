@@ -8,23 +8,30 @@ using Daml.TestHelpers;
 
 namespace Daml.Build.Tests.MSBuild;
 
-// A package folder for sandboxes to resolve Daml.Sdk from, as users do: the SDK packed once per
-// test run, under a version of its own so no NuGet cache can hold an older copy, next to the
-// NoTargets package it imports, taken from this machine's NuGet cache. No network is involved.
+// A package folder for sandboxes to resolve the Daml packages from, as users do: Daml.Sdk and
+// Daml.Build.CSharp packed once per test run, under versions of their own so no NuGet cache can
+// hold an older copy, next to the NoTargets package the SDK imports and the runtime the generated
+// C# compiles against, both taken from this machine's NuGet cache. No network is involved.
 internal static class SdkFeed
 {
     private const string NoTargets = "microsoft.build.notargets";
     private const string NoTargetsVersion = "3.7.134";
 
+    /// <summary>The runtime the generated C# compiles against, in the version the generator pins.</summary>
+    public const string RuntimeVersion = "0.6.0";
+
+    private static readonly (string Id, string Version)[] FromCache =
+        [(NoTargets, NoTargetsVersion), ("daml.runtime", RuntimeVersion), ("daml.ledger.abstractions", RuntimeVersion)];
+
     private static readonly Lazy<string> Created = new(Create);
 
-    /// <summary>The version the SDK is packed under.</summary>
+    /// <summary>The version the packages are packed under.</summary>
     public static string Version { get; } = $"0.0.0-test.{DateTime.UtcNow:yyyyMMddHHmmssfff}";
 
-    /// <summary>A later patch of the same SDK, as a solution with projects a release apart has it.</summary>
+    /// <summary>A later patch of the same packages, as a solution with projects a release apart has it.</summary>
     public static string NextPatch { get; } = $"0.0.1-test.{DateTime.UtcNow:yyyyMMddHHmmssfff}";
 
-    /// <summary>The folder holding Daml.Sdk and NoTargets packages.</summary>
+    /// <summary>The folder holding the packages.</summary>
     public static string Folder => Created.Value;
 
     private static string Configuration =>
@@ -46,24 +53,30 @@ internal static class SdkFeed
         AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(folder);
 
         // From what the solution build left, so nothing is rebuilt under tests that read it.
-        Pack(folder, Version);
-        Pack(folder, NextPatch);
+        foreach (var project in new[] { @"src\Daml.Sdk\Daml.Sdk.csproj", @"src\Daml.Build.CSharp\Daml.Build.CSharp.csproj" })
+        {
+            Pack(folder, project, Version);
+            Pack(folder, project, NextPatch);
+        }
 
         var packages = Environment.GetEnvironmentVariable("NUGET_PACKAGES") is { Length: > 0 } custom
             ? custom
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
-        var noTargets = Path.Combine(packages, NoTargets, NoTargetsVersion, $"{NoTargets}.{NoTargetsVersion}.nupkg");
-        if (!File.Exists(noTargets))
+        foreach (var (id, version) in FromCache)
         {
-            throw new InvalidOperationException($"{noTargets} isn't in the NuGet cache; restoring the solution puts it there.");
+            var package = Path.Combine(packages, id, version, $"{id}.{version}.nupkg");
+            if (!File.Exists(package))
+            {
+                throw new InvalidOperationException($"{package} isn't in the NuGet cache; restoring the solution puts it there.");
+            }
+            File.Copy(package, Path.Combine(folder, Path.GetFileName(package)));
         }
-        File.Copy(noTargets, Path.Combine(folder, Path.GetFileName(noTargets)));
         return folder;
     }
 
-    private static void Pack(string folder, string version)
+    private static void Pack(string folder, string relativeProject, string version)
     {
-        var project = Path.Combine(Repository.Root, @"src\Daml.Sdk\Daml.Sdk.csproj");
+        var project = Path.Combine(Repository.Root, relativeProject);
         var startInfo = new ProcessStartInfo(RequiredTools.Require(ExternalTool.Dotnet))
         {
             Arguments = $"pack \"{project}\" --no-build -c {Configuration} -o \"{folder}\" -p:PackageVersion={version} \"-p:NuspecOutputPath={Path.Combine(folder, "nuspec")}\" -nologo",
@@ -83,7 +96,7 @@ internal static class SdkFeed
         pack.WaitForExit();
         if (pack.ExitCode != 0)
         {
-            throw new InvalidOperationException($"Packing Daml.Sdk {version} failed ({pack.ExitCode}): {output}");
+            throw new InvalidOperationException($"Packing {Path.GetFileNameWithoutExtension(project)} {version} failed ({pack.ExitCode}): {output}");
         }
     }
 

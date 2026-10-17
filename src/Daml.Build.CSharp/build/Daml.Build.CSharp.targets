@@ -1,0 +1,175 @@
+<Project>
+
+  <UsingTask TaskName="Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(_DamlCSharpTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlWriteGeneratedProps" AssemblyFile="$(_DamlCSharpTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(_DamlCSharpTasks)" />
+
+  <!-- A DamlReference is a project reference that brings a DAR, never an assembly. The project
+       builds first and is asked for its DAR, like any project reference. -->
+  <ItemGroup>
+    <ProjectReference Include="@(DamlReference)" ReferenceOutputAssembly="false" DamlReference="true" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_DamlCodegenOff Condition="'$(DamlCodegenEnabled)' == 'false' or '$(DamlCodegenEnabled)' == 'off' or '$(DamlCodegenEnabled)' == 'no'">true</_DamlCodegenOff>
+    <!-- Source mode keeps the generated code in the project, where the default globs would find it
+         as well: they mustn't, the build compiles exactly what the manifests list. Intermediate mode
+         decides its folder in the task, once IntermediateOutputPath is known. -->
+    <_DamlSourceMode Condition="'$(DamlGeneratedOutputMode)' == 'Source'">true</_DamlSourceMode>
+    <_DamlSourceRoot Condition="'$(_DamlSourceMode)' == 'true' and '$(DamlGeneratedDir)' != ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(DamlGeneratedDir)'))</_DamlSourceRoot>
+    <_DamlSourceRoot Condition="'$(_DamlSourceMode)' == 'true' and '$(DamlGeneratedDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'Generated', 'Daml'))</_DamlSourceRoot>
+    <!-- The generated file list of this configuration and target framework, imported below for
+         IntelliSense; not obj\<project>.*.props, which Microsoft.Common.props imports by itself. -->
+    <_DamlGeneratedListBase>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'daml', '$(MSBuildProjectFile).$(Configuration).$(TargetFramework)'))</_DamlGeneratedListBase>
+    <_DamlGeneratedProps>$(_DamlGeneratedListBase).g.props</_DamlGeneratedProps>
+    <!-- Touched by every real build that brought the bindings up to date: the up-to-date check's
+         record of when that last happened. -->
+    <_DamlBuiltStamp>$(_DamlGeneratedListBase).built</_DamlBuiltStamp>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_DamlSourceRoot)' != ''">
+    <Compile Remove="$(_DamlSourceRoot)**" />
+    <None Remove="$(_DamlSourceRoot)**" />
+  </ItemGroup>
+
+  <Import Project="$(_DamlGeneratedProps)" Condition="'$(TargetFramework)' != '' and '$(_DamlCodegenOff)' != 'true' and Exists('$(_DamlGeneratedProps)')" />
+
+  <PropertyGroup>
+    <CoreCompileDependsOn>DamlCollectGeneratedCompile;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);DamlCleanGenerated</CleanDependsOn>
+    <CollectUpToDateCheckInputDesignTimeDependsOn>$(CollectUpToDateCheckInputDesignTimeDependsOn);DamlCollectUpToDateCheckItems</CollectUpToDateCheckInputDesignTimeDependsOn>
+    <CollectUpToDateCheckBuiltDesignTimeDependsOn>$(CollectUpToDateCheckBuiltDesignTimeDependsOn);DamlCollectUpToDateCheckItems</CollectUpToDateCheckBuiltDesignTimeDependsOn>
+  </PropertyGroup>
+
+  <!-- Order comes from DependsOnTargets alone. A target's condition is judged before its
+       dependencies run, so "only in a real build" sits on the tasks, never on the targets. -->
+
+  <!-- Every project reference is asked for its DAR, with the global properties it was built with,
+       so the answer comes from the same project instance. Projects that aren't Daml projects
+       don't know the target and answer nothing. Only reads, so design-time builds ask too. -->
+  <Target Name="DamlResolveDars" DependsOnTargets="ResolveProjectReferences">
+    <MSBuild
+        Projects="@(_MSBuildProjectReferenceExistent)"
+        Targets="GetDamlDar"
+        Properties="%(_MSBuildProjectReferenceExistent.SetConfiguration); %(_MSBuildProjectReferenceExistent.SetPlatform); %(_MSBuildProjectReferenceExistent.SetTargetFramework)"
+        RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)"
+        SkipNonexistentTargets="true"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlProjectDar" />
+    </MSBuild>
+  </Target>
+
+  <!-- The references as the project wrote them, and the runtime it compiles against. A design-time
+       build stops here with what the last real build published: it runs nothing and writes nothing. -->
+  <Target Name="DamlComputeGenerationState" DependsOnTargets="DamlResolveDars">
+    <ItemGroup>
+      <_DamlCodegenReference Include="@(DamlReference)" DamlReferenceSource="DamlReference" />
+      <_DamlCodegenReference Include="@(DamlDar)" DamlReferenceSource="DamlDar" />
+      <_DamlCodegenReference Include="@(ProjectReference)" Condition="'%(ProjectReference.DamlReference)' != 'true'" DamlReferenceSource="ProjectReference" Namespace="%(ProjectReference.DamlNamespace)" />
+      <_DamlRuntimeReference Include="@(ReferencePath)" Condition="'%(ReferencePath.NuGetPackageId)' == 'Daml.Runtime'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_DamlRuntimeVersion>@(_DamlRuntimeReference->'%(NuGetPackageVersion)')</_DamlRuntimeVersion>
+    </PropertyGroup>
+    <DamlCodegenCSharp
+        Condition="'$(DesignTimeBuild)' == 'true'"
+        DesignTime="true"
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        TargetFrameworks="$(TargetFrameworks)"
+        References="@(_DamlCodegenReference)"
+        Dars="@(_DamlProjectDar)"
+        CodegenEnabled="$(DamlCodegenEnabled)"
+        CodegenComponent="$(DamlCodegenComponent)"
+        GeneratedOutputMode="$(DamlGeneratedOutputMode)"
+        GeneratedDir="$(DamlGeneratedDir)"
+        JavaHome="$(DamlJavaHome)"
+        DpmPath="$(DamlDpmPath)"
+        Offline="$(DamlOffline)"
+        AllowToolInstall="$(DamlAllowToolInstall)"
+        SkipPreflight="$(DamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(DamlLockTimeoutSeconds)"
+        RuntimeVersion="$(_DamlRuntimeVersion)">
+      <Output TaskParameter="GeneratedFiles" ItemName="_DamlGeneratedFile" />
+    </DamlCodegenCSharp>
+  </Target>
+
+  <!-- A real build: the settings and references checked, then every generation brought up to date
+       under its locks and judged afresh each time, never by file times. -->
+  <Target Name="DamlGenerateCSharp" DependsOnTargets="DamlComputeGenerationState">
+    <DamlCodegenCSharp
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        TargetFrameworks="$(TargetFrameworks)"
+        References="@(_DamlCodegenReference)"
+        Dars="@(_DamlProjectDar)"
+        CodegenEnabled="$(DamlCodegenEnabled)"
+        CodegenComponent="$(DamlCodegenComponent)"
+        GeneratedOutputMode="$(DamlGeneratedOutputMode)"
+        GeneratedDir="$(DamlGeneratedDir)"
+        JavaHome="$(DamlJavaHome)"
+        DpmPath="$(DamlDpmPath)"
+        Offline="$(DamlOffline)"
+        AllowToolInstall="$(DamlAllowToolInstall)"
+        SkipPreflight="$(DamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(DamlLockTimeoutSeconds)"
+        RuntimeVersion="$(_DamlRuntimeVersion)">
+      <Output TaskParameter="GeneratedFiles" ItemName="_DamlGeneratedFile" />
+    </DamlCodegenCSharp>
+  </Target>
+
+  <!-- Always: the compiler gets exactly the files of the current generations, whatever the props
+       imported at evaluation listed, and no generated file of a reference that is gone. -->
+  <Target Name="DamlCollectGeneratedCompile" DependsOnTargets="DamlGenerateCSharp">
+    <ItemGroup>
+      <Compile Remove="@(Compile)" Condition="'%(Compile.DamlGenerated)' == 'true'" />
+      <Compile Include="@(_DamlGeneratedFile)" Condition="'$(_DamlSourceMode)' == 'true'" />
+      <Compile Include="@(_DamlGeneratedFile)" Condition="'$(_DamlSourceMode)' != 'true'" Visible="false" />
+    </ItemGroup>
+    <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' != 'true'" PropsPath="$(_DamlGeneratedProps)" Files="@(_DamlGeneratedFile)" Visible="$(_DamlSourceMode)" />
+    <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' == 'true'" PropsPath="$(_DamlGeneratedProps)" OnlyIfMissing="true" />
+    <Touch Condition="'$(DesignTimeBuild)' != 'true'" Files="$(_DamlBuiltStamp)" AlwaysCreate="true" />
+  </Target>
+
+  <!-- The Daml projects of DamlReference items, built with the configuration of this build; the
+       targeted build that refreshes bindings starts here. -->
+  <Target Name="DamlBuildReferences">
+    <MSBuild Projects="@(DamlReference)" Targets="Build" Properties="Configuration=$(Configuration)" BuildInParallel="$(BuildInParallel)" />
+  </Target>
+
+  <!-- Bindings brought up to date without compiling the project: what refreshing them in the
+       background runs. -->
+  <Target Name="DamlRefreshBindings" DependsOnTargets="DamlBuildReferences;DamlResolveDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
+
+  <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay. -->
+  <Target Name="DamlCleanGenerated">
+    <DamlCleanGenerated
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        GeneratedOutputMode="$(DamlGeneratedOutputMode)"
+        GeneratedDir="$(DamlGeneratedDir)"
+        LockTimeoutSeconds="$(DamlLockTimeoutSeconds)" />
+    <Delete Files="$(_DamlGeneratedProps);$(_DamlBuiltStamp)" />
+  </Target>
+
+  <!-- What Visual Studio's fast up-to-date check has to know: the DARs, from projects or files,
+       and these build files are inputs; the stamp says when the bindings were last brought up to
+       date. A generated file gone missing is a missing Compile input already. -->
+  <Target Name="DamlCollectUpToDateCheckItems" DependsOnTargets="DamlResolveDars">
+    <ItemGroup>
+      <UpToDateCheckInput Include="@(_DamlProjectDar);@(DamlDar->'%(FullPath)')" />
+      <UpToDateCheckInput Include="$(MSBuildThisFileFullPath);$(MSBuildThisFileDirectory)$(MSBuildThisFileName).props" />
+      <UpToDateCheckBuilt Include="$(_DamlBuiltStamp)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

@@ -56,6 +56,14 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     /// </summary>
     public ITaskItem[] References { get; set; } = [];
 
+    /// <summary>
+    /// What the referenced projects answered to <c>GetDamlDar</c>: each DAR with
+    /// <c>MSBuildSourceProjectFile</c>, the project that built it, and that project's
+    /// <c>DamlManifest</c> and <c>DamlSourceFingerprint</c>. A <c>ProjectReference</c> whose project
+    /// gave none isn't a Daml project and is no reference of this task's.
+    /// </summary>
+    public ITaskItem[] Dars { get; set; } = [];
+
     /// <summary>A design-time build, which reads the last generations and writes nothing.</summary>
     public bool DesignTime { get; set; }
 
@@ -132,8 +140,9 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
         }
         // With an unusable pin the references are still checked, so one build reports everything.
         var digest = codegen.Component?.Digest ?? CodegenComponentPin.TryParse(DamlProperties.CodegenComponent.Default)!.Digest;
-        var declared = References.Select(Declared).ToList();
-        var inputs = Inputs(GenerationReferences.Resolve(declared, projectDirectory, digest, errors), errors);
+        var answers = Answers();
+        var declared = References.Where(item => IsDaml(item, projectDirectory, answers)).Select(Declared).ToList();
+        var inputs = Inputs(GenerationReferences.Resolve(declared, projectDirectory, digest, errors), answers, errors);
         foreach (var error in errors)
         {
             Log.LogError(null, error.Code, null, projectPath, 0, 0, 0, 0, error.Message);
@@ -156,21 +165,40 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
         return !Log.HasLoggedErrors;
     }
 
+    // The DAR each Daml project answered with, by the project's canonical path.
+    private Dictionary<string, ITaskItem> Answers()
+    {
+        var answers = new Dictionary<string, ITaskItem>(DamlPath.Comparer);
+        foreach (var dar in Dars)
+        {
+            var project = dar.GetMetadata("MSBuildSourceProjectFile");
+            if (project.Length > 0 && !answers.ContainsKey(DamlPath.Normalize(project)))
+            {
+                answers.Add(DamlPath.Normalize(project), dar);
+            }
+        }
+        return answers;
+    }
+
+    // A plain ProjectReference counts only when its project is a Daml one: it answered GetDamlDar.
+    private static bool IsDaml(ITaskItem item, string projectDirectory, Dictionary<string, ITaskItem> answers) =>
+        item.GetMetadata("DamlReferenceSource") != nameof(DamlReferenceSource.ProjectReference)
+        || item.GetMetadata("DarPath").Length > 0
+        || answers.ContainsKey(DamlPath.Resolve(projectDirectory, item.ItemSpec));
+
     private static DeclaredDamlReference Declared(ITaskItem item) => new(
         Enum.TryParse<DamlReferenceSource>(item.GetMetadata("DamlReferenceSource"), out var source) ? source : DamlReferenceSource.DamlReference,
         item.ItemSpec,
         item.GetMetadata("Namespace"));
 
     // A project's DAR, and the sources it was built from, come from the project; a DAR reference is its own input.
-    private List<CodegenInput> Inputs(IReadOnlyList<GenerationReference> references, List<ConfigurationError> errors)
+    private List<CodegenInput> Inputs(IReadOnlyList<GenerationReference> references, Dictionary<string, ITaskItem> answers, List<ConfigurationError> errors)
     {
         var projectDirectory = Path.GetDirectoryName(DamlPath.Normalize(ProjectPath))!;
         var darByProject = new Dictionary<string, string>(DamlPath.Comparer);
         var sourcesByProject = new Dictionary<string, SourceProvenance>(DamlPath.Comparer);
-        foreach (var item in References)
+        void Add(string project, ITaskItem item, string dar)
         {
-            var dar = item.GetMetadata("DarPath");
-            var project = DamlPath.Resolve(projectDirectory, item.ItemSpec);
             if (dar.Length > 0 && !darByProject.ContainsKey(project))
             {
                 darByProject.Add(project, dar);
@@ -180,6 +208,14 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
             {
                 sourcesByProject.Add(project, new SourceProvenance(DamlPath.Resolve(projectDirectory, manifest), fingerprint));
             }
+        }
+        foreach (var answer in answers)
+        {
+            Add(answer.Key, answer.Value, answer.Value.ItemSpec);
+        }
+        foreach (var item in References)
+        {
+            Add(DamlPath.Resolve(projectDirectory, item.ItemSpec), item, item.GetMetadata("DarPath"));
         }
         var inputs = new List<CodegenInput>();
         foreach (var reference in references)

@@ -22,7 +22,8 @@ public sealed class FakeDpmCommand
 
     /// <summary>
     /// Files to create, keyed by path relative to the working directory, or, starting with
-    /// <c>{out}/</c>, relative to the folder given after <c>--out</c>.
+    /// <c>{out}/</c>, relative to the folder given after <c>--out</c>. Content starting with
+    /// <c>base64:</c> is written as the bytes it encodes.
     /// </summary>
     public Dictionary<string, string> WriteFiles { get; } = new();
 }

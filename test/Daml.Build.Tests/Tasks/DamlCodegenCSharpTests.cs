@@ -98,6 +98,57 @@ public class DamlCodegenCSharpTests
             [new SourceProvenance(@"C:\work\Contracts\daml.yaml", "50c"), null, null]);
     }
 
+    private static TaskItem Answer(string project, string dar, string? manifest = null, string? fingerprint = null)
+    {
+        var item = new TaskItem(dar);
+        item.SetMetadata("MSBuildSourceProjectFile", project);
+        if (manifest is not null)
+        {
+            item.SetMetadata("DamlManifest", manifest);
+            item.SetMetadata("DamlSourceFingerprint", fingerprint);
+        }
+        return item;
+    }
+
+    // A ProjectReference is a Daml one only when its project answered GetDamlDar; the rest are plain C# libraries.
+    [Fact, Trait("Category", "Unit")]
+    public void A_project_reference_is_generated_from_what_its_project_answered_and_the_others_are_left_alone()
+    {
+        var task = Task(
+            Reference("ProjectReference", @"..\Contracts\Contracts.msbuildproj", "Contracts"),
+            Reference("ProjectReference", @"..\Library\Library.csproj"));
+        task.Dars = [Answer(@"C:\work\Contracts\Contracts.msbuildproj", @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar", @"C:\work\Contracts\daml.yaml", "50c")];
+
+        task.Execute().ShouldBeTrue();
+
+        _engine.Errors.ShouldBeEmpty();
+        var input = _orchestrator.Requests.ShouldHaveSingleItem().Inputs.ShouldHaveSingleItem();
+        (input.Reference.Kind, input.Reference.Path, input.Reference.Namespace, input.DarPath).ShouldBe(
+            (DamlReferenceKind.Project, @"C:\work\Contracts\Contracts.msbuildproj", "Contracts", @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar"));
+        input.Source.ShouldBe(new SourceProvenance(@"C:\work\Contracts\daml.yaml", "50c"));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_Daml_reference_takes_its_DAR_from_its_projects_answer()
+    {
+        var task = Task(Reference("DamlReference", @"..\Contracts\Contracts.msbuildproj", "Contracts"));
+        task.Dars = [Answer(@"C:\work\Contracts\Contracts.msbuildproj", @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar")];
+
+        task.Execute().ShouldBeTrue();
+
+        var input = _orchestrator.Requests.ShouldHaveSingleItem().Inputs.ShouldHaveSingleItem();
+        (input.DarPath, input.Source).ShouldBe((@"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar", (SourceProvenance?)null));
+    }
+
+    // Only C# libraries referenced: nothing to generate, and the generations of earlier references go.
+    [Fact, Trait("Category", "Unit")]
+    public void Without_any_Daml_reference_the_orchestrator_gets_no_inputs()
+    {
+        Task(Reference("ProjectReference", @"..\Library\Library.csproj")).Execute().ShouldBeTrue();
+
+        _orchestrator.Requests.ShouldHaveSingleItem().Inputs.ShouldBeEmpty();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Generated_files_come_back_as_compile_items_owned_by_their_generation()
     {
