@@ -28,6 +28,23 @@ public sealed class LongPathsTests : IDisposable
         (LongPaths.Safe(@"C:\work\App.cs"), LongPaths.Safe(limit), LongPaths.Safe(past)).ShouldBe((@"C:\work\App.cs", limit, @"\\?\" + past));
     }
 
+    // The test hosts are .NET 10 and .NET Framework 4.8 apps, both with the new path rules.
+    [Fact, Trait("Category", "Unit")]
+    public void This_process_takes_extended_paths() => LongPaths.ExtendedPathsWork.ShouldBeTrue();
+
+    // As in the 32-bit MSBuild.exe, built for .NET Framework 4.6 and so on the old path rules.
+    [Fact, Trait("Category", "Unit")]
+    public void Where_extended_paths_dont_work_paths_stay_plain()
+    {
+        var past = @"C:\" + new string('a', 245);
+        LongPaths.Safe(past, extended: false).ShouldBe(past);
+
+        File.WriteAllText(Path.Combine(Directory.CreateDirectory(Path.Combine(_root, "Asset")).FullName, "Asset.cs"), "class Asset { }");
+        LongPaths.RelativeFiles(_root, extended: false).ShouldBe([@"Asset\Asset.cs"]);
+        LongPaths.DeleteFolder(_root, extended: false);
+        Directory.Exists(_root).ShouldBeFalse();
+    }
+
     // .NET Framework, as MSBuild.exe runs the tasks, takes such a path only in its extended form.
     [Fact, Trait("Category", "Unit")]
     public void A_file_past_the_limit_is_listed_hashed_and_deleted()

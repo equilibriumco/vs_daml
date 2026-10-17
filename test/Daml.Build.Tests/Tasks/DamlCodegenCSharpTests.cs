@@ -176,33 +176,16 @@ public class DamlCodegenCSharpTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Cancelling_the_task_cancels_the_orchestrators_work()
+    public void Cancelling_the_task_cancels_the_orchestrators_work_and_fails_with_DAML0110()
     {
         var task = Task(Contracts());
         _orchestrator.OnRun = () => task.Cancel();
 
-        task.Execute();
-
-        _orchestrator.Tokens.ShouldHaveSingleItem().IsCancellationRequested.ShouldBeTrue();
-    }
-
-    // Until generation ships, the task says so instead of compiling without bindings.
-    [Fact, Trait("Category", "Unit")]
-    public void The_released_task_reports_generation_isnt_available_yet()
-    {
-        var task = new DamlCodegenCSharp
-        {
-            BuildEngine = _engine,
-            ProjectPath = Project + @"\App.csproj",
-            IntermediateOutputPath = @"obj\Debug\net10.0\",
-            Configuration = "Debug",
-            TargetFramework = "net10.0",
-            References = [Contracts()],
-        };
-
         task.Execute().ShouldBeFalse();
 
-        _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.CodegenFailed);
+        _orchestrator.Tokens.ShouldHaveSingleItem().IsCancellationRequested.ShouldBeTrue();
+        _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
+        task.GeneratedFiles.ShouldBeEmpty();
     }
 
     private sealed class FakeOrchestrator : ICodegenOrchestrator
@@ -215,12 +198,13 @@ public class DamlCodegenCSharpTests
 
         public Action? OnRun { get; set; }
 
-        public CodegenResult Run(CodegenRequest request, CancellationToken cancellationToken)
+        public System.Threading.Tasks.Task<CodegenResult> RunAsync(CodegenRequest request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
             Tokens.Add(cancellationToken);
             OnRun?.Invoke();
-            return Result;
+            cancellationToken.ThrowIfCancellationRequested();
+            return System.Threading.Tasks.Task.FromResult(Result);
         }
     }
 }

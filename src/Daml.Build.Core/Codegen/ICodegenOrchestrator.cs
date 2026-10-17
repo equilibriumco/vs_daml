@@ -1,4 +1,5 @@
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -12,5 +13,6 @@ public interface ICodegenOrchestrator
     /// </summary>
     /// <param name="request">The project, its settings and its inputs.</param>
     /// <param name="cancellationToken">Stops the run; whatever was published before stays consistent.</param>
-    CodegenResult Run(CodegenRequest request, CancellationToken cancellationToken);
+    /// <exception cref="System.OperationCanceledException">The run was cancelled.</exception>
+    Task<CodegenResult> RunAsync(CodegenRequest request, CancellationToken cancellationToken);
 }

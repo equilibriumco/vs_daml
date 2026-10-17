@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Daml.Build.Core.Codegen;
+using Daml.Build.Tests.Codegen;
+using Daml.Build.Tests.FileSystem;
 using Daml.TestHelpers;
 using Shouldly;
 using Xunit;
@@ -216,10 +219,158 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         run.Log.ShouldNotContain("MSB6006");
     }
 
-    // A copy without earlier build output, with the package project next to its daml.yaml.
-    private string CopySample(string name)
+    // A C# project's codegen step on its own, with one DAR reference and the generated files printed.
+    private const string AppProject = """
+        <Project>
+          <UsingTask TaskName="Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(DamlTasksAssembly)" />
+          <ItemGroup>
+            <DamlRef Include="$(DamlDarFile)" DamlReferenceSource="DamlDar" />
+          </ItemGroup>
+          <Target Name="Build">
+            <DamlCodegenCSharp ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" Configuration="Debug" TargetFramework="net10.0"
+                References="@(DamlRef)" DesignTime="$(DamlDesignTime)" DpmPath="$(DamlDpmPath)" JavaHome="$(DamlJavaHome)"
+                AllowToolInstall="$(DamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" CodegenComponent="$(DamlCodegenComponent)"
+                SkipPreflight="$(DamlSkipPreflight)">
+              <Output TaskParameter="GeneratedFiles" ItemName="_DamlGenerated" />
+            </DamlCodegenCSharp>
+            <Message Importance="high" Text="Generated: @(_DamlGenerated->'%(Filename)%(Extension)')" />
+          </Target>
+        </Project>
+        """;
+
+    // Without the runtime package the preflight stops the build; that it says so shows the task,
+    // its core and their dependencies load and run in each host.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void The_codegen_task_runs_on_each_host_and_reports_what_the_preflight_finds(MSBuildHost host)
     {
-        var source = Path.Combine(Repository.Root, "samples", name);
+        Scenario();
+        _sandbox.Write(@"vendor\finance-1.0.0.dar", "a DAR the preflight only hashes");
+        var app = _sandbox.Write(@"App\App.proj", AppProject);
+
+        var run = BuildWithFake(host, app, ("DamlDarFile", Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar")));
+
+        run.ExitCode.ShouldBe(1, run.Log);
+        run.Log.ShouldContain("error DAML0201");
+        run.Log.ShouldNotContain("MSB4018");
+        Calls("codegen-cs").ShouldBeEmpty();
+    }
+
+    // The whole generation with a fake generator, so the codegen task and its core work through
+    // publishing in each host, the 32-bit MSBuild.exe with its old .NET Framework path rules among
+    // them. The machine's own generator cache and locks stay out of it.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void A_DAR_turns_into_bindings_on_each_host_and_the_next_build_runs_nothing(MSBuildHost host)
+    {
+        // As short as a real one: blob paths in the cache are long, and the 32-bit MSBuild.exe can't take more than 260 characters.
+        var localAppData = Path.Combine(Path.GetTempPath(), $"dla-{Guid.NewGuid():N}".Substring(0, 12));
+        try
+        {
+            GeneratesOnHost(host, localAppData);
+        }
+        finally
+        {
+            DeepPath.Delete(localAppData);
+        }
+    }
+
+    private void GeneratesOnHost(MSBuildHost host, string localAppData)
+    {
+        var cache = SyntheticGeneratorCache.Create(Path.Combine(localAppData, @"DamlVisualStudio\codegen"));
+        new GeneratorCache(cache.Root, cache.Pin).MarkReady();
+        var generator = new FakeDpmCommand();
+        generator.Args.AddRange(["codegen-cs", "--dar", "*", "--out", "*"]);
+        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.cs"] = "public sealed partial record Asset;\n";
+        generator.WriteFiles["{out}/MiniDemo/Asset/Asset.Give.cs"] = "public sealed partial record Asset;\n";
+        Scenario(generator);
+        var dar = Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar");
+        TestDar.Write(dar);
+        // Never run: the version checks are skipped.
+        _sandbox.Write(@"jdk\bin\java.exe", "");
+        var app = _sandbox.Write(@"App\App.proj", AppProject);
+        var environment = new Dictionary<string, string>(_dpm.Environment.ToDictionary(e => e.Key, e => e.Value)) { ["LOCALAPPDATA"] = localAppData };
+        var properties = new Dictionary<string, string>
+        {
+            ["DamlDarFile"] = dar,
+            ["DamlDpmPath"] = _dpm.ExecutablePath,
+            ["DamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
+            ["DamlRuntimeVersion"] = "0.6.0",
+            ["DamlCodegenComponent"] = cache.Pin.Reference,
+            ["DamlSkipPreflight"] = "true",
+        };
+
+        var first = _sandbox.Build(host, HostPath(host), app, environment, properties);
+        var second = _sandbox.Build(host, HostPath(host), app, environment, properties);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        first.Log.ShouldContain("Generated C# for");
+        first.Log.ShouldContain("Generated: Asset.cs;Asset.Give.cs");
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldNotContain("Generated C# for");
+        second.Log.ShouldContain("Generated: Asset.cs;Asset.Give.cs");
+        _dpm.ReadCalls().Count(c => c.Args.Count > 0 && c.Args[0] == "codegen-cs").ShouldBe(1);
+    }
+
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void A_design_time_build_on_each_host_runs_nothing_and_says_to_build(MSBuildHost host)
+    {
+        Scenario();
+        var app = _sandbox.Write(@"App\App.proj", AppProject);
+
+        var run = BuildWithFake(host, app, ("DamlDarFile", Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar")), ("DamlDesignTime", "true"));
+
+        run.ExitCode.ShouldBe(0, run.Log);
+        run.Log.ShouldContain("build the project to generate it");
+        _dpm.ReadCalls().ShouldBeEmpty();
+        Directory.Exists(Path.Combine(_sandbox.Root, @"App\obj")).ShouldBeFalse();
+    }
+
+    // The generator's own mini demo: its DAR built by the package task, then turned into C# by the
+    // codegen task, both in the same host; the second build finds the bindings current.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void A_real_DAR_turns_into_its_bindings_on_each_host_and_the_next_build_runs_nothing(MSBuildHost host)
+    {
+        var hostPath = HostPath(host);
+        var dpm = RequiredTools.Require(ExternalTool.Dpm);
+        var java = RequiredTools.Require(ExternalTool.Java);
+        var package = CopyPackage(Path.Combine(Repository.Root, @"third_party\canton-dotnet-sdk-mini-demo\daml"), "demo");
+        _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["DamlDpmPath"] = dpm })
+            .ExitCode.ShouldBe(0);
+        var app = _sandbox.Write(@"App\App.proj", AppProject);
+        var properties = new Dictionary<string, string>
+        {
+            ["DamlDarFile"] = Path.Combine(_sandbox.Root, @"demo\.daml\dist\canton-mini-demo-hbde402d4f83a-0.1.0.dar"),
+            ["DamlDpmPath"] = dpm,
+            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            // Installs the generator once on a machine that hasn't got it yet.
+            ["DamlAllowToolInstall"] = "true",
+            ["DamlRuntimeVersion"] = "0.6.0",
+        };
+
+        var first = _sandbox.Build(host, hostPath, app, properties: properties);
+        var second = _sandbox.Build(host, hostPath, app, properties: properties);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        first.Log.ShouldContain("Generated C# for");
+        first.Log.ShouldContain("PackageRegistration_1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb.cs");
+        Directory.GetFiles(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml"), "*.cs", SearchOption.AllDirectories).Length.ShouldBe(7);
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldNotContain("Generated C# for");
+        second.Log.ShouldContain("PackageRegistration_1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb.cs");
+    }
+
+    // A copy without earlier build output, with the package project next to its daml.yaml.
+    private string CopySample(string name) => CopyPackage(Path.Combine(Repository.Root, "samples", name), name);
+
+    private string CopyPackage(string source, string name)
+    {
         foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = file.Substring(source.Length + 1);

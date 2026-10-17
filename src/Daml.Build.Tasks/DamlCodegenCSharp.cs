@@ -19,13 +19,12 @@ namespace Daml.Build.Tasks;
 /// </summary>
 public sealed class DamlCodegenCSharp : Task, ICancelableTask
 {
-    private readonly ICodegenOrchestrator _orchestrator;
+    private readonly ICodegenOrchestrator? _orchestrator;
     private CancellationTokenSource? _running;
     private volatile bool _cancelled;
 
-    /// <summary>Creates the task with the released orchestrator.</summary>
+    /// <summary>Creates the task with the orchestrator of this machine.</summary>
     public DamlCodegenCSharp()
-        : this(new UnavailableCodegenOrchestrator())
     {
     }
 
@@ -159,6 +158,7 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
         }
 
         var request = new CodegenRequest(projectPath, Configuration, TargetFramework, tools, codegen, inputs, DesignTime, RuntimeVersion);
+        var orchestrator = _orchestrator ?? CodegenOrchestrator.ForThisMachine(Environment.GetEnvironmentVariable);
         CodegenResult result;
         using (var cancellation = new CancellationTokenSource())
         {
@@ -169,7 +169,18 @@ public sealed class DamlCodegenCSharp : Task, ICancelableTask
             }
             try
             {
-                result = _orchestrator.Run(request, cancellation.Token);
+                // MSBuild calls Execute on a worker thread of its own, with no synchronization
+                // context, and the core never needs this thread back, so waiting here can't
+                // deadlock; Cancel reaches the work through the token.
+#pragma warning disable VSTHRD002
+                result = orchestrator.RunAsync(request, cancellation.Token).GetAwaiter().GetResult();
+#pragma warning restore VSTHRD002
+            }
+            catch (OperationCanceledException)
+            {
+                Log.LogError(null, DamlDiagnosticCodes.CancelledOrTimedOut, null, projectPath, 0, 0, 0, 0,
+                    "Generating C# from DARs was cancelled; whatever was generated before is as it was.");
+                return false;
             }
             finally
             {

@@ -20,6 +20,9 @@ public sealed class FakeDpmCommand
     /// <summary>How long to wait, after writing the output, before exiting; for timeouts and cancellation.</summary>
     public int DelayMilliseconds { get; set; }
 
-    /// <summary>Files to create, keyed by path relative to the working directory.</summary>
+    /// <summary>
+    /// Files to create, keyed by path relative to the working directory, or, starting with
+    /// <c>{out}/</c>, relative to the folder given after <c>--out</c>.
+    /// </summary>
     public Dictionary<string, string> WriteFiles { get; } = new();
 }

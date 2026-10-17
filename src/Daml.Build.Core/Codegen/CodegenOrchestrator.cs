@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Locking;
+using Daml.Build.Core.Processes;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -17,7 +19,7 @@ namespace Daml.Build.Core.Codegen;
 /// real build published: it runs nothing, takes no lock, and leaves anything half done for the
 /// next real build.
 /// </summary>
-public sealed class CodegenOrchestrator
+public sealed class CodegenOrchestrator : ICodegenOrchestrator
 {
     private const int ListedFiles = 3;
 
@@ -33,10 +35,26 @@ public sealed class CodegenOrchestrator
         _update = update ?? throw new ArgumentNullException(nameof(update));
     }
 
-    /// <summary>Updates or, at design time, reads the generations of <paramref name="request"/> and lists the files to compile.</summary>
-    /// <param name="request">The project, its settings and its inputs, already checked by the task.</param>
-    /// <param name="cancellationToken">Stops the run; whatever was published before stays consistent.</param>
-    /// <exception cref="OperationCanceledException">The run was cancelled.</exception>
+    /// <summary>
+    /// The orchestrator a build on this machine uses: real processes in kill-on-close jobs, the
+    /// generators' private homes and the locks under <c>%LOCALAPPDATA%\DamlVisualStudio</c>.
+    /// </summary>
+    /// <param name="environment">Environment variables by name.</param>
+    /// <exception cref="InvalidOperationException"><c>LOCALAPPDATA</c> isn't set.</exception>
+    public static CodegenOrchestrator ForThisMachine(Func<string, string?> environment)
+    {
+        if (environment is null)
+        {
+            throw new ArgumentNullException(nameof(environment));
+        }
+        var runner = new ProcessRunner();
+        var locks = LockNames.Root(environment);
+        return new CodegenOrchestrator(
+            new CodegenPreflight(runner, new PhysicalFileSystem(), environment, GeneratorCache.DefaultRoot(environment), locks),
+            new GenerationUpdate(new GeneratorRun(runner, environment), locks));
+    }
+
+    /// <inheritdoc />
     public async Task<CodegenResult> RunAsync(CodegenRequest request, CancellationToken cancellationToken)
     {
         if (request is null)

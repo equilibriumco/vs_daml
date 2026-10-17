@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using Daml.Build.Core.FileSystem;
 using Daml.TestHelpers;
 
 namespace Daml.Build.Tests.MSBuild;
@@ -148,7 +149,8 @@ internal sealed class MSBuildSandbox : IDisposable
     {
         try
         {
-            Directory.Delete(Root, recursive: true);
+            // dpm build's package database has paths past 260 characters.
+            LongPaths.DeleteFolder(Root);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -14,7 +14,8 @@ namespace Daml.TestFakes.Dpm;
 ///                   "exitCode": 0, "delayMilliseconds": 0, "writeFiles": { "out/A.cs": "..." } } ] }
 /// </code>
 /// The first entry whose args match wins; "*" matches any single argument. Files are written
-/// relative to the working directory. Every invocation is appended to FAKE_DPM_CALLS as one
+/// relative to the working directory, or, starting with "{out}/", to the folder given after
+/// "--out", as the generator writes its code. Every invocation is appended to FAKE_DPM_CALLS as one
 /// JSON line, before the command runs, so even a crash leaves a trace.
 /// </summary>
 internal static class Program
@@ -56,9 +57,13 @@ internal static class Program
             return UnscriptedExitCode;
         }
 
+        const string OutToken = "{out}/";
+        var outIndex = Array.IndexOf(args, "--out");
         foreach (var (relativePath, content) in command.WriteFiles)
         {
-            var target = Path.GetFullPath(relativePath, Environment.CurrentDirectory);
+            var target = relativePath.StartsWith(OutToken, StringComparison.Ordinal) && outIndex >= 0 && outIndex + 1 < args.Length
+                ? Path.GetFullPath(relativePath.Substring(OutToken.Length), args[outIndex + 1])
+                : Path.GetFullPath(relativePath, Environment.CurrentDirectory);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.WriteAllText(target, content);
         }
