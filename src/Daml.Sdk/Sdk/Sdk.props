@@ -1,0 +1,16 @@
+<!-- The Daml project SDK. A Daml project builds a daml.yaml package with dpm; Microsoft.Build.NoTargets
+     makes it behave like any other project in a solution (references, Solution Explorer, design-time
+     builds) without compiling anything. This file adds the Daml defaults. -->
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
+
+  <PropertyGroup>
+    <!-- Nothing is compiled, so the cheapest framework will do; it is what referencing projects negotiate with. -->
+    <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">netstandard2.0</TargetFramework>
+    <DamlManifestPath Condition="'$(DamlManifestPath)' == ''">$(MSBuildProjectDirectory)\daml.yaml</DamlManifestPath>
+    <DamlBuildEnabled Condition="'$(DamlBuildEnabled)' == ''">true</DamlBuildEnabled>
+    <_DamlSdkTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Daml.Build.Tasks.dll</_DamlSdkTasks>
+  </PropertyGroup>
+
+</Project>

@@ -39,6 +39,9 @@
     <NeutralLanguage>en</NeutralLanguage>
     <!-- Only the projects that ship as NuGet packages opt back in. -->
     <IsPackable>false</IsPackable>
+    <!-- What the NuGet packages' ids start with (Daml.Sdk, Daml.Build.CSharp, Daml.Templates): a working
+         name until the use of the Daml name is agreed, so a new one renames packages, not code. -->
+    <PackageIdPrefix>Daml</PackageIdPrefix>
   </PropertyGroup>
 
   <!-- One version for everything. The VSIX manifest only accepts numeric versions, so the

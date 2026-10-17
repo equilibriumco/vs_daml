@@ -1,0 +1,83 @@
+<Project>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
+
+  <UsingTask TaskName="Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_DamlSdkTasks)" />
+
+  <!-- NoTargets assigns CoreBuildDependsOn outright at the end of its targets, so Daml's targets can
+       only join the lists here, after that import; anything set earlier is lost. -->
+  <PropertyGroup>
+    <CoreBuildDependsOn>$(CoreBuildDependsOn);DamlBuild</CoreBuildDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);DamlClean</CleanDependsOn>
+    <CollectUpToDateCheckInputDesignTimeDependsOn>$(CollectUpToDateCheckInputDesignTimeDependsOn);DamlCollectUpToDateCheckItems</CollectUpToDateCheckInputDesignTimeDependsOn>
+    <CollectUpToDateCheckBuiltDesignTimeDependsOn>$(CollectUpToDateCheckBuiltDesignTimeDependsOn);DamlCollectUpToDateCheckItems</CollectUpToDateCheckBuiltDesignTimeDependsOn>
+  </PropertyGroup>
+
+  <!-- Order comes from DependsOnTargets alone. A target's condition is judged before its
+       dependencies run, so "only in a real build" sits on the tasks, never on the targets. -->
+
+  <!-- What the manifest says: the package, its SDK, where its sources are and where its DAR goes. -->
+  <Target Name="DamlResolveManifest">
+    <ReadDamlManifest ManifestPath="$(DamlManifestPath)">
+      <Output TaskParameter="PackageName" PropertyName="DamlPackageName" />
+      <Output TaskParameter="PackageVersion" PropertyName="DamlPackageVersion" />
+      <Output TaskParameter="SdkVersion" PropertyName="DamlSdkVersion" />
+      <Output TaskParameter="SourcePath" PropertyName="DamlSourcePath" />
+      <Output TaskParameter="DarPath" PropertyName="DamlDarPath" />
+      <Output TaskParameter="DataDependencies" ItemName="DamlDataDependency" />
+    </ReadDamlManifest>
+  </Target>
+
+  <!-- Whether the DAR is current, judged before deciding to skip the build. -->
+  <Target Name="DamlComputeBuildState" DependsOnTargets="DamlResolveManifest" />
+
+  <Target Name="DamlBuild" DependsOnTargets="DamlResolveManifest;DamlComputeBuildState">
+    <DamlBuildTask
+        Condition="'$(DesignTimeBuild)' != 'true' and '$(DamlBuildEnabled)' != 'false' and '$(DamlBuildEnabled)' != 'off' and '$(DamlBuildEnabled)' != 'no'"
+        ManifestPath="$(DamlManifestPath)"
+        DarPath="$(DamlDarPath)"
+        DpmPath="$(DamlDpmPath)"
+        Offline="$(DamlOffline)"
+        AllowToolInstall="$(DamlAllowToolInstall)"
+        SkipPreflight="$(DamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)">
+      <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
+    </DamlBuildTask>
+  </Target>
+
+  <!-- What a referencing project asks for: the DAR and where it came from. Never builds; the
+       reference builds this project first. -->
+  <Target Name="GetDamlDar" DependsOnTargets="DamlResolveManifest" Returns="@(_DamlDarOutput)">
+    <ItemGroup>
+      <_DamlDarOutput Include="$(DamlDarPath)">
+        <DamlPackageName>$(DamlPackageName)</DamlPackageName>
+        <DamlPackageVersion>$(DamlPackageVersion)</DamlPackageVersion>
+        <DamlSdkVersion>$(DamlSdkVersion)</DamlSdkVersion>
+        <DamlSourceProject>$(MSBuildProjectFullPath)</DamlSourceProject>
+        <DamlManifest>$(DamlManifestPath)</DamlManifest>
+        <Exists>$([System.IO.File]::Exists('$(DamlDarPath)'))</Exists>
+      </_DamlDarOutput>
+    </ItemGroup>
+  </Target>
+
+  <!-- Only on request: dotnet build -t:DamlTest. -->
+  <Target Name="DamlTest" DependsOnTargets="DamlBuild">
+    <DamlTestTask
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ManifestPath="$(DamlManifestPath)"
+        DpmPath="$(DamlDpmPath)"
+        Offline="$(DamlOffline)"
+        AllowToolInstall="$(DamlAllowToolInstall)"
+        SkipPreflight="$(DamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)" />
+  </Target>
+
+  <!-- The package's own outputs only, never a shared cache. -->
+  <Target Name="DamlClean" DependsOnTargets="DamlResolveManifest" />
+
+  <!-- What Visual Studio's fast up-to-date check has to know about a Daml project. -->
+  <Target Name="DamlCollectUpToDateCheckItems" DependsOnTargets="DamlResolveManifest" />
+
+</Project>

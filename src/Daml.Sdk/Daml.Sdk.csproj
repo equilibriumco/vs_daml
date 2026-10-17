@@ -1,0 +1,36 @@
+<!-- The Daml project SDK, packed as an MSBuild SDK package: Sdk\ holds what a Daml project
+     imports, tasks\ the tasks it runs. The project builds nothing itself. -->
+<Project Sdk="Microsoft.Build.NoTargets">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageId>$(PackageIdPrefix).Sdk</PackageId>
+    <PackageType>MSBuildSdk</PackageType>
+    <IsPackable>true</IsPackable>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- An SDK package has nothing for lib\, and its tasks are loaded by MSBuild, never referenced. -->
+    <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
+    <Description>MSBuild project SDK for Daml packages: builds a daml.yaml package with dpm as part of a Visual Studio or dotnet build, reports Daml errors where they are, and hands the DAR to the projects that reference it.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Built first and never referenced as an assembly: its output folder is what tasks\ ships. -->
+    <ProjectReference Include="..\Daml.Build.Tasks\Daml.Build.Tasks.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <None Include="Sdk\**" Pack="true" PackagePath="Sdk\" />
+  </ItemGroup>
+
+  <!-- The tasks and their own dependencies, which are all Daml.Build.Tasks puts in its output folder. -->
+  <Target Name="DamlPackTasks" BeforeTargets="_GetPackageFiles">
+    <MSBuild Projects="..\Daml.Build.Tasks\Daml.Build.Tasks.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlTasksAssembly" />
+    </MSBuild>
+    <PropertyGroup>
+      <_DamlTasksFolder>@(_DamlTasksAssembly->'%(RootDir)%(Directory)')</_DamlTasksFolder>
+    </PropertyGroup>
+    <ItemGroup>
+      <None Include="$(_DamlTasksFolder)*.dll" Pack="true" PackagePath="tasks\netstandard2.0\" />
+    </ItemGroup>
+  </Target>
+
+</Project>
