@@ -1,0 +1,10 @@
+module Asset where
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    name : Text
+  where
+    signatory issuer
+    observer owner

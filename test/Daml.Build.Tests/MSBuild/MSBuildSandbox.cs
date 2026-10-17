@@ -108,13 +108,15 @@ internal sealed class MSBuildSandbox : IDisposable
     /// <param name="environment">Extra variables for the host and the tools it starts.</param>
     /// <param name="properties">Global properties; <c>DamlTasksAssembly</c> is always set.</param>
     /// <param name="target">The target to build; null for the project's default.</param>
+    /// <param name="restore">With <see cref="UseSdkFeed"/>, whether to restore first; a project without NuGet has no Restore.</param>
     public MSBuildRun Build(
         MSBuildHost host,
         string hostPath,
         string project,
         IReadOnlyDictionary<string, string>? environment = null,
         IReadOnlyDictionary<string, string>? properties = null,
-        string? target = null)
+        string? target = null,
+        bool restore = true)
     {
         var log = Path.Combine(Root, $"build-{Guid.NewGuid():N}.log");
         var arguments = new List<string>();
@@ -124,7 +126,7 @@ internal sealed class MSBuildSandbox : IDisposable
         }
         arguments.AddRange([Path.Combine(Root, project), "-nologo", "-nodeReuse:false", "-maxCpuCount:1", "-verbosity:minimal",
             $"-fileLoggerParameters:LogFile={log};Verbosity=normal;Encoding=UTF-8", $"-property:DamlTasksAssembly={TaskAssembly}"]);
-        if (_packages is not null)
+        if (_packages is not null && restore)
         {
             arguments.Add("-restore");
         }

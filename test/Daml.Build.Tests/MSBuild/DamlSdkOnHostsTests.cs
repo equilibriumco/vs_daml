@@ -246,6 +246,80 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         _dpm.ReadCalls().Where(c => c.Args.Count == 1).Select(c => c.Args[0]).Where(v => v != "--version").ShouldBe(["build", "test"]);
     }
 
+    // Projects of one solution a release apart: MSBuild.exe loads the tasks of both from two folders
+    // under one assembly identity, and the first loaded serves both, which task parameters that are
+    // only ever added keep working.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void Two_patches_of_the_SDK_build_side_by_side_in_one_build(MSBuildHost host)
+    {
+        Scenario(CreatesTheDar());
+        var first = DamlProject();
+        _sandbox.Write(@"other\daml.yaml", Manifest);
+        _sandbox.Write(@"other\daml\Main.daml", "module Main where\n");
+        var second = _sandbox.Write(@"other\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.NextPatch}\">\n</Project>\n");
+        var both = _sandbox.Write("all.proj", """
+            <Project>
+              <Target Name="Build">
+                <MSBuild Projects="contracts\Contracts.msbuildproj;other\Contracts.msbuildproj" Targets="Build" />
+              </Target>
+            </Project>
+            """);
+        Build(host, first, target: "Restore").ExitCode.ShouldBe(0);
+        Build(host, second, target: "Restore").ExitCode.ShouldBe(0);
+
+        var all = _sandbox.Build(host, HostPath(host), both, _dpm.Environment, new Dictionary<string, string> { ["DamlDpmPath"] = _dpm.ExecutablePath }, restore: false);
+
+        all.ExitCode.ShouldBe(0, all.Log);
+        all.Log.ShouldContain($@"Contracts -> {Package}\.daml\dist\contracts-1.2.0.dar");
+        all.Log.ShouldContain($@"Contracts -> {Path.Combine(_sandbox.Root, "other")}\.daml\dist\contracts-1.2.0.dar");
+        Calls("build").Count.ShouldBe(2);
+    }
+
+    // The sample a C# project consumes, built for real through the SDK on each host.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void The_mixed_dotnet_sample_builds_through_the_SDK_and_names_its_package(MSBuildHost host)
+    {
+        var dpm = RequiredTools.Require(ExternalTool.Dpm);
+        var hostPath = HostPath(host);
+        _sandbox.UseSdkFeed();
+        var source = Repository.Sample(@"mixed-dotnet\daml");
+        // Without earlier build output, the nested test package's included.
+        foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = file.Substring(source.Length + 1);
+            if (!relative.Split('\\').Contains(".daml", StringComparer.OrdinalIgnoreCase))
+            {
+                var target = Path.Combine(Package, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(file, target);
+            }
+        }
+        var project = _sandbox.Write(@"contracts\Contracts.msbuildproj", $$"""
+            <Project Sdk="Daml.Sdk/{{SdkFeed.Version}}">
+              <Target Name="ShowDar">
+                <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="GetDamlDar">
+                  <Output TaskParameter="TargetOutputs" ItemName="_Dar" />
+                </MSBuild>
+                <Message Importance="high" Text="Package id: %(_Dar.DamlMainPackageId), built from: %(_Dar.DamlSourceFingerprint)" />
+              </Target>
+            </Project>
+            """);
+        var properties = new Dictionary<string, string> { ["DamlDpmPath"] = dpm };
+
+        var first = _sandbox.Build(host, hostPath, project, properties: properties);
+        var second = _sandbox.Build(host, hostPath, project, properties: properties, target: "Build;ShowDar");
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        first.Log.ShouldContain($@"Contracts -> {Package}\.daml\dist\mixed-dotnet-contracts-0.1.0.dar");
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldContain("is up to date");
+        second.Log.ShouldMatch("Package id: [0-9a-f]{64}, built from: [0-9a-f]{64}");
+    }
+
     // The ProjectReference protocol: the C# project builds the Daml project first, then asks it for its DAR.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]

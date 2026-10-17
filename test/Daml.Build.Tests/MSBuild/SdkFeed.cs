@@ -21,6 +21,9 @@ internal static class SdkFeed
     /// <summary>The version the SDK is packed under.</summary>
     public static string Version { get; } = $"0.0.0-test.{DateTime.UtcNow:yyyyMMddHHmmssfff}";
 
+    /// <summary>A later patch of the same SDK, as a solution with projects a release apart has it.</summary>
+    public static string NextPatch { get; } = $"0.0.1-test.{DateTime.UtcNow:yyyyMMddHHmmssfff}";
+
     /// <summary>The folder holding Daml.Sdk and NoTargets packages.</summary>
     public static string Folder => Created.Value;
 
@@ -43,30 +46,8 @@ internal static class SdkFeed
         AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(folder);
 
         // From what the solution build left, so nothing is rebuilt under tests that read it.
-        var project = Path.Combine(Repository.Root, @"src\Daml.Sdk\Daml.Sdk.csproj");
-        var startInfo = new ProcessStartInfo(RequiredTools.Require(ExternalTool.Dotnet))
-        {
-            Arguments = $"pack \"{project}\" --no-build -c {Configuration} -o \"{folder}\" -p:PackageVersion={Version} \"-p:NuspecOutputPath={Path.Combine(folder, "nuspec")}\" -nologo",
-            WorkingDirectory = Repository.Root,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-        var output = new StringBuilder();
-        using (var pack = new Process { StartInfo = startInfo })
-        {
-            pack.OutputDataReceived += (_, e) => output.AppendLine(e.Data);
-            pack.ErrorDataReceived += (_, e) => output.AppendLine(e.Data);
-            pack.Start();
-            pack.BeginOutputReadLine();
-            pack.BeginErrorReadLine();
-            pack.WaitForExit();
-            if (pack.ExitCode != 0)
-            {
-                throw new InvalidOperationException($"Packing Daml.Sdk failed ({pack.ExitCode}): {output}");
-            }
-        }
+        Pack(folder, Version);
+        Pack(folder, NextPatch);
 
         var packages = Environment.GetEnvironmentVariable("NUGET_PACKAGES") is { Length: > 0 } custom
             ? custom
@@ -78,6 +59,32 @@ internal static class SdkFeed
         }
         File.Copy(noTargets, Path.Combine(folder, Path.GetFileName(noTargets)));
         return folder;
+    }
+
+    private static void Pack(string folder, string version)
+    {
+        var project = Path.Combine(Repository.Root, @"src\Daml.Sdk\Daml.Sdk.csproj");
+        var startInfo = new ProcessStartInfo(RequiredTools.Require(ExternalTool.Dotnet))
+        {
+            Arguments = $"pack \"{project}\" --no-build -c {Configuration} -o \"{folder}\" -p:PackageVersion={version} \"-p:NuspecOutputPath={Path.Combine(folder, "nuspec")}\" -nologo",
+            WorkingDirectory = Repository.Root,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        var output = new StringBuilder();
+        using var pack = new Process { StartInfo = startInfo };
+        pack.OutputDataReceived += (_, e) => output.AppendLine(e.Data);
+        pack.ErrorDataReceived += (_, e) => output.AppendLine(e.Data);
+        pack.Start();
+        pack.BeginOutputReadLine();
+        pack.BeginErrorReadLine();
+        pack.WaitForExit();
+        if (pack.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Packing Daml.Sdk {version} failed ({pack.ExitCode}): {output}");
+        }
     }
 
     private static void TryDelete(string folder)

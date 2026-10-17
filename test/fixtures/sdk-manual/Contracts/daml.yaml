@@ -1,0 +1,7 @@
+sdk-version: 3.6.0
+name: sdk-manual
+version: 0.1.0
+source: daml
+dependencies:
+  - daml-prim
+  - daml-stdlib
