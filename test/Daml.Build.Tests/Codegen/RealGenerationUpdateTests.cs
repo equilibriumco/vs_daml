@@ -143,7 +143,8 @@ public sealed class RealGenerationUpdateTests : IDisposable
         var result = await UpdateAsync(request, await PlanAsync(request));
         result.Messages.Where(m => m.Severity == DamlDiagnosticSeverity.Error).ShouldBeEmpty(Describe(result.Messages));
         result.Files.Count.ShouldBe(7);
-        Directory.GetFileSystemEntries(Work).Select(Path.GetFileName).ShouldBe([".gitignore"]);
+        // With nothing left in it, the work folder goes too.
+        Directory.Exists(Work).ShouldBeFalse();
     }
 
     private sealed class CountingRunner(IProcessRunner inner) : IProcessRunner

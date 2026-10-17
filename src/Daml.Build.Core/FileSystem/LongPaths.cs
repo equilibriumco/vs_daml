@@ -69,6 +69,15 @@ public static class LongPaths
             .ToList();
     }
 
+    /// <summary>Every folder under <paramref name="folder"/>, relative to it, however deep.</summary>
+    public static IReadOnlyList<string> RelativeFolders(string folder)
+    {
+        var root = ExtendedPathsWork ? Extended(folder) : folder;
+        return Directory.GetDirectories(root, "*", SearchOption.AllDirectories)
+            .Select(f => f.Substring(root.Length).TrimStart(Path.DirectorySeparatorChar))
+            .ToList();
+    }
+
     /// <summary>Deletes <paramref name="folder"/> and everything in it, however deep.</summary>
     public static void DeleteFolder(string folder) => DeleteFolder(folder, ExtendedPathsWork);
 

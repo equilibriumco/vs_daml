@@ -133,6 +133,51 @@ public sealed class CodegenOrchestratorTests : IDisposable
         (result.Files.Count, result.Messages.Count, _runner.Calls.Count).ShouldBe((0, 0, 0));
     }
 
+    // The project dropped its last Daml reference: what it generated goes, still without any tool.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Without_references_a_real_build_takes_away_what_earlier_builds_generated()
+    {
+        Generates(Contracts, @"Contracts\Asset\Asset.cs");
+        await Run(Request());
+        var calls = _runner.Calls.Count;
+
+        var result = await Run(Request() with { Inputs = [] });
+
+        result.Files.ShouldBeEmpty();
+        Errors(result).ShouldBeEmpty();
+        Directory.Exists(Root).ShouldBeFalse();
+        _runner.Calls.Count.ShouldBe(calls);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Without_references_design_time_touches_nothing()
+    {
+        Generates(Contracts, @"Contracts\Asset\Asset.cs");
+        var published = await Run(Request());
+
+        var result = await Run(Request(designTime: true) with { Inputs = [] });
+
+        (result.Files.Count, result.Messages.Count).ShouldBe((0, 0));
+        File.Exists(published.Files.Single().Path).ShouldBeTrue();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_takes_away_every_generation_of_the_project()
+    {
+        Generates(Contracts, @"Contracts\Asset\Asset.cs");
+        await Run(Request());
+        Func<string, string?> environment = _ => null;
+        var locks = Path.Combine(_root, "locks");
+        var orchestrator = new CodegenOrchestrator(
+            new CodegenPreflight(_runner, new PhysicalFileSystem(), environment, _generator.Root, locks, new ToolVersionCache()),
+            new GenerationUpdate(new GeneratorRun(_runner, environment), locks));
+
+        var result = await orchestrator.CleanAsync(Request(), CancellationToken.None);
+
+        Errors(result).ShouldBeEmpty();
+        Directory.Exists(Root).ShouldBeFalse();
+    }
+
     // Two generations writing the same file would give the compiler every type twice (CS0101).
     [Fact, Trait("Category", "Unit")]
     public async Task Two_generations_writing_the_same_files_are_DAML0202_naming_both()
@@ -185,6 +230,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
         Generates(Contracts, @"Contracts\Asset\Asset.cs");
         var published = await Run(Request());
         var journal = Path.Combine(Root, GenerationPublisher.WorkFolderName, "0123456789abcdef.journal");
+        Directory.CreateDirectory(Path.GetDirectoryName(journal)!);
         File.WriteAllText(journal, "staging=0123456789abcdef.new\nphase=new-moved\n");
 
         var result = await Run(Request(designTime: true));

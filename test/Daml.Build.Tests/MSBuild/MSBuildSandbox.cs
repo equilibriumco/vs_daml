@@ -87,12 +87,14 @@ internal sealed class MSBuildSandbox : IDisposable
     /// <param name="project">The project, relative to the sandbox.</param>
     /// <param name="environment">Extra variables for the host and the tools it starts.</param>
     /// <param name="properties">Global properties; <c>DamlTasksAssembly</c> is always set.</param>
+    /// <param name="target">The target to build; null for the project's default.</param>
     public MSBuildRun Build(
         MSBuildHost host,
         string hostPath,
         string project,
         IReadOnlyDictionary<string, string>? environment = null,
-        IReadOnlyDictionary<string, string>? properties = null)
+        IReadOnlyDictionary<string, string>? properties = null,
+        string? target = null)
     {
         var log = Path.Combine(Root, $"build-{Guid.NewGuid():N}.log");
         var arguments = new List<string>();
@@ -105,6 +107,10 @@ internal sealed class MSBuildSandbox : IDisposable
         foreach (var property in properties ?? new Dictionary<string, string>())
         {
             arguments.Add($"-property:{property.Key}={property.Value}");
+        }
+        if (target is not null)
+        {
+            arguments.Add($"-target:{target}");
         }
 
         var startInfo = new ProcessStartInfo(hostPath)

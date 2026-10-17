@@ -22,6 +22,8 @@ namespace Daml.Build.Core.Codegen;
 /// </summary>
 public sealed class GenerationUpdate
 {
+    private const int ListedFiles = 5;
+
     private readonly GeneratorRun _run;
     private readonly string _locks;
 
@@ -80,16 +82,8 @@ public sealed class GenerationUpdate
             }
         }
 
-        FileLock held;
-        try
+        if (await LockAsync(request, root, Report, cancellationToken).ConfigureAwait(false) is not { } held)
         {
-            held = await FileLock.AcquireAsync(LockNames.Output(_locks, root), request.Tools.LockTimeout, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            Report(DamlDiagnosticSeverity.Error, DamlDiagnosticCodes.LockTimeout,
-                $"Another build kept the generated C# in {root} locked for longer than {request.Tools.LockTimeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s. " +
-                $"Wait for it to finish, or raise {DamlProperties.LockTimeoutSeconds.Name}.");
             return new CodegenResult(files, messages);
         }
         using (held)
@@ -145,8 +139,109 @@ public sealed class GenerationUpdate
                         break;
                 }
             }
+            Sweep(publisher, root, plan.Generations.Select(g => g.Input.Reference.FolderName).ToList(), request.ProjectPath, Report);
         }
         return new CodegenResult(files, messages);
+    }
+
+    /// <summary>
+    /// Removes every generation of the request's project under its root, then the work folder
+    /// and the root when nothing else is left in them: what Clean does, and what a real build does
+    /// once the project has no references left. Files the generator didn't write stay.
+    /// </summary>
+    /// <param name="request">The project and its generation root.</param>
+    /// <param name="cancellationToken">Stops the wait for the root's lock.</param>
+    /// <exception cref="OperationCanceledException">The wait was cancelled.</exception>
+    public async Task<CodegenResult> CleanAsync(CodegenRequest request, CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+        var root = request.Codegen.GeneratedRoot ?? throw new ArgumentException("The request has no usable generation root.", nameof(request));
+        var messages = new List<BuildMessage>();
+        void Report(DamlDiagnosticSeverity severity, string? code, string text) =>
+            messages.Add(new BuildMessage(severity, code, null, request.ProjectPath, 0, 0, 0, 0, text));
+        if (!Directory.Exists(root))
+        {
+            return new CodegenResult([], messages);
+        }
+        if (await LockAsync(request, root, Report, cancellationToken).ConfigureAwait(false) is { } held)
+        {
+            using (held)
+            {
+                Sweep(new GenerationPublisher(root), root, [], request.ProjectPath, Report);
+            }
+        }
+        return new CodegenResult([], messages);
+    }
+
+    private async Task<FileLock?> LockAsync(
+        CodegenRequest request,
+        string root,
+        Action<DamlDiagnosticSeverity, string?, string> report,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await FileLock.AcquireAsync(LockNames.Output(_locks, root), request.Tools.LockTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            report(DamlDiagnosticSeverity.Error, DamlDiagnosticCodes.LockTimeout,
+                $"Another build kept the generated C# in {root} locked for longer than {request.Tools.LockTimeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s. " +
+                $"Wait for it to finish, or raise {DamlProperties.LockTimeoutSeconds.Name}.");
+            return null;
+        }
+    }
+
+    // Generations of references the project no longer has, and whatever their runs left in the
+    // work folder; another project's generation is its own build's business. Nothing here fails
+    // the build: none of it is compiled, and the next build tries again.
+    private static void Sweep(
+        GenerationPublisher publisher,
+        string root,
+        IReadOnlyCollection<string> current,
+        string owner,
+        Action<DamlDiagnosticSeverity, string?, string> report)
+    {
+        var keep = new HashSet<string>(current, StringComparer.OrdinalIgnoreCase);
+        var keepIds = new HashSet<string>(current.Select(GenerationIdentity.IdOfFolder), StringComparer.Ordinal);
+        void Failed(string what, Exception ex) =>
+            report(DamlDiagnosticSeverity.Warning, null, $"{what} couldn't be removed ({ex.Message}); the next build tries again.");
+
+        foreach (var folderName in publisher.FolderNames().Where(name => !keep.Contains(name)))
+        {
+            var folder = Path.Combine(root, folderName);
+            try
+            {
+                var removal = publisher.Remove(folderName, owner);
+                if (!removal.Owned)
+                {
+                    continue;
+                }
+                report(DamlDiagnosticSeverity.Information, null, removal.KeptFiles.Count == 0
+                    ? $"Removed the generated C# in {folder}."
+                    : $"Removed the generated C# in {folder}, but kept what the generator didn't write there: {string.Join(", ", removal.KeptFiles.Take(ListedFiles))}" +
+                      $"{(removal.KeptFiles.Count > ListedFiles ? ", …" : "")}.");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Failed($"The generated C# in {folder}", ex);
+            }
+        }
+        try
+        {
+            foreach (var id in publisher.WorkIds().Where(id => !keepIds.Contains(id)))
+            {
+                publisher.RemoveWork(id);
+            }
+            publisher.RemoveIfEmpty();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Failed($"What earlier builds left in {Path.Combine(root, GenerationPublisher.WorkFolderName)}", ex);
+        }
     }
 
     private async Task<ConfigurationError?> GenerateAsync(

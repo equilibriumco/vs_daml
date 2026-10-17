@@ -187,24 +187,4 @@ public class DamlCodegenCSharpTests
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
         task.GeneratedFiles.ShouldBeEmpty();
     }
-
-    private sealed class FakeOrchestrator : ICodegenOrchestrator
-    {
-        public List<CodegenRequest> Requests { get; } = [];
-
-        public List<CancellationToken> Tokens { get; } = [];
-
-        public CodegenResult Result { get; set; } = new([], []);
-
-        public Action? OnRun { get; set; }
-
-        public System.Threading.Tasks.Task<CodegenResult> RunAsync(CodegenRequest request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-            Tokens.Add(cancellationToken);
-            OnRun?.Invoke();
-            cancellationToken.ThrowIfCancellationRequested();
-            return System.Threading.Tasks.Task.FromResult(Result);
-        }
-    }
 }

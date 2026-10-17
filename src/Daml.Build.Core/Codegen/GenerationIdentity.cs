@@ -77,12 +77,19 @@ public static class GenerationIdentity
 
     /// <summary>The generation id at the end of a <see cref="FolderName"/>.</summary>
     /// <exception cref="ArgumentException"><paramref name="folderName"/> doesn't end in one.</exception>
-    public static string IdOfFolder(string folderName)
+    public static string IdOfFolder(string folderName) =>
+        TryIdOfFolder(folderName ?? throw new ArgumentNullException(nameof(folderName)))
+        ?? throw new ArgumentException($"{folderName} isn't the name of a generation's folder.", nameof(folderName));
+
+    /// <summary>The generation id at the end of a <see cref="FolderName"/>; null when the name doesn't end in one.</summary>
+    public static string? TryIdOfFolder(string folderName)
     {
         var dash = (folderName ?? throw new ArgumentNullException(nameof(folderName))).LastIndexOf('-');
         var id = dash < 0 ? "" : folderName.Substring(dash + 1);
-        return id.Length == 16 && id.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'))
-            ? id
-            : throw new ArgumentException($"{folderName} isn't the name of a generation's folder.", nameof(folderName));
+        return IsId(id) ? id : null;
     }
+
+    /// <summary>Whether <paramref name="text"/> has the form of a generation id: 16 lowercase hex digits.</summary>
+    public static bool IsId(string text) =>
+        text is { Length: 16 } && text.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f'));
 }

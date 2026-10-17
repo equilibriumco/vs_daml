@@ -290,6 +290,89 @@ public sealed class GenerationUpdateTests : IDisposable
         Content().ShouldBe("old");
     }
 
+    private Task<CodegenResult> Clean(CodegenRequest? request = null) =>
+        new GenerationUpdate(new GeneratorRun(_generator, _ => null), Locks).CleanAsync(request ?? Request(), CancellationToken.None);
+
+    // The project dropped its Finance reference; its code must not stay behind, let alone compile.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_generation_the_project_no_longer_references_goes_under_the_same_lock()
+    {
+        var finance = Path.Combine(Root, "Finance-fedcba9876543210");
+        Published(finance);
+        Directory.CreateDirectory(Path.Combine(Work, "fedcba9876543210.old"));
+        _generator.Writes(new() { ["Asset.cs"] = "class Asset { }" });
+
+        var result = await Update();
+
+        Directory.Exists(finance).ShouldBeFalse();
+        WorkLeftovers().ShouldBeEmpty();
+        result.Messages.ShouldContain(m => m.Severity == DamlDiagnosticSeverity.Information && m.Text.Contains(finance));
+        result.Files.ShouldBe([new GeneratedFile(Path.Combine(Folder, "Asset.cs"), Id)]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_withdrawn_generation_that_cant_go_is_a_warning_for_the_next_build()
+    {
+        var finance = Path.Combine(Root, "Finance-fedcba9876543210");
+        Published(finance);
+        _generator.Writes(new() { ["Asset.cs"] = "class Asset { }" });
+        using (new FileStream(Path.Combine(finance, "Asset.cs"), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var result = await Update();
+
+            result.Messages.ShouldContain(m => m.Severity == DamlDiagnosticSeverity.Warning && m.Text.Contains(finance));
+            result.Messages.ShouldNotContain(m => m.Severity == DamlDiagnosticSeverity.Error);
+            result.Files.ShouldHaveSingleItem();
+        }
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_takes_every_generation_of_the_project_the_work_folder_and_the_root()
+    {
+        _generator.Writes(new() { [@"Contracts\Asset.cs"] = "class Asset { }" });
+        await Update();
+
+        var result = await Clean();
+
+        result.Messages.ShouldNotContain(m => m.Severity != DamlDiagnosticSeverity.Information);
+        Directory.Exists(Root).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_keeps_files_the_generator_didnt_write_and_says_which()
+    {
+        _generator.Writes(new() { [@"Contracts\Asset.cs"] = "class Asset { }" });
+        await Update();
+        File.WriteAllText(Path.Combine(Folder, @"Contracts\Mine.cs"), "class Mine { }");
+
+        var result = await Clean();
+
+        result.Messages.ShouldHaveSingleItem().Text.ShouldContain(@"Contracts\Mine.cs");
+        File.Exists(Path.Combine(Folder, @"Contracts\Mine.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(Folder, @"Contracts\Asset.cs")).ShouldBeFalse();
+        Directory.Exists(Work).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_of_a_root_another_build_holds_too_long_is_DAML0105()
+    {
+        Published(Folder);
+        using var other = await FileLock.AcquireAsync(OutputLock, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        var result = await Clean(Request(lockTimeout: TimeSpan.FromMilliseconds(300)));
+
+        result.Messages.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.LockTimeout);
+        File.Exists(Path.Combine(Folder, "Asset.cs")).ShouldBeTrue();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_with_nothing_generated_does_nothing()
+    {
+        var result = await Clean();
+
+        (result.Files.Count, result.Messages.Count, Directory.Exists(Root)).ShouldBe((0, 0, false));
+    }
+
     // Writes what a test gives it into the folder it is told to write to.
     private sealed class FakeGenerator : IProcessRunner
     {

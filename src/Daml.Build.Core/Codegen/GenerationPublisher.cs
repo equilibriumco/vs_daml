@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.FileSystem;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -89,6 +91,109 @@ public sealed class GenerationPublisher
     /// build's <see cref="Recover"/>; only reads.
     /// </summary>
     public bool HasUnfinishedPublish(string folderName) => File.Exists(Journal(folderName));
+
+    /// <summary>The folders under the root named like a generation's, whoever they belong to.</summary>
+    public IReadOnlyList<string> FolderNames() =>
+        Directory.Exists(_root)
+            ? Directory.GetDirectories(_root)
+                .Select(Path.GetFileName)
+                .OfType<string>()
+                .Where(name => name != WorkFolderName && GenerationIdentity.TryIdOfFolder(name) is not null)
+                .ToList()
+            : [];
+
+    /// <summary>The generation ids the work folder holds entries for.</summary>
+    public IReadOnlyList<string> WorkIds() =>
+        Directory.Exists(Work)
+            ? Directory.GetFileSystemEntries(Work)
+                .Select(Path.GetFileName)
+                .OfType<string>()
+                .Select(name => name.Split('.')[0])
+                .Where(GenerationIdentity.IsId)
+                .Distinct(StringComparer.Ordinal)
+                .ToList()
+            : [];
+
+    /// <summary>
+    /// Removes the generation <paramref name="folderName"/> of <paramref name="owner"/>: the files its
+    /// manifest lists inside its folder, the manifest, the folders left empty and its entries in the
+    /// work folder. Anything else stays: files the generator didn't write, and a generation
+    /// another project's manifest claims. Without a manifest nothing in the folder is provably
+    /// the generator's, so only empty folders go. Run under the root's lock.
+    /// </summary>
+    /// <exception cref="IOException">A file or folder couldn't be deleted.</exception>
+    public GenerationRemoval Remove(string folderName, string owner)
+    {
+        var folder = Path.Combine(_root, folderName);
+        var kept = new List<string>();
+        if (Directory.Exists(folder))
+        {
+            var manifestPath = Path.Combine(folder, GenerationManifest.FileName);
+            var manifest = GenerationManifest.Read(manifestPath);
+            if (manifest is not null && !DamlPath.Comparer.Equals(manifest.Owner, owner))
+            {
+                return new GenerationRemoval(Owned: false, []);
+            }
+            if (manifest is not null)
+            {
+                foreach (var file in manifest.Files.Where(f => IsInside(f.Path)))
+                {
+                    var path = LongPaths.Safe(Path.Combine(folder, file.Path));
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+                }
+                File.Delete(manifestPath);
+            }
+            kept.AddRange(LongPaths.RelativeFiles(folder));
+            foreach (var empty in LongPaths.RelativeFolders(folder).OrderByDescending(f => f.Length).Append(""))
+            {
+                var path = LongPaths.Safe(Path.Combine(folder, empty).TrimEnd(Path.DirectorySeparatorChar));
+                if (!Directory.EnumerateFileSystemEntries(path).Any())
+                {
+                    Directory.Delete(path);
+                }
+            }
+        }
+        RemoveWork(GenerationIdentity.IdOfFolder(folderName));
+        return new GenerationRemoval(Owned: true, kept);
+    }
+
+    /// <summary>Removes the work folder's entries for the generation <paramref name="id"/>: staging, backup, journal and run folder.</summary>
+    /// <exception cref="IOException">An entry couldn't be deleted.</exception>
+    public void RemoveWork(string id)
+    {
+        foreach (var folder in new[] { ".new", ".old", RunSuffix }.Select(suffix => Path.Combine(Work, id + suffix)))
+        {
+            DeleteIfThere(folder);
+        }
+        var journal = Path.Combine(Work, id + ".journal");
+        if (File.Exists(journal))
+        {
+            File.Delete(journal);
+        }
+    }
+
+    /// <summary>Removes the work folder when nothing but its own <c>.gitignore</c> is left, and then the root when it is empty.</summary>
+    public void RemoveIfEmpty()
+    {
+        if (Directory.Exists(Work) && Directory.GetFileSystemEntries(Work).All(e => Path.GetFileName(e) == ".gitignore"))
+        {
+            _steps.Delete(Work);
+        }
+        if (Directory.Exists(_root) && !Directory.EnumerateFileSystemEntries(_root).Any())
+        {
+            Directory.Delete(_root);
+        }
+    }
+
+    // A manifest names files inside its folder; a rooted path or one that climbs out is no file of the generation's.
+    private static bool IsInside(string relative) =>
+        relative.Length > 0
+        && !Path.IsPathRooted(relative)
+        && relative.IndexOf(':') < 0
+        && !relative.Split('\\', '/').Any(segment => segment == "..");
 
     /// <summary>Removes a staging folder that won't be published.</summary>
     public void Discard(string staging)

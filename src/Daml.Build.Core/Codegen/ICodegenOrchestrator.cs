@@ -15,4 +15,13 @@ public interface ICodegenOrchestrator
     /// <param name="cancellationToken">Stops the run; whatever was published before stays consistent.</param>
     /// <exception cref="System.OperationCanceledException">The run was cancelled.</exception>
     Task<CodegenResult> RunAsync(CodegenRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes what the project generated under its root, and nothing the generator didn't
+    /// write. The request's inputs don't matter: every generation of the project goes.
+    /// </summary>
+    /// <param name="request">The project and its settings.</param>
+    /// <param name="cancellationToken">Stops waiting for another build.</param>
+    /// <exception cref="System.OperationCanceledException">The clean was cancelled.</exception>
+    Task<CodegenResult> CleanAsync(CodegenRequest request, CancellationToken cancellationToken);
 }

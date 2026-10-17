@@ -312,6 +312,134 @@ public sealed class GenerationPublisherTests : IDisposable
         }
     }
 
+    private const string Owner = @"C:\work\App\App.csproj";
+
+    // A published generation of Owner: its files, written last its manifest.
+    private static void Published(string folder, string owner = Owner, params string[] files)
+    {
+        var listed = files.Length == 0 ? [@"Contracts\Asset\Asset.cs", @"Contracts\Asset\Asset.Give.cs"] : files;
+        foreach (var file in listed.Where(f => !f.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(f)))
+        {
+            DeepPath.Write(folder, file, "generated");
+        }
+        new GenerationManifest(Path.GetFileName(folder).Substring(Path.GetFileName(folder).Length - 16), "f1n9", owner, DamlReferenceKind.Project,
+            @"C:\work\Contracts\Contracts.msbuildproj", "Contracts", @"C:\work\contracts.dar", "da12", "oci://pin",
+            listed.Select(f => new GenerationManifestFile(f, "0")).ToList()).Write(Path.Combine(folder, GenerationManifest.FileName));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Removing_a_generation_takes_its_files_its_folders_and_its_work_entries_and_nothing_else()
+    {
+        Published(Active);
+        Published(Path.Combine(_root, "Finance-fedcba9876543210"));
+        Fill(LeftStaging, "half");
+        Fill(GenerationPublisher.RunFolderOf(LeftStaging), "temp");
+        Fill(Path.Combine(Work, "fedcba9876543210.new"), "other");
+
+        var removal = new GenerationPublisher(_root).Remove(Folder, Owner);
+
+        (removal.Owned, removal.KeptFiles.Count).ShouldBe((true, 0));
+        Directory.Exists(Active).ShouldBeFalse();
+        Directory.GetFileSystemEntries(Work).Select(Path.GetFileName).ShouldBe(["fedcba9876543210.new"]);
+        GenerationManifest.Read(Path.Combine(_root, @"Finance-fedcba9876543210", GenerationManifest.FileName)).ShouldNotBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Files_the_generator_didnt_write_are_kept_with_their_folders()
+    {
+        Published(Active);
+        File.WriteAllText(Path.Combine(Active, @"Contracts\Asset\Mine.cs"), "class Mine { }");
+
+        var removal = new GenerationPublisher(_root).Remove(Folder, Owner);
+
+        removal.KeptFiles.ShouldBe([@"Contracts\Asset\Mine.cs"]);
+        File.Exists(Path.Combine(Active, @"Contracts\Asset\Mine.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(Active, @"Contracts\Asset\Asset.cs")).ShouldBeFalse();
+        File.Exists(Path.Combine(Active, GenerationManifest.FileName)).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Another_projects_generation_is_left_alone()
+    {
+        Published(Active, owner: @"C:\work\Other\Other.csproj");
+
+        new GenerationPublisher(_root).Remove(Folder, Owner).Owned.ShouldBeFalse();
+
+        File.Exists(Path.Combine(Active, @"Contracts\Asset\Asset.cs")).ShouldBeTrue();
+        File.Exists(Path.Combine(Active, GenerationManifest.FileName)).ShouldBeTrue();
+    }
+
+    // Only files inside the folder can be the generation's, whatever its manifest says.
+    [Fact, Trait("Category", "Unit")]
+    public void A_manifest_entry_pointing_outside_the_folder_deletes_nothing_there()
+    {
+        var outside = Path.Combine(_root, "outside.cs");
+        Directory.CreateDirectory(_root);
+        File.WriteAllText(outside, "class Outside { }");
+        Published(Active, Owner, @"Contracts\Asset.cs", @"..\outside.cs", @"C:\elsewhere\file.cs");
+
+        new GenerationPublisher(_root).Remove(Folder, Owner);
+
+        File.Exists(outside).ShouldBeTrue();
+        Directory.Exists(Active).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Without_a_manifest_only_empty_folders_go()
+    {
+        Fill(Active, "whose?");
+        Directory.CreateDirectory(Path.Combine(_root, "Empty-0000000000000000", "Sub"));
+        var publisher = new GenerationPublisher(_root);
+
+        publisher.Remove(Folder, Owner).KeptFiles.ShouldBe(["Asset.cs"]);
+        publisher.Remove("Empty-0000000000000000", Owner).KeptFiles.ShouldBeEmpty();
+
+        Content(Active).ShouldBe("whose?");
+        Directory.Exists(Path.Combine(_root, "Empty-0000000000000000")).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_generation_with_files_past_the_path_limit_is_removed()
+    {
+        Published(Active, Owner, DeepPath.Relative);
+
+        new GenerationPublisher(_root).Remove(Folder, Owner).KeptFiles.ShouldBeEmpty();
+
+        Directory.Exists(Active).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Generation_folders_and_work_entries_are_told_apart_from_anything_else()
+    {
+        Published(Active);
+        Directory.CreateDirectory(Path.Combine(_root, "Notes"));
+        Fill(Path.Combine(Work, "fedcba9876543210.old"), "old");
+        File.WriteAllText(Path.Combine(Work, "1111111111111111.journal"), "staging=1111111111111111.new\n");
+        var publisher = new GenerationPublisher(_root);
+
+        publisher.FolderNames().ShouldBe([Folder]);
+        publisher.WorkIds().ShouldBe(["1111111111111111", "fedcba9876543210"], ignoreOrder: true);
+
+        publisher.RemoveWork("fedcba9876543210");
+        publisher.RemoveWork("1111111111111111");
+        publisher.Remove(Folder, Owner);
+        publisher.RemoveIfEmpty();
+
+        Directory.GetFileSystemEntries(_root).Select(Path.GetFileName).ShouldBe(["Notes"]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void An_empty_root_goes_too()
+    {
+        Published(Active);
+        var publisher = new GenerationPublisher(_root);
+
+        publisher.Remove(Folder, Owner);
+        publisher.RemoveIfEmpty();
+
+        Directory.Exists(_root).ShouldBeFalse();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Nothing_to_recover_changes_nothing()
     {

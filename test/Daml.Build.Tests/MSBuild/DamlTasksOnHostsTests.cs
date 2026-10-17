@@ -223,6 +223,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     private const string AppProject = """
         <Project>
           <UsingTask TaskName="Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(DamlTasksAssembly)" />
+          <UsingTask TaskName="Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(DamlTasksAssembly)" />
           <ItemGroup>
             <DamlRef Include="$(DamlDarFile)" DamlReferenceSource="DamlDar" />
           </ItemGroup>
@@ -234,6 +235,9 @@ public sealed class DamlTasksOnHostsTests : IDisposable
               <Output TaskParameter="GeneratedFiles" ItemName="_DamlGenerated" />
             </DamlCodegenCSharp>
             <Message Importance="high" Text="Generated: @(_DamlGenerated->'%(Filename)%(Extension)')" />
+          </Target>
+          <Target Name="CleanGenerated">
+            <DamlCleanGenerated ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" />
           </Target>
         </Project>
         """;
@@ -312,6 +316,12 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         second.Log.ShouldNotContain("Generated C# for");
         second.Log.ShouldContain("Generated: Asset.cs;Asset.Give.cs");
         _dpm.ReadCalls().Count(c => c.Args.Count > 0 && c.Args[0] == "codegen-cs").ShouldBe(1);
+
+        var clean = _sandbox.Build(host, HostPath(host), app, environment, properties, target: "CleanGenerated");
+
+        clean.ExitCode.ShouldBe(0, clean.Log);
+        clean.Log.ShouldContain("Removed the generated C# in");
+        Directory.Exists(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml")).ShouldBeFalse();
     }
 
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]

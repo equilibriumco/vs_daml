@@ -61,13 +61,14 @@ public sealed class CodegenOrchestrator : ICodegenOrchestrator
         {
             throw new ArgumentNullException(nameof(request));
         }
-        if (request.Inputs.Count == 0)
-        {
-            return new CodegenResult([], []);
-        }
         if (request.DesignTime)
         {
             return DesignTime(request);
+        }
+        // The last reference is gone: no tool is needed to take away what it generated.
+        if (request.Inputs.Count == 0)
+        {
+            return await _update.CleanAsync(request, cancellationToken).ConfigureAwait(false);
         }
 
         var plan = await _preflight.PlanAsync(request, cancellationToken).ConfigureAwait(false);
@@ -78,6 +79,10 @@ public sealed class CodegenOrchestrator : ICodegenOrchestrator
         var result = await _update.RunAsync(request, plan, cancellationToken).ConfigureAwait(false);
         return new CodegenResult(result.Files, result.Messages.Concat(Collisions(request, result.Files)).ToList());
     }
+
+    /// <inheritdoc />
+    public Task<CodegenResult> CleanAsync(CodegenRequest request, CancellationToken cancellationToken) =>
+        _update.CleanAsync(request ?? throw new ArgumentNullException(nameof(request)), cancellationToken);
 
     private static CodegenResult DesignTime(CodegenRequest request)
     {
