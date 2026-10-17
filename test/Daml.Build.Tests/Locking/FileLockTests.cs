@@ -98,5 +98,23 @@ public sealed class FileLockTests : IDisposable
         LockNames.Output(root, @"C:\work\App\Generated\Daml").ShouldBe(LockNames.Output(root, @"c:\WORK\app\generated\daml\"));
         LockNames.Output(root, @"C:\work\App\Generated\Daml").ShouldNotBe(LockNames.Output(root, @"C:\work\App2\Generated\Daml"));
         Path.GetFileName(LockNames.Output(root, @"C:\work\App\Generated\Daml")).ShouldMatch("^output-[0-9a-f]{16}[.]lock$");
+        LockNames.Package(root, @"C:\work\Contracts").ShouldBe(LockNames.Package(root, @"c:\work\contracts\"));
+        Path.GetFileName(LockNames.Package(root, @"C:\work\Contracts")).ShouldMatch("^package-[0-9a-f]{16}[.]lock$");
+    }
+
+    // A tool task waits on its own thread.
+    [Fact, Trait("Category", "Unit")]
+    public void The_waiting_kind_takes_a_lock_once_it_is_free_and_gives_up_like_the_other()
+    {
+        var held = FileLock.Acquire(Lock, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        Should.Throw<TimeoutException>(() => FileLock.Acquire(Lock, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300)))
+        {
+            Should.Throw<OperationCanceledException>(() => FileLock.Acquire(Lock, TimeSpan.FromSeconds(30), cancellation.Token));
+        }
+        held.Dispose();
+
+        using var taken = FileLock.Acquire(Lock, TimeSpan.FromSeconds(5), CancellationToken.None);
     }
 }

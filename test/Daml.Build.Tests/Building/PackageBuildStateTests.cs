@@ -167,7 +167,28 @@ public sealed class PackageBuildStateTests : IDisposable
     {
         var built = Built();
 
-        PackageBuildState.RecordedSourceFingerprint(StatePath).ShouldBe(built.SourceFingerprint);
-        PackageBuildState.RecordedSourceFingerprint(Path.Combine(_root, "missing.state")).ShouldBeNull();
+        PackageBuildState.RecordedSourceFingerprint(StatePath, DarPath).ShouldBe(built.SourceFingerprint);
+        PackageBuildState.RecordedSourceFingerprint(Path.Combine(_root, "missing.state"), DarPath).ShouldBeNull();
+    }
+
+    // A DAR put there by something else wasn't built from the recorded sources.
+    [Fact, Trait("Category", "Unit")]
+    public void A_replaced_DAR_has_no_recorded_sources()
+    {
+        Built();
+        File.WriteAllText(DarPath, "a DAR from somewhere else");
+
+        PackageBuildState.RecordedSourceFingerprint(StatePath, DarPath).ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Removing_the_outputs_takes_the_DAR_and_the_record_and_nothing_else()
+    {
+        Built();
+
+        PackageBuildState.RemoveOutputs(StatePath, DarPath);
+        PackageBuildState.RemoveOutputs(StatePath, DarPath);
+
+        (File.Exists(DarPath), File.Exists(StatePath), File.Exists(Manifest), Directory.Exists(Source)).ShouldBe((false, false, true, true));
     }
 }

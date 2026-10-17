@@ -28,28 +28,58 @@ public sealed class FileLock : IDisposable
     /// <exception cref="OperationCanceledException">The wait was cancelled.</exception>
     public static async Task<FileLock> AcquireAsync(string path, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        if (path is null)
-        {
-            throw new ArgumentNullException(nameof(path));
-        }
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var deadline = DateTime.UtcNow + timeout;
+        var deadline = Prepare(path, timeout);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            try
+            if (TryTake(path, timeout, deadline) is { } taken)
             {
-                return new FileLock(new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
-            }
-            catch (IOException) when (DateTime.UtcNow < deadline)
-            {
-                // Held by another process (or another build in this one).
-            }
-            catch (IOException ex)
-            {
-                throw new TimeoutException($"{path} was still held after {timeout.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s.", ex);
+                return taken;
             }
             await Task.Delay(Poll, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Takes the lock at <paramref name="path"/> like <see cref="AcquireAsync"/>, waiting on the
+    /// calling thread: for a tool task, which MSBuild runs on a worker thread of its own.
+    /// </summary>
+    /// <exception cref="TimeoutException">Another holder kept it longer than <paramref name="timeout"/>.</exception>
+    /// <exception cref="OperationCanceledException">The wait was cancelled.</exception>
+    public static FileLock Acquire(string path, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var deadline = Prepare(path, timeout);
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (TryTake(path, timeout, deadline) is { } taken)
+            {
+                return taken;
+            }
+            cancellationToken.WaitHandle.WaitOne(Poll);
+        }
+    }
+
+    private static DateTime Prepare(string path, TimeSpan timeout)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(path ?? throw new ArgumentNullException(nameof(path)))!);
+        return DateTime.UtcNow + timeout;
+    }
+
+    private static FileLock? TryTake(string path, TimeSpan timeout, DateTime deadline)
+    {
+        try
+        {
+            return new FileLock(new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
+        }
+        catch (IOException) when (DateTime.UtcNow < deadline)
+        {
+            // Held by another process (or another build in this one).
+            return null;
+        }
+        catch (IOException ex)
+        {
+            throw new TimeoutException($"{path} was still held after {timeout.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s.", ex);
         }
     }
 

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core.Diagnostics;
+using Daml.Build.Core.Locking;
 using Daml.Build.Tasks;
 using Daml.TestHelpers;
 using Shouldly;
@@ -70,6 +71,25 @@ public sealed class DpmToolTaskTests : IDisposable
 
     private static string Captured(string name) =>
         File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "build-output", name));
+
+    // dpm builds the package in place; two builds of it at once would write one .daml folder.
+    [Fact, Trait("Category", "Process")]
+    public void Dpm_waits_for_another_build_of_the_package_and_gives_up_with_DAML0105()
+    {
+        var task = Build(Command("build", "Created .daml\\dist\\contracts-1.2.0.dar\n"));
+        task.LockTimeoutSeconds = "1";
+        using var held = FileLock.Acquire(
+            LockNames.Package(LockNames.Root(Environment.GetEnvironmentVariable), Package),
+            TimeSpan.FromSeconds(5),
+            CancellationToken.None);
+
+        task.Execute().ShouldBeFalse();
+
+        var error = _engine.Errors.ShouldHaveSingleItem();
+        error.Code.ShouldBe(DamlDiagnosticCodes.LockTimeout);
+        error.Message!.ShouldContain(Package);
+        ToolCalls().ShouldBeEmpty();
+    }
 
     [Fact, Trait("Category", "Process")]
     public void A_build_runs_dpm_build_in_the_package_and_hands_on_the_DAR()

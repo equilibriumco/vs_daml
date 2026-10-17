@@ -30,9 +30,18 @@ public static class LockNames
     /// The lock on a generation root: one per canonical folder in any spelling, so two builds
     /// writing the same folder always share it.
     /// </summary>
-    public static string Output(string root, string folder)
+    public static string Output(string root, string folder) => Named(root, "output", folder);
+
+    /// <summary>
+    /// The lock on a Daml package: dpm builds it in place, so every configuration of a project,
+    /// and every project that builds the same package, shares the one <c>.daml</c> folder.
+    /// </summary>
+    public static string Package(string root, string packageFolder) => Named(root, "package", packageFolder);
+
+    // One lock per canonical folder in any spelling.
+    private static string Named(string root, string kind, string folder)
     {
         var hash = Hashing.Sha256Text(DamlPath.Normalize(folder).ToUpperInvariant());
-        return Path.Combine(root, "output-" + hash.Substring(0, 16) + ".lock");
+        return Path.Combine(root, $"{kind}-{hash.Substring(0, 16)}.lock");
     }
 }

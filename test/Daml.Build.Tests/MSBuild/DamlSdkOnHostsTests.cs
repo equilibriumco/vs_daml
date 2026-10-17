@@ -184,6 +184,68 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
+    // The package's own outputs go; the rest of its .daml folder, dpm's caches among it, stays.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void Clean_removes_the_DAR_and_the_build_record_and_the_next_build_builds_again(MSBuildHost host)
+    {
+        Scenario(CreatesTheDar());
+        var project = DamlProject();
+        var cache = _sandbox.Write(@"contracts\.daml\package-database\3.6.0\cached.dalf", "kept");
+
+        var build = Build(host, project);
+        var clean = Build(host, project, target: "Clean");
+        var after = Build(host, project);
+
+        (build.ExitCode, clean.ExitCode, after.ExitCode).ShouldBe((0, 0, 0), build.Log + clean.Log + after.Log);
+        File.Exists(cache).ShouldBeTrue();
+        Calls("build").Count.ShouldBe(2);
+    }
+
+    // What Visual Studio's fast up-to-date check is told, also through its own design-time targets.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe, "DamlCollectUpToDateCheckItems")]
+    [InlineData(MSBuildHost.Dotnet, "DamlCollectUpToDateCheckItems")]
+    [InlineData(MSBuildHost.MSBuildExe, "CollectUpToDateCheckInputDesignTime;CollectUpToDateCheckBuiltDesignTime")]
+    public void The_up_to_date_check_knows_what_the_DAR_is_built_from(MSBuildHost host, string targets)
+    {
+        var project = DamlProject(body: $"""
+              <Target Name="ShowUpToDateItems" DependsOnTargets="{targets}">
+                <Message Importance="high" Text="Input: %(UpToDateCheckInput.FullPath)" />
+                <Message Importance="high" Text="Built: %(UpToDateCheckBuilt.FullPath)" />
+              </Target>
+            """);
+
+        var run = Build(host, project, "ShowUpToDateItems", ("DesignTimeBuild", "true"));
+
+        run.ExitCode.ShouldBe(0, run.Log);
+        run.Log.ShouldContain($@"Input: {Package}\daml.yaml");
+        run.Log.ShouldContain($@"Input: {Package}\daml\Main.daml");
+        run.Log.ShouldContain($@"Built: {Package}\.daml\dist\contracts-1.2.0.dar");
+        run.Log.ShouldContain($@"Built: {Package}\obj\daml.build.state");
+        _dpm.ReadCalls().ShouldBeEmpty();
+    }
+
+    // Only on request, and after the build it needs.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void DamlTest_builds_first_and_reports_a_failing_script_where_it_is(MSBuildHost host)
+    {
+        var test = BuildCommand(File.ReadAllText(Path.Combine(Repository.Root, @"test\fixtures\build-output\test-failing-script.stderr.txt")), exitCode: 1);
+        test.Args[0] = "test";
+        test.Stdout = File.ReadAllText(Path.Combine(Repository.Root, @"test\fixtures\build-output\test-failing-script.stdout.txt"));
+        Scenario(CreatesTheDar(), test);
+
+        var run = Build(host, DamlProject(), target: "DamlTest");
+
+        run.ExitCode.ShouldBe(1, run.Log);
+        run.Log.ShouldContain($@"{Package}\daml\Main.daml(47,");
+        run.Log.ShouldContain("Script error DAML0001");
+        _dpm.ReadCalls().Where(c => c.Args.Count == 1).Select(c => c.Args[0]).Where(v => v != "--version").ShouldBe(["build", "test"]);
+    }
+
     // The ProjectReference protocol: the C# project builds the Daml project first, then asks it for its DAR.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
@@ -205,6 +267,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
                   <Output TaskParameter="TargetOutputs" ItemName="_DamlDar" />
                 </MSBuild>
                 <Message Importance="high" Text="DAR: @(_DamlDar) exists=%(_DamlDar.Exists) package=%(_DamlDar.DamlPackageName)-%(_DamlDar.DamlPackageVersion)" />
+                <Message Importance="high" Text="Built from: %(_DamlDar.DamlSourceFingerprint) per %(_DamlDar.DamlManifest)" />
               </Target>
             </Project>
             """);
@@ -213,6 +276,8 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
         run.ExitCode.ShouldBe(0, run.Log);
         run.Log.ShouldContain($@"DAR: {Package}\.daml\dist\contracts-1.2.0.dar exists=True package=contracts-1.2.0");
+        // The sources the DAR's build recorded, for navigation to trust them.
+        run.Log.ShouldMatch($@"Built from: [0-9a-f]{{64}} per {System.Text.RegularExpressions.Regex.Escape(Package)}\\daml\.yaml");
         Calls("build").ShouldHaveSingleItem();
     }
 }

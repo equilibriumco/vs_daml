@@ -47,14 +47,32 @@ public sealed class DamlBuildStateTasksTests : IDisposable
         };
     }
 
-    private DamlRecordBuildState Record(DamlComputeBuildState computed, string? statePath = null) => new()
+    private DamlRecordBuildState Record(DamlComputeBuildState computed) => new()
     {
         BuildEngine = _engine,
-        StatePath = statePath ?? computed.StatePath,
+        StatePath = computed.StatePath,
         DarPath = computed.DarPath,
         Fingerprint = computed.Fingerprint,
         SourceFingerprint = computed.SourceFingerprint,
+        ManifestPath = computed.ManifestPath,
+        SourcePath = computed.SourcePath,
+        Dependencies = computed.Dependencies,
+        DataDependencies = computed.DataDependencies,
     };
+
+    // The DAR may hold the old sources or the new ones; only a fresh build can say which.
+    [Fact, Trait("Category", "Unit")]
+    public void Sources_changed_while_dpm_built_are_not_recorded_as_built()
+    {
+        var computed = Compute();
+        computed.Execute();
+        Write(@"daml\Main.daml", "module Main where\nx = 1\n");
+
+        Record(computed).Execute().ShouldBeTrue();
+
+        File.Exists(At(@"obj\daml.build.state")).ShouldBeFalse();
+        _engine.Messages.ShouldContain(m => m.Message!.Contains("changed while dpm built it"));
+    }
 
     [Fact, Trait("Category", "Unit")]
     public void A_package_never_built_is_built_and_once_recorded_isnt_built_again()

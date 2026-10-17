@@ -1,14 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Daml.Build.Core;
 using Daml.Build.Core.Building;
 using Daml.Build.Core.Configuration;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Locking;
 using Daml.Build.Core.Tools;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -28,6 +31,8 @@ public abstract class DpmToolTask : ToolTask
 
     private DpmOutputReport? _report;
     private string? _dpm;
+    private TimeSpan _lockTimeout;
+    private CancellationTokenSource? _waiting;
     private volatile bool _cancelled;
 
     /// <summary>The package's <c>daml.yaml</c>; dpm runs in its folder.</summary>
@@ -48,6 +53,9 @@ public abstract class DpmToolTask : ToolTask
 
     /// <summary><c>DamlSkipPreflight</c>: don't check dpm's version.</summary>
     public string? SkipPreflight { get; set; }
+
+    /// <summary><c>DamlLockTimeoutSeconds</c>: how long to wait for another build of the same package.</summary>
+    public string? LockTimeoutSeconds { get; set; }
 
     /// <summary>The dpm command this task runs.</summary>
     protected abstract DpmCommandKind Command { get; }
@@ -71,6 +79,14 @@ public abstract class DpmToolTask : ToolTask
     public override void Cancel()
     {
         _cancelled = true;
+        try
+        {
+            Volatile.Read(ref _waiting)?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The wait ended between reading it and cancelling it.
+        }
         base.Cancel();
     }
 
@@ -93,6 +109,7 @@ public abstract class DpmToolTask : ToolTask
             [DamlProperties.AllowToolInstall.Name] = AllowToolInstall,
             [DamlProperties.ProcessTimeoutSeconds.Name] = ProcessTimeoutSeconds,
             [DamlProperties.SkipPreflight.Name] = SkipPreflight,
+            [DamlProperties.LockTimeoutSeconds.Name] = LockTimeoutSeconds,
         };
         var errors = new List<ConfigurationError>();
         var options = ToolOptions.Read(name => properties.TryGetValue(name, out var value) ? value : null, errors);
@@ -112,6 +129,7 @@ public abstract class DpmToolTask : ToolTask
         }
 
         Timeout = options.ProcessTimeout is { } limit ? (int)Math.Min(int.MaxValue, limit.TotalMilliseconds) : System.Threading.Timeout.Infinite;
+        _lockTimeout = options.LockTimeout;
         // Last, so the build's own setting wins over one passed in or inherited.
         EnvironmentVariables = (EnvironmentVariables ?? []).Concat(options.DpmEnvironment.Select(v => $"{v.Key}={v.Value}")).ToArray();
         if (!DpmIsSupported(options.SkipPreflight, project))
@@ -149,6 +167,51 @@ public abstract class DpmToolTask : ToolTask
 
     /// <inheritdoc />
     protected override int ExecuteTool(string pathToTool, string responseFileCommands, string commandLineCommands)
+    {
+        // dpm builds the package in place, in the one .daml folder every configuration shares.
+        if (TakePackageLock() is not { } held)
+        {
+            return -1;
+        }
+        using (held)
+        {
+            return RunDpm(pathToTool, responseFileCommands, commandLineCommands);
+        }
+    }
+
+    private FileLock? TakePackageLock()
+    {
+        var verb = Command.ToString().ToLowerInvariant();
+        var package = GetWorkingDirectory();
+        using var waiting = new CancellationTokenSource();
+        Volatile.Write(ref _waiting, waiting);
+        if (_cancelled)
+        {
+            waiting.Cancel();
+        }
+        try
+        {
+            return FileLock.Acquire(LockNames.Package(LockNames.Root(Environment.GetEnvironmentVariable), package), _lockTimeout, waiting.Token);
+        }
+        catch (TimeoutException)
+        {
+            Log.LogError(null, DamlDiagnosticCodes.LockTimeout, null, FullManifestPath, 0, 0, 0, 0,
+                $"Another build kept the Daml package in {package} locked for longer than {_lockTimeout.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s, so dpm {verb} didn't run. " +
+                $"Wait for it to finish, or raise {DamlProperties.LockTimeoutSeconds.Name}.");
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            Stopped($"dpm {verb} was cancelled while it waited for another build of the package.");
+            return null;
+        }
+        finally
+        {
+            Volatile.Write(ref _waiting, null);
+        }
+    }
+
+    private int RunDpm(string pathToTool, string responseFileCommands, string commandLineCommands)
     {
         var clock = Stopwatch.StartNew();
         var exitCode = base.ExecuteTool(pathToTool, responseFileCommands, commandLineCommands);

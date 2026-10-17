@@ -79,20 +79,8 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     /// Whether the build recorded at <paramref name="statePath"/> was built from this state, and its
     /// DAR is still the one it built.
     /// </summary>
-    public bool IsRecordedIn(string statePath, string darPath)
-    {
-        var recorded = Read(statePath);
-        if (recorded is null
-            || !Value(recorded, "fingerprint", Fingerprint)
-            || !Value(recorded, "dar", darPath)
-            || !LongPaths.FileExists(darPath))
-        {
-            return false;
-        }
-        var dar = new FileInfo(LongPaths.Safe(darPath));
-        return Value(recorded, "darLength", dar.Length.ToString(CultureInfo.InvariantCulture))
-            && Value(recorded, "darTime", dar.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture));
-    }
+    public bool IsRecordedIn(string statePath, string darPath) =>
+        Read(statePath) is { } recorded && Value(recorded, "fingerprint", Fingerprint) && RecordedDarIsThere(recorded, darPath);
 
     /// <summary>Records that the DAR at <paramref name="darPath"/> was just built from this state.</summary>
     public void Record(string statePath, string darPath)
@@ -112,9 +100,38 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     }
 
-    /// <summary>The source fingerprint the last recorded build was made from; null when none was recorded.</summary>
-    public static string? RecordedSourceFingerprint(string statePath) =>
-        Read(statePath) is { } recorded && recorded.TryGetValue("sources", out var sources) ? sources : null;
+    /// <summary>
+    /// The fingerprint of the sources the DAR at <paramref name="darPath"/> was built from, as its
+    /// build recorded it; nothing is hashed. Null when no build recorded it, or the DAR there isn't
+    /// the one it built: sources that didn't make the DAR must never be named as its own.
+    /// </summary>
+    public static string? RecordedSourceFingerprint(string statePath, string darPath) =>
+        Read(statePath) is { } recorded && RecordedDarIsThere(recorded, darPath) && recorded.TryGetValue("sources", out var sources) ? sources : null;
+
+    /// <summary>Removes the package's own outputs: its DAR and the record of what it was built from.</summary>
+    /// <exception cref="IOException">One of them couldn't be deleted.</exception>
+    public static void RemoveOutputs(string statePath, string darPath)
+    {
+        foreach (var file in new[] { darPath, statePath })
+        {
+            var path = LongPaths.Safe(file ?? throw new ArgumentNullException(nameof(darPath)));
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    private static bool RecordedDarIsThere(Dictionary<string, string> recorded, string darPath)
+    {
+        if (!Value(recorded, "dar", darPath) || !LongPaths.FileExists(darPath))
+        {
+            return false;
+        }
+        var dar = new FileInfo(LongPaths.Safe(darPath));
+        return Value(recorded, "darLength", dar.Length.ToString(CultureInfo.InvariantCulture))
+            && Value(recorded, "darTime", dar.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture));
+    }
 
     private static string SourceFolder(string sourcePath) =>
         Directory.Exists(sourcePath ?? throw new ArgumentNullException(nameof(sourcePath))) ? sourcePath : Path.GetDirectoryName(sourcePath)!;
