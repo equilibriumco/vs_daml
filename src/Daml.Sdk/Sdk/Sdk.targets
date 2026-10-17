@@ -3,8 +3,32 @@
   <Import Project="Sdk.targets" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
 
   <UsingTask TaskName="Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlComputeBuildState" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Daml.Build.Tasks.DamlRecordBuildState" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_DamlSdkTasks)" />
+
+  <!-- What Solution Explorer and Visual Studio's up-to-date check see: the manifest and the
+       package's sources. They are read from daml.yaml while the project is evaluated, when no task
+       can run; the build itself goes by ReadDamlManifest. A single source file brings its folder,
+       where damlc finds what it imports. -->
+  <PropertyGroup>
+    <_DamlPackageRoot>$([System.IO.Path]::GetDirectoryName('$(DamlManifestPath)'))</_DamlPackageRoot>
+    <_DamlManifestText Condition="Exists('$(DamlManifestPath)')">$([System.IO.File]::ReadAllText('$(DamlManifestPath)'))</_DamlManifestText>
+    <_DamlSourceSetting>$([System.Text.RegularExpressions.Regex]::Match('$(_DamlManifestText)', '(?m)^source:[ \t]*[^\r\n#]*').Value)</_DamlSourceSetting>
+    <_DamlSourceSetting>$([System.Text.RegularExpressions.Regex]::Replace('$(_DamlSourceSetting)', '^source:|\x22|\x27', '').Trim())</_DamlSourceSetting>
+    <_DamlSourceFolder Condition="'$(_DamlSourceSetting)' != ''">$([MSBuild]::NormalizeDirectory('$(_DamlPackageRoot)', '$(_DamlSourceSetting)'))</_DamlSourceFolder>
+    <_DamlSourceFolder Condition="'$(_DamlSourceSetting)' != '' and $(_DamlSourceSetting.EndsWith('.daml'))">$([MSBuild]::NormalizeDirectory('$(_DamlPackageRoot)', '$([System.IO.Path]::GetDirectoryName('$(_DamlSourceSetting)'))'))</_DamlSourceFolder>
+    <_DamlBuildStatePath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'daml.build.state'))</_DamlBuildStatePath>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_DamlSourceFolder)' != ''">
+    <DamlSource Include="$(_DamlSourceFolder)**\*.daml" Exclude="$(_DamlSourceFolder)**\.daml\**;$(_DamlSourceFolder)**\obj\**;$(_DamlSourceFolder)**\bin\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(DamlManifestPath)" Condition="Exists('$(DamlManifestPath)')" />
+    <None Include="@(DamlSource)" />
+  </ItemGroup>
 
   <!-- NoTargets assigns CoreBuildDependsOn outright at the end of its targets, so Daml's targets can
        only join the lists here, after that import; anything set earlier is lost. -->
@@ -26,16 +50,32 @@
       <Output TaskParameter="SdkVersion" PropertyName="DamlSdkVersion" />
       <Output TaskParameter="SourcePath" PropertyName="DamlSourcePath" />
       <Output TaskParameter="DarPath" PropertyName="DamlDarPath" />
+      <Output TaskParameter="Dependencies" ItemName="DamlDependency" />
       <Output TaskParameter="DataDependencies" ItemName="DamlDataDependency" />
     </ReadDamlManifest>
   </Target>
 
-  <!-- Whether the DAR is current, judged before deciding to skip the build. -->
-  <Target Name="DamlComputeBuildState" DependsOnTargets="DamlResolveManifest" />
+  <!-- Whether the DAR is current, judged from what it is built from before deciding to skip the
+       build: Inputs and Outputs alone would miss a deleted or renamed source. -->
+  <Target Name="DamlComputeBuildState" DependsOnTargets="DamlResolveManifest">
+    <DamlComputeBuildState
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ManifestPath="$(DamlManifestPath)"
+        SourcePath="$(DamlSourcePath)"
+        DarPath="$(DamlDarPath)"
+        StatePath="$(_DamlBuildStatePath)"
+        Dependencies="@(DamlDependency)"
+        DataDependencies="@(DamlDataDependency)"
+        BuildEnabled="$(DamlBuildEnabled)">
+      <Output TaskParameter="ShouldBuild" PropertyName="_DamlShouldBuild" />
+      <Output TaskParameter="Fingerprint" PropertyName="_DamlBuildFingerprint" />
+      <Output TaskParameter="SourceFingerprint" PropertyName="_DamlSourceFingerprint" />
+    </DamlComputeBuildState>
+  </Target>
 
   <Target Name="DamlBuild" DependsOnTargets="DamlResolveManifest;DamlComputeBuildState">
     <DamlBuildTask
-        Condition="'$(DesignTimeBuild)' != 'true' and '$(DamlBuildEnabled)' != 'false' and '$(DamlBuildEnabled)' != 'off' and '$(DamlBuildEnabled)' != 'no'"
+        Condition="'$(_DamlShouldBuild)' == 'true'"
         ManifestPath="$(DamlManifestPath)"
         DarPath="$(DamlDarPath)"
         DpmPath="$(DamlDpmPath)"
@@ -45,7 +85,13 @@
         ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)">
       <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
     </DamlBuildTask>
-    <Message Condition="'$(DamlCreatedDar)' != ''" Importance="high" Text="$(MSBuildProjectName) -> $(DamlCreatedDar)" />
+    <DamlRecordBuildState
+        Condition="'$(DamlCreatedDar)' != ''"
+        StatePath="$(_DamlBuildStatePath)"
+        DarPath="$(DamlDarPath)"
+        Fingerprint="$(_DamlBuildFingerprint)"
+        SourceFingerprint="$(_DamlSourceFingerprint)" />
+    <Message Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DamlDarPath)')" Importance="high" Text="$(MSBuildProjectName) -> $(DamlDarPath)" />
   </Target>
 
   <!-- What a referencing project asks for: the DAR and where it came from. Never builds; the

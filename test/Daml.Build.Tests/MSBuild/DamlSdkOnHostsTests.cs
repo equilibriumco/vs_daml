@@ -28,13 +28,20 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
     private string Package => Path.Combine(_sandbox.Root, "contracts");
 
-    private string DamlProject(string manifest = Manifest)
+    private string DamlProject(string manifest = Manifest, string body = "")
     {
         _sandbox.UseSdkFeed();
         _sandbox.Write(@"contracts\daml.yaml", manifest);
         _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n");
-        return _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\">\n</Project>\n");
+        return _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\">\n{body}\n</Project>\n");
     }
+
+    private const string ShowItems = """
+          <Target Name="ShowItems">
+            <Message Importance="high" Text="Source: %(DamlSource.FullPath)" />
+            <Message Importance="high" Text="Shown: %(None.FullPath)" />
+          </Target>
+        """;
 
     private void Scenario(params FakeDpmCommand[] commands)
     {
@@ -113,6 +120,67 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         restore.ExitCode.ShouldBe(0, restore.Log);
         designTime.ExitCode.ShouldBe(0, designTime.Log);
         dar.ExitCode.ShouldBe(0, dar.Log);
+        _dpm.ReadCalls().ShouldBeEmpty();
+    }
+
+    // What Solution Explorer shows comes from the manifest's source, never from damlc's or the build's own folders.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe, "source: daml")]
+    [InlineData(MSBuildHost.Dotnet, "source: \"daml\"  # quoted, with a comment")]
+    [InlineData(MSBuildHost.MSBuildExe, "source: ./daml/Main.daml")]
+    [InlineData(MSBuildHost.Dotnet, "source: .")]
+    public void The_project_shows_its_manifest_and_sources_and_no_build_output(MSBuildHost host, string source)
+    {
+        var project = DamlProject($"sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\n{source}\n", ShowItems);
+        foreach (var file in new[] { @"daml\Asset\Asset.daml", @".daml\package-database\3.6.0\daml-stdlib\DA\List.daml", @"obj\Generated.daml", @"bin\Copied.daml" })
+        {
+            _sandbox.Write(Path.Combine("contracts", file), "module M where\n");
+        }
+
+        var run = Build(host, project, target: "ShowItems");
+
+        run.ExitCode.ShouldBe(0, run.Log);
+        var sources = run.Log.Split('\n').Select(l => l.Trim()).Where(l => l.StartsWith("Source: ", StringComparison.Ordinal)).ToList();
+        sources.ShouldBe([$@"Source: {Package}\daml\Asset\Asset.daml", $@"Source: {Package}\daml\Main.daml"], ignoreOrder: true);
+        run.Log.ShouldContain($@"Shown: {Package}\daml.yaml");
+        run.Log.ShouldContain($@"Shown: {Package}\daml\Main.daml");
+    }
+
+    // What the DAR is built from decides, not file times: a deleted source is noticed too (S-06).
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void A_second_build_runs_no_dpm_and_a_deleted_source_builds_again(MSBuildHost host)
+    {
+        Scenario(CreatesTheDar());
+        var project = DamlProject();
+        var asset = _sandbox.Write(@"contracts\daml\Asset.daml", "module Asset where\n");
+
+        var first = Build(host, project);
+        var second = Build(host, project);
+        File.Delete(asset);
+        var third = Build(host, project);
+
+        (first.ExitCode, second.ExitCode, third.ExitCode).ShouldBe((0, 0, 0), first.Log + second.Log + third.Log);
+        Calls("build").Count.ShouldBe(2);
+        second.Log.ShouldContain("is up to date");
+        second.Log.ShouldContain($@"Contracts -> {Package}\.daml\dist\contracts-1.2.0.dar");
+    }
+
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void DamlBuildEnabled_off_runs_no_dpm_and_a_value_it_cant_use_is_DAML0100(MSBuildHost host)
+    {
+        Scenario(CreatesTheDar());
+        var project = DamlProject();
+
+        var off = Build(host, project, null, ("DamlBuildEnabled", "off"));
+        var unusable = Build(host, project, null, ("DamlBuildEnabled", "sometimes"));
+
+        off.ExitCode.ShouldBe(0, off.Log);
+        unusable.ExitCode.ShouldBe(1, unusable.Log);
+        unusable.Log.ShouldContain("error DAML0100: DamlBuildEnabled is 'sometimes'");
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
