@@ -45,6 +45,7 @@
         ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)">
       <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
     </DamlBuildTask>
+    <Message Condition="'$(DamlCreatedDar)' != ''" Importance="high" Text="$(MSBuildProjectName) -> $(DamlCreatedDar)" />
   </Target>
 
   <!-- What a referencing project asks for: the DAR and where it came from. Never builds; the

@@ -59,6 +59,26 @@ internal sealed class MSBuildSandbox : IDisposable
     /// <summary>The task assembly projects point their <c>UsingTask</c> at.</summary>
     public string TaskAssembly => Path.Combine(Tasks, "Daml.Build.Tasks.dll");
 
+    private string? _packages;
+
+    /// <summary>
+    /// Makes projects in the sandbox resolve <c>Daml.Sdk</c> as users do, from <see cref="SdkFeed"/>
+    /// into a package folder of the sandbox's own; builds restore first from then on.
+    /// </summary>
+    public void UseSdkFeed()
+    {
+        Write("nuget.config", $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <configuration>
+              <packageSources>
+                <clear />
+                <add key="daml-sdk" value="{SdkFeed.Folder}" />
+              </packageSources>
+            </configuration>
+            """);
+        _packages = Path.Combine(Root, "packages");
+    }
+
     // The tasks built in the same configuration as these tests.
     private static string BuiltTasks
     {
@@ -104,6 +124,10 @@ internal sealed class MSBuildSandbox : IDisposable
         }
         arguments.AddRange([Path.Combine(Root, project), "-nologo", "-nodeReuse:false", "-maxCpuCount:1", "-verbosity:minimal",
             $"-fileLoggerParameters:LogFile={log};Verbosity=normal;Encoding=UTF-8", $"-property:DamlTasksAssembly={TaskAssembly}"]);
+        if (_packages is not null)
+        {
+            arguments.Add("-restore");
+        }
         foreach (var property in properties ?? new Dictionary<string, string>())
         {
             arguments.Add($"-property:{property.Key}={property.Value}");
@@ -129,6 +153,10 @@ internal sealed class MSBuildSandbox : IDisposable
         startInfo.EnvironmentVariables["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
         startInfo.EnvironmentVariables["DOTNET_NOLOGO"] = "1";
         startInfo.EnvironmentVariables["MSBUILDDISABLENODEREUSE"] = "1";
+        if (_packages is not null)
+        {
+            startInfo.EnvironmentVariables["NUGET_PACKAGES"] = _packages;
+        }
         foreach (var variable in environment ?? new Dictionary<string, string>())
         {
             startInfo.EnvironmentVariables[variable.Key] = variable.Value;
