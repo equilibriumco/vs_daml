@@ -98,16 +98,26 @@ internal sealed class MSBuildBindingRefresher : IBindingRefresher
         _logger.Log(DamlLogCategory.Build, DamlLogLevel.Debug, result.Stdout);
         if (result.ExitCode == 0)
         {
-            var after = new HashSet<string>(list is null ? [] : GeneratedProps.Read(list).Select(f => f.Path), StringComparer.OrdinalIgnoreCase);
-            var removed = before.Count(f => !after.Contains(f.Path));
+            var after = list is null ? [] : GeneratedProps.Read(list).Select(f => f.Path);
+            var removed = GeneratedProps.Removed(before.Select(f => f.Path), after);
             if (removed > 0)
             {
                 _filesRemoved(target, removed);
             }
             return new BindingRefreshResult(true, null);
         }
-        return diagnostics.FirstOrDefault(d => d.IsError) is { } error
-            ? new BindingRefreshResult(false, $"{Path.GetFileName(error.File)}: {error.Code}: {error.Message}")
-            : new BindingRefreshResult(false, $"MSBuild exited with code {result.ExitCode}.");
+        if (diagnostics.FirstOrDefault(d => d.IsError) is { } error)
+        {
+            return new BindingRefreshResult(false, $"{Path.GetFileName(error.File)}: {error.Code}: {error.Message}");
+        }
+        // No error MSBuild's format names: the end of its output is all there is to go by.
+        _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, $"MSBuild exited with code {result.ExitCode}; the end of its output:{Environment.NewLine}{Tail(result.Stdout + Environment.NewLine + result.Stderr, 20)}");
+        return new BindingRefreshResult(false, $"MSBuild exited with code {result.ExitCode}.");
+    }
+
+    private static string Tail(string text, int lines)
+    {
+        var all = text.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(Environment.NewLine, all.Skip(Math.Max(0, all.Length - lines)));
     }
 }

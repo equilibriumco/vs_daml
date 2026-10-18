@@ -141,6 +141,11 @@ internal sealed class BindingSyncService : IDisposable
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, $"The Daml bindings of {name} couldn't be updated and stay as they were: {status.Message}");
                 _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the C# bindings of {name} are out of date ({status.Message})")).FileAndForget("daml/bindingSync/status");
                 break;
+            case BindingSyncState.Cancelled:
+                EndProgress(status.Target);
+                _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"The update of the Daml bindings of {name} was cancelled; they stay as they were until the next Daml change or build.");
+                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the update of the C# bindings of {name} was cancelled")).FileAndForget("daml/bindingSync/status");
+                break;
             default:
                 // Stale again while refreshing: the running entry ends, a new one starts with the next run.
                 EndProgress(status.Target);

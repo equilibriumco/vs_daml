@@ -22,6 +22,27 @@ public sealed class GeneratedPropsTests : IDisposable
 
     private string Props => Path.Combine(_root, @"obj\daml\App.csproj.Debug.net10.0.g.props");
 
+    private const string Generation = @"C:\work\App\obj\Debug\net10.0\Daml\Contracts-0123456789abcdef\Kinds\Asset\";
+
+    // Any change to the Daml gives the package a new ID, and the generator names its registration after it.
+    [Fact, Trait("Category", "Unit")]
+    public void A_registration_renamed_for_the_new_package_is_replaced_not_removed()
+    {
+        var before = new[] { Generation + "Asset.cs", Generation + "PackageRegistration_" + new string('a', 64) + ".cs" };
+        var after = new[] { Generation + "Asset.cs", Generation + "PackageRegistration_" + new string('b', 64) + ".cs" };
+
+        GeneratedProps.Removed(before, after).ShouldBe(0);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Files_the_new_list_lacks_are_removed()
+    {
+        var before = new[] { Generation + "Asset.cs", Generation + "Asset.Give.cs", Generation + "PackageRegistration_" + new string('a', 64) + ".cs" };
+        var after = new[] { Generation.ToUpperInvariant() + "ASSET.CS", Generation + "PackageRegistration_" + new string('b', 64) + ".cs" };
+
+        GeneratedProps.Removed(before, after).ShouldBe(1);
+    }
+
     private static readonly GeneratedFile[] Files =
     [
         new(@"C:\work\App\obj\Debug\net10.0\Daml\Contracts-0123456789abcdef\Asset.cs", "0123456789abcdef"),

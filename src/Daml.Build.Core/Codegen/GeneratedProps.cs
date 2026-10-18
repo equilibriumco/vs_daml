@@ -18,6 +18,24 @@ namespace Daml.Build.Core.Codegen;
 /// </summary>
 public static class GeneratedProps
 {
+    // The generator names a package's registration after the package ID, which any change to the Daml renews.
+    private static readonly Regex PackageIdSuffix = new(@"_[0-9a-f]{64}(?=\.cs$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// How many files of <paramref name="before"/> are gone from <paramref name="after"/>, the types
+    /// IntelliSense may keep offering until the project builds or reloads. A file named after the
+    /// package ID that comes back under the new ID is replaced, not gone.
+    /// </summary>
+    /// <param name="before">The generated files the list had.</param>
+    /// <param name="after">The generated files it has now.</param>
+    public static int Removed(IEnumerable<string> before, IEnumerable<string> after)
+    {
+        var kept = new HashSet<string>((after ?? throw new ArgumentNullException(nameof(after))).Select(WithoutPackageId), StringComparer.OrdinalIgnoreCase);
+        return (before ?? throw new ArgumentNullException(nameof(before))).Select(WithoutPackageId).Distinct(StringComparer.OrdinalIgnoreCase).Count(f => !kept.Contains(f));
+    }
+
+    private static string WithoutPackageId(string path) => PackageIdSuffix.Replace(path, "_");
+
     /// <summary>
     /// Writes the props for <paramref name="files"/> to <paramref name="path"/> unless it already
     /// says exactly that: an unchanged file mustn't make Visual Studio evaluate the project again.

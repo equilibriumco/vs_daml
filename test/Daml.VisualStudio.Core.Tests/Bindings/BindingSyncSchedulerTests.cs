@@ -156,6 +156,33 @@ public sealed class BindingSyncSchedulerTests : IDisposable
         _refresher.Started.ShouldBe([App]);
     }
 
+    // Cancelled from the Task Status Center: the run ends with a word for it, so its entry stops spinning.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_refresh_stopped_with_nothing_to_follow_it_says_it_was_cancelled()
+    {
+        _scheduler.Request([App]);
+        await QuietAsync();
+
+        _scheduler.Clear();
+        await FakeRefresher.SettleAsync();
+
+        StatesOf(App).ShouldBe([BindingSyncState.Stale, BindingSyncState.Updating, BindingSyncState.Cancelled]);
+    }
+
+    // Asked for again, or taken over by a build: another run or the build follows, so no cancellation is reported.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_refresh_stopped_to_run_again_or_for_a_build_is_not_reported_as_cancelled()
+    {
+        _scheduler.Request([App]);
+        await QuietAsync();
+        _scheduler.Request([App]);
+        await FakeRefresher.SettleAsync();
+        _scheduler.BuildStarted();
+        await FakeRefresher.SettleAsync();
+
+        StatesOf(App).ShouldNotContain(BindingSyncState.Cancelled);
+    }
+
     // Each refresh waits until the test completes it, or is cancelled.
     private sealed class FakeRefresher : IBindingRefresher
     {

@@ -103,6 +103,30 @@ public sealed class GenerationPublisherTests : IDisposable
         File.ReadAllText(Path.Combine(Work, ".gitignore")).Trim().ShouldBe("*");
     }
 
+    // A whole folder moving in is all a file watcher sees, so Visual Studio would go on with the old
+    // text of a file whose path stays; a changed file changes in place too. Unchanged ones keep their time.
+    [Fact, Trait("Category", "Unit")]
+    public void Files_that_changed_are_touched_once_the_new_generation_is_in_and_the_rest_keep_their_time()
+    {
+        Fill(Active, "old");
+        File.WriteAllText(Path.Combine(Active, "Same.cs"), "same");
+        var publisher = new GenerationPublisher(_root);
+        var staging = Staged(publisher, "new");
+        File.WriteAllText(Path.Combine(staging, "Same.cs"), "same");
+        File.WriteAllText(Path.Combine(staging, "Added.cs"), "added");
+        var written = DateTime.UtcNow.AddMinutes(-10);
+        foreach (var file in Directory.GetFiles(staging))
+        {
+            File.SetLastWriteTimeUtc(file, written);
+        }
+
+        publisher.Publish(Folder, staging);
+
+        File.GetLastWriteTimeUtc(Path.Combine(Active, "Asset.cs")).ShouldBeGreaterThan(written.AddMinutes(5));
+        File.GetLastWriteTimeUtc(Path.Combine(Active, "Added.cs")).ShouldBeGreaterThan(written.AddMinutes(5));
+        File.GetLastWriteTimeUtc(Path.Combine(Active, "Same.cs")).ShouldBe(written);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void An_old_generation_with_files_past_the_path_limit_is_replaced_and_its_backup_removed()
     {

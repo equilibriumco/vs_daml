@@ -21,6 +21,9 @@ public enum BindingSyncState
 
     /// <summary>The last refresh failed; the bindings before it stay.</summary>
     Failed,
+
+    /// <summary>The refresh was stopped and nothing follows it (cancelled, another solution); the bindings before it stay.</summary>
+    Cancelled,
 }
 
 /// <summary>A change in where a project's bindings stand.</summary>
@@ -197,13 +200,23 @@ public sealed class BindingSyncScheduler : IDisposable
                     // Asked for again, stopped for a build, or dropped; whatever is still due is queued.
                 }
                 bool cancelled;
+                bool followed;
                 lock (_gate)
                 {
                     cancelled = next.Cancel.IsCancellationRequested;
+                    // Asked for again, or taken over by a build: another run, or the build, follows.
+                    followed = _pending.Any(p => p.Target == next.Target);
                     _running = null;
                 }
                 next.Cancel.Dispose();
-                if (!cancelled && result is not null)
+                if (cancelled)
+                {
+                    if (!followed)
+                    {
+                        Raise(next.Target, BindingSyncState.Cancelled, null);
+                    }
+                }
+                else if (result is not null)
                 {
                     Raise(next.Target, result.Succeeded ? BindingSyncState.Ready : BindingSyncState.Failed, result.Message);
                 }

@@ -278,6 +278,10 @@ public sealed class GenerationPublisher
         // Committed: the new generation is in place. What is left is only tidying, which the
         // next recovery finishes when it fails here.
         TryWrite(journal, Entry(stagingName, "new-moved"));
+        if (hadOld)
+        {
+            TouchChanged(active, backup);
+        }
         if (Directory.Exists(backup))
         {
             try
@@ -410,6 +414,33 @@ public sealed class GenerationPublisher
             // A journal left behind is read by the next recovery, which finds nothing to undo.
         }
     }
+
+    // The new generation came in as a whole folder, which file watchers see only as folders
+    // renamed: Visual Studio would go on with the old text of every file whose path stays the
+    // same. Touching the files that are new or changed tells them; the others keep their time, so
+    // nothing compiles again because of them. Best effort: the build itself reads the files anyway.
+    private static void TouchChanged(string active, string backup)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+            foreach (var file in Directory.EnumerateFiles(active, "*", SearchOption.AllDirectories))
+            {
+                var before = Path.Combine(backup, file.Substring(active.Length + 1));
+                if (!File.Exists(before) || !SameContent(file, before))
+                {
+                    File.SetLastWriteTimeUtc(file, now);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PathTooLongException)
+        {
+            // A file past the path limit or held open keeps its time; it was written moments ago.
+        }
+    }
+
+    private static bool SameContent(string first, string second) =>
+        new FileInfo(first).Length == new FileInfo(second).Length && File.ReadAllBytes(first).SequenceEqual(File.ReadAllBytes(second));
 
     private static GenerationPublishException Failed(string folderName, string what, Exception inner) =>
         new(DamlDiagnosticCodes.CodegenFailed, $"Publishing the generation {folderName} failed: {what}.", inner);
