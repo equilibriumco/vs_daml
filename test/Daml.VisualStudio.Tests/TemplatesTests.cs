@@ -55,6 +55,22 @@ public sealed class TemplatesTests : IDisposable
         nested.Entries.Select(e => e.FullName).ShouldContain("content/daml-dotnet-app/.template.config/template.json");
     }
 
+    // New Project shows the language tag and then every classification, so a language among the
+    // classifications shows up twice.
+    [Theory, Trait("Category", "Editor")]
+    [InlineData("daml-contracts")]
+    [InlineData("daml-dotnet-app")]
+    public void New_Project_shows_the_language_of_a_template_once(string template)
+    {
+        var package = _vsix.Entries.Single(e => e.FullName.StartsWith("Templates/", StringComparison.Ordinal) && e.Name.EndsWith(".nupkg", StringComparison.Ordinal));
+        using var nested = new ZipArchive(package.Open());
+        var config = JObject.Parse(Read(nested.GetEntry($"content/{template}/.template.config/template.json")!));
+
+        ((string)config["tags"]!["language"]!).ShouldBe("Daml");
+        config["classifications"]!.Values<string>().ShouldNotContain("Daml");
+        config["classifications"]!.Values<string>().ShouldContain("Windows");
+    }
+
     // Visual Studio makes the solution itself and adds the template's primary outputs to it, so there the
     // app template leaves out its .slnx and names its three projects instead.
     [Fact, Trait("Category", "Editor")]
