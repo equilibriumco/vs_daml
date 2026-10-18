@@ -176,7 +176,9 @@
        version the generator's checks need. -->
   <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
 
-  <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay. -->
+  <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay.
+       The file list is emptied, not deleted: Visual Studio watches only the files the evaluation
+       imported, so a deleted list would drop out of it and the next build's list go unnoticed. -->
   <Target Name="DamlCleanGenerated">
     <DamlCleanGenerated
         ProjectPath="$(MSBuildProjectFullPath)"
@@ -186,7 +188,8 @@
         GeneratedOutputMode="$(DamlGeneratedOutputMode)"
         GeneratedDir="$(DamlGeneratedDir)"
         LockTimeoutSeconds="$(DamlLockTimeoutSeconds)" />
-    <Delete Files="$(_DamlGeneratedProps);$(_DamlBuiltStamp)" />
+    <DamlWriteGeneratedProps Condition="Exists('$(_DamlGeneratedProps)')" PropsPath="$(_DamlGeneratedProps)" />
+    <Delete Files="$(_DamlBuiltStamp)" />
   </Target>
 
   <!-- What Visual Studio's fast up-to-date check has to know: the DARs, from projects or files,

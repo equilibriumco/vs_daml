@@ -28,6 +28,8 @@ internal sealed class DamlBindingService : IDisposable
     private static readonly object WithoutDaml = new();
 
     private readonly IDamlLogger _logger;
+    private readonly GeneratedListImports _imports;
+    private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly GenerationCatalog _catalog = new();
     private readonly Dictionary<Workspace, WorkspaceBindingIndex> _indexes = [];
     private readonly ConditionalWeakTable<Solution, object> _withoutDaml = new();
@@ -36,16 +38,17 @@ internal sealed class DamlBindingService : IDisposable
     private bool _disposed;
 
     [ImportingConstructor]
-    public DamlBindingService(IDamlLogger logger, JoinableTaskContext joinableTaskContext)
+    public DamlBindingService(IDamlLogger logger, GeneratedListImports imports, JoinableTaskContext joinableTaskContext)
     {
         _logger = logger;
+        _imports = imports;
+        _joinableTaskFactory = joinableTaskContext.Factory;
         Sources = new DamlSources();
         Locator = new DamlDefinitionLocator(new PhysicalFileSystem());
         // A build swaps generation folders whole, and the workspace may never report their files changed.
-        var factory = joinableTaskContext.Factory;
-        factory.RunAsync(async () =>
+        _joinableTaskFactory.RunAsync(async () =>
         {
-            await factory.SwitchToMainThreadAsync();
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
             Community.VisualStudio.Toolkit.VS.Events.BuildEvents.SolutionBuildDone += _ => ReadAgain();
         }).FileAndForget("daml/bindings/buildDone");
     }
@@ -68,15 +71,16 @@ internal sealed class DamlBindingService : IDisposable
     /// </summary>
     public BindingIndex? IndexOf(Workspace workspace)
     {
+        WorkspaceBindingIndex index;
         lock (_gate)
         {
             if (_disposed)
             {
                 return null;
             }
-            if (_indexes.TryGetValue(workspace, out var index))
+            if (_indexes.TryGetValue(workspace, out var existing))
             {
-                return index.Current;
+                return existing.Current;
             }
             var solution = workspace.CurrentSolution;
             if (_withoutDaml.TryGetValue(solution, out _))
@@ -95,9 +99,11 @@ internal sealed class DamlBindingService : IDisposable
                 IndexChanged?.Invoke(this, EventArgs.Empty);
             };
             _indexes.Add(workspace, index);
-            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "Reading the Daml bindings of the solution's C# projects.");
-            return index.Current;
         }
+        _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "Reading the Daml bindings of the solution's C# projects.");
+        // A project may come out of the last session with an evaluation that missed its list.
+        CatchUpImports();
+        return index.Current;
     }
 
     /// <summary>What the C# at <paramref name="position"/> stands for in Daml, with the index that says so; null for nothing.</summary>
@@ -110,7 +116,10 @@ internal sealed class DamlBindingService : IDisposable
         return await DamlBindingLookup.FindAsync(document, position, index, cancellationToken).ConfigureAwait(false) is { } found ? (found, index) : null;
     }
 
-    /// <summary>Reads every followed solution again, as after a build or a background update of the bindings.</summary>
+    /// <summary>
+    /// Reads every followed solution again, as after a build or a background update of the bindings,
+    /// and has projects whose evaluation missed the list of their generated files evaluated again.
+    /// </summary>
     public void ReadAgain()
     {
         List<WorkspaceBindingIndex> indexes;
@@ -118,11 +127,19 @@ internal sealed class DamlBindingService : IDisposable
         {
             indexes = [.. _indexes.Values];
         }
+        if (indexes.Count == 0)
+        {
+            return;
+        }
+        CatchUpImports();
         foreach (var index in indexes)
         {
             index.ReadAgain();
         }
     }
+
+    private void CatchUpImports() =>
+        _joinableTaskFactory.RunAsync(async () => await _imports.CatchUpAsync()).FileAndForget("daml/bindings/catchUpImports");
 
     // Says why a lens or a command went away, or came back.
     private void Describe(BindingIndex index)

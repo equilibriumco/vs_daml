@@ -24,6 +24,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
     <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" />
     <PackageReference Include="Microsoft.VisualStudio.LanguageServices" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem" />
     <!-- Only to pin the version Workspace.Extensions.VS asks for; its build targets stay out. -->
     <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="MessagePack" />

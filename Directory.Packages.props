@@ -33,6 +33,10 @@
     <!-- VisualStudioWorkspace, the solution's Roslyn workspace, for counting C# references from a Daml
          editor before any C# file is open. Same Roslyn line; VS provides it, compiling only. -->
     <PackageVersion Include="Microsoft.VisualStudio.LanguageServices" Version="4.14.0" />
+    <!-- The project system's lock service, to have a C# project evaluated again when its list of
+         generated Daml files exists but its last evaluation didn't import it (after a Clean). VS
+         provides it; compiling only. 17.9.380 is the newest on nuget.org (later ones are only on the VS SDK feed). -->
+    <PackageVersion Include="Microsoft.VisualStudio.ProjectSystem" Version="17.9.380" />
     <!-- What VS 2026 18.11 ships in PrivateAssemblies; devenv.exe.config redirects 0.0.0.0-1.0.3967.48
          to it, so the VSIX never carries these DLLs. Don't go above what VS 2026 redirects. -->
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />

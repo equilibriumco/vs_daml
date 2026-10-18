@@ -494,8 +494,10 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         GeneratorRuns().ShouldBe(1);
     }
 
+    // The list is emptied rather than deleted: Visual Studio watches only the files a project's
+    // evaluation imported, and would miss the list the next build writes until a reload.
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
-    public void Clean_removes_the_generated_code_and_its_lists_and_nothing_else()
+    public void Clean_removes_the_generated_code_empties_its_list_and_leaves_the_rest()
     {
         App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
@@ -508,7 +510,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         build.ExitCode.ShouldBe(0, build.Log);
         clean.ExitCode.ShouldBe(0, clean.Log);
         Directory.Exists(GeneratedRoot).ShouldBeFalse();
-        File.Exists(Props).ShouldBeFalse();
+        XDocument.Load(Props).Root!.Descendants("Compile").ShouldBeEmpty();
         File.Exists(Stamp).ShouldBeFalse();
         File.Exists(Path.Combine(AppFolder, "Uses.cs")).ShouldBeTrue();
         File.Exists(dar).ShouldBeTrue();
