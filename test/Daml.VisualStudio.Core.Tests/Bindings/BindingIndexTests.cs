@@ -62,6 +62,17 @@ public class BindingIndexTests
         second.LocationsOf(Asset).ShouldHaveSingleItem();
     }
 
+    // Versions only go up, even when the whole solution is read from scratch.
+    [Fact, Trait("Category", "Unit")]
+    public void A_cleared_index_is_empty_and_newer()
+    {
+        var index = WithAsset(BindingIndex.Empty, App);
+
+        var cleared = index.Cleared();
+
+        (cleared.Count, cleared.Version).ShouldBe((0, index.Version + 1));
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Several_documents_change_in_one_version()
     {

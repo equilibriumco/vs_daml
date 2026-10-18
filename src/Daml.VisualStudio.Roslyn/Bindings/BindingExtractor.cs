@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Daml.VisualStudio.Core.Bindings;
 using Microsoft.CodeAnalysis;
@@ -17,15 +19,21 @@ namespace Daml.VisualStudio.Roslyn.Bindings;
 /// </summary>
 public static class BindingExtractor
 {
+    // What a compilation's types stand for is worked out once for all its documents, and lives as
+    // long as the compilation, which never changes.
+    private static readonly ConditionalWeakTable<Compilation, Holder> Roles = new();
+
     /// <summary>The generated declarations in <paramref name="model"/>'s document, in source order.</summary>
     public static IReadOnlyList<GeneratedDeclaration> Extract(SemanticModel model, CancellationToken cancellationToken = default)
     {
-        if (DamlRuntimeTypes.Find(model.Compilation) is not { } runtime)
-        {
-            return [];
-        }
-        var reader = new Reader(model, new GeneratedTypeRoles(model.Compilation, runtime), cancellationToken);
-        return reader.Read();
+        var compilation = (model ?? throw new ArgumentNullException(nameof(model))).Compilation;
+        var roles = Roles.GetValue(compilation, c => new Holder(DamlRuntimeTypes.Find(c) is { } runtime ? new GeneratedTypeRoles(c, runtime) : null)).Value;
+        return roles is null ? [] : new Reader(model, roles, cancellationToken).Read();
+    }
+
+    private sealed class Holder(GeneratedTypeRoles? value)
+    {
+        public GeneratedTypeRoles? Value { get; } = value;
     }
 
     private sealed class Reader
@@ -126,8 +134,11 @@ public static class BindingExtractor
             }
         }
 
-        // The properties this part of the type declares: written out, or from a record's
-        // parameters. A parameter with a property of the same name written out is one property.
+        // The properties this part of the type declares that can be a field or a choice: written
+        // out with an attribute or as a static property built with an object initializer, or from a
+        // record's parameters with an attribute. Only those are asked about their symbols, which is
+        // most of the time spent here. A parameter with a property of the same name written out is
+        // one property.
         private IEnumerable<(IPropertySymbol Property, TextSpan At)> Properties(BaseTypeDeclarationSyntax declaration, INamedTypeSymbol type)
         {
             var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
@@ -135,7 +146,8 @@ public static class BindingExtractor
             {
                 foreach (var property in typeDeclaration.Members.OfType<PropertyDeclarationSyntax>())
                 {
-                    if (_model.GetDeclaredSymbol(property, _cancellationToken) is IPropertySymbol symbol && seen.Add(symbol))
+                    if ((property.AttributeLists.Count > 0 || property.Initializer?.Value is BaseObjectCreationExpressionSyntax { Initializer: not null })
+                        && _model.GetDeclaredSymbol(property, _cancellationToken) is IPropertySymbol symbol && seen.Add(symbol))
                     {
                         yield return (symbol, property.Identifier.Span);
                     }
@@ -143,7 +155,7 @@ public static class BindingExtractor
             }
             if (declaration is RecordDeclarationSyntax { ParameterList: { } parameters })
             {
-                foreach (var parameter in parameters.Parameters)
+                foreach (var parameter in parameters.Parameters.Where(p => p.AttributeLists.Count > 0))
                 {
                     if (type.GetMembers(parameter.Identifier.ValueText).OfType<IPropertySymbol>().FirstOrDefault() is { } symbol && seen.Add(symbol))
                     {

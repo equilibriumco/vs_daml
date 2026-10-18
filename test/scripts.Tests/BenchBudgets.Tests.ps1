@@ -70,6 +70,8 @@ Describe 'Test-BenchBudgets' {
         ($names -contains 'LexerBenchmarks.LexWholeFile') | Should Be $true
         ($names -contains 'LexerBenchmarks.RelexAfterOneLineEdit') | Should Be $true
         ($names -contains 'LayoutBenchmarks.AnalyzeLexedFile') | Should Be $true
+        ($names -contains 'BindingIndexBenchmarks.BuildWithColdCatalog') | Should Be $true
+        (Get-BenchBudgets)['BindingIndexBenchmarks.BuildWithColdCatalog'] | Should Be 300
     }
 
     It 'rejects a regression over ten percent even when the absolute budget is met' {

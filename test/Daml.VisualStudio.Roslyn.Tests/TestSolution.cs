@@ -40,4 +40,17 @@ internal sealed class TestSolution : IDisposable
 
     /// <summary>Lets the solution change in other ways.</summary>
     public void Change(Func<Solution, Solution> change) => Solution = change(Solution);
+
+    /// <summary>The workspace, for whoever follows its changes.</summary>
+    public Workspace Workspace => _workspace;
+
+    /// <summary>Makes the changes so far the workspace's, which tells its listeners.</summary>
+    public void Apply()
+    {
+        if (!_workspace.TryApplyChanges(Solution))
+        {
+            throw new InvalidOperationException("The workspace didn't take the changes.");
+        }
+        Solution = _workspace.CurrentSolution;
+    }
 }

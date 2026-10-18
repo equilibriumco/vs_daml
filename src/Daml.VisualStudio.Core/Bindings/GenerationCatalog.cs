@@ -18,12 +18,13 @@ public sealed record GenerationEntry(string Folder, string RelativePath, string 
 /// <summary>
 /// Tells which generation a C# file belongs to: the nearest folder above it with a generation
 /// manifest, and only when that manifest lists the file. Whatever else is in a generation's
-/// folder isn't the generator's. Manifests are read once per folder until forgotten; a file is
-/// hashed again only when its size or time changed.
+/// folder isn't the generator's. A manifest is read again when its size or time changes, as
+/// when a build publishes the generation again or a first build publishes it at all; a file is
+/// hashed again only when its own size or time changed.
 /// </summary>
 public sealed class GenerationCatalog
 {
-    private readonly Dictionary<string, (GenerationManifest Manifest, GenerationProvenance? Provenance)?> _folders = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Folder> _folders = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, (long Length, DateTime Written, string Sha256)> _hashes = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
@@ -39,16 +40,21 @@ public sealed class GenerationCatalog
         {
             return null;
         }
+        // Generations aren't nested, so a known one above the file is the only candidate; that
+        // spares looking for a manifest in every folder in between.
+        foreach (var known in KnownGenerationsAbove(path))
+        {
+            if (Generation(known) is { Manifest: not null } generation)
+            {
+                return Entry(path, known, generation);
+            }
+        }
         for (var folder = Path.GetDirectoryName(path); !string.IsNullOrEmpty(folder); folder = Path.GetDirectoryName(folder))
         {
-            if (Generation(folder!) is not { } generation)
+            if (Generation(folder!) is { Manifest: not null } generation)
             {
-                continue;
+                return Entry(path, folder!.TrimEnd('\\'), generation);
             }
-            var relative = path.Substring(folder!.TrimEnd('\\').Length + 1);
-            return generation.Manifest.Files.FirstOrDefault(f => string.Equals(f.Path, relative, StringComparison.OrdinalIgnoreCase)) is { } file
-                ? new GenerationEntry(folder, file.Path, file.Sha256, generation.Provenance, string.Equals(Sha256(path), file.Sha256, StringComparison.OrdinalIgnoreCase))
-                : null;
         }
         return null;
     }
@@ -59,6 +65,23 @@ public sealed class GenerationCatalog
         lock (_gate)
         {
             _folders.Remove(Path.GetFullPath(folder ?? throw new ArgumentNullException(nameof(folder))).TrimEnd('\\'));
+        }
+    }
+
+    private GenerationEntry? Entry(string path, string folder, Folder generation) =>
+        generation.Files!.TryGetValue(path.Substring(folder.Length + 1), out var file)
+            ? new GenerationEntry(folder, file.Path, file.Sha256, generation.Provenance, string.Equals(Sha256(path), file.Sha256, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+    private List<string> KnownGenerationsAbove(string path)
+    {
+        lock (_gate)
+        {
+            return _folders.Where(f => f.Value.Manifest is not null && path.Length > f.Key.Length + 1 && path[f.Key.Length] == '\\'
+                    && path.StartsWith(f.Key, StringComparison.OrdinalIgnoreCase))
+                .Select(f => f.Key)
+                .OrderByDescending(k => k.Length)
+                .ToList();
         }
     }
 
@@ -91,32 +114,54 @@ public sealed class GenerationCatalog
         }
     }
 
-    private (GenerationManifest Manifest, GenerationProvenance? Provenance)? Generation(string folder)
+    private Folder Generation(string folder)
     {
         folder = folder.TrimEnd('\\');
+        var path = Path.Combine(folder, GenerationManifest.FileName);
+        (bool Exists, long Length, DateTime Written) state;
+        try
+        {
+            var file = new FileInfo(path);
+            state = file.Exists ? (true, file.Length, file.LastWriteTimeUtc) : (false, 0, default);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            state = (false, 0, default);
+        }
         lock (_gate)
         {
-            if (_folders.TryGetValue(folder, out var known))
+            if (_folders.TryGetValue(folder, out var known) && known.State == state)
             {
                 return known;
             }
         }
-        (GenerationManifest, GenerationProvenance?)? generation = null;
+        var read = new Folder(state, null, null, null);
         try
         {
-            if (GenerationManifest.Read(Path.Combine(folder, GenerationManifest.FileName)) is { } manifest)
+            if (state.Exists && GenerationManifest.Read(path) is { } manifest)
             {
-                generation = (manifest, GenerationProvenance.From(folder, manifest));
+                var files = new Dictionary<string, GenerationManifestFile>(StringComparer.OrdinalIgnoreCase);
+                foreach (var file in manifest.Files)
+                {
+                    files[file.Path] = file;
+                }
+                read = new Folder(state, manifest, GenerationProvenance.From(folder, manifest), files);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Being written right now, or out of reach: as if there were none until it's forgotten.
+            // Being written right now, or out of reach: as if there were none until it changes.
         }
         lock (_gate)
         {
-            _folders[folder] = generation;
+            _folders[folder] = read;
         }
-        return generation;
+        return read;
     }
+
+    private sealed record Folder(
+        (bool Exists, long Length, DateTime Written) State,
+        GenerationManifest? Manifest,
+        GenerationProvenance? Provenance,
+        Dictionary<string, GenerationManifestFile>? Files);
 }

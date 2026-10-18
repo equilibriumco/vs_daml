@@ -77,6 +77,9 @@ public sealed class BindingIndex
         return new BindingIndex(documents, Version + 1);
     }
 
+    /// <summary>An empty index that is still a newer version than this one, to read a whole solution into.</summary>
+    public BindingIndex Cleared() => new(new Dictionary<(string, string), IReadOnlyList<BindingLocation>>(Documents), Version + 1);
+
     /// <summary>The index without what <paramref name="filePath"/> of a project held; this one when it held nothing.</summary>
     public BindingIndex WithoutDocument(string projectKey, string filePath) =>
         _documents.ContainsKey((projectKey, filePath)) ? WithDocument(projectKey, filePath, []) : this;

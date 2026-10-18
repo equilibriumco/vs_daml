@@ -34,10 +34,16 @@ internal sealed class GenerationsOnDisk : IDisposable
     /// <param name="manifestPackage">The package the manifest records, when it should disagree with the code.</param>
     /// <param name="recordPackage">Whether the manifest records the DAR's package at all.</param>
     /// <param name="framework">The target framework, whose generation root it goes in.</param>
-    public List<(string Path, string Text)> Publish(string project, string? @namespace = FixturePrefix, string package = GeneratedCode.KindsPackage, string? manifestPackage = null, bool recordPackage = true, string framework = "net10.0")
+    /// <param name="id">The generation's identity, which names its folder; by default one per project, prefix and package.</param>
+    public List<(string Path, string Text)> Publish(string project, string? @namespace = FixturePrefix, string package = GeneratedCode.KindsPackage, string? manifestPackage = null, bool recordPackage = true, string framework = "net10.0", string? id = null)
     {
-        var id = Hashing.Sha256Text(project + "|" + @namespace + "|" + package).Substring(0, 16);
+        id ??= Hashing.Sha256Text(project + "|" + @namespace + "|" + package).Substring(0, 16);
         var folder = Path.Combine(Root, project, @"obj\Debug", framework, "Daml", "Contracts-" + id);
+        // Publishing replaces the whole generation, as a build does.
+        if (Directory.Exists(folder))
+        {
+            Directory.Delete(folder, recursive: true);
+        }
         var written = new List<(string Path, string Text)>();
         var entries = new List<GenerationManifestFile>();
         foreach (var (fixturePath, fixtureText) in GeneratedCode.Files(GeneratedCode.Kinds))

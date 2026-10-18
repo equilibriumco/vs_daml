@@ -34,7 +34,11 @@ internal sealed class GeneratedTypeRoles
     private readonly Dictionary<ISymbol, GeneratedRole?> _roles = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<ISymbol, OwnerRole?> _owners = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<ISymbol, Dictionary<ISymbol, GeneratedRole>> _namespaces = new(SymbolEqualityComparer.Default);
+    private readonly Dictionary<ISymbol, string?> _choices = new(SymbolEqualityComparer.Default);
     private readonly Dictionary<SyntaxTree, SemanticModel> _models = [];
+
+    // One instance serves every document of a compilation, read from any thread.
+    private readonly object _gate = new();
 
     public GeneratedTypeRoles(Compilation compilation, DamlRuntimeTypes runtime)
     {
@@ -45,13 +49,16 @@ internal sealed class GeneratedTypeRoles
     /// <summary>What <paramref name="type"/> stands for, or null when the generator didn't write it.</summary>
     public GeneratedRole? Of(INamedTypeSymbol type)
     {
-        type = type.OriginalDefinition;
-        if (!_roles.TryGetValue(type, out var role))
+        lock (_gate)
         {
-            role = Classify(type);
-            _roles[type] = role;
+            type = type.OriginalDefinition;
+            if (!_roles.TryGetValue(type, out var role))
+            {
+                role = Classify(type);
+                _roles[type] = role;
+            }
+            return role;
         }
-        return role;
     }
 
     /// <summary>The choice a static <c>Choice&lt;…&gt;</c> property declares, or null.</summary>
@@ -61,6 +68,20 @@ internal sealed class GeneratedTypeRoles
         {
             return null;
         }
+        lock (_gate)
+        {
+            if (!_choices.TryGetValue(property, out var choice))
+            {
+                choice = ChoiceNameOf(property);
+                _choices[property] = choice;
+            }
+            return choice;
+        }
+    }
+
+    // Choice<…> ChoiceGive { get; } = new() { Name = new ChoiceName("Give"), … };
+    private string? ChoiceNameOf(IPropertySymbol property)
+    {
         foreach (var reference in property.DeclaringSyntaxReferences)
         {
             if (reference.GetSyntax() is not PropertyDeclarationSyntax { Initializer.Value: BaseObjectCreationExpressionSyntax { Initializer: { } initializer } })
@@ -71,7 +92,7 @@ internal sealed class GeneratedTypeRoles
             {
                 if (assignment is { Left: IdentifierNameSyntax { Identifier.ValueText: "Name" }, Right: BaseObjectCreationExpressionSyntax creation }
                     && StringArgument(creation, 0) is { } name
-                    && Same(Model(creation.SyntaxTree).GetTypeInfo(creation).Type, _runtime.ChoiceName))
+                    && Same(CreatedType(creation), _runtime.ChoiceName))
                 {
                     return name;
                 }
@@ -88,17 +109,20 @@ internal sealed class GeneratedTypeRoles
     public IReadOnlyList<(IFieldSymbol Member, string Constructor)> EnumConstructors(INamedTypeSymbol type)
     {
         var constructors = new List<(IFieldSymbol, string)>();
-        foreach (var reference in ToDamlEnum(type)?.DeclaringSyntaxReferences ?? [])
+        lock (_gate)
         {
-            var model = Model(reference.SyntaxTree);
-            foreach (var arm in reference.GetSyntax().DescendantNodes().OfType<SwitchExpressionArmSyntax>())
+            foreach (var reference in ToDamlEnum(type)?.DeclaringSyntaxReferences ?? [])
             {
-                if (arm is { Pattern: ConstantPatternSyntax pattern, Expression: InvocationExpressionSyntax { ArgumentList.Arguments: [{ Expression: LiteralExpressionSyntax literal }] } }
-                    && literal.IsKind(SyntaxKind.StringLiteralExpression)
-                    && model.GetSymbolInfo(pattern.Expression).Symbol is IFieldSymbol member
-                    && Same(member.ContainingType, type))
+                var model = Model(reference.SyntaxTree);
+                foreach (var arm in reference.GetSyntax().DescendantNodes().OfType<SwitchExpressionArmSyntax>())
                 {
-                    constructors.Add((member, literal.Token.ValueText));
+                    if (arm is { Pattern: ConstantPatternSyntax pattern, Expression: InvocationExpressionSyntax { ArgumentList.Arguments: [{ Expression: LiteralExpressionSyntax literal }] } }
+                        && literal.IsKind(SyntaxKind.StringLiteralExpression)
+                        && model.GetSymbolInfo(pattern.Expression).Symbol is IFieldSymbol member
+                        && Same(member.ContainingType, type))
+                    {
+                        constructors.Add((member, literal.Token.ValueText));
+                    }
                 }
             }
         }
@@ -239,6 +263,14 @@ internal sealed class GeneratedTypeRoles
         && list.Arguments[index].Expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression)
             ? literal.Token.ValueText
             : null;
+
+    // The type a `new` creates. Asking for the type of the whole expression binds the initializer it
+    // sits in, with the lambdas a choice's initializer has; binding just the written type name in
+    // its place is enough, and far cheaper.
+    private ITypeSymbol? CreatedType(BaseObjectCreationExpressionSyntax creation) =>
+        creation is ObjectCreationExpressionSyntax { Type: { } type }
+            ? Model(creation.SyntaxTree).GetSpeculativeTypeInfo(type.SpanStart, type, SpeculativeBindingOption.BindAsTypeOrNamespace).Type
+            : Model(creation.SyntaxTree).GetTypeInfo(creation).Type;
 
     private SemanticModel Model(SyntaxTree tree)
     {

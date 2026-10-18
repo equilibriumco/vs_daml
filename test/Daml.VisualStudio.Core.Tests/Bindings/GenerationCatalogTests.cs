@@ -102,7 +102,34 @@ public sealed class GenerationCatalogTests : IDisposable
         new GenerationCatalog().Find(point).ShouldNotBeNull().Provenance.ShouldBeNull();
     }
 
-    // Manifests are read once; a republished generation is read again once it is forgotten.
+    // A build publishes the generation again: the next lookup sees the new manifest.
+    [Fact, Trait("Category", "Unit")]
+    public void A_republished_generation_is_read_again()
+    {
+        var point = Write(@"Fixture\Kinds\Types\Point.cs");
+        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs");
+        var catalog = new GenerationCatalog();
+        catalog.Find(point).ShouldNotBeNull();
+
+        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs", @"Fixture\Kinds\Types\Other.cs");
+        File.SetLastWriteTimeUtc(Path.Combine(Folder, GenerationManifest.FileName), DateTime.UtcNow.AddMinutes(1));
+
+        catalog.Find(Write(@"Fixture\Kinds\Types\Other.cs")).ShouldNotBeNull();
+    }
+
+    // Before the first build there is no manifest; after it, there is.
+    [Fact, Trait("Category", "Unit")]
+    public void A_generation_published_after_a_lookup_is_found()
+    {
+        var point = Write(@"Fixture\Kinds\Types\Point.cs");
+        var catalog = new GenerationCatalog();
+        catalog.Find(point).ShouldBeNull();
+
+        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs");
+
+        catalog.Find(point).ShouldNotBeNull();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_forgotten_generation_is_read_again()
     {
@@ -110,13 +137,9 @@ public sealed class GenerationCatalogTests : IDisposable
         Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs");
         var catalog = new GenerationCatalog();
         catalog.Find(point).ShouldNotBeNull();
-        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Other.cs");
 
-        var cached = catalog.Find(point);
         catalog.Forget(Folder);
-        var reread = catalog.Find(point);
 
-        cached.ShouldNotBeNull();
-        reread.ShouldBeNull();
+        catalog.Find(point).ShouldNotBeNull();
     }
 }

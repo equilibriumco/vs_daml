@@ -20,6 +20,9 @@ function Get-BenchBudgets {
         'LexerBenchmarks.RelexAfterOneLineEdit'       = 1
         'LexerBenchmarks.RelexTokensAfterOneLineEdit' = 1
         'LayoutBenchmarks.AnalyzeLexedFile'           = 40
+        # The binding index of 500 generated Daml types on a fresh, bound compilation.
+        'BindingIndexBenchmarks.BuildWithColdCatalog' = 300
+        'BindingIndexBenchmarks.BuildWithWarmCatalog' = 300
     }
 }
 
