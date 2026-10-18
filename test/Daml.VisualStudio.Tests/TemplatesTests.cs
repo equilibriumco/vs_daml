@@ -78,7 +78,8 @@ public sealed class TemplatesTests : IDisposable
         var lines = Read(Entry(@"Templates/DamlTemplates.pkgdef")).Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
             .Where(l => !l.StartsWith(";", StringComparison.Ordinal));
 
-        lines.ShouldBe([@"[$RootKey$\TemplateEngine\Templates\DamlTemplates]", @"""InstalledPath""=""$PackageFolder$\Templates"""]);
+        // $PackageFolder$ is the pkgdef's own folder, which already is the one with the package.
+        lines.ShouldBe([@"[$RootKey$\TemplateEngine\Templates\DamlTemplates]", @"""InstalledPath""=""$PackageFolder$"""]);
         Assets("Microsoft.VisualStudio.VsPackage").Select(a => (string)a.Attribute("Path")!).ShouldContain(@"Templates\DamlTemplates.pkgdef");
     }
 
