@@ -75,11 +75,13 @@ public sealed class ScriptLensService : IDisposable
 
     /// <summary>
     /// Something happened to <paramref name="documentUri"/> that may change its lenses; they are
-    /// asked for once it has been quiet for the debounce time.
+    /// asked for once it has been quiet for the debounce time. Only Daml sources have lenses:
+    /// damlc publishes diagnostics for daml.yaml as well, and asked for its lenses it would parse it
+    /// as a Daml module and report a parse error against it.
     /// </summary>
     public void OnDocumentActivity(string documentUri)
     {
-        if (string.IsNullOrEmpty(documentUri))
+        if (string.IsNullOrEmpty(documentUri) || !Key(documentUri).EndsWith(".daml", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

@@ -86,6 +86,26 @@ public sealed class ScriptLensServiceTests : IDisposable
         _changes[0].DocumentUri.ShouldBe(Main);
     }
 
+    // damlc publishes diagnostics for daml.yaml too; asked for its lenses, it parses the file as a
+    // Daml module and reports "parse error on input '3.6'" against it.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("file:///C:/work/vs_daml/samples/single-package/daml.yaml")]
+    [InlineData("file:///C:/work/vs_daml/samples/multi-package.yaml")]
+    [InlineData("file:///C:/work/vs_daml/samples/single-package/.daml/dist/single-package-0.1.0.dar")]
+    public async Task Only_Daml_sources_are_asked_for_lenses(string uri)
+    {
+        _service.OnDocumentActivity(uri);
+        _service.OnDocumentActivity(Main.ToUpperInvariant().Replace(".DAML", ".Daml"));
+        _time.Advance(TimeSpan.FromMilliseconds(500));
+
+        await NextRequestAsync();
+        await Task.Delay(50);
+        lock (_requests)
+        {
+            _requests.ShouldHaveSingleItem().Uri.ShouldEndWith(".Daml");
+        }
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Activity_in_quick_succession_makes_one_request()
     {
