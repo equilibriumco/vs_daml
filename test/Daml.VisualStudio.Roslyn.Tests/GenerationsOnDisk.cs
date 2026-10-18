@@ -33,10 +33,11 @@ internal sealed class GenerationsOnDisk : IDisposable
     /// <param name="package">The package the code states.</param>
     /// <param name="manifestPackage">The package the manifest records, when it should disagree with the code.</param>
     /// <param name="recordPackage">Whether the manifest records the DAR's package at all.</param>
-    public List<(string Path, string Text)> Publish(string project, string? @namespace = FixturePrefix, string package = GeneratedCode.KindsPackage, string? manifestPackage = null, bool recordPackage = true)
+    /// <param name="framework">The target framework, whose generation root it goes in.</param>
+    public List<(string Path, string Text)> Publish(string project, string? @namespace = FixturePrefix, string package = GeneratedCode.KindsPackage, string? manifestPackage = null, bool recordPackage = true, string framework = "net10.0")
     {
         var id = Hashing.Sha256Text(project + "|" + @namespace + "|" + package).Substring(0, 16);
-        var folder = Path.Combine(Root, project, @"obj\Debug\net10.0\Daml", "Contracts-" + id);
+        var folder = Path.Combine(Root, project, @"obj\Debug", framework, "Daml", "Contracts-" + id);
         var written = new List<(string Path, string Text)>();
         var entries = new List<GenerationManifestFile>();
         foreach (var (fixturePath, fixtureText) in GeneratedCode.Files(GeneratedCode.Kinds))
