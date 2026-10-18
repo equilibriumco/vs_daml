@@ -47,6 +47,15 @@ public sealed class BindingIndexBuilderTests : IDisposable
         point.FilePath.ShouldEndWith(@"\Fixture\Kinds\Types\Point.cs");
     }
 
+    // Without the Daml runtime a project can't have bindings that compile: it isn't even looked through.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_project_without_the_Daml_runtime_isnt_read()
+    {
+        _solution.Add("App", _disk.Publish("App"), withDamlRuntime: false);
+
+        (await Build()).Count.ShouldBe(0);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task A_project_without_generated_files_adds_nothing()
     {

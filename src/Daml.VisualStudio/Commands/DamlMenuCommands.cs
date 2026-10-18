@@ -30,6 +30,9 @@ internal static class DamlMenuIds
     public const int OpenDocumentation = 0x0204;
     public const int ShowScriptResultsAtCaret = 0x0205;
 
+    // Not on the Daml menu: the C# code window's context menu, handled by the editor.
+    public const int GoToDamlDefinition = 0x0206;
+
     public const string DocumentationUrl = "https://docs.digitalasset.com/";
 }
 

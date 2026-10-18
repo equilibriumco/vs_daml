@@ -12,8 +12,9 @@ namespace Daml.VisualStudio.Roslyn.Bindings;
 /// <summary>
 /// Reads a solution's generated C# into a <see cref="BindingIndex"/>. Only documents whose files
 /// belong to a generation are compiled for it, so projects without generated code cost a path
-/// lookup per document. Assemblies the projects reference, NuGet packages of bindings among them,
-/// aren't read: nothing in them proves which Daml sources they came from.
+/// lookup per document, and projects without the Daml runtime nothing. Assemblies the projects
+/// reference, NuGet packages of bindings among them, aren't read: nothing in them proves which
+/// Daml sources they came from.
 /// </summary>
 public static class BindingIndexBuilder
 {
@@ -49,6 +50,14 @@ public static class BindingIndexBuilder
     public static Project? Project(Solution solution, string projectKey) =>
         Guid.TryParseExact(projectKey, "N", out var id) ? solution.GetProject(ProjectId.CreateFromSerialized(id)) : null;
 
+    /// <summary>
+    /// Whether <paramref name="project"/> compiles against the Daml runtime, as every project with
+    /// generated bindings does. Others arent read at all, so a solution without Daml costs nothing.
+    /// </summary>
+    public static bool ReferencesDamlRuntime(Project project) =>
+        (project ?? throw new ArgumentNullException(nameof(project))).MetadataReferences.OfType<PortableExecutableReference>()
+            .Any(r => string.Equals(System.IO.Path.GetFileName(r.FilePath), "Daml.Runtime.dll", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The target framework of a project loaded once per framework; null for a project with one.</summary>
     public static string? TargetFramework(Project project) =>
         PerFramework.Match((project ?? throw new ArgumentNullException(nameof(project))).Name) is { Success: true } match ? match.Groups["framework"].Value : null;
@@ -64,7 +73,7 @@ public static class BindingIndexBuilder
                 continue;
             }
             var key = ProjectKey(document.Project.Id);
-            if (catalog.Find(path) is null || await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false) is not { } model)
+            if (!ReferencesDamlRuntime(document.Project) || catalog.Find(path) is null || await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false) is not { } model)
             {
                 changes.Add((key, path, []));
                 continue;

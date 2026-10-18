@@ -22,15 +22,15 @@ internal sealed class TestSolution : IDisposable
 
     public void Dispose() => _workspace.Dispose();
 
-    /// <summary>Adds a project with <paramref name="files"/> and returns its id.</summary>
-    public ProjectId Add(string name, IEnumerable<(string Path, string Text)> files, IEnumerable<MetadataReference>? references = null)
+    /// <summary>Adds a project with <paramref name="files"/> and returns its id; without the Daml runtime when asked.</summary>
+    public ProjectId Add(string name, IEnumerable<(string Path, string Text)> files, IEnumerable<MetadataReference>? references = null, bool withDamlRuntime = true)
     {
         var id = ProjectId.CreateNewId(name);
         Solution = Solution.AddProject(ProjectInfo.Create(
             id, VersionStamp.Create(), name, name.Split(' ')[0], LanguageNames.CSharp,
             compilationOptions: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable),
             parseOptions: GeneratedCode.ParseOptions,
-            metadataReferences: GeneratedCode.References.Concat(references ?? [])));
+            metadataReferences: GeneratedCode.References.Where(r => withDamlRuntime || !Path.GetFileName(r.Display ?? "").StartsWith("Daml.", StringComparison.Ordinal)).Concat(references ?? [])));
         foreach (var (path, text) in files)
         {
             Solution = Solution.AddDocument(DocumentId.CreateNewId(id), Path.GetFileName(path), SourceText.From(text), filePath: path);

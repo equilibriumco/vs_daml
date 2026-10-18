@@ -20,6 +20,9 @@
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
     <!-- Same for WebView2: devenv has it in PrivateAssemblies, the test host doesn't. -->
     <PackageReference Include="Microsoft.Web.WebView2" />
+    <!-- And Roslyn, which devenv provides to the C# navigation parts. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" />
     <!-- Only to pin the version Workspace.Extensions.VS asks for; its build targets stay out. -->
     <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
     <PackageReference Include="MessagePack" />

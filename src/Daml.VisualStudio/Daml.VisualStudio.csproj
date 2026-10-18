@@ -57,6 +57,9 @@
     <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace" ExcludeAssets="runtime" />
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" ExcludeAssets="runtime" />
+    <!-- Roslyn, for Daml navigation in C# files: Visual Studio provides it. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" ExcludeAssets="runtime" />
     <PackageReference Include="Community.VisualStudio.Toolkit.17" />
     <!-- Compile only: Visual Studio ships WebView2 and redirects every version up to its own,
          so the VSIX carries none of it. The build assets go too; they would copy WebView2Loader.dll. -->
@@ -70,6 +73,7 @@
     <ProjectReference Include="..\Daml.VisualStudio.Core\Daml.VisualStudio.Core.csproj" />
     <ProjectReference Include="..\Daml.VisualStudio.LanguageServer\Daml.VisualStudio.LanguageServer.csproj" />
     <ProjectReference Include="..\Daml.Build.Core\Daml.Build.Core.csproj" />
+    <ProjectReference Include="..\Daml.VisualStudio.Roslyn\Daml.VisualStudio.Roslyn.csproj" />
   </ItemGroup>
 
   <ItemGroup>
