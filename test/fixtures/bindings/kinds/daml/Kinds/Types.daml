@@ -1,0 +1,24 @@
+module Kinds.Types where
+
+-- | A plain record.
+data Point = Point with
+    x : Int
+    y : Int
+  deriving (Eq, Show)
+
+-- | A variant with a record constructor and a plain one.
+data Shape
+  = Circle with radius : Decimal
+  | Square Decimal
+  | Empty
+  deriving (Eq, Show)
+
+-- | An enum.
+data Colour = Red | Green | Blue
+  deriving (Eq, Show)
+
+-- | A parameterised record.
+data Box a = Box with
+    content : a
+    label : Text
+  deriving (Eq, Show)

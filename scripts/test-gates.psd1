@@ -3,7 +3,7 @@
     # Which test projects hold which category. test.ps1 launches only these, and refuses to run
     # when a test project under test/ is listed nowhere, so a new project can't silently drop out.
     Projects = @{
-        Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
+        Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'Daml.VisualStudio.Roslyn.Tests', 'TestHelpers.Tests')
         # Tests that start real processes (the fake dpm, the fake language server, cmd.exe) and
         # wait on them: kept out of Unit, which stays fast and deterministic.
         Process     = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')

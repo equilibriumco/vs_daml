@@ -1,0 +1,37 @@
+module Kinds.Asset where
+
+import Kinds.Types
+
+-- | A template with fields of several kinds, a key and choices.
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    name : Text
+    position : Point
+    shape : Shape
+    colour : Colour
+    tags : [Text]
+    amount : Optional Decimal
+  where
+    signatory issuer
+    observer owner
+    key (issuer, name) : (Party, Text)
+    maintainer key._1
+
+    choice Give : ContractId Asset
+      with
+        newOwner : Party
+      controller owner
+      do create this with owner = newOwner
+
+    nonconsuming choice Describe : Text
+      controller owner
+      do pure name
+
+template Note
+  with
+    author : Party
+    text : Text
+  where
+    signatory author

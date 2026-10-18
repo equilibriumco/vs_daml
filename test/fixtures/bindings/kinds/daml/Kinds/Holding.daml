@@ -1,0 +1,16 @@
+module Kinds.Holding where
+
+data HoldingView = HoldingView with
+    owner : Party
+    amount : Decimal
+  deriving (Eq, Show)
+
+-- | An interface defined here and implemented elsewhere.
+interface Holding where
+  viewtype HoldingView
+  transferTo : Party -> Update (ContractId Holding)
+  choice Transfer : ContractId Holding
+    with
+      newOwner : Party
+    controller (view this).owner
+    do transferTo this newOwner
