@@ -12,6 +12,7 @@ internal sealed class DamlOptions : BaseOptionModel<DamlOptions>
 {
     private const string Tools = "Tools";
     private const string Server = "Language server";
+    private const string Bindings = "C# bindings";
 
     [Category(Tools)]
     [DisplayName("dpm path")]
@@ -55,6 +56,12 @@ internal sealed class DamlOptions : BaseOptionModel<DamlOptions>
     [DefaultValue(true)]
     public bool KeepAliveEnabled { get; set; } = true;
 
+    [Category(Bindings)]
+    [DisplayName("Update C# bindings in the background (preview)")]
+    [Description("After a Daml file is saved, build its Daml project and regenerate the C# of the projects that use it, without compiling them, so IntelliSense sees the change before the next build. Building the solution does the same whether this is on or not.")]
+    [DefaultValue(false)]
+    public bool LiveBindingSync { get; set; }
+
     /// <summary>The stored settings, loaded without blocking.</summary>
     public static async Task<DamlSettings> GetSettingsAsync() => (await GetLiveInstanceAsync()).ToSettings();
 
@@ -68,6 +75,7 @@ internal sealed class DamlOptions : BaseOptionModel<DamlOptions>
         ExtraArguments = ExtraArguments,
         AutorunAllTests = AutorunAllTests,
         KeepAliveEnabled = KeepAliveEnabled,
+        LiveBindingSync = LiveBindingSync,
     };
 }
 

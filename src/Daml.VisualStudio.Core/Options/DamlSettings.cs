@@ -32,6 +32,12 @@ public sealed record DamlSettings
     /// <summary>Ping the server regularly and restart it when it stops answering.</summary>
     public bool KeepAliveEnabled { get; init; } = true;
 
+    /// <summary>
+    /// Refresh the C# generated from Daml projects in the background after a Daml file is saved,
+    /// without building the C# projects. Off unless the user turns it on.
+    /// </summary>
+    public bool LiveBindingSync { get; init; }
+
     /// <summary>The kind of server the settings ask for.</summary>
     public ServerMode ServerMode => UseMultiIde ? ServerMode.MultiIde : ServerMode.Ide;
 

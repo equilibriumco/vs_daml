@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Security;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace Daml.Build.Core.Codegen;
 
@@ -66,6 +69,33 @@ public static class GeneratedProps
 
     // What MSBuild would read as a property, an item list, metadata or a wildcard first, then XML;
     // the other way round, MSBuild's escaping would break the XML entities.
+    /// <summary>
+    /// The files a list written by <see cref="Write"/> holds; none when there is no list or it can't
+    /// be read, as before a project's first build.
+    /// </summary>
+    public static IReadOnlyList<GeneratedFile> Read(string path)
+    {
+        if (path is null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+        try
+        {
+            return XDocument.Load(path).Root?.Descendants("Compile")
+                .Select(c => new GeneratedFile(Unescape((string?)c.Attribute("Include") ?? ""), Unescape((string?)c.Attribute("DamlGenerationId") ?? "")))
+                .Where(f => f.Path.Length > 0)
+                .ToList() ?? [];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or XmlException)
+        {
+            return [];
+        }
+    }
+
+    // MSBuild's %XX escapes; XML's own are undone by the parser.
+    private static string Unescape(string value) =>
+        Regex.Replace(value, "%([0-9A-Fa-f]{2})", m => ((char)Convert.ToInt32(m.Groups[1].Value, 16)).ToString());
+
     private static string Escape(string value) =>
         SecurityElement.Escape(value
             .Aggregate(new StringBuilder(), (escaped, c) => c is '%' or '$' or '@' or ';' or '*' or '?' or '\''

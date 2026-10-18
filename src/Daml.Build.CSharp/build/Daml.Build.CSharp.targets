@@ -135,18 +135,46 @@
     </ItemGroup>
     <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' != 'true'" PropsPath="$(_DamlGeneratedProps)" Files="@(_DamlGeneratedFile)" Visible="$(_DamlSourceMode)" />
     <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' == 'true'" PropsPath="$(_DamlGeneratedProps)" OnlyIfMissing="true" />
-    <Touch Condition="'$(DesignTimeBuild)' != 'true'" Files="$(_DamlBuiltStamp)" AlwaysCreate="true" />
+    <!-- Not after a refresh: the project itself wasn't compiled, so the next build has to. -->
+    <Touch Condition="'$(DesignTimeBuild)' != 'true' and '$(_DamlRefreshing)' != 'true'" Files="$(_DamlBuiltStamp)" AlwaysCreate="true" />
   </Target>
 
-  <!-- The Daml projects of DamlReference items, built with the configuration of this build; the
-       targeted build that refreshes bindings starts here. -->
-  <Target Name="DamlBuildReferences">
-    <MSBuild Projects="@(DamlReference)" Targets="Build" Properties="Configuration=$(Configuration)" BuildInParallel="$(BuildInParallel)" />
+  <!-- Only in a refresh: the Daml projects among the project references (DamlReference or plain),
+       built as this project's own build would build them, each with its own references. The refresh
+       runs with BuildProjectReferences=false, so C# libraries are only resolved, never compiled. The
+       projects are told apart with a probe of their own, so GetDamlDar of the build proper still
+       reads the DARs this target builds instead of an answer MSBuild kept from before. -->
+  <Target Name="DamlBuildReferences" DependsOnTargets="ResolveProjectReferences">
+    <PropertyGroup>
+      <_DamlRefreshing>true</_DamlRefreshing>
+    </PropertyGroup>
+    <MSBuild
+        Projects="@(_MSBuildProjectReferenceExistent)"
+        Targets="GetDamlDar"
+        Properties="%(_MSBuildProjectReferenceExistent.SetConfiguration); %(_MSBuildProjectReferenceExistent.SetPlatform); %(_MSBuildProjectReferenceExistent.SetTargetFramework); _DamlRefreshProbe=true"
+        RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)"
+        SkipNonexistentTargets="true"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlRefreshProbe" />
+    </MSBuild>
+    <ItemGroup>
+      <_DamlRefreshReference Include="@(_MSBuildProjectReferenceExistent->'%(FullPath)')" />
+      <_DamlRefreshDamlProject Include="@(_DamlRefreshProbe->'%(MSBuildSourceProjectFile)')" />
+      <_DamlRefreshOther Include="@(_DamlRefreshReference)" Exclude="@(_DamlRefreshDamlProject)" />
+      <_DamlRefreshReference Remove="@(_DamlRefreshOther)" />
+    </ItemGroup>
+    <MSBuild
+        Projects="@(_DamlRefreshReference)"
+        Targets="Build"
+        Properties="%(_DamlRefreshReference.SetConfiguration); %(_DamlRefreshReference.SetPlatform); %(_DamlRefreshReference.SetTargetFramework); BuildProjectReferences=true"
+        RemoveProperties="%(_DamlRefreshReference.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)" />
   </Target>
 
   <!-- Bindings brought up to date without compiling the project: what refreshing them in the
-       background runs. -->
-  <Target Name="DamlRefreshBindings" DependsOnTargets="DamlBuildReferences;DamlResolveDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
+       background runs, with BuildProjectReferences=false. ResolveReferences gives the Daml.Runtime
+       version the generator's checks need. -->
+  <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
 
   <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay. -->
   <Target Name="DamlCleanGenerated">

@@ -86,13 +86,13 @@ public class MSBuildContractTests
 
         chain.ShouldBe(["ResolveProjectReferences", "DamlResolveDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"]);
         MSBuildTargetGraph.CSharpHooks.ShouldContain(new HookContract("CoreCompileDependsOn", "DamlCollectGeneratedCompile", First: true));
-        dependsOn["DamlRefreshBindings"].ShouldBe(["DamlBuildReferences", .. chain.Skip(1)]);
+        dependsOn["DamlRefreshBindings"].ShouldBe(["ResolveReferences", "DamlBuildReferences", .. chain.Skip(1)]);
     }
 
     [Fact, Trait("Category", "Unit")]
     public void Every_target_depended_on_is_declared_or_belongs_to_msbuild()
     {
-        string[] msbuild = ["ResolveProjectReferences"];
+        string[] msbuild = ["ResolveProjectReferences", "ResolveReferences"];
         foreach (var graph in new[] { MSBuildTargetGraph.DamlSdk, MSBuildTargetGraph.CSharp })
         {
             var declared = graph.Select(t => t.Target).ToList();

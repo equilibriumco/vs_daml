@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Community.VisualStudio.Toolkit;
+using Daml.VisualStudio.Bindings;
 using Daml.VisualStudio.Core.Logging;
 using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
@@ -59,5 +60,11 @@ public sealed class DamlPackage : ToolkitPackage
 
         // The Extensions > Daml menu.
         await this.RegisterCommandsAsync();
+
+        // Background sync of bindings listens from here on; it acts only when the option is on.
+        if (componentModel?.GetService<BindingSyncService>() is { } bindingSync)
+        {
+            await bindingSync.StartAsync();
+        }
     }
 }

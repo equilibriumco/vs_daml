@@ -36,6 +36,7 @@ public class OptionsTests
             ExtraArguments = "--x",
             AutorunAllTests = true,
             KeepAliveEnabled = false,
+            LiveBindingSync = true,
         };
 
         options.ToSettings().ShouldBe(new DamlSettings
@@ -47,8 +48,9 @@ public class OptionsTests
             ExtraArguments = "--x",
             AutorunAllTests = true,
             KeepAliveEnabled = false,
+            LiveBindingSync = true,
         });
-        PageProperties().Length.ShouldBe(7, "a new setting has to be added to ToSettings too");
+        PageProperties().Length.ShouldBe(8, "a new setting has to be added to ToSettings too");
     }
 
     // The property grid shows a value in bold when it differs from [DefaultValue], and the

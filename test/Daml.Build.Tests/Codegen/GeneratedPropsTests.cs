@@ -85,4 +85,15 @@ public sealed class GeneratedPropsTests : IDisposable
 
         XDocument.Load(Props).Root!.Descendants("Compile").Count().ShouldBe(2);
     }
+
+    // What background sync reads back: the files as written, whatever characters they hold.
+    [Fact, Trait("Category", "Unit")]
+    public void A_list_reads_back_as_the_files_written()
+    {
+        GeneratedFile[] files = [.. Files, new(@"C:\work\App\obj\Debug\net10.0\Daml\Odd;$@%'-0123456789abcdef\A & B.cs", "0123456789abcdef")];
+        GeneratedProps.Write(Props, files, visible: true);
+
+        GeneratedProps.Read(Props).ShouldBe(files);
+        GeneratedProps.Read(Path.Combine(_root, "missing.g.props")).ShouldBeEmpty();
+    }
 }

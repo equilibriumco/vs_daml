@@ -50,8 +50,8 @@ internal static class MSBuildTargetGraph
         new("DamlComputeGenerationState", "DamlResolveDars"),
         new("DamlGenerateCSharp", "DamlComputeGenerationState"),
         new("DamlCollectGeneratedCompile", "DamlGenerateCSharp"),
-        new("DamlBuildReferences"),
-        new("DamlRefreshBindings", "DamlBuildReferences", "DamlResolveDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"),
+        new("DamlBuildReferences", "ResolveProjectReferences"),
+        new("DamlRefreshBindings", "ResolveReferences", "DamlBuildReferences", "DamlResolveDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"),
         new("DamlCleanGenerated"),
         new("DamlCollectUpToDateCheckItems", "DamlResolveDars"),
     ];

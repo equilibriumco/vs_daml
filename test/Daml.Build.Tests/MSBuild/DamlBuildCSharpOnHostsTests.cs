@@ -36,6 +36,9 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
             <Message Importance="high" Text="Input targets: $(CollectUpToDateCheckInputDesignTimeDependsOn)" />
             <Message Importance="high" Text="Built targets: $(CollectUpToDateCheckBuiltDesignTimeDependsOn)" />
           </Target>
+          <Target Name="ShowRuntime">
+            <Message Importance="high" Text="Runtime: $(_DamlRuntimeVersion)" />
+          </Target>
         """;
 
     private readonly MSBuildSandbox _sandbox = new();
@@ -130,13 +133,13 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         return command;
     }
 
-    // A fake dpm build that writes a real DAR, as the Daml project's build would.
-    private static FakeDpmCommand BuildsTheDar()
+    // A fake dpm build that writes a real DAR, as the Daml project's build would; another package name makes another DAR.
+    private static FakeDpmCommand BuildsTheDar(string package = "contracts-1.2.0")
     {
         var command = new FakeDpmCommand { Stderr = "Compiling contracts to a DAR.\nCreated .daml\\dist\\contracts-1.2.0.dar\n" };
         command.Args.Add("build");
         var dar = Path.Combine(Path.GetTempPath(), "daml-dar-" + Guid.NewGuid().ToString("N") + ".dar");
-        TestDar.Write(dar);
+        TestDar.Write(dar, package);
         command.WriteFiles[@".daml\dist\contracts-1.2.0.dar"] = "base64:" + Convert.ToBase64String(File.ReadAllBytes(dar));
         File.Delete(dar);
         return command;
@@ -247,6 +250,44 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         manifest.ShouldContain("sourceManifest=" + Path.Combine(_sandbox.Root, @"contracts\daml.yaml"));
         second.ExitCode.ShouldBe(0, second.Log);
         (DarBuilds(), GeneratorRuns()).ShouldBe((1, 1));
+    }
+
+    // What background sync runs after a Daml edit: the Daml project's DAR built again and the bindings
+    // regenerated from it, with the runtime known to the generator's checks, but neither the project nor
+    // its C# library compiled, and the up-to-date check's stamp left alone, so the next build compiles.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe, """<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""")]
+    [InlineData(MSBuildHost.Dotnet, """<ProjectReference Include="..\contracts\Contracts.msbuildproj" DamlNamespace="Contracts" />""")]
+    public void A_refresh_regenerates_from_the_new_DAR_and_compiles_nothing(MSBuildHost host, string reference)
+    {
+        App(reference + """<ProjectReference Include="..\Lib\Lib.csproj" />""");
+        _sandbox.Write(@"Lib\Lib.csproj", $"<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    {SingleFramework}\n  </PropertyGroup>\n</Project>\n");
+        _sandbox.Write(@"Lib\Helper.cs", "public static class Helper { }\n");
+        Contracts();
+        Scenario(BuildsTheDar(), Generator("Contracts"));
+        Uses("Contracts");
+        var first = Build(host);
+        first.ExitCode.ShouldBe(0, first.Log);
+        var app = Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll");
+        var (stamp, compiled, builds, runs) = (File.GetLastWriteTimeUtc(Stamp), File.GetLastWriteTimeUtc(app), DarBuilds(), GeneratorRuns());
+
+        _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n\n-- edited\n");
+        Scenario(BuildsTheDar("contracts-edited"), Generator("Contracts"));
+        var refresh = Build(host, "DamlRefreshBindings;ShowRuntime", restore: false, ("BuildProjectReferences", "false"));
+
+        refresh.ExitCode.ShouldBe(0, refresh.Log);
+        (DarBuilds() - builds, GeneratorRuns() - runs).ShouldBe((1, 1));
+        refresh.Log.ShouldContain("Runtime: " + SdkFeed.RuntimeVersion);
+        refresh.Log.ShouldNotContain("App -> ");
+        refresh.Log.ShouldNotContain("Lib -> ");
+        File.GetLastWriteTimeUtc(Stamp).ShouldBe(stamp);
+        File.GetLastWriteTimeUtc(app).ShouldBe(compiled);
+
+        // Background sync left the compiling to the next build, which needs no tool for it.
+        var next = Build(host, restore: false);
+        next.ExitCode.ShouldBe(0, next.Log);
+        File.GetLastWriteTimeUtc(app).ShouldBeGreaterThan(compiled);
+        (DarBuilds() - builds, GeneratorRuns() - runs).ShouldBe((1, 1));
     }
 
     // Visual Studio adds a plain ProjectReference: it brings the DAR and no assembly.

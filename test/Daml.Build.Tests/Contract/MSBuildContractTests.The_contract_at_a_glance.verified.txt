@@ -54,7 +54,7 @@ Daml.Build.CSharp targets
   DamlComputeGenerationState <- DamlResolveDars
   DamlGenerateCSharp <- DamlComputeGenerationState
   DamlCollectGeneratedCompile <- DamlGenerateCSharp
-  DamlBuildReferences
-  DamlRefreshBindings <- DamlBuildReferences; DamlResolveDars; DamlComputeGenerationState; DamlGenerateCSharp; DamlCollectGeneratedCompile
+  DamlBuildReferences <- ResolveProjectReferences
+  DamlRefreshBindings <- ResolveReferences; DamlBuildReferences; DamlResolveDars; DamlComputeGenerationState; DamlGenerateCSharp; DamlCollectGeneratedCompile
   DamlCleanGenerated
   DamlCollectUpToDateCheckItems <- DamlResolveDars
