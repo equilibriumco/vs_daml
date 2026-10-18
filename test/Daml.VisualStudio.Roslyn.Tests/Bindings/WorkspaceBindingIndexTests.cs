@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Bindings;
+using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Roslyn.Bindings;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
@@ -142,6 +143,42 @@ public sealed class WorkspaceBindingIndexTests : IDisposable
         _index.GenerationChanged(folder);
 
         await Until(i => i.Count == 0);
+    }
+
+    // A build republished the generation and the editor still holds the old build's code: the index
+    // reads what the generator wrote, so a template doesn't drop out until the editor catches up.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_generation_rebuilt_behind_the_editors_back_is_read_from_its_files_when_asked_again()
+    {
+        OpenApp();
+        Follow();
+        await Until(i => i.LocationsOf(Asset).Count == 1);
+
+        _disk.Publish("App", package: Other, id: Id);
+        _index!.ReadAgain();
+
+        var index = await Until(i => i.LocationsOf(new DamlSymbolId(Other, "Kinds.Asset", "Asset", null, DamlSymbolKind.Template)).Count == 1);
+        index.LocationsOf(Asset).ShouldBeEmpty();
+        index.LocationsOf(new DamlSymbolId(Other, "Kinds.Types", "Point", null, DamlSymbolKind.Record)).ShouldHaveSingleItem();
+    }
+
+    // Code and manifest disagree on disk as well: nothing to fall back on, and the log says why, once.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Generated_code_of_another_build_than_its_manifest_is_reported_once()
+    {
+        _solution.Add("App", _disk.Publish("App", id: Id, manifestPackage: Other));
+        _solution.Apply();
+        Follow();
+        var first = await Until(i => i.LocationsOf(new DamlSymbolId(Other, "Kinds.Types", "Point", null, DamlSymbolKind.Record)).Count == 1);
+
+        _index!.ReadAgain();
+        await Until(i => i.Version > first.Version);
+
+        first.LocationsOf(Asset).ShouldBeEmpty();
+        var warning = _logger.Entries.ShouldHaveSingleItem("one line for the generation, and none on the next read");
+        warning.Level.ShouldBe(DamlLogLevel.Warning);
+        warning.Message.ShouldContain($@"generated files of {_disk.Root}\App\obj\Debug\net10.0\Daml\Contracts-{Id}, such as ");
+        warning.Message.ShouldContain($"states package {Package}, but this generation is of package {Other}; the C# is from another build.");
     }
 
     public static IEnumerable<object[]> Kinds() =>

@@ -40,6 +40,17 @@ public class BindingIndexTests
         index.GenerationsFrom(@"C:\work\Other\daml.yaml").ShouldBeEmpty();
     }
 
+    // A line for the log whenever what the index holds changes, to tell why a lens or command went away.
+    [Fact, Trait("Category", "Unit")]
+    public void The_index_describes_what_it_holds()
+    {
+        BindingIndex.Empty.Describe().ShouldBe("no C# declarations");
+        WithAsset(WithAsset(BindingIndex.Empty, App), Service, "net10.0").Describe()
+            .ShouldBe($"4 C# declarations from Contracts-9de80d6cfe50bada (package {Generation.MainPackageId.Substring(0, 8)})");
+        WithAsset(BindingIndex.Empty, App).WithDocument(App, AssetFile, [At(Asset, App, AssetFile, "T:Fixture.Kinds.Asset.Asset", 100)]).Describe()
+            .ShouldBe($"1 C# declaration from Contracts-9de80d6cfe50bada (package {Generation.MainPackageId.Substring(0, 8)})");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void An_empty_index_knows_nothing()
     {

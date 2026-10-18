@@ -130,6 +130,23 @@ public sealed class GenerationCatalogTests : IDisposable
         catalog.Find(point).ShouldNotBeNull();
     }
 
+    // A virus scanner or the build holding the manifest for a moment mustn't hide the generation
+    // until the manifest changes again, which may be never.
+    [Fact, Trait("Category", "Unit")]
+    public void A_manifest_that_couldnt_be_read_is_read_again_on_the_next_lookup()
+    {
+        var point = Write(@"Fixture\Kinds\Types\Point.cs");
+        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs");
+        var catalog = new GenerationCatalog();
+
+        using (new FileStream(Path.Combine(Folder, GenerationManifest.FileName), FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            catalog.Find(point).ShouldBeNull();
+        }
+
+        catalog.Find(point).ShouldNotBeNull();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_forgotten_generation_is_read_again()
     {

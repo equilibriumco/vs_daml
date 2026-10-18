@@ -19,8 +19,8 @@ public sealed record GenerationEntry(string Folder, string RelativePath, string 
 /// Tells which generation a C# file belongs to: the nearest folder above it with a generation
 /// manifest, and only when that manifest lists the file. Whatever else is in a generation's
 /// folder isn't the generator's. A manifest is read again when its size or time changes, as
-/// when a build publishes the generation again or a first build publishes it at all; a file is
-/// hashed again only when its own size or time changed.
+/// when a build publishes the generation again or a first build publishes it at all, or on the
+/// next lookup when it couldn't be read; a file is hashed again only when its own size or time changed.
 /// </summary>
 public sealed class GenerationCatalog
 {
@@ -150,7 +150,9 @@ public sealed class GenerationCatalog
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Being written right now, or out of reach: as if there were none until it changes.
+            // Held by a scanner or the build for a moment: as if there were none, and not remembered,
+            // since the manifest may never change again to make this look once more.
+            return read;
         }
         lock (_gate)
         {

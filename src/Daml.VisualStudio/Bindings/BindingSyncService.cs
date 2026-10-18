@@ -35,6 +35,7 @@ internal sealed class BindingSyncService : IDisposable
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly IDamlLogger _logger;
     private readonly DamlLanguageClient _client;
+    private readonly DamlBindingService _bindings;
     private readonly SolutionProjectConfigurations _solution;
     private readonly BindingErrorList _errors;
     private readonly BindingSyncScheduler _scheduler;
@@ -45,11 +46,12 @@ internal sealed class BindingSyncService : IDisposable
     private bool _started;
 
     [ImportingConstructor]
-    public BindingSyncService(JoinableTaskContext joinableTaskContext, IDamlLogger logger, DamlLanguageClient client)
+    public BindingSyncService(JoinableTaskContext joinableTaskContext, IDamlLogger logger, DamlLanguageClient client, DamlBindingService bindings)
     {
         _joinableTaskFactory = joinableTaskContext.Factory;
         _logger = logger;
         _client = client;
+        _bindings = bindings;
         _solution = new SolutionProjectConfigurations(_joinableTaskFactory);
         _errors = new BindingErrorList(_joinableTaskFactory);
         var files = new PhysicalFileSystem();
@@ -129,6 +131,8 @@ internal sealed class BindingSyncService : IDisposable
                 break;
             case BindingSyncState.Ready:
                 EndProgress(status.Target);
+                // Published outside Visual Studio, like a build, so the index reads it whole.
+                _bindings.ReadAgain();
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"The Daml bindings of {name} are up to date{(status.Message is { } how ? ": " + how : ".")}");
                 _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the C# bindings of {name} are up to date")).FileAndForget("daml/bindingSync/status");
                 break;

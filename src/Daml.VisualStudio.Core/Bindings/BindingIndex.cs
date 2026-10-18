@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace Daml.VisualStudio.Core.Bindings;
@@ -47,6 +48,23 @@ public sealed class BindingIndex
         _lookups.Value.Generations
             .Where(g => g.Source is { } source && string.Equals(source.ManifestPath, sourceManifest, StringComparison.OrdinalIgnoreCase))
             .ToList();
+
+    /// <summary>
+    /// What the index holds, in a line for the log: how many declarations, and the generations
+    /// (folder and the start of the package ID) they come from.
+    /// </summary>
+    public string Describe()
+    {
+        if (Count == 0)
+        {
+            return "no C# declarations";
+        }
+        var generations = _lookups.Value.Generations
+            .Select(g => $"{Path.GetFileName(g.Folder)} (package {g.MainPackageId.Substring(0, Math.Min(8, g.MainPackageId.Length))})")
+            .Distinct()
+            .OrderBy(g => g, StringComparer.OrdinalIgnoreCase);
+        return $"{Count} C# declaration{(Count == 1 ? "" : "s")} from {string.Join(", ", generations)}";
+    }
 
     /// <summary>The physical declarations of <paramref name="symbol"/>: a file linked into several projects counts once.</summary>
     public IReadOnlyList<BindingDeclaration> DeclarationsOf(DamlSymbolId symbol) =>
