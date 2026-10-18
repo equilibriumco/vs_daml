@@ -145,14 +145,19 @@ public sealed class LanguageServerHostTests
         requests.ShouldBe(1);
     }
 
-    [Fact, Trait("Category", "Unit")]
-    public void Changes_under_the_build_output_are_ignored()
+    // The package database, and the manifests the C# generator writes for itself in the work folder
+    // of a generation root on every run, which a solution's C# projects keep under the workspace.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\repo\.daml\package-database\2.3\lib-1.0.0-abc\daml.yaml")]
+    [InlineData(@"C:\repo\App\obj\Debug\net10.0\Daml\.daml-work\9de80d6cfe50bada.run\daml.yaml")]
+    [InlineData(@"C:\repo\App\obj\Debug\net10.0\Daml\.daml-work\9de80d6cfe50bada.run\multi-package.yaml")]
+    public void Changes_under_the_build_output_are_ignored(string path)
     {
         var time = new FakeTimeProvider();
         using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
         host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
 
-        host.OnFileChanged(@"C:\repo\.daml\package-database\2.3\lib-1.0.0-abc\daml.yaml");
+        host.OnFileChanged(path);
         time.Advance(TimeSpan.FromSeconds(1));
 
         host.Supervisor.PendingRestartReasons.ShouldBeEmpty();

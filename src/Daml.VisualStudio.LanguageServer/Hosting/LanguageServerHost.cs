@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Codegen;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Processes;
 using Daml.VisualStudio.Core.Logging;
@@ -348,9 +349,10 @@ public sealed class LanguageServerHost : IDisposable
         {
             throw new ArgumentNullException(nameof(path));
         }
-        if (path.IndexOf(@"\.daml\", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (path.IndexOf(@"\.daml\", StringComparison.OrdinalIgnoreCase) >= 0
+            || path.IndexOf($@"\{GenerationPublisher.WorkFolderName}\", StringComparison.OrdinalIgnoreCase) >= 0)
         {
-            return; // build output, including the manifests of extracted packages
+            return; // build output: the manifests of extracted packages, and those the C# generator writes for each run
         }
         var name = Path.GetFileName(path);
         var isPackageManifest = name.Equals(WorkspaceLocator.PackageManifestName, StringComparison.OrdinalIgnoreCase);
