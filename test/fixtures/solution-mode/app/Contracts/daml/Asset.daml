@@ -1,0 +1,12 @@
+module Asset where
+
+import Lib (Label(..))
+
+template Asset
+  with
+    issuer : Party
+    owner : Party
+    label : Label
+  where
+    signatory issuer
+    observer owner

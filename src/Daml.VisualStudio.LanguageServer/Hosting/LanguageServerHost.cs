@@ -409,7 +409,7 @@ public sealed class LanguageServerHost : IDisposable
         {
             workspace = _workspace;
         }
-        if (workspace is not null && DamlPath.IsSameOrUnder(folder, workspace.WorkspaceRoot))
+        if (workspace is not null && workspace.Contains(folder))
         {
             RequestRestartAfterQuiet("The package database was removed (clean)");
         }

@@ -53,6 +53,12 @@ public sealed record WorkspaceContext
     /// <summary>Package folders known to belong to the workspace, including listed ones outside the root.</summary>
     public IReadOnlyList<string> Packages { get; init; } = [];
 
+    /// <summary>
+    /// The packages of the solution's Daml projects the context was made for, wherever they are;
+    /// empty for an open folder.
+    /// </summary>
+    public IReadOnlyList<string> SolutionPackages { get; init; } = [];
+
     /// <summary>Increases with every new context; results from an older one are stale.</summary>
     public required int Version { get; init; }
 
@@ -65,6 +71,16 @@ public sealed record WorkspaceContext
     /// </summary>
     public bool Contains(string path) =>
         DamlPath.IsSameOrUnder(path, WorkspaceRoot) || Packages.Any(p => DamlPath.IsSameOrUnder(path, p));
+
+    /// <summary>
+    /// True when the context was made for exactly these solution packages; a project added to or
+    /// removed from the solution makes a new one due.
+    /// </summary>
+    public bool IsFor(IEnumerable<string> solutionPackages)
+    {
+        var current = new HashSet<string>(SolutionPackages, DamlPath.Comparer);
+        return current.SetEquals(solutionPackages.Select(DamlPath.Normalize));
+    }
 
     /// <summary>
     /// True when a change to <paramref name="path"/> (created, edited or deleted) can change which

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Manifests;
 using Daml.VisualStudio.Core.Project;
@@ -27,9 +29,16 @@ public sealed class WorkspaceDiscovery
     /// The context for <paramref name="workspaceRoot"/> and <paramref name="activeFile"/>, either of
     /// which may be unknown, for the kind of server in <paramref name="mode"/>.
     /// </summary>
-    public WorkspaceContext? Discover(string? workspaceRoot, string? activeFile, int version, ServerMode mode = ServerMode.MultiIde)
+    /// <param name="workspaceRoot">The opened folder or the solution's folder.</param>
+    /// <param name="activeFile">The active Daml file.</param>
+    /// <param name="version">The context's version.</param>
+    /// <param name="mode">How the server is started.</param>
+    /// <param name="solutionManifests">The daml.yaml of each Daml project of the solution; none for an open folder.</param>
+    public WorkspaceContext? Discover(string? workspaceRoot, string? activeFile, int version, ServerMode mode = ServerMode.MultiIde, IReadOnlyCollection<string>? solutionManifests = null)
     {
-        // With no Daml file active, start from a manifest at the root, as if it had been opened.
+        var manifests = (solutionManifests ?? []).Where(_fileSystem.FileExists).Select(DamlPath.Normalize).Distinct(DamlPath.Comparer).ToList();
+        // With no Daml file active, start from a manifest at the root, as if it had been opened,
+        // or else from a project of the solution, one in its folder if there is one.
         var startFrom = activeFile;
         if (startFrom is null && workspaceRoot is not null)
         {
@@ -42,6 +51,7 @@ public sealed class WorkspaceDiscovery
                     break;
                 }
             }
+            startFrom ??= manifests.FirstOrDefault(m => DamlPath.IsSameOrUnder(m, workspaceRoot)) ?? manifests.FirstOrDefault();
         }
         if (startFrom is null)
         {
@@ -59,6 +69,17 @@ public sealed class WorkspaceDiscovery
         var root = workspaceRoot
             ?? (location.MultiPackage is { } multiPackage ? Path.GetDirectoryName(multiPackage.ManifestPath)!
                 : location.Package?.PackageRoot ?? Path.GetDirectoryName(startFrom)!);
-        return _locator.Resolve(root, startFrom, mode, version).Context;
+        return _locator.Resolve(root, startFrom, mode, version, PackagesOf(manifests)).Context;
     }
+
+    /// <summary>
+    /// The packages the solution's Daml projects stand for: the folders of the manifests that
+    /// exist, each once. A project whose daml.yaml isn't there yet has no package.
+    /// </summary>
+    public IReadOnlyList<string> PackagesOf(IEnumerable<string> manifests) =>
+        (manifests ?? throw new ArgumentNullException(nameof(manifests)))
+            .Where(_fileSystem.FileExists)
+            .Select(m => Path.GetDirectoryName(DamlPath.Normalize(m))!)
+            .Distinct(DamlPath.Comparer)
+            .ToList();
 }

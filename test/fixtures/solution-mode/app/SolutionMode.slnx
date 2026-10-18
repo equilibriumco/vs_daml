@@ -1,0 +1,7 @@
+<Solution>
+  <!-- Daml projects are Common Project System projects, which a solution has to name by type. Lib lies outside
+       the solution folder on purpose. -->
+  <Project Path="Contracts/Contracts.msbuildproj" Type="13b669be-bb05-4ddf-9536-439f39a36129" />
+  <Project Path="Contracts.Tests/Contracts.Tests.msbuildproj" Type="13b669be-bb05-4ddf-9536-439f39a36129" />
+  <Project Path="../shared/Lib/Lib.msbuildproj" Type="13b669be-bb05-4ddf-9536-439f39a36129" />
+</Solution>

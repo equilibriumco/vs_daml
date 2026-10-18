@@ -1,0 +1,5 @@
+module Lib where
+
+-- | What the contracts package takes from this one, for Go To Definition to cross packages.
+data Label = Label with text : Text
+  deriving (Eq, Show)

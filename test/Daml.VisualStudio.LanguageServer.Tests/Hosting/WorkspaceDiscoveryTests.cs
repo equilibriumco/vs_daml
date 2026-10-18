@@ -42,6 +42,23 @@ public class WorkspaceDiscoveryTests
         discovery.Discover(@"C:\repo", null, version: 2, ServerMode.Ide).ShouldBeNull("no package to serve without a Daml file");
     }
 
+    // A solution folder with no manifest of its own: its Daml projects start the server, from one
+    // inside the folder if there is one, and every one of them is served.
+    [Fact, Trait("Category", "Unit")]
+    public void Without_an_active_file_the_solutions_Daml_projects_start_the_server()
+    {
+        _files.AddFile(@"C:\sln\Contracts\daml.yaml", "sdk-version: 3.6.0\nname: contracts\nversion: 1.0.0\nsource: daml\n");
+        _files.AddFile(@"C:\shared\Lib\daml.yaml", "sdk-version: 3.6.0\nname: lib\nversion: 1.0.0\nsource: daml\n");
+        var discovery = new WorkspaceDiscovery(_files, new YamlManifestReader(_files));
+
+        var context = discovery.Discover(@"C:\sln", null, 1, ServerMode.MultiIde, [@"C:\shared\Lib\daml.yaml", @"C:\sln\Contracts\daml.yaml"]).ShouldNotBeNull();
+
+        context.PackageRoot.ShouldBe(@"C:\sln\Contracts");
+        context.Packages.ShouldBe([@"C:\sln\Contracts", @"C:\shared\Lib"], ignoreOrder: true);
+        context.ServerWorkingDirectory.ShouldBe(@"C:\sln");
+        discovery.Discover(@"C:\sln", null, 2, ServerMode.MultiIde, [@"C:\sln\New\daml.yaml"]).ShouldBeNull("a project without its daml.yaml yet has nothing to serve");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Without_an_active_file_a_manifest_at_the_root_is_enough()
     {

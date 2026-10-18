@@ -48,6 +48,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     private readonly WorkspaceWatcher _watcher;
     private readonly LanguageServerNotifier _notifier;
     private readonly ScriptResultsWindows _scriptResults;
+    private readonly SolutionDamlProjects _solutionProjects;
+    private readonly SolutionPackagesTracker _solutionPackages;
+    private readonly MultiPackageOffer _multiPackageOffer;
+    private readonly MultiPackageOfferBar _multiPackageOfferBar;
     private readonly DamlSettingsMonitor _settings = new();
     private int _version;
     private string? _openedFolder;
@@ -67,6 +71,9 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _notifier = new LanguageServerNotifier(_joinableTaskFactory, logger, _host);
         _host.ProblemRaised += _notifier.OnProblemRaised;
         _host.ReadinessChanged += _notifier.OnReadinessChanged;
+        _solutionProjects = new SolutionDamlProjects(_joinableTaskFactory, logger);
+        _multiPackageOffer = new MultiPackageOffer(files, manifests);
+        _multiPackageOfferBar = new MultiPackageOfferBar(_joinableTaskFactory, logger, _host, _multiPackageOffer);
         // Solution events have to be subscribed on the UI thread; nothing waits for it.
         _joinableTaskFactory.RunAsync(async () =>
         {
@@ -75,6 +82,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             VS.Events.SolutionEvents.OnAfterOpenSolution += OnSolutionOpened;
             VS.Events.SolutionEvents.OnAfterCloseFolder += OnFolderClosed;
             VS.Events.SolutionEvents.OnAfterCloseSolution += OnWorkspaceClosed;
+            VS.Events.SolutionEvents.OnAfterOpenProject += OnProjectsChanged;
+            VS.Events.SolutionEvents.OnBeforeCloseProject += OnProjectsChanged;
+            VS.Events.SolutionEvents.OnAfterRenameProject += OnProjectsChanged;
+            VS.Events.SolutionEvents.OnAfterBackgroundSolutionLoadComplete += OnSolutionLoaded;
         }).FileAndForget("daml/languageClient/solutionEvents");
         _settings.Changed += OnSettingsChanged;
         // Library sources sit under paths longer than Visual Studio opens; F12 goes to short copies.
@@ -89,6 +100,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _host.SessionReady += (_, e) => VirtualResources.OnSessionReady(e.SessionId);
         CustomMessageTarget = new DamlCustomMessageTarget(VirtualResources, installs, logger);
         _sequence = new ClientRestartSequence(_host, DiscoverAsync, () => RaiseAsync(StopAsync), () => RaiseAsync(StartAsync));
+        _solutionPackages = new SolutionPackagesTracker(
+            _discovery, _solutionProjects.ManifestsAsync, () => _host.Workspace, () => _sequence.FolderChangedAsync(CancellationToken.None), TimeProvider.System);
     }
 
     public event AsyncEventHandler<EventArgs>? StartAsync;
@@ -169,6 +182,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         }
         _watcher.Dispose();
         _settings.Dispose();
+        _solutionPackages.Dispose();
         _sequence.Dispose();
         VirtualResources.Dispose();
         _host.Dispose(); // closes the job, so the server can't outlive VS
@@ -181,6 +195,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         VS.Events.SolutionEvents.OnAfterOpenSolution -= OnSolutionOpened;
         VS.Events.SolutionEvents.OnAfterCloseFolder -= OnFolderClosed;
         VS.Events.SolutionEvents.OnAfterCloseSolution -= OnWorkspaceClosed;
+        VS.Events.SolutionEvents.OnAfterOpenProject -= OnProjectsChanged;
+        VS.Events.SolutionEvents.OnBeforeCloseProject -= OnProjectsChanged;
+        VS.Events.SolutionEvents.OnAfterRenameProject -= OnProjectsChanged;
+        VS.Events.SolutionEvents.OnAfterBackgroundSolutionLoadComplete -= OnSolutionLoaded;
     }
 
     private async Task<(WorkspaceContext? Workspace, LanguageServerOptions Options)> DiscoverAsync(CancellationToken cancellationToken)
@@ -199,16 +217,39 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         var view = await VS.Documents.GetActiveDocumentViewAsync();
         var activeFile = view?.FilePath is { } path && path.EndsWith(".daml", StringComparison.OrdinalIgnoreCase) ? path : null;
         var settings = await DamlOptions.GetSettingsAsync();
+        // An open folder has no projects; a solution's Daml projects are its packages.
+        var solutionManifests = await _solutionProjects.ManifestsAsync();
         await TaskScheduler.Default;
 
         ApplyKeepAlive(settings);
-        var workspace = _discovery.Discover(root, activeFile, Interlocked.Increment(ref _version), settings.ServerMode);
-        _watcher.Watch(workspace?.WorkspaceRoot ?? root);
+        var workspace = _discovery.Discover(root, activeFile, Interlocked.Increment(ref _version), settings.ServerMode, solutionManifests);
+        _watcher.Watch(workspace?.WorkspaceRoot ?? root, workspace?.SolutionPackages);
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, workspace is null
             ? $"No Daml workspace in {root ?? "(no folder)"}."
             : $"Daml workspace {workspace.WorkspaceRoot}; server runs in {workspace.ServerWorkingDirectory}.");
         _settings.MarkApplied(settings);
+        OfferMultiPackage(root, solutionManifests);
         return (workspace, settings.ToLanguageServerOptions());
+    }
+
+    // Two or more Daml projects navigate into each other's sources only through a multi-package.yaml listing them.
+    private void OfferMultiPackage(string? solutionDirectory, IReadOnlyList<string> solutionManifests)
+    {
+        if (solutionDirectory is null || solutionManifests.Count < 2)
+        {
+            return;
+        }
+        try
+        {
+            if (_multiPackageOffer.ToShow(solutionDirectory, solutionManifests) is { } proposal)
+            {
+                _multiPackageOfferBar.Show(solutionDirectory, proposal);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, $"Couldn't check the solution's multi-package.yaml: {ex.Message}", ex);
+        }
     }
 
     private void ApplyKeepAlive(DamlSettings settings)
@@ -273,4 +314,11 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     private void OnWorkspaceOpened() =>
         _joinableTaskFactory.RunAsync(() => _sequence.FolderChangedAsync(CancellationToken.None)).FileAndForget("daml/languageClient/folderChanged");
+
+    // A solution loads its projects one by one, and the user adds, removes and renames them; the
+    // tracker restarts the server once that settles, if the Daml packages are not the same.
+    private void OnProjectsChanged(Project? project) => OnSolutionLoaded();
+
+    private void OnSolutionLoaded() =>
+        _joinableTaskFactory.RunAsync(_solutionPackages.OnProjectsChangedAsync).FileAndForget("daml/languageClient/projectsChanged");
 }

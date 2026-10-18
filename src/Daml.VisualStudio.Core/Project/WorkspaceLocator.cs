@@ -67,7 +67,15 @@ public sealed class WorkspaceLocator
     /// runs in the nearest folder above the file that has one (if it is inside the workspace),
     /// otherwise in the workspace root. In single-package mode it runs in the package folder.
     /// </summary>
-    public WorkspaceResolution Resolve(string workspaceRoot, string openedFile, ServerMode mode, int version)
+    /// <param name="workspaceRoot">The opened folder, or the solution's folder.</param>
+    /// <param name="openedFile">The file the session starts for.</param>
+    /// <param name="mode">How the server is started.</param>
+    /// <param name="version">The context's version.</param>
+    /// <param name="solutionPackages">
+    /// The package folders of the solution's Daml projects, which the multi-package server serves
+    /// wherever they are; none for an open folder.
+    /// </param>
+    public WorkspaceResolution Resolve(string workspaceRoot, string openedFile, ServerMode mode, int version, IReadOnlyCollection<string>? solutionPackages = null)
     {
         var root = DamlPath.Normalize(workspaceRoot);
         var location = FindForFile(openedFile);
@@ -110,6 +118,12 @@ public sealed class WorkspaceLocator
         {
             packages.Add(packageRoot);
         }
+        var fromSolution = (solutionPackages ?? []).Select(DamlPath.Normalize).Distinct(DamlPath.Comparer).ToList();
+        // The single-package server knows its own package only; others' files must not reach it.
+        if (mode == ServerMode.MultiIde)
+        {
+            packages.AddRange(fromSolution.Where(p => !packages.Contains(p, DamlPath.Comparer)));
+        }
 
         var context = new WorkspaceContext
         {
@@ -119,6 +133,7 @@ public sealed class WorkspaceLocator
             PackageRoot = packageRoot,
             MultiPackageManifestPath = mode == ServerMode.MultiIde && multiPackage is not null ? multiPackage.ManifestPath : null,
             Packages = packages,
+            SolutionPackages = fromSolution,
             Version = version,
             Diagnostics = diagnostics,
         };

@@ -1,0 +1,8 @@
+<Project Sdk="Daml.Sdk/0.2.0-preview.0">
+
+  <!-- The tests use the contracts' DAR, and Lib's through it, so those projects build first. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Contracts\Contracts.msbuildproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

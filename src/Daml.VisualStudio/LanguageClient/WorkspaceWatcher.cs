@@ -1,13 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Daml.Build.Core.FileSystem;
 using Daml.VisualStudio.LanguageServer.Hosting;
 
 namespace Daml.VisualStudio.LanguageClient;
 
 /// <summary>
-/// Watches the workspace root for the changes the server won't notice by itself: manifest
-/// edits, and the package database vanishing under a clean. What it sees goes to the host,
-/// which decides whether a restart is due.
+/// Watches the workspace root, and the solution's packages outside it, for the changes the server
+/// won't notice by itself: manifest edits, and the package database vanishing under a clean. What
+/// it sees goes to the host, which decides whether a restart is due.
 /// </summary>
 internal sealed class WorkspaceWatcher : IDisposable
 {
@@ -17,39 +20,35 @@ internal sealed class WorkspaceWatcher : IDisposable
 
     private readonly LanguageServerHost _host;
     private readonly object _gate = new();
-    private FileSystemWatcher? _files;
-    private FileSystemWatcher? _folders;
-    private string? _root;
+    private readonly List<FileSystemWatcher> _watchers = [];
+    private List<string> _folders = [];
 
     public WorkspaceWatcher(LanguageServerHost host) => _host = host;
 
-    /// <summary>Watches <paramref name="root"/>; the same root again, or none, changes nothing.</summary>
-    public void Watch(string? root)
+    /// <summary>
+    /// Watches <paramref name="root"/> and those of <paramref name="packages"/> that lie outside it;
+    /// the same folders again, or no root, change nothing.
+    /// </summary>
+    public void Watch(string? root, IEnumerable<string>? packages = null)
     {
+        if (root is null || !Directory.Exists(root))
+        {
+            return;
+        }
+        var folders = new List<string> { root };
+        folders.AddRange((packages ?? []).Where(p => !DamlPath.IsSameOrUnder(p, root) && Directory.Exists(p)).Distinct(DamlPath.Comparer));
         lock (_gate)
         {
-            if (root is null || string.Equals(root, _root, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(root))
+            if (folders.SequenceEqual(_folders, DamlPath.Comparer))
             {
                 return;
             }
-            _files?.Dispose();
-            _folders?.Dispose();
-            _root = root;
-
-            // One filter only on .NET Framework; the host ignores YAML files that aren't manifests.
-            _files = new FileSystemWatcher(root, "*.yaml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, InternalBufferSize = BufferSize };
-            _files.Changed += (_, e) => _host.OnFileChanged(e.FullPath);
-            _files.Created += (_, e) => _host.OnFileChanged(e.FullPath);
-            _files.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
-            _files.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
-            _files.Error += (_, _) => _host.OnWatcherOverflow();
-            _files.EnableRaisingEvents = true;
-
-            // dpm clean deletes the package database damlc reads library sources from.
-            _folders = new FileSystemWatcher(root) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = BufferSize };
-            _folders.Deleted += (_, e) => _host.OnDirectoryRemoved(e.FullPath);
-            _folders.Error += (_, _) => _host.OnWatcherOverflow();
-            _folders.EnableRaisingEvents = true;
+            Stop();
+            _folders = folders;
+            foreach (var folder in folders)
+            {
+                WatchFolder(folder);
+            }
         }
     }
 
@@ -57,11 +56,37 @@ internal sealed class WorkspaceWatcher : IDisposable
     {
         lock (_gate)
         {
-            _files?.Dispose();
-            _files = null;
-            _folders?.Dispose();
-            _folders = null;
-            _root = null;
+            Stop();
+            _folders = [];
         }
+    }
+
+    private void WatchFolder(string folder)
+    {
+        // One filter only on .NET Framework; the host ignores YAML files that aren't manifests.
+        var files = new FileSystemWatcher(folder, "*.yaml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, InternalBufferSize = BufferSize };
+        files.Changed += (_, e) => _host.OnFileChanged(e.FullPath);
+        files.Created += (_, e) => _host.OnFileChanged(e.FullPath);
+        files.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
+        files.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
+        files.Error += (_, _) => _host.OnWatcherOverflow();
+        files.EnableRaisingEvents = true;
+        _watchers.Add(files);
+
+        // dpm clean deletes the package database damlc reads library sources from.
+        var directories = new FileSystemWatcher(folder) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = BufferSize };
+        directories.Deleted += (_, e) => _host.OnDirectoryRemoved(e.FullPath);
+        directories.Error += (_, _) => _host.OnWatcherOverflow();
+        directories.EnableRaisingEvents = true;
+        _watchers.Add(directories);
+    }
+
+    private void Stop()
+    {
+        foreach (var watcher in _watchers)
+        {
+            watcher.Dispose();
+        }
+        _watchers.Clear();
     }
 }

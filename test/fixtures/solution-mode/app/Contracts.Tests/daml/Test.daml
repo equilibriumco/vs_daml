@@ -1,0 +1,13 @@
+module Test where
+
+import Daml.Script
+
+import Asset
+import Lib (Label(..))
+
+issue : Script ()
+issue = script do
+  alice <- allocateParty "Alice"
+  _ <- submit alice do
+    createCmd Asset with issuer = alice; owner = alice; label = Label "gold"
+  pure ()

@@ -192,6 +192,57 @@ public class WorkspaceLocatorTests
         context.IsInvalidatedBy(changed).ShouldBe(affected);
     }
 
+    // A solution in C:\sln: where its server runs for a file of its Contracts package, by where the
+    // multi-package.yaml files lie. damlc finds a multi-package.yaml in its folder or above it, so one
+    // above the solution folder needs no move; one nearer the package than the solution folder wins.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(null, @"C:\sln")]
+    [InlineData(@"C:\sln\multi-package.yaml", @"C:\sln")]
+    [InlineData(@"C:\sln\daml\multi-package.yaml", @"C:\sln\daml")]
+    [InlineData(@"C:\multi-package.yaml", @"C:\sln")]
+    public void In_a_solution_the_server_runs_in_the_nearest_folder_with_a_multi_package_yaml_inside_it(string? multiPackage, string expected)
+    {
+        Package(@"C:\sln\daml\Contracts", "contracts");
+        if (multiPackage is not null)
+        {
+            _files.AddFile(multiPackage, "packages:\n- ./x\n");
+        }
+
+        var context = _locator.Resolve(@"C:\sln", @"C:\sln\daml\Contracts\daml\Main.daml", ServerMode.MultiIde, 1).Context.ShouldNotBeNull();
+
+        context.ServerWorkingDirectory.ShouldBe(expected);
+    }
+
+    // Projects can sit outside the solution folder; their packages are the solution's all the same.
+    [Fact, Trait("Category", "Unit")]
+    public void The_solutions_packages_belong_to_the_workspace_wherever_they_are()
+    {
+        Package(@"C:\sln\Contracts", "contracts");
+        Package(@"C:\shared\Lib", "lib");
+
+        var context = _locator.Resolve(@"C:\sln", @"C:\sln\Contracts\daml\Main.daml", ServerMode.MultiIde, 1, [@"C:\sln\Contracts", @"C:/shared/lib"])
+            .Context.ShouldNotBeNull();
+
+        context.Packages.ShouldBe([@"C:\sln\Contracts", @"C:\shared\lib"]);
+        context.SolutionPackages.ShouldBe([@"C:\sln\Contracts", @"C:\shared\lib"]);
+        context.Contains(@"C:\shared\Lib\daml\Lib.daml").ShouldBeTrue();
+        context.ServerWorkingDirectory.ShouldBe(@"C:\sln");
+        context.IsInvalidatedBy(@"C:\shared\Lib\daml.yaml").ShouldBeTrue();
+    }
+
+    // A project added to or removed from the solution changes the set; reordering or another spelling doesn't.
+    [Fact, Trait("Category", "Unit")]
+    public void The_context_tells_whether_it_was_made_for_a_set_of_solution_packages()
+    {
+        Package(@"C:\sln\A");
+        Package(@"C:\sln\B");
+        var context = _locator.Resolve(@"C:\sln", @"C:\sln\A\daml\Main.daml", ServerMode.MultiIde, 1, [@"C:\sln\A", @"C:\sln\B"]).Context.ShouldNotBeNull();
+
+        context.IsFor([@"c:\sln\b\", @"C:\sln\A"]).ShouldBeTrue();
+        context.IsFor([@"C:\sln\A"]).ShouldBeFalse();
+        context.IsFor([@"C:\sln\A", @"C:\sln\B", @"C:\sln\C"]).ShouldBeFalse();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Problems_in_the_manifests_used_are_reported_on_the_context()
     {
