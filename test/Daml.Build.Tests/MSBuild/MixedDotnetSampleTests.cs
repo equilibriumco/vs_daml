@@ -1,0 +1,120 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+using Daml.Build.Core.Codegen;
+using Daml.Build.Core.Processes;
+using Daml.TestHelpers;
+using Shouldly;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace Daml.Build.Tests.MSBuild;
+
+// samples\mixed-dotnet as a user gets it: Daml contracts with Splice data-dependencies and their Script
+// tests as Daml.Sdk projects, and a C# app on the C# generated from the contracts, in one solution.
+public sealed class MixedDotnetSampleTests : IDisposable
+{
+    private static readonly string Sample = Repository.Sample("mixed-dotnet");
+
+    private readonly MSBuildSandbox _sandbox = new(shortRoot: true);
+    private readonly ITestOutputHelper _output;
+
+    public MixedDotnetSampleTests(ITestOutputHelper output) => _output = output;
+
+    public void Dispose() => _sandbox.Dispose();
+
+    private static string HostPath(MSBuildHost host) =>
+        RequiredTools.Require(host == MSBuildHost.MSBuildExe ? ExternalTool.MSBuild : ExternalTool.Dotnet);
+
+    // What scripts/pack.ps1 makes on a developer's machine, where the build number is 0.
+    private static string LocalPackageVersion()
+    {
+        var properties = XDocument.Load(Path.Combine(Repository.Root, "Directory.Build.props")).Descendants();
+        var prefix = properties.Single(p => p.Name.LocalName == "VersionPrefix").Value;
+        var prerelease = properties.Single(p => p.Name.LocalName == "DamlPrerelease").Value == "true";
+        return prerelease ? prefix + "-preview.0" : prefix;
+    }
+
+    private static string PackageVersion(XDocument project, string package) =>
+        (string)project.Descendants("PackageReference").Single(r => (string?)r.Attribute("Include") == package).Attribute("Version")!;
+
+    // The sample restores from artifacts\packages, so it has to name the packages a local pack puts there.
+    [Fact, Trait("Category", "Unit")]
+    public void The_sample_uses_the_packages_a_local_pack_makes()
+    {
+        var app = XDocument.Load(Path.Combine(Sample, "App", "App.csproj"));
+
+        foreach (var project in Directory.GetFiles(Sample, "*.msbuildproj", SearchOption.AllDirectories))
+        {
+            XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe($"Daml.Sdk/{LocalPackageVersion()}", project);
+        }
+        PackageVersion(app, "Daml.Build.CSharp").ShouldBe(LocalPackageVersion());
+        new Version(PackageVersion(app, "Daml.Runtime")).ToString(2).ShouldBe(ReleaseTools.Runtime.Line.ToString(2));
+        PackageVersion(app, "Splice.Api.Token.Holding.V2").ShouldBe(SdkFeed.SpliceVersion);
+        PackageVersion(app, "Splice.Api.Token.Transfer.Instruction.V2").ShouldBe(SdkFeed.SpliceVersion);
+    }
+
+    // A copy without anything a build of the sample in place left, on the packages of this test run.
+    private void CopySample()
+    {
+        string[] skipped = [".daml", "obj", "bin", "log"];
+        foreach (var file in Directory.GetFiles(Sample, "*", SearchOption.AllDirectories))
+        {
+            var relative = file.Substring(Sample.Length + 1);
+            if (relative.Split('\\').Any(s => skipped.Contains(s, StringComparer.OrdinalIgnoreCase)) || relative.Equals("nuget.config", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            var target = Path.Combine(_sandbox.Root, "mixed-dotnet", relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
+        foreach (var project in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.*proj", SearchOption.AllDirectories))
+        {
+            var text = File.ReadAllText(project);
+            text = Regex.Replace(text, @"Daml\.Sdk/[^""]+", $"Daml.Sdk/{SdkFeed.Version}");
+            text = Regex.Replace(text, @"Include=""Daml\.Build\.CSharp"" Version=""[^""]+""", $"Include=\"Daml.Build.CSharp\" Version=\"{SdkFeed.Version}\"");
+            File.WriteAllText(project, text);
+        }
+        _sandbox.UseSdkFeed();
+    }
+
+    // dpm builds the contracts against the Splice DARs and then their tests, the pinned generator turns the
+    // contracts into C# that the app compiles with the Splice packages and runs, and the scripts pass.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public async Task The_sample_solution_builds_runs_and_passes_its_Daml_tests(MSBuildHost host)
+    {
+        var dpm = RequiredTools.Require(ExternalTool.Dpm);
+        var java = RequiredTools.Require(ExternalTool.Java);
+        var dotnet = RequiredTools.Require(ExternalTool.Dotnet);
+        var hostPath = HostPath(host);
+        CopySample();
+        var properties = new Dictionary<string, string>
+        {
+            ["DamlDpmPath"] = dpm,
+            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            // Installs the generator once on a machine that hasn't got it yet.
+            ["DamlAllowToolInstall"] = "true",
+        };
+
+        var build = _sandbox.Build(host, hostPath, @"mixed-dotnet\MixedDotnet.slnx", properties: properties);
+        build.ExitCode.ShouldBe(0, build.Log);
+        build.Log.ShouldContain("Generated C# for");
+        var app = await new ProcessRunner().RunAsync(
+            new ProcessSpec(dotnet, [Path.Combine(_sandbox.Root, @"mixed-dotnet\App\bin\Debug\net10.0\App.dll")]) { Timeout = TimeSpan.FromMinutes(1) },
+            CancellationToken.None);
+        app.ExitCode.ShouldBe(0, app.Stdout + app.Stderr);
+        app.Stdout.Trim().ShouldBe("Gold from Daml package mixed-dotnet-contracts 0.1.0");
+
+        var tests = _sandbox.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "DamlTest");
+        tests.ExitCode.ShouldBe(0, tests.Log);
+        _output.WriteLine($"{host}: build {build.Elapsed.TotalSeconds:F1} s, tests {tests.Elapsed.TotalSeconds:F1} s.");
+    }
+}

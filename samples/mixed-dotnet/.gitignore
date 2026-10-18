@@ -1,2 +1,4 @@
 /.daml
 /log
+bin/
+obj/

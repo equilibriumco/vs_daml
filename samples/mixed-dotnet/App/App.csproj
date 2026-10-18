@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- The build turns the Daml package into C# in this project's obj folder (namespace MiniDemo.Asset, from
+       the Daml module) and compiles it with the rest. The generated code needs both runtime packages, and
+       the Splice packages for the token standard interfaces the contracts implement. -->
+  <ItemGroup>
+    <PackageReference Include="Daml.Build.CSharp" Version="0.2.0-preview.0" PrivateAssets="all" />
+    <PackageReference Include="Daml.Runtime" Version="0.6.0" />
+    <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
+    <PackageReference Include="Splice.Api.Token.Holding.V2" Version="1.0.0.17" />
+    <PackageReference Include="Splice.Api.Token.Transfer.Instruction.V2" Version="1.0.0.17" />
+    <DamlReference Include="..\daml\Contracts.msbuildproj" />
+  </ItemGroup>
+
+</Project>

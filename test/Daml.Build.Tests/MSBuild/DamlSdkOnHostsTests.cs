@@ -287,11 +287,12 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         var hostPath = HostPath(host);
         _sandbox.UseSdkFeed();
         var source = Repository.Sample(@"mixed-dotnet\daml");
-        // Without earlier build output, the nested test package's included.
+        // Without earlier build output, the nested test package's included; the project below replaces the sample's own.
+        string[] output = [".daml", "obj", "bin"];
         foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = file.Substring(source.Length + 1);
-            if (!relative.Split('\\').Contains(".daml", StringComparer.OrdinalIgnoreCase))
+            if (!relative.Split('\\').Any(s => output.Contains(s, StringComparer.OrdinalIgnoreCase)))
             {
                 var target = Path.Combine(Package, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);

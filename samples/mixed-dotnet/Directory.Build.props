@@ -1,0 +1,3 @@
+<!-- Stops MSBuild from picking up the repository's own Directory.Build.props: this sample stands for a user's
+     solution, built with nothing but its projects and nuget.config. -->
+<Project />

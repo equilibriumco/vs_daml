@@ -13,6 +13,14 @@
     <PackageReference Include="Microsoft.Build.Utilities.Core" />
   </ItemGroup>
 
+  <!-- Into the NuGet cache at restore, for the local feed the MSBuild tests build from: the C# generated
+       from samples\mixed-dotnet implements the Splice token standard interfaces these packages hold. -->
+  <ItemGroup>
+    <PackageDownload Include="Splice.Api.Token.Holding.V2" Version="[1.0.0.17]" />
+    <PackageDownload Include="Splice.Api.Token.Transfer.Instruction.V2" Version="[1.0.0.17]" />
+    <PackageDownload Include="Splice.Api.Token.Metadata.V1" Version="[1.0.0.17]" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\Daml.Build.Core\Daml.Build.Core.csproj" />
     <ProjectReference Include="..\..\src\Daml.Build.Tasks\Daml.Build.Tasks.csproj" />

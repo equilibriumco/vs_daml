@@ -21,8 +21,14 @@ internal static class SdkFeed
     /// <summary>The runtime the generated C# compiles against, in the version the generator pins.</summary>
     public const string RuntimeVersion = "0.6.0";
 
+    /// <summary>The Splice packages the C# of the mixed-dotnet sample compiles against, as the sample pins them.</summary>
+    public const string SpliceVersion = "1.0.0.17";
+
     private static readonly (string Id, string Version)[] FromCache =
-        [(NoTargets, NoTargetsVersion), ("daml.runtime", RuntimeVersion), ("daml.ledger.abstractions", RuntimeVersion)];
+    [
+        (NoTargets, NoTargetsVersion), ("daml.runtime", RuntimeVersion), ("daml.ledger.abstractions", RuntimeVersion),
+        ("splice.api.token.holding.v2", SpliceVersion), ("splice.api.token.transfer.instruction.v2", SpliceVersion), ("splice.api.token.metadata.v1", SpliceVersion),
+    ];
 
     private static readonly Lazy<string> Created = new(Create);
 
