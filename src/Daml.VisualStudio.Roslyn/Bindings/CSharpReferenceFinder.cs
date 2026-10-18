@@ -21,6 +21,10 @@ public static class CSharpReferenceFinder
 
     /// <summary>The uses of <paramref name="declarations"/> in <paramref name="solution"/>, in file and line order.</summary>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// None of <paramref name="declarations"/> holds in the solution any more, so there is nothing to count;
+    /// the message says why. A count of 0 would mislead.
+    /// </exception>
     public static async Task<IReadOnlyList<CSharpReference>> FindAsync(
         Solution solution, IEnumerable<BindingLocation> declarations, GenerationCatalog catalog, CancellationToken cancellationToken = default)
     {
@@ -35,11 +39,19 @@ public static class CSharpReferenceFinder
         var found = new List<CSharpReference>();
         var symbols = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         var generated = new Dictionary<DocumentId, bool>();
+        string? problem = null;
+        var resolvedAny = false;
         foreach (var declaration in declarations)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var resolved = await BindingResolver.ResolveAsync(solution, declaration, catalog, cancellationToken).ConfigureAwait(false);
-            if (resolved.Symbol is not { } symbol || !symbols.Add(symbol))
+            if (resolved.Symbol is not { } symbol)
+            {
+                problem ??= resolved.Problem;
+                continue;
+            }
+            resolvedAny = true;
+            if (!symbols.Add(symbol))
             {
                 continue;
             }
@@ -66,6 +78,10 @@ public static class CSharpReferenceFinder
                     found.Add(new CSharpReference(document.Project.Name, document.FilePath ?? document.Name, line.LineNumber + 1, span.Start - line.Start + 1, span.Start, span.Length, line.ToString().Trim()));
                 }
             }
+        }
+        if (!resolvedAny && problem is not null)
+        {
+            throw new InvalidOperationException(problem);
         }
         return CSharpReferences.Summarize(found);
     }

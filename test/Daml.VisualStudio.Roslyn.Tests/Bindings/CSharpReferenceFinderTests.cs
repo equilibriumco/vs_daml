@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Bindings;
 using Daml.VisualStudio.Roslyn.Bindings;
+using Microsoft.CodeAnalysis.Text;
 using Shouldly;
 using Xunit;
 
@@ -14,6 +15,8 @@ namespace Daml.VisualStudio.Roslyn.Tests.Bindings;
 public sealed class CSharpReferenceFinderTests : IDisposable
 {
     private const string Package = GeneratedCode.KindsPackage;
+    private const string Other = "1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb";
+    private const string Id = "9de80d6cfe50bada";
 
     private const string Uses = """
         using Daml.Runtime.Data;
@@ -89,5 +92,35 @@ public sealed class CSharpReferenceFinderTests : IDisposable
         _solution.Add("App", _disk.Publish("App"));
 
         (await FindAsync(Symbol(DamlSymbolKind.Template, "Asset"))).ShouldBeEmpty();
+    }
+
+    // A build republished the generation with a new package while the editor still holds the code of
+    // the build before: the uses are those of the code the generator wrote, not a false 0.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Uses_are_found_while_the_editor_still_holds_the_previous_build()
+    {
+        _solution.Add("App", _disk.Publish("App", id: Id).Append((_usesPath, Uses)));
+        _disk.Publish("App", package: Other, id: Id);
+        var index = await BindingIndexBuilder.BuildAsync(_solution.Solution, _catalog);
+
+        var references = await CSharpReferenceFinder.FindAsync(
+            _solution.Solution, index.LocationsOf(new DamlSymbolId(Other, "Kinds.Asset", "Asset", null, DamlSymbolKind.Template)), _catalog);
+
+        references.Select(r => r.Line).Distinct().ShouldBe([6, 8]);
+    }
+
+    // The code changed since the index read it and no longer stands for the template: no count beats a false 0.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Declarations_that_no_longer_hold_cant_be_counted()
+    {
+        _solution.Add("App", _disk.Publish("App").Append((_usesPath, Uses)));
+        var index = await BindingIndexBuilder.BuildAsync(_solution.Solution, _catalog);
+        var asset = _solution.Solution.Projects.Single().Documents.Single(d => d.FilePath!.EndsWith(@"\Asset\Asset.cs", StringComparison.Ordinal));
+        var edited = _solution.Solution.WithDocumentText(asset.Id, SourceText.From("namespace Fixture.Kinds.Asset;"));
+
+        var failure = await Should.ThrowAsync<InvalidOperationException>(
+            () => CSharpReferenceFinder.FindAsync(edited, index.LocationsOf(Symbol(DamlSymbolKind.Template, "Asset")), _catalog));
+
+        failure.Message.ShouldContain("build the project to bring its Daml bindings up to date");
     }
 }

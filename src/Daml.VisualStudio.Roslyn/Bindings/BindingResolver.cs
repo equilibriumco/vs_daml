@@ -15,7 +15,8 @@ public sealed record ResolvedBinding(ISymbol? Symbol, string? Problem);
 /// Finds the C# symbol an index location names, by its <c>DocumentationCommentId</c> in the
 /// project's current compilation, and makes sure it still stands for the location's Daml symbol:
 /// finding a symbol of that name doesn't prove it, as the rest of a partial type outlives the part
-/// that declared its template.
+/// that declared its template. A file the editor holds from the build before is checked as the
+/// generator wrote it.
 /// </summary>
 public static class BindingResolver
 {
@@ -33,12 +34,21 @@ public static class BindingResolver
         }
         foreach (var tree in symbol.DeclaringSyntaxReferences.Select(r => r.SyntaxTree).Distinct())
         {
-            var read = BindingReader.Read(compilation.GetSemanticModel(tree), catalog, cancellationToken);
-            if (read.Bindings.Any(b => b.DeclarationId == location.DeclarationId && b.Symbol == location.Symbol))
+            if (StandsFor(BindingReader.Read(compilation.GetSemanticModel(tree), catalog, cancellationToken), location))
+            {
+                return new ResolvedBinding(symbol, null);
+            }
+            // The editor's copy may be of the build before, while the index read what the generator wrote.
+            if (project.GetDocument(tree) is { } document
+                && await WrittenCode.ModelAsync(document, cancellationToken).ConfigureAwait(false) is { } written
+                && StandsFor(BindingReader.Read(written, catalog, cancellationToken), location))
             {
                 return new ResolvedBinding(symbol, null);
             }
         }
         return new ResolvedBinding(null, $"{location.DeclarationId} no longer stands for {location.Symbol}; build the project to bring its Daml bindings up to date.");
     }
+
+    private static bool StandsFor(DocumentBindings read, BindingLocation location) =>
+        read.Bindings.Any(b => b.DeclarationId == location.DeclarationId && b.Symbol == location.Symbol);
 }

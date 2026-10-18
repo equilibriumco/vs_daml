@@ -1,13 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Bindings;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Text;
 
 namespace Daml.VisualStudio.Roslyn.Bindings;
 
@@ -92,7 +90,8 @@ public static class BindingIndexBuilder
             }
             var framework = TargetFramework(document.Project);
             var read = BindingReader.Read(model, catalog, cancellationToken);
-            if (read.Rejected.Count > 0 && await FromDiskAsync(document, path, cancellationToken).ConfigureAwait(false) is { } written)
+            // The editor's copy may be of the build before; what the generator wrote counts then.
+            if (read.Rejected.Count > 0 && await WrittenCode.ModelAsync(document, cancellationToken).ConfigureAwait(false) is { } written)
             {
                 read = BindingReader.Read(written, catalog, cancellationToken);
             }
@@ -103,24 +102,5 @@ public static class BindingIndexBuilder
             changes.Add((key, path, read.Bindings.Select(b => new BindingLocation(b.Symbol, key, framework, b.Generation, b.DeclarationId, b.FilePath, b.Span.Start, b.Span.Length)).ToList()));
         }
         return changes;
-    }
-
-    // Visual Studio can go on holding the code of the build before, while the generation's folder,
-    // swapped whole by the build, already has the new code and manifest; nothing would then match.
-    // What the generator wrote is read instead, when the editor's copy differs from it.
-    private static async Task<SemanticModel?> FromDiskAsync(Document document, string path, CancellationToken cancellationToken)
-    {
-        SourceText written;
-        try
-        {
-            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            written = SourceText.From(stream);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-        var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        return text.ContentEquals(written) ? null : await document.WithText(written).GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
     }
 }

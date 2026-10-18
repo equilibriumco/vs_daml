@@ -188,7 +188,14 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         await UntilAsync(() => _source.Asked.Count == 1);
 
         _source.Fail("T0", new InvalidOperationException("no compilation"));
-        await UntilAsync(() => Texts()[0] == "C#: couldn't count (see Output)");
+        // The row changes under the provider's lock, the event comes just after it.
+        await UntilAsync(() =>
+        {
+            lock (failures)
+            {
+                return Texts()[0] == "C#: couldn't count (see Output)" && failures.Count == 1;
+            }
+        });
 
         Texts()[0].ShouldBe("C#: couldn't count (see Output)");
         lock (failures)
