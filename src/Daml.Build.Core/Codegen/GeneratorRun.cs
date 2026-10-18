@@ -80,7 +80,7 @@ public sealed class GeneratorRun
         Directory.CreateDirectory(temp);
         try
         {
-            File.WriteAllText(Path.Combine(run, "daml.yaml"), $"name: daml-codegen\nversion: 0.0.1\ncomponents:\n  - {tools.Cache.Pin.Reference}\n");
+            GeneratorWorkFolder.Prepare(run, tools.Cache.Pin);
             var arguments = new List<string> { "codegen-cs", "--dar", dar, "--out", staging };
             if (reference.Namespace is { } @namespace)
             {

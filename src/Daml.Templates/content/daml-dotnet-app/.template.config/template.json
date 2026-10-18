@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Equilibrium",
+  "classifications": [ "Daml", "Canton", "Console" ],
+  "identity": "Daml.Templates.DotnetApp",
+  "name": "Daml and .NET App",
+  "description": "A solution with a Daml package, its Daml Script tests and a C# console app that uses the C# generated from the package in the same build (Daml.Sdk and Daml.Build.CSharp).",
+  "shortName": "daml-dotnet-app",
+  "tags": {
+    "language": "Daml",
+    "type": "solution"
+  },
+  "preferNameDirectory": true,
+  "symbols": {
+    "SafeName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "safe_namespace",
+      "replaces": "DamlApp",
+      "fileRename": "DamlApp"
+    },
+    "DamlPackageName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "damlPackageName",
+      "replaces": "daml-app"
+    },
+    "DamlSdkVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "3.6.0",
+      "replaces": "DAML_SDK_VERSION",
+      "description": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>."
+    },
+    "DamlPackagesVersion": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": { "value": "@PackageVersion@" },
+      "replaces": "DAML_PACKAGES_VERSION"
+    },
+    "DamlPackageIdPrefix": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": { "value": "@PackageIdPrefix@" },
+      "replaces": "DAML_PACKAGE_PREFIX"
+    }
+  },
+  "forms": {
+    "damlPackageName": {
+      "identifier": "chain",
+      "steps": [ "dashes", "lowerCase" ]
+    },
+    "dashes": {
+      "identifier": "replace",
+      "pattern": "[^A-Za-z0-9]+",
+      "replacement": "-"
+    },
+    "lowerCase": {
+      "identifier": "lowerCase"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "DamlApp.slnx" }
+  ]
+}

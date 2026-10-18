@@ -1,0 +1,10 @@
+sdk-version: DAML_SDK_VERSION
+name: daml-contracts-tests
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../DamlContracts/.daml/dist/daml-contracts-0.1.0.dar

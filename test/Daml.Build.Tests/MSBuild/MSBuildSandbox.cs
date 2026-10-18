@@ -38,9 +38,15 @@ internal sealed class MSBuildSandbox : IDisposable
     private static readonly string[] InheritedMSBuildVariables =
         ["MSBuildSDKsPath", "MSBUILD_EXE_PATH", "MSBuildExtensionsPath", "MSBuildLoadMicrosoftTargetsReadOnly", "VisualStudioVersion"];
 
-    public MSBuildSandbox()
+    /// <param name="shortRoot">
+    /// A root about as long as a user's solution folder, for builds that generate C#: its paths go
+    /// deep, and the 32-bit MSBuild.exe takes none past 260 characters.
+    /// </param>
+    public MSBuildSandbox(bool shortRoot = false)
     {
-        Root = Path.Combine(Path.GetTempPath(), "daml-msbuild-" + Guid.NewGuid().ToString("N"));
+        Root = shortRoot
+            ? Path.Combine(Path.GetTempPath(), $"dm-{Guid.NewGuid():N}".Substring(0, 11))
+            : Path.Combine(Path.GetTempPath(), "daml-msbuild-" + Guid.NewGuid().ToString("N"));
         Tasks = Path.Combine(Root, "tasks");
         Directory.CreateDirectory(Tasks);
         foreach (var file in Directory.GetFiles(BuiltTasks, "*.dll"))

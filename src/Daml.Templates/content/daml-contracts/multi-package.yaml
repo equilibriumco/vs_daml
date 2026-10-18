@@ -1,0 +1,5 @@
+# Both packages for the Daml language server and for dpm build --all.
+sdk-version: DAML_SDK_VERSION
+packages:
+  - ./DamlContracts
+  - ./DamlContracts.Tests

@@ -123,6 +123,25 @@ public sealed class GeneratorRunTests : IDisposable
         manifest.ShouldBe($"name: daml-codegen\nversion: 0.0.1\ncomponents:\n  - {_generator.Pin.Reference}\n");
     }
 
+    // dpm looks for a multi-package.yaml above its working folder, and one with an sdk-version (as
+    // dpm new makes it) clashes with the pinned component; one in the run folder ends the search.
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_run_keeps_dpm_from_a_multi_package_yaml_above_it()
+    {
+        var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
+        string? multiPackage = null;
+        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), spec =>
+        {
+            multiPackage = File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "multi-package.yaml"));
+            File.WriteAllText(Path.Combine(staging, "A.cs"), "class A { }");
+            return Task.FromResult(new ProcessResult(0, "", ""));
+        });
+
+        (await Run(staging)).ShouldBeNull();
+
+        multiPackage.ShouldBe("packages: []\n");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Without_a_namespace_nothing_is_passed_to_the_emitter()
     {

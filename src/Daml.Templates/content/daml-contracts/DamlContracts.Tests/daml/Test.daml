@@ -1,0 +1,24 @@
+module Test where
+
+import DA.Assert ((===))
+import Daml.Script
+
+import Main
+
+-- | Alice issues an asset to herself and gives it to Bob, who then owns it.
+giveToBob : Script ()
+giveToBob = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+
+  asset <- submit alice do
+    createCmd Asset with
+      issuer = alice
+      owner = alice
+      name = "Gold"
+
+  given <- submit alice do
+    exerciseCmd asset Give with newOwner = bob
+
+  Some found <- queryContractId bob given
+  found.owner === bob

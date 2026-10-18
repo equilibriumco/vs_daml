@@ -122,7 +122,7 @@ public sealed class GeneratorPreparation
         Directory.CreateDirectory(temp);
         try
         {
-            File.WriteAllText(Path.Combine(work, "daml.yaml"), $"name: daml-codegen\nversion: 0.0.1\ncomponents:\n  - {cache.Pin.Reference}\n");
+            GeneratorWorkFolder.Prepare(work, cache.Pin);
             var spec = new ProcessSpec(dpm, ["install", "package"])
             {
                 WorkingDirectory = work,

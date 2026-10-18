@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.VisualStudio.Roslyn", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.VisualStudio.Roslyn.Tests", "test\Daml.VisualStudio.Roslyn.Tests\Daml.VisualStudio.Roslyn.Tests.csproj", "{011C0087-BEFA-4AD8-A626-EE5B8D3FA336}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.Templates", "src\Daml.Templates\Daml.Templates.csproj", "{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -283,6 +285,18 @@ Global
 		{011C0087-BEFA-4AD8-A626-EE5B8D3FA336}.Release|x64.Build.0 = Release|Any CPU
 		{011C0087-BEFA-4AD8-A626-EE5B8D3FA336}.Release|x86.ActiveCfg = Release|Any CPU
 		{011C0087-BEFA-4AD8-A626-EE5B8D3FA336}.Release|x86.Build.0 = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|x64.Build.0 = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Debug|x86.Build.0 = Debug|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|x64.ActiveCfg = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|x64.Build.0 = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|x86.ActiveCfg = Release|Any CPU
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -307,5 +321,6 @@ Global
 		{180C0361-D64A-46DB-8AAF-C7C34C71C9E1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{A1D77BDD-D1A8-45B7-96CF-71965CDEB5E5} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{011C0087-BEFA-4AD8-A626-EE5B8D3FA336} = {0C88DD14-F956-CE84-757C-A364CCF449FC}
+		{9557E936-D9BF-4BD8-B826-0D0CCD1517E1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -94,6 +94,8 @@ public sealed class GeneratorPreparationTests : IDisposable
         InstallSucceeds(spec =>
         {
             File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "daml.yaml")).ShouldContain("  - " + _download.Pin.Reference);
+            // Wherever the cache lives, a multi-package.yaml above it can't reach dpm.
+            File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "multi-package.yaml")).ShouldBe("packages: []\n");
             _installSaw.Add(spec.WorkingDirectory!);
         });
 

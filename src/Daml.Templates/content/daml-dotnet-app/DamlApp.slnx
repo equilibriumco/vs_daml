@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DamlApp/DamlApp.csproj" />
+  <!-- Daml projects are Common Project System projects, which a solution has to name by type. -->
+  <Project Path="DamlApp.Contracts/DamlApp.Contracts.msbuildproj" Type="13b669be-bb05-4ddf-9536-439f39a36129" />
+  <Project Path="DamlApp.Contracts.Tests/DamlApp.Contracts.Tests.msbuildproj" Type="13b669be-bb05-4ddf-9536-439f39a36129" />
+</Solution>

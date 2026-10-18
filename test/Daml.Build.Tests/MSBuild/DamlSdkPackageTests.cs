@@ -74,4 +74,28 @@ public sealed class DamlSdkPackageTests : IDisposable
         metadata.Elements().Single(e => e.Name.LocalName == "developmentDependency").Value.ShouldBe("true");
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
     }
+
+    // dotnet new finds each template under content\, and each template.json names the release that
+    // packed it, for the projects it creates to use.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public async Task The_templates_package_holds_both_templates_with_its_own_release_written_in()
+    {
+        var (entries, metadata) = await PackAsync(@"src\Daml.Templates\Daml.Templates.csproj", "Daml.Templates");
+
+        var content = Path.Combine(Repository.Root, @"src\Daml.Templates\content");
+        var files = Directory.GetFiles(content, "*", SearchOption.AllDirectories).Select(f => "content/" + f.Substring(content.Length + 1).Replace('\\', '/'));
+        entries.ShouldBe(["Daml.Templates.nuspec", .. files], ignoreOrder: true);
+        metadata.Descendants().Where(e => e.Name.LocalName == "packageType").Select(e => (string?)e.Attribute("name")).ShouldBe(["Template"]);
+        metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
+        var version = metadata.Elements().Single(e => e.Name.LocalName == "version").Value;
+        using var package = ZipFile.OpenRead(Directory.GetFiles(_output, "Daml.Templates.*.nupkg").ShouldHaveSingleItem());
+        foreach (var template in new[] { "daml-contracts", "daml-dotnet-app" })
+        {
+            using var reader = new StreamReader(package.GetEntry($"content/{template}/.template.config/template.json")!.Open());
+            var config = await reader.ReadToEndAsync();
+            config.ShouldNotContain("@Package");
+            config.ShouldContain($"\"value\": \"{version}\"");
+            config.ShouldContain("\"value\": \"Daml\"");
+        }
+    }
 }

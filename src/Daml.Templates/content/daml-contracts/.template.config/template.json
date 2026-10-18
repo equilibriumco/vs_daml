@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Equilibrium",
+  "classifications": [ "Daml", "Canton", "Library" ],
+  "identity": "Daml.Templates.Contracts",
+  "name": "Daml Contracts Project",
+  "description": "A Daml package with a template and a package of Daml Script tests for it, each an MSBuild project built with dpm through Daml.Sdk.",
+  "shortName": "daml-contracts",
+  "tags": {
+    "language": "Daml",
+    "type": "project"
+  },
+  "preferNameDirectory": true,
+  "symbols": {
+    "SafeName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "safe_namespace",
+      "replaces": "DamlContracts",
+      "fileRename": "DamlContracts"
+    },
+    "DamlPackageName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "damlPackageName",
+      "replaces": "daml-contracts"
+    },
+    "DamlSdkVersion": {
+      "type": "parameter",
+      "datatype": "text",
+      "defaultValue": "3.6.0",
+      "replaces": "DAML_SDK_VERSION",
+      "description": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>."
+    },
+    "DamlPackagesVersion": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": { "value": "@PackageVersion@" },
+      "replaces": "DAML_PACKAGES_VERSION"
+    },
+    "DamlPackageIdPrefix": {
+      "type": "generated",
+      "generator": "constant",
+      "parameters": { "value": "@PackageIdPrefix@" },
+      "replaces": "DAML_PACKAGE_PREFIX"
+    }
+  },
+  "forms": {
+    "damlPackageName": {
+      "identifier": "chain",
+      "steps": [ "dashes", "lowerCase" ]
+    },
+    "dashes": {
+      "identifier": "replace",
+      "pattern": "[^A-Za-z0-9]+",
+      "replacement": "-"
+    },
+    "lowerCase": {
+      "identifier": "lowerCase"
+    }
+  },
+  "primaryOutputs": [
+    { "path": "DamlContracts/DamlContracts.msbuildproj" },
+    { "path": "DamlContracts.Tests/DamlContracts.Tests.msbuildproj" }
+  ]
+}
