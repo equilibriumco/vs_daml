@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Add New Item in a Daml project (.msbuildproj, which Visual Studio lists as "CPS Projects"). -->
+<VSTemplate Version="3.0.0" Type="Item" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <Name>Daml Script Test</Name>
+    <Description>A Daml module with a Daml Script test, which dpm test (or the DamlTest target) runs with every other script of the package. It belongs in a test package, one that depends on daml-script; the module name follows the file's path under the source folder.</Description>
+    <TemplateID>Daml.ItemTemplates.ScriptTest</TemplateID>
+    <ProjectType>CPS Projects</ProjectType>
+    <DefaultName>Test.daml</DefaultName>
+    <SortOrder>20</SortOrder>
+    <NumberOfParentCategoriesToRollUp>1</NumberOfParentCategoriesToRollUp>
+  </TemplateData>
+  <TemplateContent>
+    <ProjectItem ReplaceParameters="true" TargetFileName="$fileinputname$.daml">Test.daml</ProjectItem>
+  </TemplateContent>
+</VSTemplate>

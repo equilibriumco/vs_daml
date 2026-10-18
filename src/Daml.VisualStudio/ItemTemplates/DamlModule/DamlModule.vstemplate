@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Add New Item in a Daml project (.msbuildproj, which Visual Studio lists as "CPS Projects"). -->
+<VSTemplate Version="3.0.0" Type="Item" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <Name>Daml Module</Name>
+    <Description>An empty Daml module named after the file. Daml wants the module name to follow the file's path under the package's source folder (A\B.daml is module A.B), so in a subfolder add its path to the name.</Description>
+    <TemplateID>Daml.ItemTemplates.Module</TemplateID>
+    <ProjectType>CPS Projects</ProjectType>
+    <DefaultName>Module.daml</DefaultName>
+    <SortOrder>10</SortOrder>
+    <NumberOfParentCategoriesToRollUp>1</NumberOfParentCategoriesToRollUp>
+  </TemplateData>
+  <TemplateContent>
+    <ProjectItem ReplaceParameters="true" TargetFileName="$fileinputname$.daml">Module.daml</ProjectItem>
+  </TemplateContent>
+</VSTemplate>

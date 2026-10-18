@@ -1,0 +1,4 @@
+; The dotnet new templates package (Daml.Templates), which the VSIX carries in its Templates folder:
+; Visual Studio's template engine lists its project templates in the New Project dialog.
+[$RootKey$\TemplateEngine\Templates\DamlTemplates]
+"InstalledPath"="$PackageFolder$\Templates"

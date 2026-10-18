@@ -1,0 +1,13 @@
+-- The module name follows the file's path under the source folder of daml.yaml: A/B.daml is module A.B.
+module $safeitemname$ where
+
+import Daml.Script
+
+-- | Run by dpm test, or by the DamlTest target of the project, with every other script of the package.
+test : Script ()
+test = script do
+  alice <- allocateParty "Alice"
+  -- Create contracts and exercise choices as alice, then check what the ledger holds, for example:
+  --   cid <- submit alice do createCmd ...
+  --   Some contract <- queryContractId alice cid
+  assert (partyToText alice /= "")

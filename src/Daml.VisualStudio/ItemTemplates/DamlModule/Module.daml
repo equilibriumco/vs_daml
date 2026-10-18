@@ -1,0 +1,2 @@
+-- The module name follows the file's path under the source folder of daml.yaml: A/B.daml is module A.B.
+module $safeitemname$ where

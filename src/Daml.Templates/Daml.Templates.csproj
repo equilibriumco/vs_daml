@@ -17,6 +17,8 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
     <Description>dotnet new templates for Daml: daml-contracts (a Daml package with its Daml Script tests, built by MSBuild) and daml-dotnet-app (a solution with those and a C# app using the C# generated from them).</Description>
     <PackageTags>daml;canton;dotnet-new;templates</PackageTags>
+    <!-- The VSIX carries the package for Visual Studio's New Project dialog, so every build makes it. -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -38,5 +40,8 @@
       <FileWrites Include="%(_DamlTemplateConfig.Stamped)" />
     </ItemGroup>
   </Target>
+
+  <!-- Where the build put the package; reads only, so the VSIX can ask for it after the build. -->
+  <Target Name="DamlTemplatesPackage" Returns="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PackageOutputPath)', '$(PackageId).$(PackageVersion).nupkg'))" />
 
 </Project>

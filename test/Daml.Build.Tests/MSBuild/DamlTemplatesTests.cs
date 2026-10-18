@@ -94,8 +94,16 @@ public sealed class DamlTemplatesTests : IDisposable
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
+    // What Add New Item makes of an item template of the extension, named as Visual Studio names it.
+    private void AddItem(string template, string file, string relativePath)
+    {
+        var text = File.ReadAllText(Path.Combine(Repository.Root, "src", "Daml.VisualStudio", "ItemTemplates", template, file));
+        _sandbox.Write(relativePath, text.Replace("$safeitemname$", Path.GetFileNameWithoutExtension(relativePath)));
+    }
+
     // The whole path a new user takes: dpm builds both packages, the pinned generator turns the contracts
     // into C#, the app compiles against them and runs, and the Daml Script tests pass, and fail once broken.
+    // The extension's item templates, added to each package, compile and pass as they are.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]
@@ -106,6 +114,8 @@ public sealed class DamlTemplatesTests : IDisposable
         var dotnet = RequiredTools.Require(ExternalTool.Dotnet);
         var hostPath = HostPath(host);
         await NewAsync("daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App");
+        AddItem("DamlModule", "Module.daml", @"Demo.App\Demo.App.Contracts\daml\Extra.daml");
+        AddItem("DamlScriptTest", "Test.daml", @"Demo.App\Demo.App.Contracts.Tests\daml\ExtraTest.daml");
         var properties = new Dictionary<string, string>
         {
             ["DamlDpmPath"] = dpm,

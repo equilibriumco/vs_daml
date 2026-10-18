@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/template",
   "author": "Equilibrium",
-  "classifications": [ "Daml", "Canton", "Console" ],
+  "classifications": [ "Daml", "Canton", "Windows", "Console" ],
   "identity": "Daml.Templates.DotnetApp",
   "name": "Daml and .NET App",
   "description": "A solution with a Daml package, its Daml Script tests and a C# console app that uses the C# generated from the package in the same build (Daml.Sdk and Daml.Build.CSharp).",
@@ -12,6 +12,10 @@
   },
   "preferNameDirectory": true,
   "symbols": {
+    "HostIdentifier": {
+      "type": "bind",
+      "binding": "HostIdentifier"
+    },
     "SafeName": {
       "type": "derived",
       "valueSource": "name",
@@ -59,7 +63,32 @@
       "identifier": "lowerCase"
     }
   },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+          "exclude": [ "DamlApp.slnx" ]
+        }
+      ]
+    }
+  ],
   "primaryOutputs": [
-    { "path": "DamlApp.slnx" }
+    {
+      "condition": "(HostIdentifier == \"dotnetcli\" || HostIdentifier == \"dotnetcli-preview\")",
+      "path": "DamlApp.slnx"
+    },
+    {
+      "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+      "path": "DamlApp/DamlApp.csproj"
+    },
+    {
+      "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+      "path": "DamlApp.Contracts/DamlApp.Contracts.msbuildproj"
+    },
+    {
+      "condition": "(HostIdentifier != \"dotnetcli\" && HostIdentifier != \"dotnetcli-preview\")",
+      "path": "DamlApp.Contracts.Tests/DamlApp.Contracts.Tests.msbuildproj"
+    }
   ]
 }
