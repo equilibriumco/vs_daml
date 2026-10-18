@@ -21,7 +21,7 @@ public class BindingExtractorTests
 
     // The Daml names a declaration states, and the C# declaration that states them.
     private static (DamlSymbolKind, string?, string?, string, string?, string) Row(GeneratedDeclaration d) =>
-        (d.Kind, d.PackageId, d.Module, d.Entity, d.Member, d.DeclarationId);
+        (d.Name.Kind, d.Name.PackageId, d.Name.Module, d.Name.Entity, d.Name.Member, d.DeclarationId);
 
     [Fact, Trait("Category", "Unit")]
     public void The_fixture_compiles_as_a_project_with_the_Daml_runtime_does()
@@ -34,7 +34,7 @@ public class BindingExtractorTests
     [Fact, Trait("Category", "Unit")]
     public void A_template_brings_its_identity_fields_and_choices_with_their_argument_records()
     {
-        Kinds.Where(d => d.Entity == "Asset").Select(Row).ShouldBe(
+        Kinds.Where(d => d.Name.Entity == "Asset").Select(Row).ShouldBe(
         [
             (DamlSymbolKind.Field, Package, "Kinds.Asset", "Asset", "issuer", "P:Fixture.Kinds.Asset.Asset.Issuer"),
             (DamlSymbolKind.Field, Package, "Kinds.Asset", "Asset", "owner", "P:Fixture.Kinds.Asset.Asset.Owner"),
@@ -58,7 +58,7 @@ public class BindingExtractorTests
     [Fact, Trait("Category", "Unit")]
     public void Every_template_of_the_module_is_found_with_its_own_identity()
     {
-        Kinds.Where(d => d.Kind == DamlSymbolKind.Template).Select(d => (d.Module, d.Entity, d.DeclarationId)).ShouldBe(
+        Kinds.Where(d => d.Name.Kind == DamlSymbolKind.Template).Select(d => (d.Name.Module, d.Name.Entity, d.DeclarationId)).ShouldBe(
             [("Kinds.Asset", "Asset", "T:Fixture.Kinds.Asset.Asset"), ("Kinds.Asset", "Note", "T:Fixture.Kinds.Asset.Note")],
             ignoreOrder: true);
     }
@@ -67,7 +67,7 @@ public class BindingExtractorTests
     [Fact, Trait("Category", "Unit")]
     public void An_interface_brings_its_identity_and_choices_and_its_view_is_a_record()
     {
-        Kinds.Where(d => d.Namespace == "Fixture.Kinds.Holding").Select(Row).ShouldBe(
+        Kinds.Where(d => d.Name.Namespace == "Fixture.Kinds.Holding").Select(Row).ShouldBe(
         [
             (DamlSymbolKind.Record, null, null, "HoldingView", null, "T:Fixture.Kinds.Holding.HoldingView"),
             (DamlSymbolKind.Field, null, null, "HoldingView", "owner", "P:Fixture.Kinds.Holding.HoldingView.Owner"),
@@ -85,7 +85,7 @@ public class BindingExtractorTests
     [Fact, Trait("Category", "Unit")]
     public void Records_variants_and_enums_bring_their_members_by_their_Daml_names()
     {
-        Kinds.Where(d => d.Namespace == "Fixture.Kinds.Types").Select(Row).ShouldBe(
+        Kinds.Where(d => d.Name.Namespace == "Fixture.Kinds.Types").Select(Row).ShouldBe(
         [
             (DamlSymbolKind.Record, null, null, "Box", null, "T:Fixture.Kinds.Types.Box`1"),
             (DamlSymbolKind.Field, null, null, "Box", "content", "P:Fixture.Kinds.Types.Box`1.Content"),
@@ -183,12 +183,12 @@ public class BindingExtractorTests
     {
         var found = Extract(GeneratedCode.Compile(GeneratedCode.Files(GeneratedCode.MiniDemo)));
 
-        found.Where(d => d.Kind == DamlSymbolKind.Template).Select(d => d.Entity)
+        found.Where(d => d.Name.Kind == DamlSymbolKind.Template).Select(d => d.Name.Entity)
             .ShouldBe(["Asset", "AssetTransferFactory", "AssetTransferInstruction", "Instrument"], ignoreOrder: true);
-        found.Where(d => d.Kind == DamlSymbolKind.Choice && d.Entity == "Instrument").Select(d => d.Member).Distinct()
+        found.Where(d => d.Name.Kind == DamlSymbolKind.Choice && d.Name.Entity == "Instrument").Select(d => d.Name.Member).Distinct()
             .ShouldBe(["Archive", "Mint", "TotalSupply"], ignoreOrder: true);
-        found.ShouldAllBe(d => d.Kind == DamlSymbolKind.Choice || d.Kind == DamlSymbolKind.Field || d.Kind == DamlSymbolKind.Template
-            ? d.PackageId == "1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb" && d.Module == "MiniDemo.Asset"
-            : d.PackageId == null);
+        found.ShouldAllBe(d => d.Name.Kind == DamlSymbolKind.Choice || d.Name.Kind == DamlSymbolKind.Field || d.Name.Kind == DamlSymbolKind.Template
+            ? d.Name.PackageId == "1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb" && d.Name.Module == "MiniDemo.Asset"
+            : d.Name.PackageId == null);
     }
 }

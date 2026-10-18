@@ -160,7 +160,7 @@ public static class BindingExtractor
                 return;
             }
             var @namespace = symbol.ContainingNamespace is { IsGlobalNamespace: false } ns ? ns.ToDisplayString() : "";
-            _found.Add(new GeneratedDeclaration(kind, package, module, entity, member, @namespace, id, _model.SyntaxTree.FilePath, span));
+            _found.Add(new GeneratedDeclaration(new DeclaredDamlName(kind, package, module, entity, member, @namespace), id, _model.SyntaxTree.FilePath, span));
         }
     }
 }
