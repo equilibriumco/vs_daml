@@ -8,6 +8,7 @@ using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.Locking;
 using Daml.Build.Tasks;
 using Daml.TestHelpers;
+using Microsoft.Build.Framework;
 using Shouldly;
 using Xunit;
 
@@ -234,6 +235,21 @@ public sealed class DpmToolTaskTests : IDisposable
         var error = _engine.Errors.ShouldHaveSingleItem();
         (error.Code, error.Subcategory, error.File, error.LineNumber).ShouldBe(("DAML0001", "Script", Path.Combine(Package, @"daml\Main.daml"), 47));
         ToolCalls().ShouldHaveSingleItem().Args.ShouldBe(["test"]);
+    }
+
+    // The lines -t:DamlTest is run for show without -v:d; the coverage report after them doesn't.
+    [Fact, Trait("Category", "Process")]
+    public void Each_script_of_a_test_run_shows_its_result_at_any_verbosity()
+    {
+        var command = Command("test", Captured("test-failing-script.stderr.txt"), exitCode: 1);
+        command.Stdout = Captured("test-failing-script.stdout.txt");
+        var task = Prepare(new DamlTestTask(), command);
+
+        task.Execute();
+
+        _engine.Messages.Where(m => m is not TaskCommandLineEventArgs && m.Importance == MessageImportance.High).Select(m => m.Message).ShouldBe(
+            ["daml/Main.daml:failing: failed", "daml/Main.daml:setup: ok, 1 active contracts, 3 transactions."]);
+        _engine.Messages.ShouldContain(m => m.Message == "Modules internal to this package:" && m.Importance == MessageImportance.Low);
     }
 
     [Fact, Trait("Category", "Process")]

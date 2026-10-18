@@ -28,7 +28,7 @@ central package versions out, so the solution builds like a user's.
    ```powershell
    dotnet build MixedDotnet.slnx -p:DamlAllowToolInstall=true   # the flag only until the generator is installed
    dotnet App\bin\Debug\net10.0\App.dll                        # Gold from Daml package mixed-dotnet-contracts 0.1.0
-   dotnet build daml\test\Contracts.Tests.msbuildproj -t:DamlTest
+   dotnet build daml\test\Contracts.Tests.msbuildproj -t:DamlTest   # a line per script: ok, or failed with an error
    ```
 
    Or open `MixedDotnet.slnx` in Visual Studio 2026 and build the solution. Without .NET, the Daml

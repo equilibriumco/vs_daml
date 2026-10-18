@@ -160,8 +160,16 @@ public abstract class DpmToolTask : ToolTask
     /// <inheritdoc />
     protected override void LogEventsFromTextOutput(string singleLine, MessageImportance messageImportance)
     {
-        // dpm's own words go to the detailed log; the report decides what becomes an error.
-        Log.LogMessage(MessageImportance.Low, singleLine);
+        // dpm's own words go to the detailed log; the report decides what becomes an error. The one
+        // line per script of a test run is what -t:DamlTest is for, so it shows at any verbosity.
+        if (Command == DpmCommandKind.Test && ScriptResultLine.TryParse(singleLine) is { } result)
+        {
+            Log.LogMessage(MessageImportance.High, result);
+        }
+        else
+        {
+            Log.LogMessage(MessageImportance.Low, singleLine);
+        }
         _report?.AddLine(singleLine);
     }
 
