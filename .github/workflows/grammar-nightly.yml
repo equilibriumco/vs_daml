@@ -1,12 +1,12 @@
 name: Grammar nightly
 
 # Long runs for the grammar that would slow every push down: the libFuzzer harness under the
-# address and undefined-behaviour sanitizers for at least ten minutes, and many more random edits
+# address and undefined-behaviour sanitizers for ten minutes by default, and many more random edits
 # of real files than the push run makes. Hosted Linux is enough, unlike the main Nightly, which
-# waits for a self-hosted Windows runner. Scheduled runs use the default branch.
+# waits for a self-hosted Windows runner. Started by hand (Actions > Grammar nightly > Run
+# workflow), not on a schedule: its random seeds keep hitting the layout bug inherited from
+# tree-sitter-haskell (grammar/UPSTREAM.md), which would turn every night red with nothing new.
 on:
-  schedule:
-    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       minutes:
@@ -40,7 +40,7 @@ jobs:
       - name: Generate the parser
         run: npx tree-sitter generate
 
-      # The corpus tests with a new random seed every night, reported but not failing the run:
+      # The corpus tests with a new random seed every run, reported but not failing the run:
       # about one seed in four hits a layout bug inherited from tree-sitter-haskell, which the
       # push run steps around with a fixed seed. A new kind of failure shows up here first.
       - name: Fuzz the corpus tests with a random seed (report only)
@@ -80,12 +80,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/fuzz-work" "$RUNNER_TEMP/crashes"
           node ../scripts/fuzz-seeds.mjs "$RUNNER_TEMP/seeds"
           seconds=$((MINUTES * 60))
-          if [ "$seconds" -lt 600 ] && [ "${{ github.event_name }}" = schedule ]; then seconds=600; fi
           "$RUNNER_TEMP/fuzz/daml-fuzzer" -max_total_time="$seconds" -timeout=10 -max_len=16384 -rss_limit_mb=4096 \
             -dict=../fuzz/daml.dict -artifact_prefix="$RUNNER_TEMP/crashes/" -print_final_stats=1 \
             "$RUNNER_TEMP/fuzz-work" "$RUNNER_TEMP/seeds"
 
-      # Many more random edits of real files than a push makes, with a new seed every night.
+      # Many more random edits of real files than a push makes, with a new seed every run.
       - name: Incremental parsing of the real-world corpus
         run: node ../scripts/edit-properties.mjs --cases 3000 --seed ${{ github.run_id }}
 

@@ -58,7 +58,7 @@ jobs:
       # back as the test expects it. The CLI exits 0 even when tests fail, so its summary line
       # ("N daml corpus tests failed fuzzing") decides; each failure above it names its seed,
       # which TREE_SITTER_SEED replays. The seed is fixed: about one random seed in four hits a
-      # layout bug inherited from tree-sitter-haskell. The nightly run tries a new one each night.
+      # layout bug inherited from tree-sitter-haskell. grammar-nightly.yml, run by hand, tries new ones.
       - name: Fuzz the corpus tests
         env:
           TREE_SITTER_SEED: '1'

@@ -121,5 +121,6 @@
   parentheses` (a `with` block inside a one-line `let … in`) show the same pattern and have no
   upstream counterpart. To replay one, in `tree-sitter-daml`:
   `TREE_SITTER_SEED=<seed from the failure> npx tree-sitter fuzz --iterations 1 -i "<test name>"`.
-  Our CI and the Grammar test category fuzz with a fixed seed that passes; the nightly run tries a
-  new seed and reports. Worth reporting upstream; a fix belongs in the scanner's layout handling.
+  Our CI and the Grammar test category fuzz with a fixed seed that passes; `grammar-nightly.yml`,
+  started by hand, tries new seeds, and its libFuzzer and incremental-parsing checks fail on this
+  bug too ("undoing the edits doesn't give the tree of the input back"). Worth reporting upstream; a fix belongs in the scanner's layout handling.

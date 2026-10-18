@@ -57,7 +57,9 @@ pwsh native/build.ps1 [-Package]                                 # daml_ts.dll f
   fuzz`, the corpus gate, 300 incremental-parsing cases (new seed each run), every seed under the
   sanitizers and a minute of fuzzing, the parsing speed (reported only: shared runners are too
   noisy), and the release artifacts through `grammar-artifacts.yml`.
-- `grammar-nightly.yml`: ten minutes of fuzzing and 3 000 incremental-parsing cases.
+- `grammar-nightly.yml`, run by hand (Actions → Grammar nightly → Run workflow): ten minutes of fuzzing
+  and 3 000 incremental-parsing cases with a new seed, which often meet the known layout bug in
+  `UPSTREAM.md`.
 - `grammar-artifacts.yml`: `daml_ts.dll` for x64 and ARM64 (smoke test on x64), the WebAssembly
   module (the CLI fetches wasi-sdk), a source archive with the generated parser.
 
