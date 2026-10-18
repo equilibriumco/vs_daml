@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
@@ -16,20 +15,20 @@ namespace Daml.VisualStudio.Bindings;
 /// <summary>
 /// Has Visual Studio evaluate a C# project again when the list of its generated Daml files exists
 /// but the project's last evaluation didn't import it. Visual Studio watches only the files an
-/// evaluation imported, so a list that was missing then (a Clean of an older package deleted it,
-/// obj was deleted, or nothing was built yet) goes unnoticed when a build writes it, and
-/// IntelliSense lacks every binding until the project is reloaded. Looked at after builds and
-/// background updates, and when the bindings of a solution are first read.
+/// evaluation imported, so a list that was missing then (nothing was built yet, obj was deleted,
+/// a Clean of an older package deleted it, or the package itself wasn't restored yet) goes
+/// unnoticed when a build writes it, and IntelliSense lacks every binding until the project is
+/// reloaded. Looked at after builds and background updates, and when the bindings of a solution
+/// are first read; when evaluating again doesn't help, the log asks once for a reload. Visual
+/// Studio's evaluations leave out private properties, so the list's path comes from public ones.
 /// </summary>
 [Export]
 [PartCreationPolicy(CreationPolicy.Shared)]
 internal sealed class GeneratedListImports
 {
-    // Where the package keeps the list of a configuration and target framework, file or no file.
-    private const string ListProperty = "_DamlGeneratedProps";
-
     private readonly IProjectServiceAccessor _projects;
     private readonly IDamlLogger _logger;
+    private readonly MissedLists _missed = new();
 
     [ImportingConstructor]
     public GeneratedListImports(IProjectServiceAccessor projects, IDamlLogger logger)
@@ -54,10 +53,10 @@ internal sealed class GeneratedListImports
                         caughtUp++;
                     }
                 }
-                catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException or AggregateException)
+                catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    // Unloading or closing meanwhile; the next build looks again.
-                    _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Debug, $"Couldn't look at the evaluation of {unconfigured.FullPath}.", ex);
+                    // Unloading or closing meanwhile, or the project system said no; the next build looks again.
+                    _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Couldn't look at the evaluation of {unconfigured.FullPath} ({configured.ProjectConfiguration.Name}).", ex);
                 }
             }
         }
@@ -71,27 +70,59 @@ internal sealed class GeneratedListImports
         {
             return false;
         }
-        var missed = await locks.ReadLockAsync(
-            access => access.GetProjectAsync(configured).ContinueWith(evaluation => MissedList(evaluation.Result), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default),
-            CancellationToken.None).ConfigureAwait(false);
-        if (missed is null)
+        var (list, missed) = await locks.ReadLockAsync(access => WithEvaluationAsync(access.GetProjectAsync, configured, ListOf), CancellationToken.None).ConfigureAwait(false);
+        if (list is null)
         {
             return false;
         }
-        _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information,
-            $"{Path.GetFileName(unconfigured.FullPath)} ({configured.ProjectConfiguration.Name}) didn't see {Path.GetFileName(missed)}, written after it was last evaluated; evaluating it again so IntelliSense gets the generated C#.");
-        // A dirty evaluation is redone when the lock is let go, and the new one imports the list.
-        await locks.WriteLockAsync(
-            access => access.GetProjectAsync(configured).ContinueWith(evaluation => evaluation.Result.MarkDirty(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default),
-            CancellationToken.None).ConfigureAwait(false);
-        return true;
+        var project = $"{Path.GetFileName(unconfigured.FullPath)} ({configured.ProjectConfiguration.Name})";
+        switch (_missed.Next(list, missed))
+        {
+            case MissedListAction.EvaluateAgain:
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information,
+                    $"{project} didn't see {Path.GetFileName(list)}, written after it was last evaluated; evaluating it again so IntelliSense gets the generated C#.");
+                // Marked dirty under the write lock, the evaluation is redone when the lock is let go, and
+                // the new one imports the list. The project file itself doesn't change.
+                await locks.WriteLockAsync(access => WithEvaluationAsync(access.GetProjectAsync, configured, MarkDirty), CancellationToken.None).ConfigureAwait(false);
+                return true;
+            case MissedListAction.AskForReload:
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning,
+                    $"{project} still doesn't see {Path.GetFileName(list)} after being evaluated again, so IntelliSense lacks the generated C#; reload the project (right-click it > Reload Project).");
+                return false;
+            default:
+                return false;
+        }
     }
 
-    // MSBuild's types stay out of async methods: their state machines keep locals and awaiters in
-    // fields, and the VSSDK's pkgdef step loads every type of the assembly without MSBuild at hand.
-    private static string? MissedList(Project project)
+    // Uses the evaluation under the lock the caller holds. It takes the lock's method rather than the
+    // lock and holds the evaluation as a plain Task, so no type here has a field whose layout needs
+    // MSBuild: the VSSDK's pkgdef step loads every type of the assembly without MSBuild at hand. It
+    // stays on the lock's own context, away from which the project system no longer counts the lock
+    // as held.
+    private static async Task<T> WithEvaluationAsync<T>(Func<ConfiguredProject, CancellationToken, Task> evaluate, ConfiguredProject configured, Func<Task, T> use)
     {
-        var list = project.GetPropertyValue(ListProperty);
-        return GeneratedListImport.Missed(list, project.Imports.Select(i => i.ImportedProject.FullPath), File.Exists) ? list : null;
+        var evaluation = evaluate(configured, CancellationToken.None);
+        await evaluation.ConfigureAwait(true);
+        return use(evaluation);
     }
+
+#pragma warning disable VSTHRD002 // awaited just before: the result is there
+    private static (string? List, bool Missed) ListOf(Task evaluation)
+    {
+        var project = ((Task<Project>)evaluation).Result;
+        var list = GeneratedListImport.ListPath(
+            project.DirectoryPath,
+            project.GetPropertyValue("BaseIntermediateOutputPath"),
+            project.GetPropertyValue("MSBuildProjectFile"),
+            project.GetPropertyValue("Configuration"),
+            project.GetPropertyValue("TargetFramework"));
+        return (list, GeneratedListImport.Missed(list, project.Imports.Select(i => i.ImportedProject.FullPath), File.Exists));
+    }
+
+    private static bool MarkDirty(Task evaluation)
+    {
+        ((Task<Project>)evaluation).Result.MarkDirty();
+        return true;
+    }
+#pragma warning restore VSTHRD002
 }

@@ -139,7 +139,17 @@ internal sealed class DamlBindingService : IDisposable
     }
 
     private void CatchUpImports() =>
-        _joinableTaskFactory.RunAsync(async () => await _imports.CatchUpAsync()).FileAndForget("daml/bindings/catchUpImports");
+        _joinableTaskFactory.RunAsync(async () =>
+        {
+            try
+            {
+                await _imports.CatchUpAsync();
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, "Couldn't check whether Visual Studio has seen the generated C# file lists of the solution's projects.", ex);
+            }
+        }).FileAndForget("daml/bindings/catchUpImports");
 
     // Says why a lens or a command went away, or came back.
     private void Describe(BindingIndex index)

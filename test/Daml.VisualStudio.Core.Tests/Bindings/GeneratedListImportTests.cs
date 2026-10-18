@@ -35,6 +35,53 @@ public class GeneratedListImportTests
         GeneratedListImport.Missed(List, Imports, _ => false).ShouldBeFalse();
     }
 
+    // Visual Studio's evaluations leave out private properties such as the package's own _DamlGeneratedProps,
+    // so the path is worked out from public ones, the way the package does.
+    [Fact, Trait("Category", "Unit")]
+    public void The_list_path_comes_from_the_projects_public_properties()
+    {
+        GeneratedListImport.ListPath(@"C:\sln\App", @"obj\", "App.csproj", "Debug", "net10.0").ShouldBe(List);
+        GeneratedListImport.ListPath(@"C:\sln\App", @"D:\out\App\", "App.csproj", "Release", "net8.0").ShouldBe(@"D:\out\App\daml\App.csproj.Release.net8.0.g.props");
+    }
+
+    // The outer evaluation of a project with several target frameworks has none.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(null)]
+    [InlineData("")]
+    public void Without_a_target_framework_there_is_no_list_path(string? framework)
+    {
+        GeneratedListImport.ListPath(@"C:\sln\App", @"obj\", "App.csproj", "Debug", framework).ShouldBeNull();
+    }
+
+    // Evaluated again once; if that doesn't help (Visual Studio may still hold what it found missing),
+    // a reload is asked for once, and nothing more until the list is seen.
+    [Fact, Trait("Category", "Unit")]
+    public void A_missed_list_is_evaluated_again_once_then_a_reload_is_asked_for_once()
+    {
+        var lists = new MissedLists();
+
+        var actions = new[]
+        {
+            lists.Next(List, missed: true),
+            lists.Next(List, missed: true),
+            lists.Next(List, missed: true),
+        };
+
+        actions.ShouldBe([MissedListAction.EvaluateAgain, MissedListAction.AskForReload, MissedListAction.None]);
+    }
+
+    // Once seen, the list is forgotten: a later Clean of an older package, or a deleted obj, starts afresh.
+    [Fact, Trait("Category", "Unit")]
+    public void A_list_seen_again_starts_afresh()
+    {
+        var lists = new MissedLists();
+        lists.Next(List, missed: true);
+        lists.Next(List, missed: true);
+
+        lists.Next(List.ToUpperInvariant(), missed: false).ShouldBe(MissedListAction.None);
+        lists.Next(List, missed: true).ShouldBe(MissedListAction.EvaluateAgain);
+    }
+
     // A project without the package, or the outer evaluation of one with several target frameworks.
     [Theory, Trait("Category", "Unit")]
     [InlineData(null)]
