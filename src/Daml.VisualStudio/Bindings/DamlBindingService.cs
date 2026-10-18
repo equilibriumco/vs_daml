@@ -42,6 +42,12 @@ internal sealed class DamlBindingService : IDisposable
     /// <summary>Whether the sources of a generation are still the Daml on this machine.</summary>
     public DamlSources Sources { get; }
 
+    /// <summary>Which generation a generated file belongs to, shared with the indexes.</summary>
+    public GenerationCatalog Catalog => _catalog;
+
+    /// <summary>Raised, on any thread, when the index of a workspace has a new version.</summary>
+    public event EventHandler? IndexChanged;
+
     /// <summary>Finds declarations in Daml sources.</summary>
     public DamlDefinitionLocator Locator { get; }
 
@@ -72,6 +78,7 @@ internal sealed class DamlBindingService : IDisposable
                 return null;
             }
             index = new WorkspaceBindingIndex(workspace, _catalog, TimeProvider.System, TimeSpan.FromSeconds(1), _logger);
+            index.Published += (_, _) => IndexChanged?.Invoke(this, EventArgs.Empty);
             _indexes.Add(workspace, index);
             _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "Reading the Daml bindings of the solution's C# projects.");
             return index.Current;

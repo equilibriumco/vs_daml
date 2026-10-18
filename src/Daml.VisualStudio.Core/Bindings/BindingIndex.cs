@@ -42,6 +42,12 @@ public sealed class BindingIndex
     public IReadOnlyList<DamlSymbolId> SymbolsOf(string projectKey, string declarationId) =>
         _lookups.Value.ByDeclaration.TryGetValue((projectKey, declarationId), out var symbols) ? symbols : [];
 
+    /// <summary>The generations built from the Daml project of <paramref name="sourceManifest"/>, each once.</summary>
+    public IReadOnlyList<GenerationProvenance> GenerationsFrom(string sourceManifest) =>
+        _lookups.Value.Generations
+            .Where(g => g.Source is { } source && string.Equals(source.ManifestPath, sourceManifest, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
     /// <summary>The physical declarations of <paramref name="symbol"/>: a file linked into several projects counts once.</summary>
     public IReadOnlyList<BindingDeclaration> DeclarationsOf(DamlSymbolId symbol) =>
         LocationsOf(symbol)
@@ -115,8 +121,14 @@ public sealed class BindingIndex
                 {
                     symbols.Add(location.Symbol);
                 }
+                if (!Generations.Contains(location.Generation))
+                {
+                    Generations.Add(location.Generation);
+                }
             }
         }
+
+        public List<GenerationProvenance> Generations { get; } = [];
 
         public Dictionary<DamlSymbolId, List<BindingLocation>> BySymbol { get; } = [];
 

@@ -4,7 +4,9 @@ using System.ComponentModel.Composition;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.VisualStudio.Bindings;
 using Daml.VisualStudio.Core.Logging;
+using Daml.VisualStudio.Core.ScriptResults;
 using Daml.VisualStudio.LanguageClient;
 using Daml.VisualStudio.LanguageServer.Lenses;
 using Microsoft.VisualStudio.Text;
@@ -20,15 +22,20 @@ namespace Daml.VisualStudio.Lenses;
 internal sealed class DamlLensSources
 {
     private readonly Lazy<DamlLanguageClient> _client;
+    private readonly Lazy<RoslynCSharpReferenceSource> _csharp;
+    private readonly CSharpReferencesWindow _csharpWindow;
     private readonly IDamlLogger _logger;
     private readonly Lazy<IReadOnlyList<ILensSegmentProvider>> _providers;
 
     [ImportingConstructor]
-    public DamlLensSources(Lazy<DamlLanguageClient> client, IDamlLogger logger)
+    public DamlLensSources(Lazy<DamlLanguageClient> client, Lazy<RoslynCSharpReferenceSource> csharp, CSharpReferencesWindow csharpWindow, IDamlLogger logger)
     {
         _client = client;
+        _csharp = csharp;
+        _csharpWindow = csharpWindow;
         _logger = logger;
-        _providers = new Lazy<IReadOnlyList<ILensSegmentProvider>>(() => [new ScriptLensSegments(_client.Value.Host.ScriptLenses)]);
+        _providers = new Lazy<IReadOnlyList<ILensSegmentProvider>>(() =>
+            [new ScriptLensSegments(_client.Value.Host.ScriptLenses), new CSharpReferenceSegments(_csharp.Value)]);
     }
 
     public IReadOnlyList<ILensSegmentProvider> Providers => _providers.Value;
@@ -52,6 +59,19 @@ internal sealed class DamlLensSources
                     _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Couldn't show the results of {lens.Title}.", ex);
                 }
                 break;
+            case CSharpReferenceLens lens:
+                var name = $"{lens.Module}:{lens.Declaration.Name}";
+                try
+                {
+                    var references = await _csharp.Value.FindAsync(lens.DamlFile, lens.Module, lens.Declaration, cancellationToken).ConfigureAwait(false) ?? [];
+                    _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"{references.Count} C# reference(s) of {name}.");
+                    await _csharpWindow.ShowAsync(name, references, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or OperationCanceledException))
+                {
+                    _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Couldn't show the C# references of {name}.", ex);
+                }
+                break;
             default:
                 _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning, $"Nothing to do for the lens segment '{segment.Text}'.");
                 break;
@@ -64,11 +84,15 @@ internal sealed class DamlLensSources
 /// with a tracking point, so typing above it carries the row along until fresh lenses arrive.
 /// Shared by every view of the buffer; the last view to close lets go of the providers.
 /// </summary>
-internal sealed class DamlLensRows
+internal sealed class DamlLensRows : IDisposable
 {
+    // Scrolling lays out lines many times a second; what is on screen is told once it stops.
+    private static readonly TimeSpan ShownQuiet = TimeSpan.FromMilliseconds(150);
+
     private readonly ITextBuffer _buffer;
     private readonly string? _documentUri;
     private readonly IReadOnlyList<ILensSegmentProvider> _providers;
+    private readonly Debouncer _shown = new(ShownQuiet, TimeProvider.System);
     private Row[] _rows = [];
     private LineMap? _lineMap;
     private int _users;
@@ -112,7 +136,36 @@ internal sealed class DamlLensRows
             {
                 provider.SegmentsChanged -= OnSegmentsChanged;
             }
+            Dispose();
             _buffer.Properties.RemoveProperty(typeof(DamlLensRows));
+        }
+    }
+
+    /// <summary>Drops what is waiting to be told to the providers; the last view to close does this.</summary>
+    public void Dispose() => _shown.Dispose();
+
+    /// <summary>
+    /// A view shows lines <paramref name="firstLine"/> to <paramref name="lastLine"/> of
+    /// <paramref name="snapshot"/>; the providers that work only for what is on screen hear it once
+    /// scrolling stops, the last view to scroll winning.
+    /// </summary>
+    public void Shown(int firstLine, int lastLine, ITextSnapshot snapshot)
+    {
+        if (_documentUri is not null && _providers.OfType<IVisibleLensProvider>().Any())
+        {
+            _ = ShownWhenQuietAsync(_documentUri, firstLine, lastLine, snapshot);
+        }
+    }
+
+    private async Task ShownWhenQuietAsync(string documentUri, int firstLine, int lastLine, ITextSnapshot snapshot)
+    {
+        if (!await _shown.WaitAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+        foreach (var provider in _providers.OfType<IVisibleLensProvider>())
+        {
+            provider.Shown(documentUri, firstLine, lastLine, snapshot.Version.VersionNumber, snapshot.GetText);
         }
     }
 

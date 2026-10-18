@@ -30,6 +30,9 @@
     <!-- From an editor buffer to its Roslyn document and workspace, for Daml navigation in C# files.
          Same Roslyn line; VS provides it, so it is referenced for compiling only. -->
     <PackageVersion Include="Microsoft.CodeAnalysis.EditorFeatures.Text" Version="4.14.0" />
+    <!-- VisualStudioWorkspace, the solution's Roslyn workspace, for counting C# references from a Daml
+         editor before any C# file is open. Same Roslyn line; VS provides it, compiling only. -->
+    <PackageVersion Include="Microsoft.VisualStudio.LanguageServices" Version="4.14.0" />
     <!-- What VS 2026 18.11 ships in PrivateAssemblies; devenv.exe.config redirects 0.0.0.0-1.0.3967.48
          to it, so the VSIX never carries these DLLs. Don't go above what VS 2026 redirects. -->
     <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />

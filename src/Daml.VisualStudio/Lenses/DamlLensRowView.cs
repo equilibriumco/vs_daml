@@ -193,6 +193,10 @@ internal sealed class DamlLensRowView
             Canvas.SetTop(row, line.TextTop - height);
             _layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, line.Extent, segments, row, null);
         }
+        if (_view.TextViewLines is { FirstVisibleLine: { } first, LastVisibleLine: { } last })
+        {
+            _rows.Shown(first.Start.GetContainingLine().LineNumber, last.End.GetContainingLine().LineNumber, first.Snapshot);
+        }
     }
 
     private Hyperlink Link(LensSegment segment)

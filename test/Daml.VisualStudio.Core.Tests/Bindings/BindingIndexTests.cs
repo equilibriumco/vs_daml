@@ -30,6 +30,16 @@ public class BindingIndexTests
             At(Give, project, AssetFile, "P:Fixture.Kinds.Asset.Asset.ChoiceGive", 300, framework),
         ]);
 
+    // A Daml file's lenses start from the generations built from its package's sources.
+    [Fact, Trait("Category", "Unit")]
+    public void The_index_names_the_generations_built_from_a_Daml_project()
+    {
+        var index = WithAsset(WithAsset(BindingIndex.Empty, App), Service, "net10.0");
+
+        index.GenerationsFrom(@"c:\work\contracts\daml.yaml").ShouldBe([Generation]);
+        index.GenerationsFrom(@"C:\work\Other\daml.yaml").ShouldBeEmpty();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void An_empty_index_knows_nothing()
     {

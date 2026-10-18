@@ -28,6 +28,21 @@ public interface ILensSegmentProvider
     IReadOnlyList<LensSegment> SegmentsFor(string documentUri);
 }
 
+/// <summary>
+/// A source of segments that works only for what is on screen: the editor tells it which lines of
+/// a document a view shows, once scrolling stops.
+/// </summary>
+public interface IVisibleLensProvider : ILensSegmentProvider
+{
+    /// <summary>A view of <paramref name="documentUri"/> shows lines <paramref name="firstLine"/> to <paramref name="lastLine"/>.</summary>
+    /// <param name="documentUri">The document.</param>
+    /// <param name="firstLine">The first line shown, from zero.</param>
+    /// <param name="lastLine">The last line shown.</param>
+    /// <param name="textVersion">The version of the text the lines are of; the same version is the same text.</param>
+    /// <param name="text">The text of that version, read only when the provider needs it.</param>
+    void Shown(string documentUri, int firstLine, int lastLine, int textVersion, Func<string> text);
+}
+
 /// <summary>Arranges segments into rows.</summary>
 public static class LensRows
 {

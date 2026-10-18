@@ -30,6 +30,8 @@ namespace Daml.VisualStudio;
 // Script results open beside the Output window, one tab per script. They aren't restored with
 // the layout: their content comes from a running language server and is shown again on request.
 [ProvideToolWindow(typeof(ScriptResults.ScriptResultsToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, Window = OutputWindowGuid)]
+// The C# references of a Daml declaration, one window that each lens click fills again.
+[ProvideToolWindow(typeof(Bindings.CSharpReferencesToolWindow), Transient = true, Style = VsDockStyle.Tabbed, Window = OutputWindowGuid)]
 [ProvideOptionPage(typeof(Options.DamlOptionPages.General), "Daml", "General", 0, 0, true, SupportsProfiles = true)]
 [ProvideAutoLoad(PackageGuids.DamlActiveString, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideUIContextRule(
