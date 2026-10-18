@@ -293,13 +293,19 @@ public sealed class LanguageServerHost : IDisposable
     /// Whether messages about <paramref name="documentUri"/> may go to the server. VS sends every
     /// open Daml document to the client, but damlc multi-ide stops altogether when it gets a file
     /// with no daml.yaml above it, so files outside the workspace are kept away (they still get
-    /// syntax colouring). Other URI schemes, such as the server's own virtual documents, pass.
+    /// syntax colouring). So are damlc's own copies under <c>.daml</c>, such as the dependency sources
+    /// Go To Definition opens from the package database: they don't compile on their own and would
+    /// only fill the Error List. Other URI schemes, such as the server's own virtual documents, pass.
     /// </summary>
     public bool IsServed(string? documentUri)
     {
         if (LspUri.ToLocalPath(documentUri) is not { } path)
         {
             return true;
+        }
+        if (path.IndexOf(@"\.daml\", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            return false;
         }
         WorkspaceContext? workspace;
         lock (_gate)

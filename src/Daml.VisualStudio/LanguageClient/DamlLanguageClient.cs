@@ -101,7 +101,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         CustomMessageTarget = new DamlCustomMessageTarget(VirtualResources, installs, logger);
         _sequence = new ClientRestartSequence(_host, DiscoverAsync, () => RaiseAsync(StopAsync), () => RaiseAsync(StartAsync));
         _solutionPackages = new SolutionPackagesTracker(
-            _discovery, _solutionProjects.ManifestsAsync, () => _host.Workspace, () => _sequence.FolderChangedAsync(CancellationToken.None), TimeProvider.System);
+            _discovery, _solutionProjects.ManifestsAsync, () => _host.Workspace, RestartForSolutionProjectsAsync, TimeProvider.System);
     }
 
     public event AsyncEventHandler<EventArgs>? StartAsync;
@@ -321,4 +321,10 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     private void OnSolutionLoaded() =>
         _joinableTaskFactory.RunAsync(_solutionPackages.OnProjectsChangedAsync).FileAndForget("daml/languageClient/projectsChanged");
+
+    private Task RestartForSolutionProjectsAsync()
+    {
+        _host.Log(DamlLogLevel.Information, "Restarting the language server: the Daml projects of the solution changed.");
+        return _sequence.FolderChangedAsync(CancellationToken.None);
+    }
 }

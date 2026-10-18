@@ -200,6 +200,22 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _host.Supervisor.State.ShouldBe(LanguageServerState.Ready);
     }
 
+    // A Daml project outside the solution folder added to or removed from the solution leaves the
+    // folder as it was, but the server has to serve another set of packages.
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_same_folder_with_other_solution_packages_restarts_the_server()
+    {
+        _discovered = Workspace() with { SolutionPackages = [@"C:\repo", @"C:\shared\Lib"] };
+        var sequence = Sequence();
+        await sequence.StartAsync(CancellationToken.None);
+        _host.Supervisor.MarkReady(1);
+        _discovered = Workspace() with { SolutionPackages = [@"C:\repo"] };
+
+        await sequence.FolderChangedAsync(CancellationToken.None);
+
+        _steps.ShouldBe(["discover", "start", "discover", "stop", "start"]);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Without_a_workspace_the_server_is_stopped_and_not_started_again()
     {

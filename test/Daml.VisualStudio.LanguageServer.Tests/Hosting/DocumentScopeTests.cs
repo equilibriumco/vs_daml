@@ -52,6 +52,18 @@ public sealed class DocumentScopeTests : System.IDisposable
         _host.IsServed(uri).ShouldBe(served);
     }
 
+    // Go To Definition into a dependency opens damlc's own copy under .daml\package-database; sent back to
+    // the server it would not compile there, and the Error List would fill with "Could not find module Pkg_…".
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("file:///M:/repo/samples/broken/.daml/package-database/2.3/contracts-0.1.0-db3f/Asset.daml")]
+    [InlineData("file:///M:/repo/samples/broken/.DAML/dist/Main.daml")]
+    public void Copies_under_the_build_output_are_not_sent_to_the_server(string uri)
+    {
+        Workspace();
+
+        _host.IsServed(uri).ShouldBeFalse();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Without_a_workspace_no_file_is_served()
     {

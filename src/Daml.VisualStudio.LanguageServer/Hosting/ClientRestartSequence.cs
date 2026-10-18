@@ -92,10 +92,12 @@ public sealed class ClientRestartSequence : IDisposable
             _host.SetWorkspace(workspace, options);
 
             // Visual Studio activates the server for a newly opened folder by itself; when that
-            // is the workspace already being served, there is nothing to restart.
+            // is the workspace already being served, with the same Daml projects of the solution,
+            // there is nothing to restart. A project outside the folder added or removed is.
             if (quiet && _clientStarted && workspace is not null && served is not null
                 && DamlPath.Comparer.Equals(workspace.WorkspaceRoot, served.WorkspaceRoot)
-                && DamlPath.Comparer.Equals(workspace.ServerWorkingDirectory, served.ServerWorkingDirectory))
+                && DamlPath.Comparer.Equals(workspace.ServerWorkingDirectory, served.ServerWorkingDirectory)
+                && served.IsFor(workspace.SolutionPackages))
             {
                 return;
             }
