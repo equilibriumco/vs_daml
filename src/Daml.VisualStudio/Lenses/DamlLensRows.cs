@@ -35,7 +35,12 @@ internal sealed class DamlLensSources
         _csharpWindow = csharpWindow;
         _logger = logger;
         _providers = new Lazy<IReadOnlyList<ILensSegmentProvider>>(() =>
-            [new ScriptLensSegments(_client.Value.Host.ScriptLenses), new CSharpReferenceSegments(_csharp.Value)]);
+        {
+            var csharpReferences = new CSharpReferenceSegments(_csharp.Value);
+            csharpReferences.CountFailed += (_, e) => _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Warning,
+                $"Couldn't count the C# references of {e.Declaration.Name} in {e.DamlFile}.", e.Exception);
+            return [new ScriptLensSegments(_client.Value.Host.ScriptLenses), csharpReferences];
+        });
     }
 
     public IReadOnlyList<ILensSegmentProvider> Providers => _providers.Value;

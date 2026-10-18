@@ -27,6 +27,27 @@ public enum CSharpLinkState
 /// <param name="Declaration">The template, interface or choice.</param>
 public sealed record CSharpReferenceLens(string DamlFile, string Module, DamlLensDeclaration Declaration);
 
+/// <summary>A count of C# references that went wrong, for the log.</summary>
+public sealed class CSharpReferenceCountFailedEventArgs : EventArgs
+{
+    /// <summary>Creates the event data.</summary>
+    public CSharpReferenceCountFailedEventArgs(string damlFile, DamlLensDeclaration declaration, Exception exception)
+    {
+        DamlFile = damlFile;
+        Declaration = declaration;
+        Exception = exception;
+    }
+
+    /// <summary>The Daml file.</summary>
+    public string DamlFile { get; }
+
+    /// <summary>The declaration whose references couldn't be counted.</summary>
+    public DamlLensDeclaration Declaration { get; }
+
+    /// <summary>What went wrong.</summary>
+    public Exception Exception { get; }
+}
+
 /// <summary>Where C# references come from: the binding index and the C# solution.</summary>
 public interface ICSharpReferenceSource
 {
@@ -45,8 +66,10 @@ public interface ICSharpReferenceSource
 /// "C#: N references" above the templates, interfaces and choices of Daml files whose package
 /// generates C#. Only declarations on screen are counted, two at a time; scrolling away cancels
 /// what is no longer shown; a count stands until the C# solution or the index changes, and shows
-/// until its new count arrives. Bindings from older sources say so instead of a count, and a
-/// declaration no C# stands for (new since the build) has no segment.
+/// until its new count arrives. A change never stops a count under way (while a solution loads,
+/// changes come faster than counts end): its result shows, and a fresh count follows it. Bindings
+/// from older sources say so instead of a count, a declaration no C# stands for (new since the
+/// build) has no segment, and a count that fails says so and is tried again after the next change.
 /// </summary>
 public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
 {
@@ -58,6 +81,7 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
 
     private const string Pending = "C#: …";
     private const string OutOfDate = "C#: out of date (build to update)";
+    private const string Failed = "C#: couldn't count (see Output)";
 
     private readonly ICSharpReferenceSource _source;
     private readonly SemaphoreSlim _running = new(Concurrency, Concurrency);
@@ -75,6 +99,9 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
 
     /// <inheritdoc />
     public event EventHandler<string>? SegmentsChanged;
+
+    /// <summary>Raised, on any thread, when a count failed; the row says so, the log says why.</summary>
+    public event EventHandler<CSharpReferenceCountFailedEventArgs>? CountFailed;
 
     /// <inheritdoc />
     public IReadOnlyList<LensSegment> SegmentsFor(string documentUri)
@@ -96,6 +123,10 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
                 else if (!document.Counts.TryGetValue(declaration.Name, out var count))
                 {
                     text = Pending;
+                }
+                else if (count.Failed)
+                {
+                    text = Failed;
                 }
                 else if (count.Value is { } n)
                 {
@@ -211,6 +242,7 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
     private async Task CountAsync(string documentUri, Document document, DamlLensDeclaration declaration, int generation, CancellationTokenSource cancel)
     {
         IReadOnlyList<CSharpReference>? references = null;
+        Exception? failure = null;
         var counted = false;
         try
         {
@@ -227,27 +259,43 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
         }
         catch (OperationCanceledException)
         {
-            // Scrolled away, changed, or closed; whatever is still due is scheduled anew.
+            // Scrolled away or closed; whatever is still due is scheduled anew.
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            failure = ex;
+        }
+        var stop = new List<CancellationTokenSource>();
         lock (_gate)
         {
             if (document.Running.TryGetValue(declaration.Name, out var current) && ReferenceEquals(current, cancel))
             {
                 document.Running.Remove(declaration.Name);
             }
-            if (counted && !_disposed)
+            if ((counted || failure is not null) && !_disposed)
             {
-                document.Counts[declaration.Name] = new Count(generation, references?.Count);
+                document.Counts[declaration.Name] = new Count(generation, references?.Count, failure is not null);
+                // The C# changed while it counted: this result shows, and a fresh count follows it.
+                if (generation != _generation)
+                {
+                    Schedule(documentUri, document, stop);
+                }
             }
         }
         cancel.Dispose();
-        if (counted)
+        Cancel(stop);
+        if (failure is not null)
+        {
+            CountFailed?.Invoke(this, new CSharpReferenceCountFailedEventArgs(document.File, declaration, failure));
+        }
+        if (counted || failure is not null)
         {
             SegmentsChanged?.Invoke(this, documentUri);
         }
     }
 
-    // The C# or the index changed: every count is redone as it comes on screen, the old one showing until then.
+    // The C# or the index changed, or a Daml file was saved: every count is redone as it comes on
+    // screen, the old one showing until then; counts under way finish first and are redone after.
     private void OnSourceChanged(object? sender, EventArgs e)
     {
         List<string> changed;
@@ -268,8 +316,6 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
                     pair.Value.Link = link;
                     changed.Add(pair.Key);
                 }
-                stop.AddRange(pair.Value.Running.Values);
-                pair.Value.Running.Clear();
                 Schedule(pair.Key, pair.Value, stop);
             }
         }
@@ -301,5 +347,5 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
         public Dictionary<string, CancellationTokenSource> Running { get; } = new(StringComparer.Ordinal);
     }
 
-    private sealed record Count(int Generation, int? Value);
+    private sealed record Count(int Generation, int? Value, bool Failed);
 }

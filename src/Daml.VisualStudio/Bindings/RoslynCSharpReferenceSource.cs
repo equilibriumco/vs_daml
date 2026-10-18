@@ -1,18 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Community.VisualStudio.Toolkit;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Manifests;
 using Daml.VisualStudio.Core.Bindings;
+using Daml.VisualStudio.Core.Logging;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.ScriptResults;
 using Daml.VisualStudio.LanguageServer.Lenses;
 using Daml.VisualStudio.Roslyn.Bindings;
 using Microsoft.CodeAnalysis;
 using Microsoft.VisualStudio.LanguageServices;
+using Microsoft.VisualStudio.Shell;
+using Microsoft.VisualStudio.Threading;
 
 namespace Daml.VisualStudio.Bindings;
 
@@ -33,20 +39,29 @@ internal sealed class RoslynCSharpReferenceSource : ICSharpReferenceSource, IDis
 
     private readonly VisualStudioWorkspace _workspace;
     private readonly DamlBindingService _bindings;
+    private readonly IDamlLogger _logger;
     private readonly WorkspaceLocator _locator;
     private readonly Debouncer _quiet = new(Quiet, TimeProvider.System);
     private readonly Dictionary<string, (DateTime At, Link Link)> _links = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
     [ImportingConstructor]
-    public RoslynCSharpReferenceSource(VisualStudioWorkspace workspace, DamlBindingService bindings)
+    public RoslynCSharpReferenceSource(VisualStudioWorkspace workspace, DamlBindingService bindings, IDamlLogger logger, JoinableTaskContext joinableTaskContext)
     {
         _workspace = workspace;
         _bindings = bindings;
+        _logger = logger;
         var files = new PhysicalFileSystem();
         _locator = new WorkspaceLocator(files, new YamlManifestReader(files));
         _workspace.WorkspaceChanged += OnWorkspaceChanged;
         _bindings.IndexChanged += OnIndexChanged;
+        // A saved Daml file can make the bindings older than the sources, with nothing else telling.
+        var factory = joinableTaskContext.Factory;
+        factory.RunAsync(async () =>
+        {
+            await factory.SwitchToMainThreadAsync();
+            VS.Events.DocumentEvents.Saved += OnSaved;
+        }).FileAndForget("daml/csharpReferences/saved");
     }
 
     public event EventHandler? Changed;
@@ -62,9 +77,15 @@ internal sealed class RoslynCSharpReferenceSource : ICSharpReferenceSource, IDis
         var locations = LinkFor(damlFile).Packages
             .SelectMany(package => index.LocationsOf(new DamlSymbolId(package, damlModule, declaration.Entity, declaration.Member, declaration.Kind)))
             .ToList();
-        return locations.Count == 0
-            ? null
-            : await CSharpReferenceFinder.FindAsync(_workspace.CurrentSolution, locations, _bindings.Catalog, cancellationToken).ConfigureAwait(false);
+        if (locations.Count == 0)
+        {
+            return null;
+        }
+        var clock = Stopwatch.StartNew();
+        var references = await CSharpReferenceFinder.FindAsync(_workspace.CurrentSolution, locations, _bindings.Catalog, cancellationToken).ConfigureAwait(false);
+        _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information,
+            $"{references.Count} C# reference(s) of {damlModule}:{declaration.Name} ({clock.ElapsedMilliseconds} ms).");
+        return references;
     }
 
     public void Dispose()
@@ -72,6 +93,18 @@ internal sealed class RoslynCSharpReferenceSource : ICSharpReferenceSource, IDis
         _workspace.WorkspaceChanged -= OnWorkspaceChanged;
         _bindings.IndexChanged -= OnIndexChanged;
         _quiet.Dispose();
+    }
+
+    private void OnSaved(string? path)
+    {
+        if (path is not null && (path.EndsWith(".daml", StringComparison.OrdinalIgnoreCase) || Path.GetFileName(path).Equals("daml.yaml", StringComparison.OrdinalIgnoreCase)))
+        {
+            lock (_gate)
+            {
+                _links.Clear();
+            }
+            _ = ChangedWhenQuietAsync();
+        }
     }
 
     private Link LinkFor(string damlFile)

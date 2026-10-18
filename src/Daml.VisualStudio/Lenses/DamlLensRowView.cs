@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -139,8 +140,23 @@ internal sealed class DamlLensRowView
             if (!_view.IsClosed)
             {
                 Relayout();
+                Redraw();
             }
         }).FileAndForget("daml/lenses/relayout");
+    }
+
+    // A row whose text changed in place ("C#: …" becoming a count) leaves its line's room as it was,
+    // so the editor doesn't format the line again and the layout pass draws nothing new for it;
+    // every visible row is drawn afresh instead.
+    private void Redraw()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (_view.InLayout || _view.TextViewLines is not { } lines)
+        {
+            return;
+        }
+        _layer.RemoveAllAdornments();
+        Draw(lines);
     }
 
     private void UpdateColours()
@@ -162,8 +178,18 @@ internal sealed class DamlLensRowView
 
     private void OnLayoutChanged(object sender, TextViewLayoutChangedEventArgs e)
     {
+        Draw(e.NewOrReformattedLines);
+        if (_view.TextViewLines is { FirstVisibleLine: { } first, LastVisibleLine: { } last })
+        {
+            _rows.Shown(first.Start.GetContainingLine().LineNumber, last.End.GetContainingLine().LineNumber, first.Snapshot);
+        }
+    }
+
+    // The rows of the given lines, above each line's first character.
+    private void Draw(IEnumerable<ITextViewLine> lines)
+    {
         var height = Height(_view);
-        foreach (var line in e.NewOrReformattedLines)
+        foreach (var line in lines)
         {
             if (!line.IsFirstTextViewLineForSnapshotLine)
             {
@@ -192,10 +218,6 @@ internal sealed class DamlLensRowView
             Canvas.SetLeft(row, IndentLeft(line, snapshotLine));
             Canvas.SetTop(row, line.TextTop - height);
             _layer.AddAdornment(AdornmentPositioningBehavior.TextRelative, line.Extent, segments, row, null);
-        }
-        if (_view.TextViewLines is { FirstVisibleLine: { } first, LastVisibleLine: { } last })
-        {
-            _rows.Shown(first.Start.GetContainingLine().LineNumber, last.End.GetContainingLine().LineNumber, first.Snapshot);
         }
     }
 

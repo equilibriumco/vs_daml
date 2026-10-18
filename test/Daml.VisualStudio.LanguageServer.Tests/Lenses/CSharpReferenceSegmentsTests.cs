@@ -153,6 +153,71 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         Texts()[0].ShouldBe("C#: 3 references", "the old count shows until the new one arrives");
     }
 
+    // The C# workspace changes over and over while a solution loads; a count under way still ends and
+    // shows, and the next one starts after it, so the row never stays "C#: …" for good.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_count_under_way_finishes_however_often_the_CSharp_changes()
+    {
+        Show(0, 5);
+        await UntilAsync(() => _source.Asked.Count == 1);
+
+        _source.RaiseChanged();
+        _source.RaiseChanged();
+        await SettleAsync();
+        _source.Cancelled.ShouldBeEmpty();
+        _source.Answer("T0", 2);
+        await UntilAsync(() => Texts()[0] == "C#: 2 references" && _source.Asked.Count == 2);
+
+        Texts()[0].ShouldBe("C#: 2 references");
+        _source.Asked.ShouldBe(["T0", "T0"], "the changes since asked for a fresh count");
+    }
+
+    // Something went wrong in Roslyn: the row says so, the reason is reported, and the next change tries again.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_count_that_fails_says_so_and_is_tried_again_after_a_change()
+    {
+        var failures = new List<Exception>();
+        _segments.CountFailed += (_, e) =>
+        {
+            lock (failures)
+            {
+                failures.Add(e.Exception);
+            }
+        };
+        Show(0, 5);
+        await UntilAsync(() => _source.Asked.Count == 1);
+
+        _source.Fail("T0", new InvalidOperationException("no compilation"));
+        await UntilAsync(() => Texts()[0] == "C#: couldn't count (see Output)");
+
+        Texts()[0].ShouldBe("C#: couldn't count (see Output)");
+        lock (failures)
+        {
+            failures.ShouldHaveSingleItem().Message.ShouldBe("no compilation");
+        }
+        _source.RaiseChanged();
+        await UntilAsync(() => _source.Asked.Count == 2);
+        _source.Asked.Count.ShouldBe(2);
+    }
+
+    // A save makes the sources newer than the bindings; the source says so with a change, and the rows follow.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Rows_follow_the_link_when_the_source_reports_a_change()
+    {
+        Show(0, 100);
+        await UntilAsync(() => _source.Asked.Count == 2);
+
+        _source.Link = CSharpLinkState.Stale;
+        _source.RaiseChanged();
+        await UntilAsync(() => Texts().All(t => t == "C#: out of date (build to update)"));
+
+        Texts().ShouldAllBe(t => t == "C#: out of date (build to update)");
+        lock (_changed)
+        {
+            _changed.Count(u => u == Uri).ShouldBeGreaterThanOrEqualTo(2);
+        }
+    }
+
     // A declaration added since the last build has no C# yet; its row would only mislead.
     [Fact, Trait("Category", "Unit")]
     public async Task A_declaration_without_generated_CSharp_has_no_segment()
@@ -240,6 +305,14 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
                     ? Enumerable.Range(0, n).Select(i => new CSharpReference("App", @"C:\sln\App\Program.cs", i + 1, 1, i * 10, 2, "x")).ToList()
                     : null;
                 _runs.Last(r => r.Name == name).Result.TrySetResult(references);
+            }
+        }
+
+        public void Fail(string name, Exception exception)
+        {
+            lock (_gate)
+            {
+                _runs.Last(r => r.Name == name).Result.TrySetException(exception);
             }
         }
 
