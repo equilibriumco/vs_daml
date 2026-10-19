@@ -112,8 +112,8 @@ internal static class Program
         Append(callsPath, line + Environment.NewLine);
     }
 
-    // Parallel builds start several dpms at once, and only one of them can have the log open; the
-    // others wait their turn.
+    // Parallel builds start several dpms at once, and only one of them can write to the log; the
+    // others wait their turn. The test reading it meanwhile is let in and skips an unfinished line.
     private static void Append(string path, string text)
     {
         var bytes = System.Text.Encoding.UTF8.GetBytes(text);
@@ -121,7 +121,7 @@ internal static class Program
         {
             try
             {
-                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.None);
+                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
                 stream.Write(bytes, 0, bytes.Length);
                 return;
             }
