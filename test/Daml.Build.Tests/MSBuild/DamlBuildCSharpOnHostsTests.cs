@@ -421,6 +421,155 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         GeneratorRuns().ShouldBe(0);
     }
 
+    // Another generator is another generation, even for the DAR it already turned into C#.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public void Another_generator_pin_regenerates_the_same_DAR_and_drops_the_old_generation()
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var first = Build(MSBuildHost.Dotnet);
+        var old = Directory.GetDirectories(GeneratedRoot).ShouldHaveSingleItem();
+        var next = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"), variant: "next release");
+        new GeneratorCache(next.Root, next.Pin).MarkReady();
+
+        var second = Build(MSBuildHost.Dotnet, properties: ("DamlCodegenComponent", next.Pin.Reference));
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        second.ExitCode.ShouldBe(0, second.Log);
+        GeneratorRuns().ShouldBe(2);
+        var generation = Directory.GetDirectories(GeneratedRoot).ShouldHaveSingleItem();
+        generation.ShouldNotBe(old);
+        Listed().ShouldAllBe(f => f.StartsWith(generation + @"\", StringComparison.OrdinalIgnoreCase) && File.Exists(f));
+    }
+
+    // Generated code that isn't what the generator wrote any more is generated again, not compiled as found.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData("deleted file")]
+    [InlineData("edited file")]
+    [InlineData("deleted generation")]
+    public void Damaged_generated_code_is_generated_again_by_the_next_build(string damage)
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var first = Build(MSBuildHost.MSBuildExe);
+        var give = Listed().Single(f => f.EndsWith("Asset.Give.cs", StringComparison.Ordinal));
+        var original = File.ReadAllText(give);
+        switch (damage)
+        {
+            case "deleted file":
+                File.Delete(give);
+                break;
+            case "edited file":
+                File.WriteAllText(give, original.Replace("\"give\"", "\"edited\""));
+                break;
+            default:
+                Directory.Delete(Directory.GetDirectories(GeneratedRoot).Single(), recursive: true);
+                break;
+        }
+
+        var second = Build(MSBuildHost.MSBuildExe);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldContain("Generated C# for");
+        GeneratorRuns().ShouldBe(2);
+        File.ReadAllText(give).ShouldBe(original);
+        File.Exists(Stamp).ShouldBeTrue();
+    }
+
+    // The generation folder is named after the reference, not only the DAR's file name.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public void Two_DARs_with_one_file_name_generate_side_by_side()
+    {
+        App("""
+            <DamlDar Include="..\north\finance.dar" Namespace="North" />
+            <DamlDar Include="..\south\finance.dar" Namespace="South" />
+            """);
+        Scenario(Generator("North"), Generator("South"));
+        Dar(@"north\finance.dar", "finance-north");
+        Dar(@"south\finance.dar", "finance-south");
+        Uses("North");
+        _sandbox.Write(@"App\UsesSouth.cs", "internal static class UsesSouth\n{\n    public const string Give = South.Asset.Asset.Give;\n}\n");
+
+        var first = Build(MSBuildHost.Dotnet);
+        var second = Build(MSBuildHost.Dotnet);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        Directory.GetDirectories(GeneratedRoot).Length.ShouldBe(2);
+        Listed().Select(f => f.Substring(GeneratedRoot.Length + 1).Split('\\')[1]).Distinct().ShouldBe(["North", "South"], ignoreOrder: true);
+        second.ExitCode.ShouldBe(0, second.Log);
+        GeneratorRuns().ShouldBe(2);
+    }
+
+    // Each target framework gets a generation of its own in its intermediate folder; the next build runs nothing.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void A_multi_targeted_project_generates_once_per_target_framework(MSBuildHost host)
+    {
+        App(
+            """<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
+            frameworks: "<TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+
+        var first = Build(host);
+        var second = Build(host);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        foreach (var framework in new[] { "net10.0", "net10.0-windows" })
+        {
+            var root = Path.Combine(AppFolder, @"obj\Debug", framework, "Daml");
+            var listed = XDocument.Load(Path.Combine(AppFolder, $@"obj\daml\App.csproj.Debug.{framework}.g.props")).Root!
+                .Descendants("Compile").Select(c => (string)c.Attribute("Include")!).ToList();
+            listed.Select(Path.GetFileName).ShouldBe(["Asset.cs", "Asset.Give.cs"], ignoreOrder: true);
+            listed.ShouldAllBe(f => f.StartsWith(root + @"\", StringComparison.OrdinalIgnoreCase) && File.Exists(f));
+            File.Exists(Path.Combine(AppFolder, @"bin\Debug", framework, "App.dll")).ShouldBeTrue();
+        }
+        second.ExitCode.ShouldBe(0, second.Log);
+        GeneratorRuns().ShouldBe(2);
+    }
+
+    // A file of the user's own among the generated ones survives everything the build does there. A build
+    // that would generate into its folder stops with DAML0108 naming it; removing the generated code
+    // keeps it and says so.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public void Source_mode_never_deletes_a_file_of_the_users_own()
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        var first = Build(MSBuildHost.Dotnet);
+        var asset = Listed().Single(f => f.EndsWith(@"\Asset.cs", StringComparison.Ordinal));
+        var mine = Path.Combine(Path.GetDirectoryName(asset)!, "Asset.Mine.cs");
+        const string Text = "namespace Finance.Asset { public sealed partial class Asset { public const string Mine = \"mine\"; } }\n";
+        File.WriteAllText(mine, Text);
+        const string Stopped = @"has files the generator didn't write: Finance\Asset\Asset.Mine.cs";
+        const string Kept = @"but kept what the generator didn't write there: Finance\Asset\Asset.Mine.cs";
+        var steps = new List<(string Name, MSBuildRun Run, int ExitCode, string Says)>();
+
+        steps.Add(("rebuild", Build(MSBuildHost.Dotnet, "Rebuild"), 1, "error DAML0108"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
+        steps.Add(("new DAR", Build(MSBuildHost.Dotnet), 1, Stopped));
+        App("", "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>");
+        steps.Add(("reference removed", Build(MSBuildHost.Dotnet), 0, Kept));
+        steps.Add(("clean", Build(MSBuildHost.Dotnet, "Clean"), 0, Kept));
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        steps[0].Run.Log.ShouldContain(Stopped);
+        foreach (var (name, run, exitCode, says) in steps)
+        {
+            run.ExitCode.ShouldBe(exitCode, name + "\n" + run.Log);
+            run.Log.ShouldContain(says, Case.Sensitive, name);
+            File.ReadAllText(mine).ShouldBe(Text, name);
+        }
+    }
+
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Two_DARs_generating_the_same_types_fail_with_DAML0202()
     {
