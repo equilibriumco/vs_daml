@@ -5,6 +5,17 @@
 
   <Import Project="Sdk.props" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
 
+  <!-- NoTargets turns Visual Studio's fast up-to-date check off, as its projects usually have nothing
+       to check; a Daml project has its sources and its DAR (DamlCollectUpToDateCheckItems), and without
+       the check Visual Studio would build it on every Build. Nothing is compiled, so there are no
+       symbols either: the check would wait for a .pdb that never comes. NoTargets and the .NET SDK have
+       filled these in already, hence no conditions; the project file comes later and can still set them. -->
+  <PropertyGroup>
+    <DisableFastUpToDateCheck>false</DisableFastUpToDateCheck>
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- Nothing is compiled, so the cheapest framework will do; it is what referencing projects negotiate with. -->
     <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">netstandard2.0</TargetFramework>

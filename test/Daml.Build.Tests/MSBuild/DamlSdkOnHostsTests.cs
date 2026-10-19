@@ -214,12 +214,18 @@ public sealed class DamlSdkOnHostsTests : IDisposable
               <Target Name="ShowUpToDateItems" DependsOnTargets="{targets}">
                 <Message Importance="high" Text="Input: %(UpToDateCheckInput.FullPath)" />
                 <Message Importance="high" Text="Built: %(UpToDateCheckBuilt.FullPath)" />
+                <Message Importance="high" Text="Check disabled: $(DisableFastUpToDateCheck)" />
               </Target>
             """);
 
         var run = Build(host, project, "ShowUpToDateItems", ("DesignTimeBuild", "true"));
 
         run.ExitCode.ShouldBe(0, run.Log);
+        // NoTargets turns Visual Studio's check off for its projects; a Daml project has something to check,
+        // and nothing else to wait for: a symbol file that never comes would keep it out of date for good.
+        run.Log.ShouldContain("Check disabled: false");
+        System.Text.RegularExpressions.Regex.Matches(run.Log, @"Built: (\S+)").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).Distinct()
+            .ShouldBe([$@"{Package}\.daml\dist\contracts-1.2.0.dar", $@"{Package}\obj\daml.build.state"], ignoreOrder: true);
         run.Log.ShouldContain($@"Input: {Package}\daml.yaml");
         run.Log.ShouldContain($@"Input: {Package}\daml\Main.daml");
         run.Log.ShouldContain($@"Built: {Package}\.daml\dist\contracts-1.2.0.dar");
