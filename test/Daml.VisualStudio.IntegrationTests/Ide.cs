@@ -299,6 +299,169 @@ internal static class Ide
         Assert.True(process.ExitCode == 0, $"dpm {string.Join(" ", arguments)} failed: {await output}{await errors}");
     }
 
+    /// <summary>
+    /// A new solution from a dotnet new template of this build (artifacts\packages, which
+    /// scripts/pack.ps1 makes), in a fresh temp folder. Its nuget.config gives it a package folder
+    /// of its own, so it restores this build's packages and never an older copy of the same version
+    /// from the machine's cache; everything else comes from that cache.
+    /// </summary>
+    public static async Task<string> NewSolutionFromTemplateAsync(string template, string name)
+    {
+        var packages = Path.Combine(RepoRoot(), "artifacts", "packages");
+        var templates = Directory.Exists(packages) ? Directory.GetFiles(packages, "*.Templates.*.nupkg").FirstOrDefault() : null;
+        Assert.True(templates is not null, $"No templates package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
+        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        Directory.CreateDirectory(root);
+        File.Copy(Path.Combine(RepoRoot(), "global.json"), Path.Combine(root, "global.json"));
+        var machineCache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+        File.WriteAllText(Path.Combine(root, "nuget.config"), $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <configuration>
+              <config>
+                <add key="globalPackagesFolder" value="packages" />
+              </config>
+              <packageSources>
+                <clear />
+                <add key="this-build" value="{packages}" />
+                <add key="machine-cache" value="{machineCache}" />
+                <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+              </packageSources>
+              <packageSourceMapping>
+                <packageSource key="this-build">
+                  <package pattern="*.Sdk" />
+                  <package pattern="*.Build.CSharp" />
+                </packageSource>
+                <packageSource key="machine-cache">
+                  <package pattern="*" />
+                </packageSource>
+                <packageSource key="nuget.org">
+                  <package pattern="*" />
+                </packageSource>
+              </packageSourceMapping>
+            </configuration>
+            """);
+        var hive = Path.Combine(root, "hive");
+        await RunAsync(root, "dotnet", "new", "install", templates!, "--debug:custom-hive", hive);
+        await RunAsync(root, "dotnet", "new", template, "-n", name, "-o", Path.Combine(root, name), "--debug:custom-hive", hive);
+        return Path.Combine(root, name);
+    }
+
+    /// <summary>Opens a solution and waits until every project in it has loaded.</summary>
+    public static async Task OpenSolutionAsync(string path)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        Dte().Solution.Open(path);
+        var loaded = UIContext.FromUIContextGuid(VSConstants.UICONTEXT.SolutionExistsAndFullyLoaded_guid);
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
+        while (!loaded.IsActive && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(200);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        }
+        Assert.True(loaded.IsActive, $"{path} didn't finish loading.");
+    }
+
+    /// <summary>Closes the solution without saving and waits for its language server to stop.</summary>
+    public static async Task CloseSolutionAsync()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        Dte().Solution.Close(false);
+        await WaitForServerAsync(ready: false, TimeSpan.FromSeconds(60));
+    }
+
+    /// <summary>The projects of the open solution: their names and whether Visual Studio could load them.</summary>
+    public static IReadOnlyList<(string Name, bool Loaded)> SolutionProjects()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var projects = new List<(string, bool)>();
+        foreach (Project project in Dte().Solution.Projects)
+        {
+            // A project Visual Studio couldn't load is an "unmodeled" placeholder.
+            projects.Add((project.Name, !string.Equals(project.Kind, EnvDTE.Constants.vsProjectKindUnmodeled, StringComparison.OrdinalIgnoreCase)));
+        }
+        return projects;
+    }
+
+    /// <summary>Build > Build Solution; returns how many projects failed.</summary>
+    public static async Task<int> BuildSolutionAsync(TimeSpan timeout)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var build = Dte().Solution.SolutionBuild;
+        build.Build(WaitForBuildToFinish: false);
+        var deadline = DateTime.UtcNow + timeout;
+        // The state goes to "in progress" a moment after the call; done before that is the previous build.
+        await Task.Delay(1000);
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        while (build.BuildState != vsBuildState.vsBuildStateDone && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(500);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        }
+        Assert.True(build.BuildState == vsBuildState.vsBuildStateDone, "Build Solution didn't finish." + Environment.NewLine + BuildOutput());
+        return build.LastBuildInfo;
+    }
+
+    /// <summary>The Build pane of the Output window, found by its id: its title depends on Visual Studio's language.</summary>
+    public static string BuildOutput()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var id = VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid.ToString("B");
+        foreach (OutputWindowPane pane in ((EnvDTE80.DTE2)Dte()).ToolWindows.OutputWindow.OutputWindowPanes)
+        {
+            if (string.Equals(pane.Guid, id, StringComparison.OrdinalIgnoreCase))
+            {
+                var document = pane.TextDocument;
+                return document.StartPoint.CreateEditPoint().GetText(document.EndPoint);
+            }
+        }
+        return "(no Build pane)";
+    }
+
+    /// <summary>The errors and warnings in the Error List, one per line, for failure messages.</summary>
+    public static string ErrorListText()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var items = ((EnvDTE80.DTE2)Dte()).ToolWindows.ErrorList.ErrorItems;
+        var lines = new List<string>();
+        for (var i = 1; i <= items.Count; i++)
+        {
+            var item = items.Item(i);
+            lines.Add($"{item.ErrorLevel} {item.Project} {item.FileName}({item.Line}): {item.Description}");
+        }
+        return lines.Count == 0 ? "(the Error List is empty)" : string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>What Build Solution left behind, for failure messages.</summary>
+    public static string BuildReport()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        return BuildOutput() + Environment.NewLine + ErrorListText();
+    }
+
+    /// <summary>Runs a program to the end and returns what it printed; a non-zero exit code fails the test.</summary>
+    public static async Task<string> RunAsync(string workingDirectory, string fileName, params string[] arguments)
+    {
+        var start = new ProcessStartInfo(fileName, string.Join(" ", arguments.Select(a => a.IndexOf(' ') >= 0 ? "\"" + a + "\"" : a)))
+        {
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        };
+        using var process = System.Diagnostics.Process.Start(start)!;
+        process.StandardInput.Close();
+        var output = process.StandardOutput.ReadToEndAsync();
+        var errors = process.StandardError.ReadToEndAsync();
+        var streams = Task.WhenAll(output, errors);
+        var command = fileName + " " + string.Join(" ", arguments);
+        Assert.True(await Task.WhenAny(streams, Task.Delay(TimeSpan.FromMinutes(2))) == streams, command + " didn't finish.");
+        process.WaitForExit();
+        Assert.True(process.ExitCode == 0, $"{command} failed with exit code {process.ExitCode}: {await output}{await errors}");
+        return await output;
+    }
+
     private static TInterface Service<TService, TInterface>()
         where TInterface : class =>
         ServiceProvider.GlobalProvider.GetService(typeof(TService)) as TInterface
