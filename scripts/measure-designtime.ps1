@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Creates a solution from the daml-dotnet-app template of artifacts/packages (run pack.ps1
-    first) in a temporary folder, with a NuGet cache of its own so the packages are this build's,
+    first) in a temporary folder, with a package folder of its own so the packages are this build's,
     builds it once, and adds the same C# project without Daml.Build.CSharp and its Daml reference
     as the baseline. A driver project then runs the design-time build Visual Studio asks for
     (CompileDesignTime) of each project -Runs + 1 times in one 64-bit MSBuild.exe of the Visual
@@ -44,6 +44,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib\Toolchain.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'lib\DesignTimeBudget.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'lib\MeasureWorkspace.psm1') -Force
 
 $root = Get-RepoRoot
 $artifacts = Join-Path $root 'artifacts\designtime'
@@ -59,54 +60,22 @@ function Invoke-Checked([string] $What, [string] $Exe, [string[]] $Arguments) {
 }
 
 if (-not $NoRun) {
-    $packages = Join-Path $root 'artifacts\packages'
-    $templates = Get-ChildItem $packages -Filter '*.Templates.*.nupkg' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $templates -or -not (Get-ChildItem $packages -Filter '*.Build.CSharp.*.nupkg' -ErrorAction SilentlyContinue)) {
-        throw "No packages in $packages; run pwsh scripts/pack.ps1 first."
-    }
+    $thisBuild = Get-ThisBuildPackages -RepositoryRoot $root
     $vs = Select-TestVsInstance
     $msbuild = Join-Path $vs.Path 'MSBuild\Current\Bin\amd64\MSBuild.exe'
     if (-not (Test-Path $msbuild)) { $msbuild = $vs.MSBuildPath }
 
-    # Short: the generated C# of the Daml project sits deep below it.
-    $workspace = Join-Path ([IO.Path]::GetTempPath()) ('ddt-' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $workspace = New-MeasureWorkspace -RepositoryRoot $root -Prefix 'ddt-'
     $saved = @{}
-    foreach ($name in 'NUGET_PACKAGES', 'VSLANG', 'DOTNET_CLI_UI_LANGUAGE') { $saved[$name] = [Environment]::GetEnvironmentVariable($name) }
-    New-Item -ItemType Directory -Force $workspace, $artifacts | Out-Null
+    foreach ($name in 'VSLANG', 'DOTNET_CLI_UI_LANGUAGE') { $saved[$name] = [Environment]::GetEnvironmentVariable($name) }
+    New-Item -ItemType Directory -Force $artifacts | Out-Null
     Push-Location $workspace
     try {
-        # This build's packages, never an older copy of the same version from the machine's cache;
-        # everything else from that cache, so nothing needs the network that a build here didn't need.
-        $env:NUGET_PACKAGES = Join-Path $workspace 'packages'
         # The driver's lines are parsed; MSBuild's own messages stay in English for that.
         $env:VSLANG = '1033'
         $env:DOTNET_CLI_UI_LANGUAGE = 'en'
-        Copy-Item (Join-Path $root 'global.json') $workspace
-        Set-Content (Join-Path $workspace 'nuget.config') @"
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <packageSources>
-    <clear />
-    <add key="this-build" value="$packages" />
-    <add key="machine-cache" value="$(Join-Path $env:USERPROFILE '.nuget\packages')" />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-  </packageSources>
-  <packageSourceMapping>
-    <packageSource key="this-build">
-      <package pattern="*.Sdk" />
-      <package pattern="*.Build.CSharp" />
-    </packageSource>
-    <packageSource key="machine-cache">
-      <package pattern="*" />
-    </packageSource>
-    <packageSource key="nuget.org">
-      <package pattern="*" />
-    </packageSource>
-  </packageSourceMapping>
-</configuration>
-"@
         $hive = Join-Path $workspace 'hive'
-        Invoke-Checked 'Installing the templates' 'dotnet' @('new', 'install', $templates.FullName, '--debug:custom-hive', $hive) | Out-Null
+        Invoke-Checked 'Installing the templates' 'dotnet' @('new', 'install', $thisBuild.Templates, '--debug:custom-hive', $hive) | Out-Null
         Invoke-Checked 'Creating the solution' 'dotnet' @('new', 'daml-dotnet-app', '-n', 'Measure', '-o', (Join-Path $workspace 'Measure'), '--debug:custom-hive', $hive) | Out-Null
 
         $withDaml = Join-Path $workspace 'Measure\Measure\Measure.csproj'
@@ -148,13 +117,12 @@ if (-not $NoRun) {
         }
 
         $overhead = Measure-DesignTimeOverhead -Baseline $measured.Baseline -WithDaml $measured.WithDaml
-        $cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
         [ordered] @{
             Date          = (Get-Date).ToString('s')
-            Machine       = "$cpu, $([Math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB)) GB"
+            Machine       = Get-MeasureHost
             VisualStudio  = "$($vs.DisplayName) $($vs.Version)"
             MSBuild       = $msbuild
-            Packages      = $templates.Name -replace '^.*\.Templates\.(.+)\.nupkg$', '$1'
+            Packages      = $thisBuild.Version
             BaselineRuns  = $measured.Baseline
             WithDamlRuns  = $measured.WithDaml
             Overhead      = $overhead
