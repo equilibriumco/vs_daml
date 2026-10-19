@@ -342,6 +342,26 @@ internal static class Ide
         return root;
     }
 
+    /// <summary>
+    /// The scale fixture (scripts/new-scale-fixture.ps1, its default sizes) on this build's packages,
+    /// in a fresh temp folder; returns the folder with Scale.slnx.
+    /// </summary>
+    public static async Task<string> NewScaleFixtureAsync()
+    {
+        var packages = Path.Combine(RepoRoot(), "artifacts", "packages");
+        var sdk = Directory.Exists(packages) ? Directory.GetFiles(packages, "*.Sdk.*.nupkg").Select(Path.GetFileName).FirstOrDefault() : null;
+        var name = sdk is null ? null : System.Text.RegularExpressions.Regex.Match(sdk, @"^(?<prefix>.+)\.Sdk\.(?<version>\d.+)\.nupkg$");
+        Assert.True(name is { Success: true }, $"No Daml.Sdk package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
+        var app = System.Xml.Linq.XDocument.Load(Path.Combine(RepoRoot(), @"src\Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj"));
+        var runtime = (string)app.Descendants("PackageReference").First(r => (string?)r.Attribute("Include") == "Daml.Runtime").Attribute("Version")!;
+        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        UseThisBuildsPackages(root);
+        var fixture = Path.Combine(root, "Scale");
+        await RunAsync(root, "pwsh", "-NoProfile", "-File", Path.Combine(RepoRoot(), @"scripts\new-scale-fixture.ps1"), "-Path", fixture,
+            "-SdkPackageVersion", name!.Groups["version"].Value, "-RuntimeVersion", runtime, "-PackagePrefix", name.Groups["prefix"].Value);
+        return fixture;
+    }
+
     // A package folder of its own, so the projects under root restore this build's packages (from
     // artifacts\packages, which scripts/pack.ps1 makes) and never an older copy of the same version
     // from the machine's cache; everything else comes from that cache. The repository's SDK pin too.
@@ -578,6 +598,36 @@ internal static class Ide
             lines.Add($"{item.ErrorLevel} {item.Project} {item.FileName}({item.Line}): {item.Description}");
         }
         return lines.Count == 0 ? "(the Error List is empty)" : string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// The errors the Error List has for <paramref name="file"/>, read from its table once it caught
+    /// up with its sources, the language server among them.
+    /// </summary>
+    public static async Task<int> ErrorsInAsync(string file)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var errorList = Service<SVsErrorList, IErrorList>();
+        await errorList.TableControl.ForceUpdateAsync();
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        return errorList.TableControl.Entries.Count(e =>
+            e.TryGetValue(StandardTableKeyNames.DocumentName, out var document) && document is string path
+            && string.Equals(path, file, StringComparison.OrdinalIgnoreCase)
+            && e.TryGetValue(StandardTableKeyNames.ErrorSeverity, out var severity) && Equals(severity, __VSERRORCATEGORY.EC_ERROR));
+    }
+
+    /// <summary>
+    /// Sets an option of Tools > Options > Daml > General for this session, as the page would, through
+    /// the page's automation object; <paramref name="name"/> is the option's property. Returns the
+    /// value it had, to put back afterwards.
+    /// </summary>
+    public static object SetDamlOption(string name, object value)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var option = Dte().get_Properties("Daml", "General").Item(name);
+        var before = option.Value;
+        option.Value = value;
+        return before;
     }
 
     /// <summary>What Build Solution left behind, for failure messages.</summary>
