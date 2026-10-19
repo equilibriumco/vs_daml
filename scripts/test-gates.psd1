@@ -71,6 +71,26 @@
                 }
             }
         }
+        # M3: Daml projects in MSBuild and the C# bindings join the gate. L4 runs against the real
+        # dpm and generator too (MSBuildBackend), so the JDK is required; the tasks and the Roslyn
+        # index are measured on net48, the framework Visual Studio loads them in.
+        M3 = @{
+            Required       = @('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration')
+            Pending        = @{}
+            Tools          = @('dpm', 'java')
+            MSBuildBackend = 'All'
+            Coverage       = @{
+                'net10.0' = @{
+                    'Daml.VisualStudio.Core'           = 85
+                    'Daml.VisualStudio.LanguageServer' = 80
+                    'Daml.Build.Core'                  = 80
+                }
+                'net48'   = @{
+                    'Daml.Build.Tasks'         = 80
+                    'Daml.VisualStudio.Roslyn' = 75
+                }
+            }
+        }
         # M4: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
         # highlight and tag tests, `tree-sitter fuzz`, the scripts' tests and the corpus gate,
         # which in a gate run needs the collected real-world corpus.

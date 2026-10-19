@@ -64,6 +64,13 @@ if ($RequiredTools) {
     # never ran.
     if ($Category -ne 'All') { throw "A gate run checks every category of $Milestone; use -Category All instead of -Category $Category." }
     if ($NoCoverage -and $gate.Coverage.Count -gt 0) { throw "$Milestone enforces coverage thresholds; -NoCoverage is not allowed with -RequiredTools." }
+    # From M3 on, L4 has to run against the real dpm as well, not only the fake one.
+    if ($gate.ContainsKey('MSBuildBackend')) {
+        if ($PSBoundParameters.ContainsKey('Backend') -and $Backend -ne $gate.MSBuildBackend) {
+            throw "$Milestone runs the MSBuild tests with -Backend $($gate.MSBuildBackend); -Backend $Backend would leave some out."
+        }
+        $Backend = $gate.MSBuildBackend
+    }
 }
 
 $categories = if ($Category -ne 'All') { @($Category) }
