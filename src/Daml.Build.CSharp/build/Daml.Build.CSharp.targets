@@ -59,9 +59,46 @@
     </MSBuild>
   </Target>
 
+  <!-- Visual Studio builds project references itself (BuildingInsideVisualStudio keeps
+       ResolveProjectReferences from building them), in the order it knows of. Before the first
+       restore it doesn't know this project needs its Daml projects, and may build them side by side,
+       so a DAR asked for above can still be on its way. Such a DAR is built here first, as a build
+       outside Visual Studio would, and asked for again: the first answer came before the DAR existed,
+       and MSBuild keeps it for that project instance. dpm's lock on the package keeps the two builds
+       of it from running at once. -->
+  <Target Name="DamlBuildMissingDars" DependsOnTargets="DamlResolveDars">
+    <ItemGroup Condition="'$(DesignTimeBuild)' != 'true' and ('$(BuildingInsideVisualStudio)' == 'true' or '$(BuildProjectReferences)' == 'false')">
+      <_DamlMissingDarProject Include="@(_DamlProjectDar->'%(DamlSourceProject)')" Condition="'%(_DamlProjectDar.Exists)' != 'true'" />
+      <_DamlReferencedProject Include="@(_MSBuildProjectReferenceExistent->'%(FullPath)')" />
+      <_DamlDarPresent Include="@(_DamlReferencedProject)" Exclude="@(_DamlMissingDarProject)" />
+      <_DamlBuildFirst Include="@(_DamlReferencedProject)" />
+      <_DamlBuildFirst Remove="@(_DamlDarPresent)" />
+    </ItemGroup>
+    <MSBuild
+        Condition="'@(_DamlBuildFirst)' != ''"
+        Projects="@(_DamlBuildFirst)"
+        Targets="Build"
+        Properties="%(_DamlBuildFirst.SetConfiguration); %(_DamlBuildFirst.SetPlatform); %(_DamlBuildFirst.SetTargetFramework); BuildProjectReferences=true"
+        RemoveProperties="%(_DamlBuildFirst.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)" />
+    <MSBuild
+        Condition="'@(_DamlBuildFirst)' != ''"
+        Projects="@(_DamlBuildFirst)"
+        Targets="GetDamlDar"
+        Properties="%(_DamlBuildFirst.SetConfiguration); %(_DamlBuildFirst.SetPlatform); %(_DamlBuildFirst.SetTargetFramework); _DamlAfterBuild=true"
+        RemoveProperties="%(_DamlBuildFirst.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlBuiltDar" />
+    </MSBuild>
+    <ItemGroup Condition="'@(_DamlBuiltDar)' != ''">
+      <_DamlProjectDar Remove="@(_DamlProjectDar)" Condition="'%(_DamlProjectDar.Exists)' != 'true'" />
+      <_DamlProjectDar Include="@(_DamlBuiltDar)" />
+    </ItemGroup>
+  </Target>
+
   <!-- The references as the project wrote them, and the runtime it compiles against. A design-time
        build stops here with what the last real build published: it runs nothing and writes nothing. -->
-  <Target Name="DamlComputeGenerationState" DependsOnTargets="DamlResolveDars">
+  <Target Name="DamlComputeGenerationState" DependsOnTargets="DamlBuildMissingDars">
     <ItemGroup>
       <_DamlCodegenReference Include="@(DamlReference)" DamlReferenceSource="DamlReference" />
       <_DamlCodegenReference Include="@(DamlDar)" DamlReferenceSource="DamlDar" />
@@ -174,7 +211,7 @@
   <!-- Bindings brought up to date without compiling the project: what refreshing them in the
        background runs, with BuildProjectReferences=false. ResolveReferences gives the Daml.Runtime
        version the generator's checks need. -->
-  <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
+  <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlBuildMissingDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
 
   <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay.
        The file list is emptied, not deleted: Visual Studio watches only the files the evaluation

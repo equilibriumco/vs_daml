@@ -51,10 +51,11 @@ Daml.Build.CSharp targets
   CollectUpToDateCheckInputDesignTimeDependsOn += DamlCollectUpToDateCheckItems
   CollectUpToDateCheckBuiltDesignTimeDependsOn += DamlCollectUpToDateCheckItems
   DamlResolveDars <- ResolveProjectReferences
-  DamlComputeGenerationState <- DamlResolveDars
+  DamlBuildMissingDars <- DamlResolveDars
+  DamlComputeGenerationState <- DamlBuildMissingDars
   DamlGenerateCSharp <- DamlComputeGenerationState
   DamlCollectGeneratedCompile <- DamlGenerateCSharp
   DamlBuildReferences <- ResolveProjectReferences
-  DamlRefreshBindings <- ResolveReferences; DamlBuildReferences; DamlResolveDars; DamlComputeGenerationState; DamlGenerateCSharp; DamlCollectGeneratedCompile
+  DamlRefreshBindings <- ResolveReferences; DamlBuildReferences; DamlResolveDars; DamlBuildMissingDars; DamlComputeGenerationState; DamlGenerateCSharp; DamlCollectGeneratedCompile
   DamlCleanGenerated
   DamlCollectUpToDateCheckItems <- DamlResolveDars

@@ -47,11 +47,12 @@ internal static class MSBuildTargetGraph
     public static IReadOnlyList<TargetContract> CSharp { get; } =
     [
         new("DamlResolveDars", "ResolveProjectReferences"),
-        new("DamlComputeGenerationState", "DamlResolveDars"),
+        new("DamlBuildMissingDars", "DamlResolveDars"),
+        new("DamlComputeGenerationState", "DamlBuildMissingDars"),
         new("DamlGenerateCSharp", "DamlComputeGenerationState"),
         new("DamlCollectGeneratedCompile", "DamlGenerateCSharp"),
         new("DamlBuildReferences", "ResolveProjectReferences"),
-        new("DamlRefreshBindings", "ResolveReferences", "DamlBuildReferences", "DamlResolveDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"),
+        new("DamlRefreshBindings", "ResolveReferences", "DamlBuildReferences", "DamlResolveDars", "DamlBuildMissingDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"),
         new("DamlCleanGenerated"),
         new("DamlCollectUpToDateCheckItems", "DamlResolveDars"),
     ];

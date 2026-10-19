@@ -84,7 +84,7 @@ public class MSBuildContractTests
             chain.Insert(0, next[0]);
         }
 
-        chain.ShouldBe(["ResolveProjectReferences", "DamlResolveDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"]);
+        chain.ShouldBe(["ResolveProjectReferences", "DamlResolveDars", "DamlBuildMissingDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"]);
         MSBuildTargetGraph.CSharpHooks.ShouldContain(new HookContract("CoreCompileDependsOn", "DamlCollectGeneratedCompile", First: true));
         dependsOn["DamlRefreshBindings"].ShouldBe(["ResolveReferences", "DamlBuildReferences", .. chain.Skip(1)]);
     }

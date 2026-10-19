@@ -256,6 +256,36 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         (DarBuilds(), GeneratorRuns()).ShouldBe((1, 1));
     }
 
+    // Visual Studio builds project references itself, in the order it knows of. Before the first
+    // restore it doesn't know the C# project needs the Daml one, and may build both at once: the DAR
+    // isn't there yet when the C# project asks for it. The C# project then builds it first, and only
+    // that time.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void Inside_Visual_Studio_a_DAR_not_built_yet_is_built_before_generating(MSBuildHost host)
+    {
+        App("""<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
+        Contracts();
+        Scenario(BuildsTheDar(), Generator("Contracts"));
+        Uses("Contracts");
+        var restore = Build(host, "Restore", restore: false);
+        (string, string)[] insideVisualStudio = [("BuildingInsideVisualStudio", "true")];
+
+        var first = Build(host, null, false, insideVisualStudio);
+        var builds = (DarBuilds(), GeneratorRuns());
+        var second = Build(host, null, false, insideVisualStudio);
+
+        restore.ExitCode.ShouldBe(0, restore.Log);
+        first.ExitCode.ShouldBe(0, first.Log);
+        builds.ShouldBe((1, 1));
+        var manifest = File.ReadAllText(Directory.GetFiles(GeneratedRoot, GenerationManifest.FileName, SearchOption.AllDirectories).ShouldHaveSingleItem());
+        manifest.ShouldContain(TestDar.MainPackageId);
+        File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
+        second.ExitCode.ShouldBe(0, second.Log);
+        (DarBuilds(), GeneratorRuns()).ShouldBe((1, 1));
+    }
+
     // What background sync runs after a Daml edit: the Daml project's DAR built again and the bindings
     // regenerated from it, with the runtime known to the generator's checks, but neither the project nor
     // its C# library compiled, and the up-to-date check's stamp left alone, so the next build compiles.
