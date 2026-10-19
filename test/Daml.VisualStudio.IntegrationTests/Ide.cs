@@ -312,8 +312,44 @@ internal static class Ide
         var templates = Directory.Exists(packages) ? Directory.GetFiles(packages, "*.Templates.*.nupkg").FirstOrDefault() : null;
         Assert.True(templates is not null, $"No templates package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
         var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        UseThisBuildsPackages(root);
+        var hive = Path.Combine(root, "hive");
+        await RunAsync(root, "dotnet", "new", "install", templates!, "--debug:custom-hive", hive);
+        await RunAsync(root, "dotnet", "new", template, "-n", name, "-o", Path.Combine(root, name), "--debug:custom-hive", hive);
+        return Path.Combine(root, name);
+    }
+
+    /// <summary>
+    /// A copy of a folder under <c>test/fixtures</c> in a fresh temp folder, without what a build or
+    /// Visual Studio left in it there and without its own nuget.config, restoring this build's packages.
+    /// </summary>
+    public static string CopyFixtureFolder(string relativePath)
+    {
+        var source = Path.Combine(RepoRoot(), "test", "fixtures", relativePath);
+        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = file.Substring(source.Length + 1);
+            var parts = relative.Split(Path.DirectorySeparatorChar);
+            if (parts.Any(p => p.StartsWith(".", StringComparison.Ordinal) || p is "obj" or "bin") || relative.Equals("nuget.config", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(root, relative))!);
+            File.Copy(file, Path.Combine(root, relative));
+        }
+        UseThisBuildsPackages(root);
+        return root;
+    }
+
+    // A package folder of its own, so the projects under root restore this build's packages (from
+    // artifacts\packages, which scripts/pack.ps1 makes) and never an older copy of the same version
+    // from the machine's cache; everything else comes from that cache. The repository's SDK pin too.
+    private static void UseThisBuildsPackages(string root)
+    {
+        var packages = Path.Combine(RepoRoot(), "artifacts", "packages");
         Directory.CreateDirectory(root);
-        File.Copy(Path.Combine(RepoRoot(), "global.json"), Path.Combine(root, "global.json"));
+        File.Copy(Path.Combine(RepoRoot(), "global.json"), Path.Combine(root, "global.json"), overwrite: true);
         var machineCache = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
         File.WriteAllText(Path.Combine(root, "nuget.config"), $"""
             <?xml version="1.0" encoding="utf-8"?>
@@ -341,10 +377,6 @@ internal static class Ide
               </packageSourceMapping>
             </configuration>
             """);
-        var hive = Path.Combine(root, "hive");
-        await RunAsync(root, "dotnet", "new", "install", templates!, "--debug:custom-hive", hive);
-        await RunAsync(root, "dotnet", "new", template, "-n", name, "-o", Path.Combine(root, name), "--debug:custom-hive", hive);
-        return Path.Combine(root, name);
     }
 
     /// <summary>Opens a solution and waits until every project in it has loaded.</summary>
