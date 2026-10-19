@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+using Microsoft.VisualStudio.Shell.TableManager;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Editor.Commanding;
 using Microsoft.VisualStudio.Text.Editor.Commanding.Commands;
@@ -415,6 +416,122 @@ internal static class Ide
             }
         }
         return "(no Build pane)";
+    }
+
+    /// <summary>
+    /// Runs a command of the extension in <paramref name="view"/>, sent to the editor like
+    /// <see cref="GoToDefinition"/>; false when the editor didn't take it (not available there yet).
+    /// </summary>
+    public static bool ExecuteDamlCommand(IWpfTextView view, int id)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var adapter = ComponentModel().GetService<IVsEditorAdaptersFactoryService>().GetViewAdapter(view)
+            ?? throw new InvalidOperationException("The view has no adapter.");
+        var group = new Guid(DamlCommandSet);
+        return ErrorHandler.Succeeded(((Microsoft.VisualStudio.OLE.Interop.IOleCommandTarget)adapter).Exec(ref group, (uint)id, 0, IntPtr.Zero, IntPtr.Zero));
+    }
+
+    /// <summary>The active document and the text of the line its caret is on.</summary>
+    public static (string Path, string Line) ActiveDocumentAndLine()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var document = Dte().ActiveDocument;
+        if (document?.Selection is not TextSelection selection)
+        {
+            return ("", "");
+        }
+        var start = selection.ActivePoint.CreateEditPoint();
+        start.StartOfLine();
+        return (document.FullName, start.GetText(selection.ActivePoint.LineLength));
+    }
+
+    /// <summary>Waits for a tool window whose caption <paramref name="caption"/> accepts, and returns that caption, or null.</summary>
+    public static async Task<string?> WaitForToolWindowAsync(Func<string, bool> caption, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (true)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            var shell = Service<SVsUIShell, IVsUIShell>();
+            ErrorHandler.ThrowOnFailure(shell.GetToolWindowEnum(out var frames));
+            var frame = new IVsWindowFrame[1];
+            while (frames.Next(1, frame, out var fetched) == VSConstants.S_OK && fetched == 1)
+            {
+                if (ErrorHandler.Succeeded(frame[0].GetProperty((int)__VSFPROPID.VSFPROPID_Caption, out var title)) && title is string text && caption(text))
+                {
+                    return text;
+                }
+            }
+            if (DateTime.UtcNow >= deadline)
+            {
+                return null;
+            }
+            await Task.Delay(500);
+        }
+    }
+
+    /// <summary>The rows the sources of a table manager hold now, as the values of the given columns.</summary>
+    public static IReadOnlyList<IReadOnlyDictionary<string, object?>> TableRows(string manager, params string[] columns)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var rows = new List<IReadOnlyDictionary<string, object?>>();
+        var sink = new CollectingSink();
+        foreach (var source in ComponentModel().GetService<ITableManagerProvider>().GetTableManager(manager).Sources)
+        {
+            using (source.Subscribe(sink))
+            {
+            }
+        }
+        foreach (var entry in sink.Entries)
+        {
+            rows.Add(columns.ToDictionary(c => c, c => entry.TryGetValue(c, out var value) ? value : null));
+        }
+        return rows;
+    }
+
+    // Only what a source hands over at once when subscribed to.
+    private sealed class CollectingSink : ITableDataSink
+    {
+        public List<ITableEntry> Entries { get; } = new();
+
+        public bool IsStable { get; set; }
+
+        public void AddEntries(IReadOnlyList<ITableEntry> newEntries, bool removeAllEntries = false)
+        {
+            if (removeAllEntries)
+            {
+                Entries.Clear();
+            }
+            Entries.AddRange(newEntries);
+        }
+
+        public void RemoveEntries(IReadOnlyList<ITableEntry> oldEntries) => Entries.RemoveAll(oldEntries.Contains);
+
+        public void ReplaceEntries(IReadOnlyList<ITableEntry> oldEntries, IReadOnlyList<ITableEntry> newEntries)
+        {
+            RemoveEntries(oldEntries);
+            Entries.AddRange(newEntries);
+        }
+
+        public void RemoveAllEntries() => Entries.Clear();
+
+        public void AddSnapshot(ITableEntriesSnapshot newSnapshot, bool removeAllSnapshots = false) => throw new NotSupportedException();
+
+        public void RemoveSnapshot(ITableEntriesSnapshot oldSnapshot) => throw new NotSupportedException();
+
+        public void RemoveAllSnapshots() => throw new NotSupportedException();
+
+        public void ReplaceSnapshot(ITableEntriesSnapshot oldSnapshot, ITableEntriesSnapshot newSnapshot) => throw new NotSupportedException();
+
+        public void AddFactory(ITableEntriesSnapshotFactory newFactory, bool removeAllFactories = false) => throw new NotSupportedException();
+
+        public void RemoveFactory(ITableEntriesSnapshotFactory oldFactory) => throw new NotSupportedException();
+
+        public void ReplaceFactory(ITableEntriesSnapshotFactory oldFactory, ITableEntriesSnapshotFactory newFactory) => throw new NotSupportedException();
+
+        public void FactorySnapshotChanged(ITableEntriesSnapshotFactory? factory) => throw new NotSupportedException();
+
+        public void RemoveAllFactories() => throw new NotSupportedException();
     }
 
     /// <summary>The errors and warnings in the Error List, one per line, for failure messages.</summary>
