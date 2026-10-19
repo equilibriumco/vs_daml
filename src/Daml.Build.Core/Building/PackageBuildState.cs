@@ -82,6 +82,22 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     public bool IsRecordedIn(string statePath, string darPath) =>
         Read(statePath) is { } recorded && Value(recorded, "fingerprint", Fingerprint) && RecordedDarIsThere(recorded, darPath);
 
+    /// <summary>
+    /// Records that the DAR at <paramref name="darPath"/> was just built from this state, unless the
+    /// package's inputs aren't this state any more: changed while dpm built, the DAR may hold some of
+    /// the old ones, and only a fresh build can tell.
+    /// </summary>
+    /// <returns>Whether it was recorded.</returns>
+    public bool RecordIfUnchanged(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars, string statePath, string darPath)
+    {
+        if (Compute(manifestPath, sourcePath, dependencyDars).Fingerprint != Fingerprint)
+        {
+            return false;
+        }
+        Record(statePath, darPath);
+        return true;
+    }
+
     /// <summary>Records that the DAR at <paramref name="darPath"/> was just built from this state.</summary>
     public void Record(string statePath, string darPath)
     {

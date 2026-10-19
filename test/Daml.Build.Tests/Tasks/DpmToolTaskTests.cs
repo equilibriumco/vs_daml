@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.Locking;
 using Daml.Build.Tasks;
@@ -48,6 +49,88 @@ public sealed class DpmToolTaskTests : IDisposable
     }
 
     private DamlBuildTask Build(params FakeDpmCommand[] commands) => Prepare(new DamlBuildTask { DarPath = Dar }, commands);
+
+    private string Source => Path.Combine(Package, "daml");
+
+    private string StatePath => Path.Combine(Package, @"obj\daml.build.state");
+
+    // A package with sources, the state DamlComputeBuildState found it in before the build, and a
+    // build task that knows it.
+    private (DamlBuildTask Task, PackageBuildState State) BuildFromState(params FakeDpmCommand[] commands)
+    {
+        File.WriteAllText(Manifest, "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n");
+        Directory.CreateDirectory(Source);
+        File.WriteAllText(Path.Combine(Source, "Main.daml"), "module Main where\n");
+        var state = PackageBuildState.Compute(Manifest, Source, []);
+        var task = Build(commands);
+        task.SourcePath = Source;
+        task.StatePath = StatePath;
+        task.Fingerprint = state.Fingerprint;
+        task.SourceFingerprint = state.SourceFingerprint;
+        return (task, state);
+    }
+
+    private static FakeDpmCommand CreatesTheDar()
+    {
+        var command = Command("build", "Compiling contracts to a DAR.\nCreated .daml\\dist\\contracts-1.2.0.dar\n");
+        command.WriteFiles[@".daml\dist\contracts-1.2.0.dar"] = "dar";
+        return command;
+    }
+
+    // Two builds of one package (Debug and Release, or Visual Studio's and a project's that needs the
+    // DAR) both found it out of date; the one that waits for the other finds the DAR made from the
+    // same inputs and leaves it alone rather than rewrite it under whoever reads it.
+    [Fact, Trait("Category", "Process")]
+    public void A_DAR_another_build_made_while_this_one_waited_isnt_built_again()
+    {
+        var (task, state) = BuildFromState(CreatesTheDar());
+        Directory.CreateDirectory(Path.GetDirectoryName(Dar)!);
+        File.WriteAllText(Dar, "dar");
+        state.Record(StatePath, Dar);
+
+        task.Execute().ShouldBeTrue();
+
+        ToolCalls().ShouldBeEmpty();
+        task.CreatedDar.ShouldBeNull();
+        _engine.Messages.ShouldContain(m => m.Message!.Contains("another build"));
+    }
+
+    // While it still holds the package, so another build waiting for it finds the record.
+    [Fact, Trait("Category", "Process")]
+    public void The_build_records_what_its_DAR_was_built_from()
+    {
+        var (task, state) = BuildFromState(CreatesTheDar());
+
+        task.Execute().ShouldBeTrue();
+
+        task.CreatedDar.ShouldBe(Dar);
+        state.IsRecordedIn(StatePath, Dar).ShouldBeTrue();
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void Sources_changed_while_dpm_built_are_not_recorded_as_built()
+    {
+        var build = CreatesTheDar();
+        build.WriteFiles[@"daml\Main.daml"] = "module Main where\nx = 1\n";
+        var (task, _) = BuildFromState(build);
+
+        task.Execute().ShouldBeTrue();
+
+        File.Exists(StatePath).ShouldBeFalse();
+        _engine.Messages.ShouldContain(m => m.Message!.Contains("changed while dpm built it"));
+    }
+
+    // Only the next build pays for a record that couldn't be written: it builds again.
+    [Fact, Trait("Category", "Process")]
+    public void A_record_that_cant_be_written_is_a_warning()
+    {
+        var (task, _) = BuildFromState(CreatesTheDar());
+        Directory.CreateDirectory(StatePath);
+
+        task.Execute().ShouldBeTrue();
+
+        _engine.Warnings.ShouldHaveSingleItem().Message!.ShouldContain("builds it again");
+    }
 
     private static FakeDpmCommand Version(string stdout)
     {

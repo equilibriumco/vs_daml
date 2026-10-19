@@ -5,7 +5,6 @@
   <UsingTask TaskName="Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlComputeBuildState" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlRecordBuildState" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlReadDarProvenance" AssemblyFile="$(_DamlSdkTasks)" />
   <UsingTask TaskName="Daml.Build.Tasks.DamlCleanPackage" AssemblyFile="$(_DamlSdkTasks)" />
@@ -90,19 +89,15 @@
         AllowToolInstall="$(DamlAllowToolInstall)"
         SkipPreflight="$(DamlSkipPreflight)"
         ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)"
-        LockTimeoutSeconds="$(DamlLockTimeoutSeconds)">
-      <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
-    </DamlBuildTask>
-    <DamlRecordBuildState
-        Condition="'$(DamlCreatedDar)' != ''"
+        LockTimeoutSeconds="$(DamlLockTimeoutSeconds)"
         StatePath="$(_DamlBuildStatePath)"
-        DarPath="$(DamlDarPath)"
         Fingerprint="$(_DamlBuildFingerprint)"
         SourceFingerprint="$(_DamlSourceFingerprint)"
-        ManifestPath="$(DamlManifestPath)"
         SourcePath="$(DamlSourcePath)"
         Dependencies="@(DamlDependency)"
-        DataDependencies="@(DamlDataDependency)" />
+        DataDependencies="@(DamlDataDependency)">
+      <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
+    </DamlBuildTask>
     <!-- A build that found the DAR current tells Visual Studio's up-to-date check so, or the
          check would keep asking for it. -->
     <Touch Condition="'$(_DamlShouldBuild)' == 'false' and Exists('$(_DamlBuildStatePath)')" Files="$(_DamlBuildStatePath)" />

@@ -183,9 +183,15 @@ public abstract class DpmToolTask : ToolTask
         }
         using (held)
         {
-            return RunDpm(pathToTool, responseFileCommands, commandLineCommands);
+            return DoneWhileWaiting() ? 0 : RunDpm(pathToTool, responseFileCommands, commandLineCommands);
         }
     }
+
+    /// <summary>
+    /// Asked once this task holds the package: whether another build did the work while this one
+    /// waited for it, so dpm doesn't need to run.
+    /// </summary>
+    protected virtual bool DoneWhileWaiting() => false;
 
     private FileLock? TakePackageLock()
     {

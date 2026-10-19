@@ -147,6 +147,32 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     }
 
     // What the DAR is built from decides, not file times: a deleted source is noticed too (S-06).
+    // Debug and Release share the package's DAR. Both find it out of date and one waits for the other;
+    // that one finds the DAR the first made from the same inputs and runs no dpm, so nothing rewrites
+    // it while a project using it reads it. Visual Studio's own build of a Daml project and that of a
+    // C# project needing its DAR meet the same way.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public async System.Threading.Tasks.Task Debug_and_Release_built_at_once_run_dpm_once(MSBuildHost host)
+    {
+        var slow = CreatesTheDar();
+        slow.DelayMilliseconds = 1500;
+        Scenario(slow);
+        var project = DamlProject();
+        var properties = new Dictionary<string, string> { ["DamlDpmPath"] = _dpm.ExecutablePath };
+        var restore = _sandbox.Build(host, HostPath(host), project, _dpm.Environment, properties, "Restore", restore: false);
+
+        var runs = await System.Threading.Tasks.Task.WhenAll(
+            new[] { "Debug", "Release" }.Select(configuration => System.Threading.Tasks.Task.Run(() =>
+                _sandbox.Build(host, HostPath(host), project, _dpm.Environment, new Dictionary<string, string>(properties) { ["Configuration"] = configuration }, restore: false))));
+
+        restore.ExitCode.ShouldBe(0, restore.Log);
+        runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
+        Calls("build").Count.ShouldBe(1);
+        runs.Count(r => r.Log.Contains("by another build while this one waited")).ShouldBe(1);
+    }
+
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]

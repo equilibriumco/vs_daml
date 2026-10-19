@@ -62,6 +62,30 @@ public sealed class PackageBuildStateTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public void Nothing_recorded_yet_isnt_current() => Compute().IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
 
+    // What a build records once dpm made the DAR: the state it computed before, if the inputs are
+    // still that state.
+    [Fact, Trait("Category", "Unit")]
+    public void A_build_from_inputs_that_stayed_put_is_recorded()
+    {
+        var before = Compute();
+
+        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath).ShouldBeTrue();
+
+        Compute().IsRecordedIn(StatePath, DarPath).ShouldBeTrue();
+    }
+
+    // The DAR may hold the old sources or the new ones; only a fresh build can say which.
+    [Fact, Trait("Category", "Unit")]
+    public void Sources_changed_while_dpm_built_are_not_recorded_as_built()
+    {
+        var before = Compute();
+        Write(@"daml\Main.daml", "module Main where\nx = 1\n");
+
+        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath).ShouldBeFalse();
+
+        File.Exists(StatePath).ShouldBeFalse();
+    }
+
     [Theory, Trait("Category", "Unit")]
     [InlineData("edit")]
     [InlineData("add")]

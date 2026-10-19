@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Tasks;
 using Microsoft.Build.Utilities;
@@ -47,32 +48,9 @@ public sealed class DamlBuildStateTasksTests : IDisposable
         };
     }
 
-    private DamlRecordBuildState Record(DamlComputeBuildState computed) => new()
-    {
-        BuildEngine = _engine,
-        StatePath = computed.StatePath,
-        DarPath = computed.DarPath,
-        Fingerprint = computed.Fingerprint,
-        SourceFingerprint = computed.SourceFingerprint,
-        ManifestPath = computed.ManifestPath,
-        SourcePath = computed.SourcePath,
-        Dependencies = computed.Dependencies,
-        DataDependencies = computed.DataDependencies,
-    };
-
-    // The DAR may hold the old sources or the new ones; only a fresh build can say which.
-    [Fact, Trait("Category", "Unit")]
-    public void Sources_changed_while_dpm_built_are_not_recorded_as_built()
-    {
-        var computed = Compute();
-        computed.Execute();
-        Write(@"daml\Main.daml", "module Main where\nx = 1\n");
-
-        Record(computed).Execute().ShouldBeTrue();
-
-        File.Exists(At(@"obj\daml.build.state")).ShouldBeFalse();
-        _engine.Messages.ShouldContain(m => m.Message!.Contains("changed while dpm built it"));
-    }
+    // What the build task records once dpm made the DAR.
+    private static void Record(DamlComputeBuildState computed) =>
+        new PackageBuildState(computed.Fingerprint, computed.SourceFingerprint).Record(computed.StatePath, computed.DarPath);
 
     [Fact, Trait("Category", "Unit")]
     public void A_package_never_built_is_built_and_once_recorded_isnt_built_again()
@@ -80,7 +58,7 @@ public sealed class DamlBuildStateTasksTests : IDisposable
         var first = Compute();
         first.Execute().ShouldBeTrue();
         first.ShouldBuild.ShouldBeTrue();
-        Record(first).Execute().ShouldBeTrue();
+        Record(first);
 
         var second = Compute();
         second.Execute().ShouldBeTrue();
@@ -95,7 +73,7 @@ public sealed class DamlBuildStateTasksTests : IDisposable
     {
         var first = Compute();
         first.Execute();
-        Record(first).Execute();
+        Record(first);
         Write(@"vendor\finance-1.0.0.dar", "finance 1.0.1");
 
         var second = Compute();
@@ -113,18 +91,5 @@ public sealed class DamlBuildStateTasksTests : IDisposable
 
         Compute("sometimes").Execute().ShouldBeFalse();
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-    }
-
-    // Only the next build pays for a record that couldn't be written: it builds again.
-    [Fact, Trait("Category", "Unit")]
-    public void A_record_that_cant_be_written_is_a_warning()
-    {
-        var computed = Compute();
-        computed.Execute();
-        Directory.CreateDirectory(At(@"obj\daml.build.state"));
-
-        Record(computed).Execute().ShouldBeTrue();
-
-        _engine.Warnings.ShouldHaveSingleItem().Message!.ShouldContain("builds it again");
     }
 }
