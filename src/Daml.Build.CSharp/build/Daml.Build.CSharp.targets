@@ -61,18 +61,19 @@
 
   <!-- Visual Studio builds project references itself (BuildingInsideVisualStudio keeps
        ResolveProjectReferences from building them), in the order it knows of. Before the first
-       restore it doesn't know this project needs its Daml projects, and may build them side by side,
-       so a DAR asked for above can still be on its way. Such a DAR is built here first, as a build
-       outside Visual Studio would, and asked for again: the first answer came before the DAR existed,
-       and MSBuild keeps it for that project instance. dpm's lock on the package keeps the two builds
-       of it from running at once. -->
-  <Target Name="DamlBuildMissingDars" DependsOnTargets="DamlResolveDars">
-    <ItemGroup Condition="'$(DesignTimeBuild)' != 'true' and ('$(BuildingInsideVisualStudio)' == 'true' or '$(BuildProjectReferences)' == 'false')">
-      <_DamlMissingDarProject Include="@(_DamlProjectDar->'%(DamlSourceProject)')" Condition="'%(_DamlProjectDar.Exists)' != 'true'" />
+       restore it doesn't know this project needs its Daml projects, and may build them side by side:
+       a DAR asked for above can be missing, older than its sources, or being written. So inside
+       Visual Studio the Daml projects are built here first, as a build outside it would: one that
+       Visual Studio is building already is waited for under dpm's lock on the package and then found
+       current, one that is current is only checked. They are asked for their DARs again afterwards,
+       as MSBuild keeps the first answer for that project instance. -->
+  <Target Name="DamlEnsureDars" DependsOnTargets="DamlResolveDars">
+    <ItemGroup Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingInsideVisualStudio)' == 'true'">
+      <_DamlDarProject Include="@(_DamlProjectDar->'%(DamlSourceProject)')" />
       <_DamlReferencedProject Include="@(_MSBuildProjectReferenceExistent->'%(FullPath)')" />
-      <_DamlDarPresent Include="@(_DamlReferencedProject)" Exclude="@(_DamlMissingDarProject)" />
+      <_DamlOtherProject Include="@(_DamlReferencedProject)" Exclude="@(_DamlDarProject)" />
       <_DamlBuildFirst Include="@(_DamlReferencedProject)" />
-      <_DamlBuildFirst Remove="@(_DamlDarPresent)" />
+      <_DamlBuildFirst Remove="@(_DamlOtherProject)" />
     </ItemGroup>
     <MSBuild
         Condition="'@(_DamlBuildFirst)' != ''"
@@ -91,14 +92,14 @@
       <Output TaskParameter="TargetOutputs" ItemName="_DamlBuiltDar" />
     </MSBuild>
     <ItemGroup Condition="'@(_DamlBuiltDar)' != ''">
-      <_DamlProjectDar Remove="@(_DamlProjectDar)" Condition="'%(_DamlProjectDar.Exists)' != 'true'" />
+      <_DamlProjectDar Remove="@(_DamlProjectDar)" />
       <_DamlProjectDar Include="@(_DamlBuiltDar)" />
     </ItemGroup>
   </Target>
 
   <!-- The references as the project wrote them, and the runtime it compiles against. A design-time
        build stops here with what the last real build published: it runs nothing and writes nothing. -->
-  <Target Name="DamlComputeGenerationState" DependsOnTargets="DamlBuildMissingDars">
+  <Target Name="DamlComputeGenerationState" DependsOnTargets="DamlEnsureDars">
     <ItemGroup>
       <_DamlCodegenReference Include="@(DamlReference)" DamlReferenceSource="DamlReference" />
       <_DamlCodegenReference Include="@(DamlDar)" DamlReferenceSource="DamlDar" />
@@ -211,7 +212,7 @@
   <!-- Bindings brought up to date without compiling the project: what refreshing them in the
        background runs, with BuildProjectReferences=false. ResolveReferences gives the Daml.Runtime
        version the generator's checks need. -->
-  <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlBuildMissingDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
+  <Target Name="DamlRefreshBindings" DependsOnTargets="ResolveReferences;DamlBuildReferences;DamlResolveDars;DamlEnsureDars;DamlComputeGenerationState;DamlGenerateCSharp;DamlCollectGeneratedCompile" />
 
   <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay.
        The file list is emptied, not deleted: Visual Studio watches only the files the evaluation

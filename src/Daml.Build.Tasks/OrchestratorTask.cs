@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using Daml.Build.Core.Codegen;
 using Daml.Build.Core.Diagnostics;
@@ -63,6 +64,13 @@ public abstract class OrchestratorTask : Task, ICancelableTask
             catch (OperationCanceledException)
             {
                 Log.LogError(null, DamlDiagnosticCodes.CancelledOrTimedOut, null, projectPath, 0, 0, 0, 0, whenCancelled);
+                return null;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Most likely a file another process held for a moment, a DAR being written among them.
+                Log.LogError(null, DamlDiagnosticCodes.CodegenFailed, null, projectPath, 0, 0, 0, 0,
+                    $"The C# generation couldn't read or write a file: {ex.Message} Build again; if it keeps happening, look for what holds the file.");
                 return null;
             }
             finally

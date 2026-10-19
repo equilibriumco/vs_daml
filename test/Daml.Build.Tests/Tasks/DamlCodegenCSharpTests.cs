@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using Daml.Build.Core.Building;
@@ -223,6 +224,23 @@ public class DamlCodegenCSharpTests
         task.Execute().ShouldBeTrue();
 
         _orchestrator.Requests.ShouldBeEmpty();
+        task.GeneratedFiles.ShouldBeEmpty();
+    }
+
+    // A file another process holds, a DAR being written for one, is an error of the build like any
+    // other, never a task that fell over.
+    [Fact, Trait("Category", "Unit")]
+    public void A_file_the_generation_couldnt_read_or_write_is_DAML0104_naming_it()
+    {
+        var task = Task(Contracts());
+        _orchestrator.OnRun = () => throw new IOException(@"The process cannot access the file 'C:\x\contracts.dar' because it is being used by another process.");
+
+        task.Execute().ShouldBeFalse();
+
+        var error = _engine.Errors.ShouldHaveSingleItem();
+        error.Code.ShouldBe(DamlDiagnosticCodes.CodegenFailed);
+        error.Message!.ShouldContain(@"C:\x\contracts.dar");
+        error.Message!.ShouldContain("build again");
         task.GeneratedFiles.ShouldBeEmpty();
     }
 

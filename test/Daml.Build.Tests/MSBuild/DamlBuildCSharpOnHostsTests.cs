@@ -286,6 +286,29 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         (DarBuilds(), GeneratorRuns()).ShouldBe((1, 1));
     }
 
+    // The same race with a DAR already there, but from sources changed since, or being written by
+    // Visual Studio's own build of its project: the C# project builds the Daml project first all the
+    // same, so it never generates from a stale or half-written DAR.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void Inside_Visual_Studio_a_DAR_older_than_its_sources_is_built_again_before_generating(MSBuildHost host)
+    {
+        App("""<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
+        Contracts();
+        Scenario(BuildsTheDar(), Generator("Contracts"));
+        Uses("Contracts");
+        var first = Build(host);
+        _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n\n-- edited\n");
+        Scenario(BuildsTheDar("contracts-edited"), Generator("Contracts"));
+
+        var second = Build(host, null, false, ("BuildingInsideVisualStudio", "true"));
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        second.ExitCode.ShouldBe(0, second.Log);
+        (DarBuilds(), GeneratorRuns()).ShouldBe((2, 2));
+    }
+
     // What background sync runs after a Daml edit: the Daml project's DAR built again and the bindings
     // regenerated from it, with the runtime known to the generator's checks, but neither the project nor
     // its C# library compiled, and the up-to-date check's stamp left alone, so the next build compiles.
