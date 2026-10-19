@@ -109,7 +109,27 @@ internal static class Program
             .ToDictionary(e => e.Key.ToUpperInvariant(), e => e.Value);
 
         var line = JsonSerializer.Serialize(new { args, workingDirectory = Environment.CurrentDirectory, environment, processId = Environment.ProcessId }, Json);
-        File.AppendAllText(callsPath, line + Environment.NewLine);
+        Append(callsPath, line + Environment.NewLine);
+    }
+
+    // Parallel builds start several dpms at once, and only one of them can have the log open; the
+    // others wait their turn.
+    private static void Append(string path, string text)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(text);
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                using var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.None);
+                stream.Write(bytes, 0, bytes.Length);
+                return;
+            }
+            catch (IOException) when (attempt < 500)
+            {
+                System.Threading.Thread.Sleep(10);
+            }
+        }
     }
 
     private sealed class Scenario

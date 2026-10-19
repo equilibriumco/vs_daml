@@ -140,6 +140,21 @@ public class FakeDpmTests
         calls[1].Args.Single().ShouldBe("unknown");
     }
 
+    // Builds run in parallel start several dpms at once; each of them has to get its line in.
+    [Fact, Trait("Category", "Process")]
+    public async Task Calls_made_at_once_are_all_recorded()
+    {
+        using var dpm = FakeDpm.Create(new FakeDpmScenario
+        {
+            Commands = { new FakeDpmCommand { Args = { "--version" }, Stdout = "version: 1.0.22\n" } },
+        });
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 24).Select(_ => dpm.RunAsync(Path.GetTempPath(), "--version")));
+
+        results.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n", results.Select(r => r.Stderr)));
+        dpm.ReadCalls().Count.ShouldBe(24);
+    }
+
     [Theory, Trait("Category", "Process")]
     [InlineData("plain")]
     [InlineData("with space")]

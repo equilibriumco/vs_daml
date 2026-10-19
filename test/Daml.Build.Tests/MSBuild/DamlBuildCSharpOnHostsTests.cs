@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using Daml.Build.Core.Codegen;
 using Daml.Build.Core.Configuration;
@@ -163,7 +164,10 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{sdkVersion ?? SdkFeed.Version}\" />\n");
     }
 
-    private MSBuildRun Build(MSBuildHost host, string? target = null, bool restore = true, params (string Name, string Value)[] properties)
+    private MSBuildRun Build(MSBuildHost host, string? target = null, bool restore = true, params (string Name, string Value)[] properties) =>
+        BuildProject(@"App\App.csproj", host, target, restore, properties);
+
+    private MSBuildRun BuildProject(string project, MSBuildHost host, string? target = null, bool restore = true, params (string Name, string Value)[] properties)
     {
         var all = new Dictionary<string, string>
         {
@@ -178,7 +182,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         }
         var environment = _dpm.Environment.ToDictionary(e => e.Key, e => e.Value);
         environment["LOCALAPPDATA"] = _localAppData;
-        return _sandbox.Build(host, HostPath(host), @"App\App.csproj", environment, all, target, restore);
+        return _sandbox.Build(host, HostPath(host), project, environment, all, target, restore);
     }
 
     // What Visual Studio asks of a design-time build: the compiler's inputs, without running it.
@@ -570,6 +574,92 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         }
     }
 
+    // Background sync's refresh and a build of the same project at once: one of them generates, the other
+    // takes what it published, and the next build has nothing left to generate.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public async Task A_refresh_and_a_build_at_once_generate_once(MSBuildHost host)
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        var generator = Generator("Finance");
+        generator.DelayMilliseconds = 1500;
+        Scenario(generator);
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var restore = Build(host, "Restore", restore: false);
+
+        var runs = await Task.WhenAll(
+            Task.Run(() => Build(host, restore: false)),
+            Task.Run(() => Build(host, "DamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))));
+        var next = Build(host, restore: false);
+
+        restore.ExitCode.ShouldBe(0, restore.Log);
+        runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
+        next.ExitCode.ShouldBe(0, next.Log);
+        GeneratorRuns().ShouldBe(1);
+        Directory.GetDirectories(GeneratedRoot).ShouldHaveSingleItem();
+        Listed().ShouldAllBe(f => File.Exists(f));
+    }
+
+    // A clean while a refresh generates from a new DAR waits for it. Whichever goes second, the folder
+    // holds a whole generation or none, never a half-published one, and the next build compiles.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public async Task A_clean_and_a_refresh_at_once_leave_no_half_generation()
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var first = Build(MSBuildHost.Dotnet);
+        var slow = Generator("Finance");
+        slow.DelayMilliseconds = 1500;
+        Scenario(slow);
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
+
+        var runs = await Task.WhenAll(
+            Task.Run(() => Build(MSBuildHost.Dotnet, "DamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))),
+            Task.Run(() => Build(MSBuildHost.Dotnet, "Clean", restore: false)));
+        var left = Directory.Exists(GeneratedRoot) ? Directory.GetFileSystemEntries(GeneratedRoot) : [];
+        var whole = left.All(g => File.Exists(Path.Combine(g, GenerationManifest.FileName)) && Directory.GetFiles(g, "*.cs", SearchOption.AllDirectories).Length == 2);
+        var next = Build(MSBuildHost.Dotnet, restore: false);
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
+        left.Length.ShouldBeLessThanOrEqualTo(1, string.Join(", ", left));
+        whole.ShouldBeTrue(string.Join(", ", left));
+        next.ExitCode.ShouldBe(0, next.Log);
+        Directory.GetDirectories(GeneratedRoot).ShouldHaveSingleItem();
+        Listed().ShouldAllBe(f => File.Exists(f));
+        File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
+    }
+
+    // Two projects pinned to different generator releases build at once, each generating with the private
+    // dpm home of its own pin.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public async Task Two_projects_on_different_generator_pins_build_at_once_each_in_its_own_home()
+    {
+        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        var generator = Generator("Finance");
+        generator.DelayMilliseconds = 1500;
+        Scenario(generator);
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var root = Path.Combine(_localAppData, @"DamlVisualStudio\codegen");
+        var other = SyntheticGeneratorCache.Create(root, variant: "next release");
+        new GeneratorCache(other.Root, other.Pin).MarkReady();
+        _sandbox.Write(@"Other\Other.csproj", File.ReadAllText(Path.Combine(AppFolder, "App.csproj")));
+        _sandbox.Write(@"Other\Uses.cs", File.ReadAllText(Path.Combine(AppFolder, "Uses.cs")));
+
+        var runs = await Task.WhenAll(
+            Task.Run(() => Build(MSBuildHost.MSBuildExe)),
+            Task.Run(() => BuildProject(@"Other\Other.csproj", MSBuildHost.MSBuildExe, properties: ("DamlCodegenComponent", other.Pin.Reference))));
+
+        runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
+        _dpm.ReadCalls().Where(c => c.Args.Count > 0 && c.Args[0] == "codegen-cs").Select(c => c.Environment["DPM_HOME"])
+            .ShouldBe([new GeneratorCache(root, _pin!).Home, other.Home], ignoreOrder: true);
+    }
+
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Two_DARs_generating_the_same_types_fail_with_DAML0202()
     {
@@ -702,9 +792,59 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void A_real_Daml_project_turns_into_compiled_CSharp_and_the_next_build_runs_no_tool(MSBuildHost host)
     {
+        var hostPath = HostPath(host);
+        var properties = RealProjects();
+
+        var first = _sandbox.Build(host, hostPath, @"App\App.csproj", properties: properties, target: "Build;ShowCompiled");
+        var second = _sandbox.Build(host, hostPath, @"App\App.csproj", properties: properties, target: "Build;ShowCompiled");
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        first.Log.ShouldContain("Generated C# for");
+        var generated = Lines(first.Log, "Compiled: ").Where(f => f.StartsWith(GeneratedRoot, StringComparison.OrdinalIgnoreCase)).ToList();
+        generated.ShouldNotBeEmpty();
+        generated.ShouldAllBe(f => File.Exists(f));
+        File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldNotContain("Generated C# for");
+        second.Log.ShouldNotContain("Compiling contracts");
+        Lines(second.Log, "Compiled: ").Where(f => f.StartsWith(GeneratedRoot, StringComparison.OrdinalIgnoreCase)).ShouldBe(generated);
+        _output.WriteLine($"{host}: first build {first.Elapsed.TotalSeconds:F1} s, second {second.Elapsed.TotalSeconds:F1} s.");
+    }
+
+    // dpm's own home belongs to the user: building, generating and cleaning leave every file in it as they
+    // found it, because the generator runs from the private home of its pin.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
+    public void A_real_build_and_clean_leave_the_dpm_home_as_they_found_it()
+    {
+        var hostPath = HostPath(MSBuildHost.Dotnet);
+        var properties = RealProjects();
+        var home = Path.GetDirectoryName(Path.GetDirectoryName(properties["DamlDpmPath"]))!;
+        var before = Snapshot(home);
+
+        var build = _sandbox.Build(MSBuildHost.Dotnet, hostPath, @"App\App.csproj", properties: properties);
+        var clean = _sandbox.Build(MSBuildHost.Dotnet, hostPath, @"App\App.csproj", properties: properties, target: "Clean");
+
+        build.ExitCode.ShouldBe(0, build.Log);
+        build.Log.ShouldContain("Generated C# for");
+        clean.ExitCode.ShouldBe(0, clean.Log);
+        Directory.Exists(GeneratedRoot).ShouldBeFalse();
+        before.ShouldNotBeEmpty();
+        Snapshot(home).ShouldBe(before);
+    }
+
+    // Every file under the folder with its size and time of its last write.
+    private static List<string> Snapshot(string folder) =>
+        Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
+            .Select(f => new FileInfo(f))
+            .Select(f => $"{f.FullName.Substring(folder.Length)}|{f.Length}|{f.LastWriteTimeUtc.Ticks}")
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    // The manual check's Daml project and a C# project on its bindings, for the real dpm and generator.
+    private Dictionary<string, string> RealProjects()
+    {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
-        var hostPath = HostPath(host);
         _sandbox.UseSdkFeed();
         var fixture = Path.Combine(Repository.Root, @"test\fixtures\sdk-manual\Contracts");
         _sandbox.Write(@"contracts\daml.yaml", File.ReadAllText(Path.Combine(fixture, "daml.yaml")));
@@ -724,27 +864,12 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
             {ShowTargets}
             </Project>
             """);
-        var properties = new Dictionary<string, string>
+        return new Dictionary<string, string>
         {
             ["DamlDpmPath"] = dpm,
             ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
             ["DamlAllowToolInstall"] = "true",
         };
-
-        var first = _sandbox.Build(host, hostPath, @"App\App.csproj", properties: properties, target: "Build;ShowCompiled");
-        var second = _sandbox.Build(host, hostPath, @"App\App.csproj", properties: properties, target: "Build;ShowCompiled");
-
-        first.ExitCode.ShouldBe(0, first.Log);
-        first.Log.ShouldContain("Generated C# for");
-        var generated = Lines(first.Log, "Compiled: ").Where(f => f.StartsWith(GeneratedRoot, StringComparison.OrdinalIgnoreCase)).ToList();
-        generated.ShouldNotBeEmpty();
-        generated.ShouldAllBe(f => File.Exists(f));
-        File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
-        second.ExitCode.ShouldBe(0, second.Log);
-        second.Log.ShouldNotContain("Generated C# for");
-        second.Log.ShouldNotContain("Compiling contracts");
-        Lines(second.Log, "Compiled: ").Where(f => f.StartsWith(GeneratedRoot, StringComparison.OrdinalIgnoreCase)).ShouldBe(generated);
-        _output.WriteLine($"{host}: first build {first.Elapsed.TotalSeconds:F1} s, second {second.Elapsed.TotalSeconds:F1} s.");
     }
 }
