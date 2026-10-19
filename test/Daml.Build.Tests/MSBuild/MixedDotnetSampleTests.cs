@@ -59,8 +59,9 @@ public sealed class MixedDotnetSampleTests : IDisposable
         PackageVersion(app, "Splice.Api.Token.Transfer.Instruction.V2").ShouldBe(SdkFeed.SpliceVersion);
     }
 
-    // A copy without anything a build of the sample in place left, on the packages of this test run.
-    private void CopySample()
+    // A copy without anything a build of the sample in place left, on the packages of this test run and the
+    // given Daml SDK.
+    private void CopySample(string sdk)
     {
         string[] skipped = [".daml", "obj", "bin", "log"];
         foreach (var file in Directory.GetFiles(Sample, "*", SearchOption.AllDirectories))
@@ -81,21 +82,28 @@ public sealed class MixedDotnetSampleTests : IDisposable
             text = Regex.Replace(text, @"Include=""Daml\.Build\.CSharp"" Version=""[^""]+""", $"Include=\"Daml.Build.CSharp\" Version=\"{SdkFeed.Version}\"");
             File.WriteAllText(project, text);
         }
+        foreach (var manifest in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.yaml", SearchOption.AllDirectories))
+        {
+            File.WriteAllText(manifest, Regex.Replace(File.ReadAllText(manifest), @"^sdk-version: .*$", $"sdk-version: {sdk}", RegexOptions.Multiline));
+        }
         _sandbox.UseSdkFeed();
     }
 
     // dpm builds the contracts against the Splice DARs and then their tests, the pinned generator turns the
-    // contracts into C# that the app compiles with the Splice packages and runs, and the scripts pass.
+    // contracts into C# that the app compiles with the Splice packages and runs, and the scripts pass; on
+    // both supported SDK lines.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
-    [InlineData(MSBuildHost.MSBuildExe)]
-    [InlineData(MSBuildHost.Dotnet)]
-    public async Task The_sample_solution_builds_runs_and_passes_its_Daml_tests(MSBuildHost host)
+    [InlineData(MSBuildHost.MSBuildExe, "3.6.0")]
+    [InlineData(MSBuildHost.MSBuildExe, "3.5.2")]
+    [InlineData(MSBuildHost.Dotnet, "3.6.0")]
+    [InlineData(MSBuildHost.Dotnet, "3.5.2")]
+    public async Task The_sample_solution_builds_runs_and_passes_its_Daml_tests(MSBuildHost host, string sdk)
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
         var dotnet = RequiredTools.Require(ExternalTool.Dotnet);
         var hostPath = HostPath(host);
-        CopySample();
+        CopySample(sdk);
         var properties = new Dictionary<string, string>
         {
             ["DamlDpmPath"] = dpm,
@@ -107,6 +115,7 @@ public sealed class MixedDotnetSampleTests : IDisposable
         var build = _sandbox.Build(host, hostPath, @"mixed-dotnet\MixedDotnet.slnx", properties: properties);
         build.ExitCode.ShouldBe(0, build.Log);
         build.Log.ShouldContain("Generated C# for");
+        DarProvenance.Read(Path.Combine(_sandbox.Root, @"mixed-dotnet\daml\.daml\dist\mixed-dotnet-contracts-0.1.0.dar")).SdkVersion.ShouldBe(sdk);
         var app = await new ProcessRunner().RunAsync(
             new ProcessSpec(dotnet, [Path.Combine(_sandbox.Root, @"mixed-dotnet\App\bin\Debug\net10.0\App.dll")]) { Timeout = TimeSpan.FromMinutes(1) },
             CancellationToken.None);
@@ -115,6 +124,6 @@ public sealed class MixedDotnetSampleTests : IDisposable
 
         var tests = _sandbox.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "DamlTest");
         tests.ExitCode.ShouldBe(0, tests.Log);
-        _output.WriteLine($"{host}: build {build.Elapsed.TotalSeconds:F1} s, tests {tests.Elapsed.TotalSeconds:F1} s.");
+        _output.WriteLine($"{host}, SDK {sdk}: build {build.Elapsed.TotalSeconds:F1} s, tests {tests.Elapsed.TotalSeconds:F1} s.");
     }
 }
