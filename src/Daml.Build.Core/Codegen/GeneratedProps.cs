@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -20,6 +21,10 @@ public static class GeneratedProps
 {
     // The generator names a package's registration after the package ID, which any change to the Daml renews.
     private static readonly Regex PackageIdSuffix = new(@"_[0-9a-f]{64}(?=\.cs$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    // How long a build waits for evaluations that hold the old list, about a second in all.
+    private const int PublishAttempts = 20;
+    private static readonly TimeSpan PublishRetryDelay = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
     /// How many files of <paramref name="before"/> are gone from <paramref name="after"/>, the types
@@ -72,7 +77,7 @@ public static class GeneratedProps
     /// </summary>
     /// <returns>Whether the file was made.</returns>
     public static bool EnsureExists(string path) =>
-        !File.Exists(path ?? throw new ArgumentNullException(nameof(path))) && WriteIfDifferent(path, "<Project />\n");
+        !File.Exists(path ?? throw new ArgumentNullException(nameof(path))) && Publish(path, "<Project />\n", replace: false);
 
     private static bool WriteIfDifferent(string path, string text)
     {
@@ -80,9 +85,52 @@ public static class GeneratedProps
         {
             return false;
         }
+        return Publish(path, text, replace: true);
+    }
+
+    // Visual Studio evaluates the project, and so reads this file, while builds write it. Written in
+    // place, an evaluation that comes at the wrong moment can't open it and the build fails; so the
+    // text goes to a file next to it, which then takes its place in one rename. An evaluation that
+    // holds the old file only holds the rename up for a moment.
+    private static bool Publish(string path, string text, bool replace)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        return true;
+        var next = path + "." + Guid.NewGuid().ToString("N").Substring(0, 8) + ".tmp";
+        File.WriteAllText(next, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        try
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    if (replace && File.Exists(path))
+                    {
+                        File.Replace(next, path, null);
+                    }
+                    else
+                    {
+                        File.Move(next, path);
+                    }
+                    return true;
+                }
+                catch (IOException) when (!replace && File.Exists(path))
+                {
+                    // Another build made it first; a list is never overwritten by an empty file.
+                    return false;
+                }
+                catch (Exception ex) when ((ex is IOException or UnauthorizedAccessException) && attempt < PublishAttempts)
+                {
+                    Thread.Sleep(PublishRetryDelay);
+                }
+            }
+        }
+        finally
+        {
+            if (File.Exists(next))
+            {
+                File.Delete(next);
+            }
+        }
     }
 
     // What MSBuild would read as a property, an item list, metadata or a wildcard first, then XML;

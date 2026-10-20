@@ -107,6 +107,45 @@ public sealed class GeneratedPropsTests : IDisposable
         XDocument.Load(Props).Root!.Descendants("Compile").Count().ShouldBe(2);
     }
 
+    // Visual Studio evaluates the project while builds write the list: an evaluation must find the
+    // old list or the new one, never a file still being written. So the new list is written next
+    // to it and takes its place in one rename, which a reader that allows renames doesn't stop.
+    [Fact, Trait("Category", "Unit")]
+    public void A_new_list_takes_the_old_ones_place_without_writing_into_it()
+    {
+        GeneratedProps.Write(Props, Files, visible: false);
+
+        using (new FileStream(Props, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+        {
+            GeneratedProps.Write(Props, Files.Take(1), visible: false).ShouldBeTrue();
+        }
+
+        XDocument.Load(Props).Root!.Descendants("Compile").ShouldHaveSingleItem();
+    }
+
+    // MSBuild reads an import without letting anyone replace it; that only holds the new list up.
+    [Fact, Trait("Category", "Unit")]
+    public void A_reader_holding_the_old_list_only_delays_the_new_one()
+    {
+        GeneratedProps.Write(Props, Files, visible: false);
+        var reader = new FileStream(Props, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var release = new System.Threading.Timer(_ => reader.Dispose(), null, 150, System.Threading.Timeout.Infinite);
+
+        GeneratedProps.Write(Props, Files.Take(1), visible: false).ShouldBeTrue();
+
+        XDocument.Load(Props).Root!.Descendants("Compile").ShouldHaveSingleItem();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Writing_leaves_nothing_but_the_list_behind()
+    {
+        GeneratedProps.EnsureExists(Props);
+        GeneratedProps.Write(Props, Files, visible: false);
+        GeneratedProps.Write(Props, Files.Take(1), visible: false);
+
+        Directory.GetFiles(Path.GetDirectoryName(Props)!).ShouldBe([Props]);
+    }
+
     // What background sync reads back: the files as written, whatever characters they hold.
     [Fact, Trait("Category", "Unit")]
     public void A_list_reads_back_as_the_files_written()
