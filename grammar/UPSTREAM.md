@@ -141,3 +141,15 @@ Replay in the grammar directory:
 PowerShell uses `$env:TREE_SITTER_SEED='987'` before the command.
 The broad fuzz logs and upstream reproduction are recorded in
 [`docs/cold-review-2026-10-20.md`](../docs/cold-review-2026-10-20.md).
+
+## Reuse after error recovery (inherited limitation)
+
+Undoing edits through a tree with errors need not give the original tree back: tree-sitter
+reuses nodes that error recovery produced like any other, as long as the undone bytes lie
+outside them. One found instance: an edit breaks an `import` line, recovery closes the
+`imports` block before it, and after the undo the parser keeps that closed block and reads the
+restored `import` as a top-level expression. Unmodified tree-sitter-haskell behaves the same.
+This is why `tree-sitter fuzz` and the fuzzer minute in `grammar.yml` run with fixed seeds and
+only the manual nightly explores new ones: with random seeds about one run in four hits it.
+A found case replays with `grammar/fuzz/out/daml-fuzzer <saved input>`; the harness prints the
+edits in the format `tree-sitter parse --edits` takes.

@@ -126,10 +126,13 @@ jobs:
           node ../scripts/fuzz-seeds.mjs "$RUNNER_TEMP/seeds"
           "$RUNNER_TEMP/fuzz/daml-fuzzer" -runs=0 -timeout=30 -rss_limit_mb=4096 -artifact_prefix="$RUNNER_TEMP/crashes/" "$RUNNER_TEMP/seeds"
 
+      # A fixed libFuzzer seed, like the fixed seed of `tree-sitter fuzz` above: with a random one,
+      # about one push in four would hit the inherited undo-after-recovery limitation
+      # (grammar/UPSTREAM.md). The nightly keeps exploring with new seeds.
       - name: Fuzz for a minute
         run: |
           mkdir -p "$RUNNER_TEMP/fuzz-work"
-          "$RUNNER_TEMP/fuzz/daml-fuzzer" -max_total_time=60 -timeout=10 -max_len=16384 -rss_limit_mb=4096 \
+          "$RUNNER_TEMP/fuzz/daml-fuzzer" -seed=1 -max_total_time=60 -timeout=10 -max_len=16384 -rss_limit_mb=4096 \
             -dict=../fuzz/daml.dict -artifact_prefix="$RUNNER_TEMP/crashes/" "$RUNNER_TEMP/fuzz-work" "$RUNNER_TEMP/seeds"
 
       - name: Keep what crashed
