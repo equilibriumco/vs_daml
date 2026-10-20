@@ -54,7 +54,8 @@ internal sealed class MSBuildBindingRefresher : IBindingRefresher
     public async Task<BindingRefreshResult> RefreshAsync(BindingRefreshTarget target, CancellationToken cancellationToken)
     {
         var name = Path.GetFileNameWithoutExtension(target.Project);
-        var configuration = (await _solution.WithBindingsAsync()).FirstOrDefault(p => DamlPath.Comparer.Equals(p.Project, target.Project)).Configuration;
+        var project = (await _solution.WithBindingsAsync()).FirstOrDefault(p => DamlPath.Comparer.Equals(p.Project, target.Project));
+        var configuration = project.Configuration;
         if (configuration is null)
         {
             return new BindingRefreshResult(false, $"{name} isn't loaded in the solution.");
@@ -64,7 +65,7 @@ internal sealed class MSBuildBindingRefresher : IBindingRefresher
         var arguments = BindingRefreshCommand.Arguments(target, config, platform, solutionDirectory);
         _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information,
             $"Refreshing the Daml bindings of {name} ({config}|{platform}{(target.TargetFramework is { } framework ? ", " + framework : "")}).");
-        var list = target.TargetFramework is { } listed ? BindingConsumerReader.ListOf(target.Project, config, listed) : null;
+        var list = target.TargetFramework is { } listed ? BindingConsumerReader.ListOf(target.Project, config, listed, project.IntermediatePath) : null;
         var before = list is null ? [] : GeneratedProps.Read(list);
 
         ProcessResult result;

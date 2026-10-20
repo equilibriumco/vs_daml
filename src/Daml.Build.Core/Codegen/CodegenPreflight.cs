@@ -71,7 +71,7 @@ public sealed class CodegenPreflight
         var pin = request.Codegen.Component ?? throw new ArgumentException("The request has no usable generator pin.", nameof(request));
         var root = request.Codegen.GeneratedRoot ?? throw new ArgumentException("The request has no usable generation root.", nameof(request));
 
-        var problems = new List<ConfigurationError>(RuntimeCompatibility.Problems(request.TargetFramework, request.RuntimeVersion));
+        var problems = new List<ConfigurationError>(RuntimeCompatibility.Problems(request.TargetFramework, request.RuntimeVersion, request.LedgerAbstractionsVersion));
         var dpm = DpmLocation.Find(request.Tools.DpmPath, Path.GetDirectoryName(request.ProjectPath)!, _environment, _files, problems);
         var java = JavaLocation.Find(request.Codegen.JavaHome, _environment, _files, problems);
         var dpmVersion = Unchecked;
@@ -144,5 +144,5 @@ public sealed class CodegenPreflight
             {
                 return ([ex.Message], false);
             }
-        });
+        }, cancellationToken);
 }

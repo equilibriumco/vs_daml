@@ -66,6 +66,26 @@ public class ToolLocatorTests
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void MSBuild_discovery_skips_an_installation_without_the_Dotnet_SDK_resolver()
+    {
+        const string bare = @"C:\BuildTools\MSBuild\Current\Bin\MSBuild.exe";
+        const string usable = @"C:\VisualStudio\MSBuild\Current\Bin\MSBuild.exe";
+        _files.UnionWith([bare, usable, @"C:\VisualStudio\MSBuild\Current\Bin\SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll"]);
+
+        ToolLocator.SelectVisualStudioMSBuild([bare, usable], _files.Contains).ShouldBe(usable);
+        ToolLocator.SelectVisualStudioMSBuild([bare], _files.Contains).ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void DPM_default_homes_have_the_same_precedence_as_the_product()
+    {
+        _env["APPDATA"] = @"C:\AppData";
+        _files.UnionWith([@"C:\AppData\.dpm\bin\dpm.cmd", @"C:\AppData\dpm\bin\dpm.cmd"]);
+
+        Find(ExternalTool.Dpm).ShouldBe(@"C:\AppData\.dpm\bin\dpm.cmd");
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void Returns_null_when_nothing_is_installed()
     {
         _env["PATH"] = @"C:\empty";

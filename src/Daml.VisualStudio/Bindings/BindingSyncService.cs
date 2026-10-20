@@ -23,7 +23,7 @@ namespace Daml.VisualStudio.Bindings;
 /// <summary>
 /// Background sync of bindings, when the user turned it on: a saved Daml file or manifest makes the
 /// C# projects generating from its package (or from packages built on it) stale, and they are
-/// refreshed a moment later, one at a time, unless Visual Studio builds them first. Progress shows in
+/// refreshed a moment later, one at a time. Visual Studio builds pause refreshes, which resume to verify pending projects. Progress shows in
 /// the Task Status Center, the outcome on the status bar and in the Daml Build pane, errors in the
 /// Error List. The policy lives in <see cref="BindingSyncScheduler"/> and <see cref="BindingSyncPlanner"/>;
 /// this only connects them to Visual Studio.
@@ -101,7 +101,7 @@ internal sealed class BindingSyncService : IDisposable
         }
         var projects = await _solution.WithBindingsAsync();
         await TaskScheduler.Default;
-        var consumers = projects.SelectMany(p => _consumers.Read(p.Project, BindingRefreshCommand.Configuration(p.Configuration).Configuration)).ToList();
+        var consumers = projects.SelectMany(p => _consumers.Read(p.Project, BindingRefreshCommand.Configuration(p.Configuration).Configuration, p.IntermediatePath)).ToList();
         var packages = (_client.Host.Workspace?.Packages ?? []).Select(p => Path.Combine(p, "daml.yaml"));
         var targets = _planner.TargetsFor(path, consumers, packages);
         _logger.Log(DamlLogCategory.Build, DamlLogLevel.Debug, targets.Count == 0
@@ -112,9 +112,9 @@ internal sealed class BindingSyncService : IDisposable
 
     private void OnBuildStarted(object? sender, EventArgs e) => _scheduler.BuildStarted();
 
-    private void OnBuildDone(bool succeeded) => _scheduler.BuildFinished();
+    private void OnBuildDone(bool succeeded) => _scheduler.BuildFinished(succeeded);
 
-    private void OnBuildCancelled() => _scheduler.BuildFinished();
+    private void OnBuildCancelled() => _scheduler.BuildFinished(succeeded: false);
 
     private void OnSolutionChanged(object? item) => _scheduler.Clear();
 

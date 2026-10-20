@@ -15,7 +15,7 @@ public class GenerationProvenanceTests
         new("9de80d6cfe50bada", "f00d", @"C:\work\App\App.csproj", DamlReferenceKind.Project, @"C:\work\Contracts\Contracts.msbuildproj",
             @namespace, @"C:\work\Contracts\.daml\dist\kinds-1.0.0.dar", "da7a", "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f04", [])
         {
-            Package = withPackage ? new DarProvenance("kinds", "1.0.0", "3.6.0", package, ["4b7e"]) : null,
+            Package = withPackage ? new DarProvenance("kinds", "1.0.0", "3.6.0", package, ["4b7e"]) { Modules = ["Kinds", "Kinds.Asset", "Kinds.Types"] } : null,
             Source = new SourceProvenance(@"C:\work\Contracts\daml.yaml", "50c"),
         };
 
@@ -27,6 +27,35 @@ public class GenerationProvenanceTests
 
     private static DeclaredDamlName Template(string @namespace, string package = Package, string module = "Kinds.Asset", string? member = null, DamlSymbolKind kind = DamlSymbolKind.Template) =>
         new(kind, package, module, "Asset", member, @namespace);
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("Kinds.Asset")]
+    [InlineData("Kinds")]
+    public void Overlapping_prefixes_are_resolved_from_the_DAR_module_table(string module)
+    {
+        var generation = Generation("Kinds");
+        generation.Resolve(Data(module, "Point")).Symbol!.Module.ShouldBe(module);
+        generation.Resolve(Template(module, module: module)).Symbol!.Module.ShouldBe(module);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void An_ambiguous_namespace_does_not_guess_between_two_original_modules()
+    {
+        var generation = Generation("Kinds") with { Modules = ["Types", "Kinds.Types"] };
+        generation.Resolve(Data("Kinds.Types", "Point")).Symbol.ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Escaped_module_names_are_mapped_and_demangled()
+    {
+        var generation = Generation("Fixture") with { Modules = ["Kinds$u0027.Types"] };
+        generation.Resolve(Data("Fixture.Kinds_u0027.Types", "Point'")).Symbol
+            .ShouldBe(new DamlSymbolId(Package, "Kinds'.Types", "Point'", null, DamlSymbolKind.Record));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Old_metadata_without_module_names_does_not_invent_a_data_type_module() =>
+        (Generation() with { Modules = [] }).Resolve(Data("Fixture.Kinds.Types", "Point")).Symbol.ShouldBeNull();
 
     [Fact, Trait("Category", "Unit")]
     public void The_manifest_tells_where_the_generation_came_from()

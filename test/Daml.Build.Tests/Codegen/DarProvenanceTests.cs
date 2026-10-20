@@ -37,6 +37,20 @@ public sealed class DarProvenanceTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void Manifest_only_reads_do_not_decode_the_DALF_but_generation_still_validates_it()
+    {
+        var entry = "contracts-1.0.0-" + Main + ".dalf";
+        var dar = Dar($"Name: contracts-1.0.0\nMain-Dalf: {entry}\n");
+        using (var zip = ZipFile.Open(dar, ZipArchiveMode.Update))
+        using (var payload = new StreamWriter(zip.CreateEntry(entry).Open()))
+        {
+            payload.Write("invalid DALF payload");
+        }
+        DarProvenance.ReadManifest(dar).MainPackageId.ShouldBe(Main);
+        Should.Throw<InvalidDataException>(() => DarProvenance.Read(dar));
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void A_DAR_names_its_package_its_sdk_and_the_package_ids_it_holds()
     {
         var provenance = DarProvenance.Read(TokenHolding);
@@ -45,6 +59,7 @@ public sealed class DarProvenanceTests : IDisposable
             .ShouldBe(("splice-api-token-holding-v2", "1.0.0", "3.5.2", Main));
         provenance.DependencyPackageIds.ShouldContain(Metadata);
         provenance.DependencyPackageIds.ShouldNotContain(Main);
+        provenance.Modules.ShouldContain("Splice.Api.Token.HoldingV2");
         provenance.DependencyPackageIds.ShouldBe(provenance.DependencyPackageIds.Distinct().OrderBy(id => id, StringComparer.Ordinal));
     }
 

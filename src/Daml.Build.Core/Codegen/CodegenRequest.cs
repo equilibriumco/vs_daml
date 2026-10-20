@@ -23,4 +23,8 @@ public sealed record CodegenRequest(
     CodegenOptions Codegen,
     IReadOnlyList<CodegenInput> Inputs,
     bool DesignTime,
-    string? RuntimeVersion);
+    string? RuntimeVersion)
+{
+    /// <summary>The resolved Daml.Ledger.Abstractions version; null when absent.</summary>
+    public string? LedgerAbstractionsVersion { get; init; }
+}

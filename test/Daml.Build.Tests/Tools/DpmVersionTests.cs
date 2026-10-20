@@ -19,6 +19,7 @@ public class DpmVersionTests
     [InlineData("")]
     [InlineData("   3.5.2 \n * 3.6.0 \n")]
     [InlineData("version: latest\n")]
+    [InlineData("version: 999999999999999999999.0.0\n")]
     public void Output_without_a_version_gives_none(string output) =>
         DpmVersion.Parse(output.Split('\n')).ShouldBeNull();
 
@@ -48,5 +49,12 @@ public class DpmVersionTests
         problem.Message.ShouldBe(
             "'dpm --version' printed no version this Daml build knows, so it can't tell whether dpm is new enough " +
             "(1.0.22 or later). It printed:\n3.5.2\n* 3.6.0\na\nb\nc");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Version_probe_failures_mask_URL_credentials()
+    {
+        DpmVersion.Problem(null, ["https://user:secret@registry"])!.Message.ShouldNotContain("secret");
+        JavaVersion.Problem(null, "java", ["oci://user:secret@registry"])!.Message.ShouldNotContain("secret");
     }
 }

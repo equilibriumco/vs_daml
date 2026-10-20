@@ -133,7 +133,7 @@ internal sealed class GeneratedTypeRoles
     {
         if (type.TypeKind == TypeKind.Enum)
         {
-            return ToDamlEnum(type) is null ? null : new DataTypeRole(DamlSymbolKind.Enum, type.Name);
+            return ToDamlEnum(type) is null ? null : new DataTypeRole(DamlSymbolKind.Enum, GeneratedNames.FromCSharp(type.Name));
         }
         if (OwnerOf(type) is { } owner)
         {
@@ -141,17 +141,17 @@ internal sealed class GeneratedTypeRoles
         }
         if (IsVariant(type))
         {
-            return new DataTypeRole(DamlSymbolKind.Variant, type.Name);
+            return new DataTypeRole(DamlSymbolKind.Variant, GeneratedNames.FromCSharp(type.Name));
         }
         if (type.ContainingType is { } outer && IsVariant(outer) && Same(type.BaseType?.OriginalDefinition, outer))
         {
-            return new ConstructorRole(new DataTypeRole(DamlSymbolKind.Variant, outer.Name), Tag(type) ?? type.Name);
+            return new ConstructorRole(new DataTypeRole(DamlSymbolKind.Variant, GeneratedNames.FromCSharp(outer.Name)), Tag(type) ?? GeneratedNames.FromCSharp(type.Name));
         }
         if (!IsRecord(type))
         {
             return null;
         }
-        return InNamespace(type) ?? new DataTypeRole(DamlSymbolKind.Record, type.Name);
+        return InNamespace(type) ?? new DataTypeRole(DamlSymbolKind.Record, GeneratedNames.FromCSharp(type.Name));
     }
 
     private OwnerRole? OwnerOf(INamedTypeSymbol type)
@@ -234,7 +234,7 @@ internal sealed class GeneratedTypeRoles
 
     private bool IsVariant(INamedTypeSymbol type) => type.IsAbstract && Implements(type, _runtime.Variant);
 
-    // A generic record cant implement IDamlRecord<T>: it converts with a converter per type parameter,
+    // The generator's generic records convert with one converter per type parameter:
     // public DamlRecord ToRecord(Func<TA, DamlValue> convertTA).
     private bool IsRecord(INamedTypeSymbol type) =>
         Implements(type, _runtime.Record)

@@ -53,7 +53,7 @@ public static class JavaVersion
         }
         if (major is null)
         {
-            var printed = output.Select(l => l.Trim()).Where(l => l.Length > 0).Take(QuotedLines);
+            var printed = output.Select(l => SecretRedaction.Redact(l.Trim())).Where(l => l.Length > 0).Take(QuotedLines);
             return new ConfigurationError(
                 DamlDiagnosticCodes.MissingJava,
                 $"'{java} -version' printed no version, so the build can't tell whether it is JDK {ReleaseTools.MinimumJava} or later. It printed:\n" +

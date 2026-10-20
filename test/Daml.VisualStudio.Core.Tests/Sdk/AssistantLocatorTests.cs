@@ -45,6 +45,20 @@ public class AssistantLocatorTests
         Locator().Find(AssistantKind.Dpm, null)!.Path.ShouldBe(@"C:\Users\ann\AppData\Roaming\dpm\bin\dpm.cmd");
     }
 
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(null, @"C:\Users\ann\AppData\Roaming\.dpm")]
+    [InlineData(@"D:\Dpm Home", @"D:\Dpm Home")]
+    public void Dpm_is_found_in_the_documented_or_configured_home(string? configuredHome, string home)
+    {
+        if (configuredHome is not null)
+        {
+            _environment["DPM_HOME"] = configuredHome;
+        }
+        _files.AddFile(home + @"\bin\dpm.exe", "");
+
+        Locator().Find(AssistantKind.Dpm, null).ShouldBe(new AssistantLocation(AssistantKind.Dpm, home + @"\bin\dpm.exe"));
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void The_daml_assistant_falls_back_to_its_install_folder_in_the_profile()
     {

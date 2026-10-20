@@ -62,7 +62,7 @@ public static class BindingIndexBuilder
 
     /// <summary>
     /// Whether <paramref name="project"/> compiles against the Daml runtime, as every project with
-    /// generated bindings does. Others arent read at all, so a solution without Daml costs nothing.
+    /// generated bindings does. Other projects are skipped.
     /// </summary>
     public static bool ReferencesDamlRuntime(Project project) =>
         (project ?? throw new ArgumentNullException(nameof(project))).MetadataReferences.OfType<PortableExecutableReference>()

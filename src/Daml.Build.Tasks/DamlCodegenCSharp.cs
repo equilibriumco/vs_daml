@@ -103,6 +103,9 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     /// <summary>The version of <c>Daml.Runtime</c> the project resolved; empty when it doesn't reference it.</summary>
     public string? RuntimeVersion { get; set; }
 
+    /// <summary>The resolved Daml.Ledger.Abstractions package version.</summary>
+    public string? LedgerAbstractionsVersion { get; set; }
+
     /// <summary>The generated files to compile, with <c>DamlGenerated=true</c> and their <c>DamlGenerationId</c>.</summary>
     [Output]
     public ITaskItem[] GeneratedFiles { get; private set; } = [];
@@ -152,7 +155,10 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
             return false;
         }
 
-        var request = new CodegenRequest(projectPath, Configuration, TargetFramework, tools, codegen, inputs, DesignTime, RuntimeVersion);
+        var request = new CodegenRequest(projectPath, Configuration, TargetFramework, tools, codegen, inputs, DesignTime, RuntimeVersion)
+        {
+            LedgerAbstractionsVersion = LedgerAbstractionsVersion,
+        };
         var result = Run(
             projectPath,
             "Generating C# from DARs was cancelled; whatever was generated before is as it was.",

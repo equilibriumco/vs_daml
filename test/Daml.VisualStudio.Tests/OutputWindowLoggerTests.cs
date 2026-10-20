@@ -89,6 +89,21 @@ public class OutputWindowLoggerTests
     }
 
     [Fact, Trait("Category", "Editor")]
+    public async Task Credentials_are_masked_in_messages_exceptions_and_plain_build_lines()
+    {
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        logger.Log(DamlLogCategory.Build, DamlLogLevel.Error, "fetch https://alice:secret@registry/a",
+            new InvalidOperationException("oci://alice:secret@registry/b"));
+        logger.WritePlainLine(DamlLogCategory.Build, "https://alice:secret@registry/c");
+        await logger.DrainAsync();
+        var text = string.Concat(_outputWindow.Panes.Single().Lines);
+        text.ShouldNotContain("secret");
+        text.ShouldContain("https://***@registry/a");
+        text.ShouldContain("oci://***@registry/b");
+        text.ShouldContain("https://***@registry/c");
+    }
+
+    [Fact, Trait("Category", "Editor")]
     public async Task A_burst_is_written_in_order_with_far_fewer_pane_writes_than_lines()
     {
         // Hold the first pane creation until the whole burst is queued, so only the first batch

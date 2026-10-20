@@ -25,6 +25,7 @@ public class ReadDamlManifestTests
     [Fact, Trait("Category", "Unit")]
     public void A_package_comes_out_as_properties_and_items()
     {
+        _files.AddFile(@"C:\work\multi-package.yaml", "sdk-version: 3.6.0\npackages: [Contracts]\n");
         var (succeeded, task) = Run(
             "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n" +
             "components:\n  - oci://ghcr.io/example/tool:1.0\n" +
@@ -35,6 +36,7 @@ public class ReadDamlManifestTests
         _engine.Errors.ShouldBeEmpty();
         (task.PackageName, task.PackageVersion, task.SdkVersion).ShouldBe(("contracts", "1.2.0", "3.6.0"));
         task.PackageRoot.ShouldBe(Root);
+        task.MultiPackageManifestPath.ShouldBe(@"C:\work\multi-package.yaml");
         (task.SourcePath, task.SourceKind).ShouldBe((Root + @"\daml", "Folder"));
         task.DarPath.ShouldBe(Root + @"\.daml\dist\contracts-1.2.0.dar");
         task.Components.Select(c => c.ItemSpec).ShouldBe(["oci://ghcr.io/example/tool:1.0"]);

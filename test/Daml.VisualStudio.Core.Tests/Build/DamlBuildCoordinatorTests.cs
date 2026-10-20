@@ -51,6 +51,22 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         new(new DpmRunner(new ProcessRunner()), findDpm ?? (() => _dpm), _logger);
 
     [Fact, Trait("Category", "Process")]
+    public async Task Tool_output_credentials_are_masked_in_logs_and_diagnostics()
+    {
+        var scenario = new FakeDpmScenario();
+        var command = new FakeDpmCommand { Stderr = "File: daml/Main.daml\nHidden: no\nRange: 1:1-1:2\nSeverity: DsError\nMessage:\nfetch https://alice:secret@registry/contracts\n", ExitCode = 1 };
+        command.Args.Add("build");
+        scenario.Commands.Add(command);
+        _fake.SetScenario(scenario);
+
+        var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
+        _logger.Entries.ShouldContain(e => e.Message.Contains("https://***@registry/contracts"));
+        _logger.Entries.ShouldAllBe(e => !e.Message.Contains("secret"));
+        run.Diagnostics.ShouldNotBeEmpty();
+        run.Diagnostics.ShouldAllBe(d => !d.Message.Contains("secret"));
+    }
+
+    [Fact, Trait("Category", "Process")]
     public async Task A_failed_build_returns_zero_based_diagnostics_and_logs_the_output_one_entry_per_line()
     {
         var run = await Coordinator().RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);

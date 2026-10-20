@@ -11,7 +11,7 @@ using Xunit;
 namespace Daml.VisualStudio.Core.Tests.Bindings;
 
 // The background refreshes: after two quiet seconds, one at a time, a stale run cancelled
-// and run again, nothing while Visual Studio builds, and what the build covered left to it.
+// and run again, with pending work verified after Visual Studio builds.
 public sealed class BindingSyncSchedulerTests : IDisposable
 {
     private static readonly BindingRefreshTarget App = new(@"C:\sln\App\App.csproj", null);
@@ -93,9 +93,9 @@ public sealed class BindingSyncSchedulerTests : IDisposable
         _refresher.Started.ShouldBe([App, App]);
     }
 
-    // The build regenerates what was asked for before it; only what came during it is still due after.
+    // A successful build may concern another project, or may have been Clean.
     [Fact, Trait("Category", "Unit")]
-    public async Task A_build_holds_refreshes_back_and_takes_over_those_asked_for_before_it()
+    public async Task A_build_holds_refreshes_back_then_verifies_all_pending_projects()
     {
         _scheduler.Request([App]);
         _scheduler.BuildStarted();
@@ -107,7 +107,11 @@ public sealed class BindingSyncSchedulerTests : IDisposable
         _scheduler.BuildFinished();
         await FakeRefresher.SettleAsync();
 
-        _refresher.Started.ShouldBe([Web]);
+        _refresher.Started.ShouldBe([App]);
+        StatesOf(App).ShouldNotContain(BindingSyncState.Ready);
+        _refresher.Complete(App, new BindingRefreshResult(true, null));
+        await FakeRefresher.SettleAsync();
+        _refresher.Started.ShouldBe([App, Web]);
         StatesOf(App).Last().ShouldBe(BindingSyncState.Ready);
     }
 
@@ -123,7 +127,20 @@ public sealed class BindingSyncSchedulerTests : IDisposable
         _scheduler.BuildFinished();
         await QuietAsync();
 
-        _refresher.Started.ShouldBe([App]);
+        _refresher.Started.ShouldBe([App, App]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_failed_or_cancelled_build_does_not_claim_the_bindings_are_current()
+    {
+        _scheduler.Request([App]);
+        _scheduler.BuildStarted();
+        await QuietAsync();
+
+        _scheduler.BuildFinished(succeeded: false);
+
+        StatesOf(App).ShouldBe([BindingSyncState.Stale, BindingSyncState.Failed]);
+        _refresher.Started.ShouldBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -139,6 +156,22 @@ public sealed class BindingSyncSchedulerTests : IDisposable
         _scheduler.Request([App]);
         await QuietAsync();
         _refresher.Started.ShouldBe([App, App]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_refresher_exception_reports_failure_and_does_not_stop_other_projects()
+    {
+        _scheduler.Request([App, Web]);
+        await QuietAsync();
+
+        _refresher.Fail(App, new InvalidOperationException("The project was unloaded."));
+        await FakeRefresher.SettleAsync();
+
+        StatesOf(App).Last().ShouldBe(BindingSyncState.Failed);
+        _refresher.Started.ShouldBe([App, Web]);
+        _refresher.Complete(Web, new BindingRefreshResult(true, null));
+        await FakeRefresher.SettleAsync();
+        StatesOf(Web).Last().ShouldBe(BindingSyncState.Ready);
     }
 
     // Another solution, or projects added or removed: nothing queued still applies.
@@ -226,6 +259,14 @@ public sealed class BindingSyncSchedulerTests : IDisposable
             lock (_gate)
             {
                 _runs.Last(r => r.Target == target).Result.TrySetResult(result);
+            }
+        }
+
+        public void Fail(BindingRefreshTarget target, Exception exception)
+        {
+            lock (_gate)
+            {
+                _runs.Last(r => r.Target == target).Result.TrySetException(exception);
             }
         }
 

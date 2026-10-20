@@ -56,6 +56,8 @@ public class RevealRequestTests
     [InlineData("""["file:///C:/work/Main.daml", -1, 2]""", "a negative line")]
     [InlineData("""["file:///C:/work/Main.daml", 5, 2]""", "an end before the start")]
     [InlineData("""["file:///C:/work/Main.daml", 0, 2000000]""", "an absurd line")]
+    [InlineData("""["file:///C:/work/Main.daml", 18446744073709551616, 18446744073709551616]""", "a start beyond Int64")]
+    [InlineData("""["file:///C:/work/Main.daml", 0, 18446744073709551616]""", "an end beyond Int64")]
     [InlineData("""["file:///C:/work/Main.daml", 0, 1.5]""", "a fractional line")]
     [InlineData("""["file:///C:/work/Main.daml", "0", 2]""", "a line given as text")]
     [InlineData("""["file:///C:/work/Main.daml", 0]""", "a missing end")]

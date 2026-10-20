@@ -115,6 +115,8 @@ public sealed class GenerationPublisherTests : IDisposable
         File.WriteAllText(Path.Combine(staging, "Same.cs"), "same");
         File.WriteAllText(Path.Combine(staging, "Added.cs"), "added");
         var written = DateTime.UtcNow.AddMinutes(-10);
+        var previouslyPublished = written.AddHours(-1);
+        File.SetLastWriteTimeUtc(Path.Combine(Active, "Same.cs"), previouslyPublished);
         foreach (var file in Directory.GetFiles(staging))
         {
             File.SetLastWriteTimeUtc(file, written);
@@ -124,7 +126,7 @@ public sealed class GenerationPublisherTests : IDisposable
 
         File.GetLastWriteTimeUtc(Path.Combine(Active, "Asset.cs")).ShouldBeGreaterThan(written.AddMinutes(5));
         File.GetLastWriteTimeUtc(Path.Combine(Active, "Added.cs")).ShouldBeGreaterThan(written.AddMinutes(5));
-        File.GetLastWriteTimeUtc(Path.Combine(Active, "Same.cs")).ShouldBe(written);
+        File.GetLastWriteTimeUtc(Path.Combine(Active, "Same.cs")).ShouldBe(previouslyPublished);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -405,7 +407,8 @@ public sealed class GenerationPublisherTests : IDisposable
         new GenerationPublisher(_root).Remove(Folder, Owner);
 
         File.Exists(outside).ShouldBeTrue();
-        Directory.Exists(Active).ShouldBeFalse();
+        Directory.Exists(Active).ShouldBeTrue();
+        File.Exists(Path.Combine(Active, GenerationManifest.FileName)).ShouldBeTrue();
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -472,5 +475,24 @@ public sealed class GenerationPublisherTests : IDisposable
         new GenerationPublisher(_root).Recover(Folder).ShouldBe(RecoveryOutcome.Nothing);
 
         Content(Active).ShouldBe("current");
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Recovery_never_deletes_a_path_supplied_by_the_journal(bool absolute)
+    {
+        var unrelated = Path.Combine(_root, "handwritten");
+        Fill(unrelated, "keep");
+        Fill(Backup, "old");
+        Fill(LeftStaging, "incomplete");
+        var entry = absolute ? unrelated : @"..\handwritten";
+        File.WriteAllText(Journal, $"staging={entry}\nphase=old-moved\n");
+
+        new GenerationPublisher(_root).Recover(Folder).ShouldBe(RecoveryOutcome.RolledBack);
+
+        Content(unrelated).ShouldBe("keep");
+        Content(Active).ShouldBe("old");
+        Directory.Exists(LeftStaging).ShouldBeFalse();
     }
 }

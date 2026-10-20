@@ -71,7 +71,7 @@ public sealed class RealGenerationUpdateTests : IDisposable
                 Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), null, "0123456789abcdef", FolderName),
             dar)],
         DesignTime: false,
-        RuntimeVersion: "0.6.0");
+        RuntimeVersion: "0.6.0") { LedgerAbstractionsVersion = "0.6.0" };
 
     private static Task<CodegenPlan> PlanAsync(CodegenRequest request) =>
         new CodegenPreflight(new ProcessRunner(), new PhysicalFileSystem(), Environment.GetEnvironmentVariable, SharedCodegenRoot, Locks)

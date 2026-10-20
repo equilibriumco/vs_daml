@@ -1,0 +1,11 @@
+module Names.More where
+
+template Asset'
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+    nonconsuming choice Read' : Int
+      controller issuer
+      do pure 1

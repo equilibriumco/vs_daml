@@ -236,7 +236,9 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     [InlineData(MSBuildHost.MSBuildExe, "CollectUpToDateCheckInputDesignTime;CollectUpToDateCheckBuiltDesignTime")]
     public void The_up_to_date_check_knows_what_the_DAR_is_built_from(MSBuildHost host, string targets)
     {
-        var project = DamlProject(body: $"""
+        var multiPackage = _sandbox.Write("multi-package.yaml", "packages: [contracts]\n");
+        var dependency = _sandbox.Write(@"lib\dependency.dar", "dependency");
+        var project = DamlProject(manifest: Manifest + "dependencies:\n- ../lib/dependency.dar\n", body: $"""
               <Target Name="ShowUpToDateItems" DependsOnTargets="{targets}">
                 <Message Importance="high" Text="Input: %(UpToDateCheckInput.FullPath)" />
                 <Message Importance="high" Text="Built: %(UpToDateCheckBuilt.FullPath)" />
@@ -247,12 +249,13 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         var run = Build(host, project, "ShowUpToDateItems", ("DesignTimeBuild", "true"));
 
         run.ExitCode.ShouldBe(0, run.Log);
-        // NoTargets turns Visual Studio's check off for its projects; a Daml project has something to check,
-        // and nothing else to wait for: a symbol file that never comes would keep it out of date for good.
-        run.Log.ShouldContain("Check disabled: false");
+        // MSBuild must see changed environment and newly created ancestor manifests.
+        run.Log.ShouldContain("Check disabled: true");
         System.Text.RegularExpressions.Regex.Matches(run.Log, @"Built: (\S+)").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).Distinct()
             .ShouldBe([$@"{Package}\.daml\dist\contracts-1.2.0.dar", $@"{Package}\obj\daml.build.state"], ignoreOrder: true);
         run.Log.ShouldContain($@"Input: {Package}\daml.yaml");
+        run.Log.ShouldContain($"Input: {multiPackage}");
+        run.Log.ShouldContain($"Input: {dependency}");
         run.Log.ShouldContain($@"Input: {Package}\daml\Main.daml");
         run.Log.ShouldContain($@"Built: {Package}\.daml\dist\contracts-1.2.0.dar");
         run.Log.ShouldContain($@"Built: {Package}\obj\daml.build.state");

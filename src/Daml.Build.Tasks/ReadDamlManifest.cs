@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Manifests;
@@ -58,15 +59,19 @@ public sealed class ReadDamlManifest : Task
     [Output]
     public string? DarPath { get; private set; }
 
+    /// <summary>The nearest multi-package manifest contributing build settings, if present.</summary>
+    [Output]
+    public string? MultiPackageManifestPath { get; private set; }
+
     /// <summary><c>components</c>, as written.</summary>
     [Output]
     public ITaskItem[] Components { get; private set; } = [];
 
-    /// <summary><c>dependencies</c> as written; a DAR entry has its full path in <c>DarPath</c> metadata.</summary>
+    /// <summary><c>dependencies</c> as written; a local DAR/DALF has its full path in <c>DarPath</c> metadata.</summary>
     [Output]
     public ITaskItem[] Dependencies { get; private set; } = [];
 
-    /// <summary><c>data-dependencies</c> as full DAR paths, each with the entry as written in <c>Written</c> metadata.</summary>
+    /// <summary><c>data-dependencies</c>, with local archives resolved and the original entry in <c>Written</c> metadata.</summary>
     [Output]
     public ITaskItem[] DataDependencies { get; private set; } = [];
 
@@ -99,9 +104,15 @@ public sealed class ReadDamlManifest : Task
         SourcePath = package.Source.Path;
         SourceKind = package.Source.Kind.ToString();
         DarPath = package.DarPath;
-        Components = package.Components.Select(c => (ITaskItem)new TaskItem(c)).ToArray();
+        MultiPackageManifestPath = PackageBuildState.FindMultiPackageManifest(path, _files.FileExists);
+        Components = package.Components.Select(c => (ITaskItem)Item(c, "LocalPath", package.LocalComponents.TryGetValue(c, out var local) ? local : null)).ToArray();
         Dependencies = package.Dependencies.Select(d => (ITaskItem)Item(d.Text, "DarPath", d.DarPath)).ToArray();
-        DataDependencies = package.DataDependencies.Select(d => (ITaskItem)Item(d.DarPath ?? d.Text, "Written", d.Text)).ToArray();
+        DataDependencies = package.DataDependencies.Select(d =>
+        {
+            var item = Item(d.DarPath ?? d.Text, "Written", d.Text);
+            item.SetMetadata("DarPath", d.DarPath ?? "");
+            return (ITaskItem)item;
+        }).ToArray();
         return !Log.HasLoggedErrors;
     }
 

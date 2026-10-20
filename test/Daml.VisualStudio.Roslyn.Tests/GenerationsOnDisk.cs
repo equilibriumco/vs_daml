@@ -64,7 +64,7 @@ internal sealed class GenerationsOnDisk : IDisposable
             @namespace, Path.Combine(Root, @"Contracts\.daml\dist\kinds-1.0.0.dar"), "da7a", "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f04",
             entries.OrderBy(e => e.Path, StringComparer.Ordinal).ToList())
         {
-            Package = recordPackage ? new DarProvenance("kinds", "1.0.0", "3.6.0", manifestPackage ?? package, []) : null,
+            Package = recordPackage ? new DarProvenance("kinds", "1.0.0", "3.6.0", manifestPackage ?? package, []) { Modules = ["Kinds.Asset", "Kinds.Holding", "Kinds.Types"] } : null,
             Source = new SourceProvenance(Path.Combine(Root, @"Contracts\daml.yaml"), "50c"),
         }.Write(Path.Combine(folder, GenerationManifest.FileName));
         return written;

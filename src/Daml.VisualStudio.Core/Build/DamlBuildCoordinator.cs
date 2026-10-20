@@ -70,7 +70,7 @@ public sealed class DamlBuildCoordinator : IDisposable
             if (dpm is null)
             {
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Error,
-                    $"{SdkResolutionException.MissingToolCode}: dpm wasn't found on PATH or in %APPDATA%\\dpm\\bin. Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
+                    $"{SdkResolutionException.MissingToolCode}: dpm wasn't found on PATH or in its home directories. Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
                 return DamlBuildRun.NotStarted;
             }
 

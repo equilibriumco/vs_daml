@@ -61,8 +61,8 @@ public static class ToolLocator
             }
             else if (env("APPDATA") is { Length: > 0 } appData)
             {
-                homeDirs.Add(Path.Combine(appData, "dpm"));
                 homeDirs.Add(Path.Combine(appData, ".dpm"));
+                homeDirs.Add(Path.Combine(appData, "dpm"));
             }
         }
 
@@ -81,8 +81,8 @@ public static class ToolLocator
         }
     }
 
-    // Visual Studio may live anywhere, so ask vswhere, for the newest 18.x with MSBuild; the
-    // build scripts pick from the same list. DAML_TEST_MSBUILD names one directly.
+    // Match the build scripts: an MSBuild-only installation cannot resolve .NET SDK projects.
+    // DAML_TEST_MSBUILD names a host directly.
     private static string? FindVisualStudioMSBuild()
     {
         if (Environment.GetEnvironmentVariable("DAML_TEST_MSBUILD") is { Length: > 0 } chosen)
@@ -94,7 +94,7 @@ public static class ToolLocator
         {
             return null;
         }
-        var startInfo = new ProcessStartInfo(vswhere, @"-latest -prerelease -products * -version [18.0,19.0) -requires Microsoft.Component.MSBuild -find MSBuild\Current\Bin\MSBuild.exe")
+        var startInfo = new ProcessStartInfo(vswhere, @"-all -prerelease -products * -version [18.0,19.0) -requires Microsoft.Component.MSBuild -find MSBuild\Current\Bin\MSBuild.exe")
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -107,6 +107,10 @@ public static class ToolLocator
         }
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
-        return output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).FirstOrDefault(File.Exists);
+        return SelectVisualStudioMSBuild(output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()), File.Exists);
     }
+
+    internal static string? SelectVisualStudioMSBuild(IEnumerable<string> candidates, Func<string, bool> exists) =>
+        candidates.FirstOrDefault(path => exists(path)
+            && exists(Path.Combine(Path.GetDirectoryName(path)!, @"SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll")));
 }

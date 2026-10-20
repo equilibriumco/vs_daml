@@ -19,6 +19,14 @@ public class DpmOutputReportTests
     private static readonly ToolOptions Online = new(null, Offline: false, AllowToolInstall: false, SkipPreflight: false, null, TimeSpan.FromSeconds(600));
     private static readonly ToolOptions Offline = Online with { Offline = true };
 
+    [Fact, Trait("Category", "Unit")]
+    public void Failure_tails_never_expose_URL_credentials()
+    {
+        var outcome = Report("Unable to fetch oci://alice:secret@registry/contracts\n", 1);
+        outcome.Messages.ShouldHaveSingleItem().Text.ShouldContain("oci://***@registry/contracts");
+        outcome.Messages.ShouldAllBe(m => !m.Text.Contains("secret") && !m.Text.Contains("alice"));
+    }
+
     private static DpmOutcome Report(string output, int exitCode, ToolOptions? options = null, string root = Root, DpmCommandKind kind = DpmCommandKind.Build)
     {
         var report = new DpmOutputReport(kind, root, root + @"\daml.yaml", options ?? Online);

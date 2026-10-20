@@ -1,0 +1,15 @@
+module Names where
+
+data Point' = Point' with
+    x' : Int
+  deriving (Eq, Show)
+
+data Point_u0027 = Point_u0027 with
+    value : Text
+  deriving (Eq, Show)
+
+data Mode' = One' | Two'
+  deriving (Eq, Show)
+
+data Result' = Value' Int | Empty'
+  deriving (Eq, Show)

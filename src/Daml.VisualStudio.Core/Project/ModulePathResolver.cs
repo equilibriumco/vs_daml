@@ -88,7 +88,7 @@ public sealed class ModulePathResolver
         }
 
         // Data dependencies on DARs that dpm builds as <name>-<version>.dar from a workspace package.
-        foreach (var dar in importing.DataDependencies.Where(d => d.EndsWith(".dar", StringComparison.OrdinalIgnoreCase)))
+        foreach (var dar in importing.DataDependencies.Where(DamlDependency.IsLocalDar))
         {
             var key = Path.GetFileNameWithoutExtension(dar);
             if (importing.ModulePrefixes.ContainsKey(key))

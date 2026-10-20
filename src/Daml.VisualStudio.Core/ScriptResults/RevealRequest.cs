@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using Daml.Build.Core.FileSystem;
 using Newtonsoft.Json;
@@ -83,8 +84,11 @@ public sealed record RevealRequest(string File, int StartLine, int EndLine)
             return "a source link without a file and two line numbers";
         }
 
-        var first = (long)start;
-        var last = (long)end;
+        if (!long.TryParse(start.ToString(CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var first)
+            || !long.TryParse(end.ToString(CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var last))
+        {
+            return "a source link with line numbers outside the supported range";
+        }
         if (first < 0 || last < first || last > MaxLine)
         {
             return $"a source link to lines {first}–{last}";

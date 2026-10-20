@@ -7,7 +7,7 @@ public static class DamlProperties
 {
     private const string Boolean = "true or false";
 
-    /// <summary>The dpm to run; empty looks under <c>%APPDATA%\dpm\bin</c>, then on PATH.</summary>
+    /// <summary>The dpm to run; empty searches PATH, then the dpm home directories.</summary>
     public static DamlProperty DpmPath { get; } = new("DamlDpmPath", DamlPropertyScope.Shared, "", "the path of dpm or a command on PATH");
 
     /// <summary>Never install or download anything; a missing tool is an error.</summary>

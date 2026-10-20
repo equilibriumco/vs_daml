@@ -57,6 +57,8 @@ public sealed class DamlBuildTask : DpmToolTask
         {
             return false;
         }
+        var current = PackageBuildState.Compute(FullManifestPath, SourcePath!, DependencyDars(), Environment.GetEnvironmentVariable, DpmPath);
+        if (!current.CanReuse || current.Fingerprint != before.Fingerprint) { return false; }
         Log.LogMessage(MessageImportance.Normal, $"{DarPath} was built from the same inputs by another build while this one waited for it, so dpm doesn't build it again.");
         return true;
     }
@@ -85,10 +87,7 @@ public sealed class DamlBuildTask : DpmToolTask
     {
         try
         {
-            var dars = Dependencies.Select(d => d.GetMetadata("DarPath")).Where(d => d.Length > 0)
-                .Concat(DataDependencies.Select(d => d.ItemSpec))
-                .Select(Path.GetFullPath);
-            if (!before.RecordIfUnchanged(FullManifestPath, SourcePath!, dars, Path.GetFullPath(StatePath!), DarPath))
+            if (!before.RecordIfUnchanged(FullManifestPath, SourcePath!, DependencyDars(), Path.GetFullPath(StatePath!), DarPath, DpmPath))
             {
                 Log.LogMessage(MessageImportance.High, $"What {DarPath} is built from changed while dpm built it, so the next build builds it again.");
             }
@@ -98,4 +97,7 @@ public sealed class DamlBuildTask : DpmToolTask
             Log.LogWarning($"What {DarPath} was built from couldn't be recorded in {StatePath} ({ex.Message}); the next build builds it again.");
         }
     }
+
+    private IEnumerable<string> DependencyDars() => Dependencies.Concat(DataDependencies)
+        .Select(d => d.GetMetadata("DarPath")).Where(d => d.Length > 0).Select(Path.GetFullPath);
 }

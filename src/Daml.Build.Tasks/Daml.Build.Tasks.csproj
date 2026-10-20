@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Daml.Build.Tests" />
+    <InternalsVisibleTo Include="Daml.Build.Tests" PublicKey="$(DamlBuildPublicKey)" />
   </ItemGroup>
 
 </Project>

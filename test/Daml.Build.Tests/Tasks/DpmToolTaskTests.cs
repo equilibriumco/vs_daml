@@ -50,6 +50,33 @@ public sealed class DpmToolTaskTests : IDisposable
 
     private DamlBuildTask Build(params FakeDpmCommand[] commands) => Prepare(new DamlBuildTask { DarPath = Dar }, commands);
 
+    [Fact, Trait("Category", "Process")]
+    public void Commands_receive_the_private_compiler_cache_instead_of_an_inherited_override()
+    {
+        var command = CreatesTheDar();
+        var first = Build(command);
+        var inherited = Path.Combine(Package, "inherited-cache");
+        first.EnvironmentVariables = first.EnvironmentVariables.Concat(["DAML_CACHE=" + inherited]).ToArray();
+        first.Execute().ShouldBeTrue();
+        Build(command).Execute().ShouldBeTrue();
+        var caches = _dpm.ReadCalls().Where(c => c.Args.SequenceEqual(new[] { "build" }))
+            .Select(c => c.Environment["DAML_CACHE"]).ToArray();
+        caches.Length.ShouldBe(2);
+        caches.ShouldAllBe(p => Path.IsPathRooted(p) && p != inherited);
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void Tool_credentials_are_redacted_from_detailed_logs_and_failure_errors()
+    {
+        var command = Command("build", "fetch oci://alice:secret@registry/contracts\n");
+        command.ExitCode = 1;
+        Build(command).Execute().ShouldBeFalse();
+        _engine.Messages.ShouldContain(m => m.Message!.Contains("oci://***@registry/contracts"));
+        _engine.Messages.ShouldAllBe(m => !m.Message!.Contains("secret"));
+        _engine.Errors.ShouldNotBeEmpty();
+        _engine.Errors.ShouldAllBe(e => !e.Message!.Contains("secret"));
+    }
+
     private string Source => Path.Combine(Package, "daml");
 
     private string StatePath => Path.Combine(Package, @"obj\daml.build.state");
@@ -61,7 +88,7 @@ public sealed class DpmToolTaskTests : IDisposable
         File.WriteAllText(Manifest, "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n");
         Directory.CreateDirectory(Source);
         File.WriteAllText(Path.Combine(Source, "Main.daml"), "module Main where\n");
-        var state = PackageBuildState.Compute(Manifest, Source, []);
+        var state = PackageBuildState.Compute(Manifest, Source, [], Environment.GetEnvironmentVariable, _dpm.ExecutablePath);
         var task = Build(commands);
         task.SourcePath = Source;
         task.StatePath = StatePath;
@@ -93,6 +120,21 @@ public sealed class DpmToolTaskTests : IDisposable
         ToolCalls().ShouldBeEmpty();
         task.CreatedDar.ShouldBeNull();
         _engine.Messages.ShouldContain(m => m.Message!.Contains("another build"));
+    }
+
+    [Fact, Trait("Category", "Process")]
+    public void A_record_from_before_an_edit_does_not_skip_a_build_that_was_waiting()
+    {
+        var (task, state) = BuildFromState(CreatesTheDar());
+        Directory.CreateDirectory(Path.GetDirectoryName(Dar)!);
+        File.WriteAllText(Dar, "old dar");
+        state.Record(StatePath, Dar);
+        File.AppendAllText(Path.Combine(Source, "Main.daml"), "x = 1\n");
+
+        task.Execute().ShouldBeTrue();
+
+        ToolCalls().ShouldHaveSingleItem();
+        File.ReadAllText(Dar).ShouldBe("dar");
     }
 
     // While it still holds the package, so another build waiting for it finds the record.
@@ -294,16 +336,17 @@ public sealed class DpmToolTaskTests : IDisposable
     }
 
     [Fact, Trait("Category", "Process")]
-    public void Settings_that_contradict_each_other_fail_before_anything_runs()
+    public void Offline_overrides_install_permission_when_starting_dpm()
     {
-        var task = Build(Command("build", ""));
+        var task = Build(CreatesTheDar());
         task.Offline = "true";
         task.AllowToolInstall = "true";
+        task.EnvironmentVariables = [.. task.EnvironmentVariables, "DPM_AUTO_INSTALL=true"];
 
-        task.Execute().ShouldBeFalse();
+        task.Execute().ShouldBeTrue();
 
-        _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        ToolCalls().ShouldBeEmpty();
+        _engine.Errors.ShouldBeEmpty();
+        ToolCalls().ShouldHaveSingleItem().Environment["DPM_AUTO_INSTALL"].ShouldBe("false");
     }
 
     [Fact, Trait("Category", "Process")]

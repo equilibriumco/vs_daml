@@ -10,6 +10,7 @@ internal static class BuildMessageLog
     // The text goes in as the message itself, never as a format: it quotes tool output, braces and all.
     public static void Report(this TaskLoggingHelper log, BuildMessage message)
     {
+        message = message with { Text = SecretRedaction.Redact(message.Text) };
         switch (message.Severity)
         {
             case DamlDiagnosticSeverity.Error:

@@ -4,21 +4,33 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
+using Daml.Build.Core.Tools;
+using Daml.Build.Core.Configuration;
 
 namespace Daml.Build.Core.Building;
 
 /// <summary>
 /// Whether a Daml package's DAR is current, judged from what it is built from rather than from
-/// timestamps: the manifest, the exact set of source files with their content, and the DARs it
+/// timestamps: the package and multi-package manifests, the source files, and the DARs/DALFs it
 /// depends on. A source added, deleted or renamed changes the set, so it is noticed as surely as
 /// an edit, which a build judged by file times alone misses.
 /// </summary>
-/// <param name="Fingerprint">Everything the DAR depends on.</param>
+/// <param name="Fingerprint">Hash of the manifest, source and dependency inputs tracked by the build.</param>
 /// <param name="SourceFingerprint">The source files alone: their paths and content.</param>
 public sealed record PackageBuildState(string Fingerprint, string SourceFingerprint)
 {
+    /// <summary>False when mutable or unpinned tool inputs require DPM to resolve them again.</summary>
+    public bool CanReuse { get; init; } = true;
+
     private const int Schema = 1;
+
+    // DPM's build resolver requires strict SemVer, including prerelease/build identifiers.
+    private static readonly Regex PinnedSdk = new(
+        @"\A(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\z",
+        RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
     // damlc's own output and the build's folders hold .daml files that are no sources of the package.
     private static readonly string[] NotSources = [".daml", "obj", "bin"];
@@ -26,8 +38,13 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     /// <summary>The state of a package's inputs now.</summary>
     /// <param name="manifestPath">The package's <c>daml.yaml</c>; its content covers the SDK version and build options.</param>
     /// <param name="sourcePath">The package's <c>source</c>: a folder, or a single file.</param>
-    /// <param name="dependencyDars">The DARs it depends on; a missing one is part of the state too.</param>
-    public static PackageBuildState Compute(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars)
+    /// <param name="dependencyDars">Local dependency archives; a missing one is part of the state too.</param>
+    public static PackageBuildState Compute(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars) =>
+        Compute(manifestPath, sourcePath, dependencyDars, Environment.GetEnvironmentVariable, null);
+
+    /// <summary>Computes state with the environment and DPM executable selected by the caller.</summary>
+    public static PackageBuildState Compute(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars,
+        Func<string, string?> environment, string? dpmPath)
     {
         if (manifestPath is null)
         {
@@ -48,11 +65,86 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
         var all = new StringBuilder("daml-build-state/1\n")
             .Append("manifest=").Append(Hashing.Sha256File(manifestPath)).Append('\n')
             .Append("sources=").Append(sourceFingerprint).Append('\n');
+        var reader = new YamlManifestReader(new PhysicalFileSystem(), environment);
+        var package = reader.ReadPackage(manifestPath).Value;
+        var multiPackage = FindMultiPackageManifest(manifestPath, null, environment);
+        if (multiPackage is not null)
+        {
+            all.Append("multi-package=").Append(File.Exists(multiPackage) ? Hashing.Sha256File(multiPackage) : "missing").Append(' ').Append(multiPackage).Append('\n');
+        }
+        all.Append("expanded=").Append(Hashing.Sha256Text(PackageEnvironment.Expand(File.ReadAllText(manifestPath), environment))).Append('\n');
+        foreach (var variable in new[] { "DPM_SDK_VERSION", "DPM_MULTI_PACKAGE", "DPM_HOME", "DPM_REGISTRY", "DPM_EDITION", "DAML_PROJECT", "DAML_PACKAGE", "DPM_COMPONENTS" })
+        {
+            all.Append(variable).Append('=').Append(environment(variable)).Append('\n');
+        }
+        var tool = DpmLocation.Find(dpmPath, Path.GetDirectoryName(manifestPath)!, environment, new PhysicalFileSystem(), new List<ConfigurationError>());
+        if (tool is not null)
+        {
+            all.Append("dpm=").Append(tool).Append(' ').Append(Hashing.Sha256File(tool)).Append('\n');
+        }
+        var multi = multiPackage is null ? null : reader.ReadMultiPackage(multiPackage).Value;
+        var sdk = environment("DPM_SDK_VERSION") ?? package?.SdkVersion ?? multi?.SdkVersion;
+        var home = DpmLocation.HomeDirectory(Path.GetDirectoryName(manifestPath)!, environment);
+        // Edition may come from dpm-config.yaml; track each edition without duplicating its parser.
+        var configs = home is null ? Enumerable.Empty<string>() : new[] { Path.Combine(home, "dpm-config.yaml") }.Concat(
+            new[] { "open-source", "enterprise", "private", environment("DPM_EDITION") }
+                .Where(edition => !string.IsNullOrWhiteSpace(edition)).Distinct(StringComparer.Ordinal)
+                .SelectMany(edition => SdkManifests(home, edition!, sdk)));
+        foreach (var config in configs)
+        {
+            all.Append("tool-config=").Append(config).Append(' ').Append(File.Exists(config) ? Hashing.Sha256File(config) : "missing").Append('\n');
+        }
         foreach (var dar in dependencyDars.OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
         {
             all.Append("dependency=").Append(LongPaths.FileExists(dar) ? Hashing.Sha256File(dar) : "missing").Append(' ').Append(dar).Append('\n');
         }
-        return new PackageBuildState(Hashing.Sha256Text(all.ToString()), sourceFingerprint);
+        return new PackageBuildState(Hashing.Sha256Text(all.ToString()), sourceFingerprint)
+        {
+            CanReuse = sdk is not null && PinnedSdk.IsMatch(sdk)
+                && package is not null && package.Components.Count == 0
+                && (multi is null || multi.Components.Count == 0)
+                && package.Dependencies.Concat(package.DataDependencies).All(d => !d.Contains("://") && !d.StartsWith("@", StringComparison.Ordinal)),
+        };
+    }
+
+    private static IEnumerable<string> SdkManifests(string home, string edition, string? sdk)
+    {
+        var folder = Path.Combine(home, "cache", "sdk", edition);
+        // DPM compares SemVer precedence, which ignores build metadata when selecting an installed SDK.
+        var version = (sdk ?? "").Split('+')[0];
+        yield return Path.Combine(folder, version + ".yaml");
+        if (sdk is not null && PinnedSdk.IsMatch(sdk) && Directory.Exists(folder))
+        {
+            foreach (var path in Directory.EnumerateFiles(folder, version + "+*.yaml").OrderBy(p => p, StringComparer.Ordinal))
+            {
+                yield return path;
+            }
+        }
+    }
+
+    /// <summary>The nearest multi-package manifest in the package directory or its ancestors, or null.</summary>
+    /// <param name="manifestPath">The package manifest's path.</param>
+    /// <param name="fileExists">Tests whether a file exists; null uses the physical filesystem.</param>
+    public static string? FindMultiPackageManifest(string manifestPath, Func<string, bool>? fileExists = null) =>
+        FindMultiPackageManifest(manifestPath, fileExists, Environment.GetEnvironmentVariable);
+
+    /// <summary>Finds the multi-package manifest, honoring DPM_MULTI_PACKAGE's directory override.</summary>
+    public static string? FindMultiPackageManifest(string manifestPath, Func<string, bool>? fileExists, Func<string, string?> environment)
+    {
+        fileExists ??= File.Exists;
+        if (environment("DPM_MULTI_PACKAGE") is { } directory)
+        {
+            return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(manifestPath)!, directory, "multi-package.yaml"));
+        }
+        for (var folder = Path.GetDirectoryName(Path.GetFullPath(manifestPath)); folder is not null; folder = Path.GetDirectoryName(folder))
+        {
+            var candidate = Path.Combine(folder, "multi-package.yaml");
+            if (fileExists(candidate))
+            {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     /// <summary>
@@ -80,7 +172,7 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     /// DAR is still the one it built.
     /// </summary>
     public bool IsRecordedIn(string statePath, string darPath) =>
-        Read(statePath) is { } recorded && Value(recorded, "fingerprint", Fingerprint) && RecordedDarIsThere(recorded, darPath);
+        CanReuse && Read(statePath) is { } recorded && Value(recorded, "fingerprint", Fingerprint) && RecordedDarIsThere(recorded, darPath);
 
     /// <summary>
     /// Records that the DAR at <paramref name="darPath"/> was just built from this state, unless the
@@ -88,9 +180,9 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     /// the old ones, and only a fresh build can tell.
     /// </summary>
     /// <returns>Whether it was recorded.</returns>
-    public bool RecordIfUnchanged(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars, string statePath, string darPath)
+    public bool RecordIfUnchanged(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars, string statePath, string darPath, string? dpmPath = null)
     {
-        if (Compute(manifestPath, sourcePath, dependencyDars).Fingerprint != Fingerprint)
+        if (Compute(manifestPath, sourcePath, dependencyDars, Environment.GetEnvironmentVariable, dpmPath).Fingerprint != Fingerprint)
         {
             return false;
         }

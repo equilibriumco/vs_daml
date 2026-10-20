@@ -54,7 +54,8 @@ public sealed class MixedDotnetSampleTests : IDisposable
             XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe($"Daml.Sdk/{LocalPackageVersion()}", project);
         }
         PackageVersion(app, "Daml.Build.CSharp").ShouldBe(LocalPackageVersion());
-        new Version(PackageVersion(app, "Daml.Runtime")).ToString(2).ShouldBe(ReleaseTools.Runtime.Line.ToString(2));
+        PackageVersion(app, "Daml.Runtime").ShouldBe(ReleaseTools.RuntimeVersion);
+        PackageVersion(app, "Daml.Ledger.Abstractions").ShouldBe(ReleaseTools.RuntimeVersion);
         PackageVersion(app, "Splice.Api.Token.Holding.V2").ShouldBe(SdkFeed.SpliceVersion);
         PackageVersion(app, "Splice.Api.Token.Transfer.Instruction.V2").ShouldBe(SdkFeed.SpliceVersion);
     }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Daml.Build.Core.Codegen;
 
 namespace Daml.VisualStudio.Core.Bindings;
@@ -34,11 +35,14 @@ public sealed record GenerationProvenance(
     DamlReferenceKind ReferenceKind,
     SourceProvenance? Source)
 {
+    /// <summary>Original module names read from the main DALF.</summary>
+    public IReadOnlyList<string> Modules { get; init; } = [];
+
     /// <summary>The provenance <paramref name="manifest"/> records; null when it doesn't record the DAR's package.</summary>
     public static GenerationProvenance? From(string folder, GenerationManifest manifest) =>
         manifest?.Package is { } package
             ? new GenerationProvenance(folder, manifest.GenerationId, package.MainPackageId, package.DependencyPackageIds, manifest.Namespace,
-                manifest.Owner, manifest.Reference, manifest.ReferenceKind, manifest.Source)
+                manifest.Owner, manifest.Reference, manifest.ReferenceKind, manifest.Source) { Modules = package.Modules }
             : null;
 
     /// <summary>
@@ -56,29 +60,24 @@ public sealed record GenerationProvenance(
         if (name.PackageId is null || name.Module is null)
         {
             return ModuleOf(name.Namespace) is { } module
-                ? new DamlNameResolution(new DamlSymbolId(MainPackageId, module, name.Entity, name.Member, name.Kind), null)
-                : new DamlNameResolution(null, $"{name.Entity} is in namespace '{name.Namespace}', which isn't under this generation's namespace '{Namespace}'.");
+                ? Resolved(MainPackageId, module, name)
+                : new DamlNameResolution(null, $"{name.Entity} in namespace '{name.Namespace}' has no unique module in this generation's DAR metadata. Regenerate bindings if the metadata predates module tracking.");
         }
         if (!string.Equals(name.PackageId, MainPackageId, StringComparison.Ordinal))
         {
             return new DamlNameResolution(null, $"{name.Entity} states package {name.PackageId}, but this generation is of package {MainPackageId}; the C# is from another build.");
         }
-        if (!string.Equals(ModuleOf(name.Namespace), name.Module, StringComparison.Ordinal))
+        if (!string.Equals(GeneratedNames.NamespaceOf(name.Module, Namespace), GeneratedNames.BareNamespace(name.Namespace), StringComparison.Ordinal))
         {
             return new DamlNameResolution(null, $"{name.Entity} states module {name.Module}, but is in namespace '{name.Namespace}' of this generation.");
         }
-        return new DamlNameResolution(new DamlSymbolId(name.PackageId, name.Module, name.Entity, name.Member, name.Kind), null);
+        return Resolved(name.PackageId, name.Module, name);
     }
 
-    // The generator puts module M in namespace M, or in P.M under the prefix P.
-    private string? ModuleOf(string @namespace)
-    {
-        if (Namespace is null)
-        {
-            return @namespace.Length > 0 ? @namespace : null;
-        }
-        return @namespace.Length > Namespace.Length + 1 && @namespace.StartsWith(Namespace + ".", StringComparison.Ordinal)
-            ? @namespace.Substring(Namespace.Length + 1)
-            : null;
-    }
+    private static DamlNameResolution Resolved(string package, string module, DeclaredDamlName name) =>
+        new(new DamlSymbolId(package, GeneratedNames.FromLf(module), GeneratedNames.FromLf(name.Entity),
+            name.Member is null ? null : GeneratedNames.FromLf(name.Member), name.Kind), null);
+
+    private string? ModuleOf(string @namespace) =>
+        Modules.Where(m => GeneratedNames.NamespaceOf(m, Namespace) == GeneratedNames.BareNamespace(@namespace)).Take(2).ToArray() is [var module] ? module : null;
 }

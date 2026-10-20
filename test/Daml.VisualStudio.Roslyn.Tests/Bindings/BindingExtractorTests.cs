@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Daml.VisualStudio.Core.Bindings;
+using Daml.TestHelpers;
 using Daml.VisualStudio.Roslyn.Bindings;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -18,6 +19,31 @@ public class BindingExtractorTests
         compilation.SyntaxTrees.SelectMany(t => BindingExtractor.Extract(compilation.GetSemanticModel(t))).ToList();
 
     private static readonly List<GeneratedDeclaration> Kinds = Extract(GeneratedCode.Compile(GeneratedCode.Files(GeneratedCode.Kinds)));
+
+    [Fact, Trait("Category", "Unit")]
+    public void Real_emitter_names_resolve_prefix_elision_and_escaped_identifiers()
+    {
+        var fixture = Path.Combine(Repository.Root, @"test\fixtures\bindings\names\csharp");
+        var compilation = GeneratedCode.Compile(GeneratedCode.Files(fixture));
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
+        var declarations = Extract(compilation);
+        var package = declarations.First(d => d.Name.PackageId is not null).Name.PackageId!;
+        var provenance = new GenerationProvenance(fixture, "names", package, [], "Names", "App.csproj", "Contracts.msbuildproj",
+            Daml.Build.Core.Codegen.DamlReferenceKind.Project, null)
+        {
+            Modules = ["Names", "Names.More", "Names$u0027.Types"],
+        };
+        var resolved = declarations.Select(d => provenance.Resolve(d.Name)).ToList();
+        resolved.ShouldAllBe(r => r.Symbol != null);
+        var symbols = resolved.Select(r => r.Symbol!).ToList();
+        symbols.ShouldContain(new DamlSymbolId(package, "Names", "Point'", null, DamlSymbolKind.Record));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names", "Point_u0027", null, DamlSymbolKind.Record));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names", "Point'", "x'", DamlSymbolKind.Field));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names", "Mode'", "One'", DamlSymbolKind.Constructor));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names", "Result'", "Value'", DamlSymbolKind.Constructor));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names.More", "Asset'", "Read'", DamlSymbolKind.Choice));
+        symbols.ShouldContain(new DamlSymbolId(package, "Names'.Types", "Entry'", null, DamlSymbolKind.Record));
+    }
 
     // The Daml names a declaration states, and the C# declaration that states them.
     private static (DamlSymbolKind, string?, string?, string, string?, string) Row(GeneratedDeclaration d) =>

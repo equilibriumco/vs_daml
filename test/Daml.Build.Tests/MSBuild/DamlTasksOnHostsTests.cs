@@ -235,7 +235,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
           <Target Name="Build">
             <DamlCodegenCSharp ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" Configuration="Debug" TargetFramework="net10.0"
                 References="@(DamlRef)" DesignTime="$(DamlDesignTime)" DpmPath="$(DamlDpmPath)" JavaHome="$(DamlJavaHome)"
-                AllowToolInstall="$(DamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" CodegenComponent="$(DamlCodegenComponent)"
+                AllowToolInstall="$(DamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" LedgerAbstractionsVersion="0.6.0" CodegenComponent="$(DamlCodegenComponent)"
                 SkipPreflight="$(DamlSkipPreflight)">
               <Output TaskParameter="GeneratedFiles" ItemName="_DamlGenerated" />
             </DamlCodegenCSharp>

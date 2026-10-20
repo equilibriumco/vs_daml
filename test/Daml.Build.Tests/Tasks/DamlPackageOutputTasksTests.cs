@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Threading;
 using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
@@ -44,6 +45,12 @@ public sealed class DamlPackageOutputTasksTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public void A_built_DAR_names_its_package_id_and_the_sources_it_was_built_from()
     {
+        // This task needs only the archive manifest; code generation validates the payload separately.
+        using (var zip = ZipFile.Open(Dar, ZipArchiveMode.Update))
+        using (var payload = new StreamWriter(zip.CreateEntry($"contracts-1.2.0-{TestDar.MainPackageId}/contracts-1.2.0-{TestDar.MainPackageId}.dalf").Open()))
+        {
+            payload.Write("not a valid DALF");
+        }
         var built = Built();
         var task = Provenance();
 

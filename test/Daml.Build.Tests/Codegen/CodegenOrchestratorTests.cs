@@ -66,7 +66,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
         new CodegenOptions(true, _generator.Pin, GeneratedOutputMode.Intermediate, Root, JavaHome: Path.Combine(_root, "jdk")),
         (references.Length == 0 ? [Contracts] : references).Select(r => new CodegenInput(r, Dar)).ToList(),
         designTime,
-        runtime);
+        runtime) { LedgerAbstractionsVersion = "0.6.0" };
 
     // The same project in another configuration, target framework or output mode.
     private CodegenRequest Request(string configuration, string targetFramework, GeneratedOutputMode mode, string root) => Request() with
@@ -128,6 +128,24 @@ public sealed class CodegenOrchestratorTests : IDisposable
             (Path.Combine(Root, @"Contracts-0123456789abcdef\Contracts\Asset\Asset.Give.cs"), "0123456789abcdef"),
         ]);
         result.Messages.ShouldAllBe(m => m.File == Project);
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Invalid_manifest_paths_never_become_compile_items(bool designTime)
+    {
+        Generates(Contracts, @"Contracts\Asset.cs");
+        await Run(Request());
+        var folder = Path.Combine(Root, Contracts.FolderName);
+        var manifest = Path.Combine(folder, GenerationManifest.FileName);
+        File.AppendAllText(manifest, "file=bad ..\\outside.cs\n");
+        var calls = GeneratorCalls.Count();
+        var result = await Run(Request(designTime: designTime));
+        result.Files.ShouldBeEmpty();
+        File.Exists(Path.Combine(folder, @"Contracts\Asset.cs")).ShouldBeTrue();
+        GeneratorCalls.Count().ShouldBe(calls);
+        result.Messages.ShouldNotBeEmpty();
     }
 
     [Fact, Trait("Category", "Unit")]

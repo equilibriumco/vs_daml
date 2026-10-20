@@ -22,6 +22,18 @@ public class DamlPackageBuildTests
     private const string Minimal = "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n";
 
     [Fact, Trait("Category", "Unit")]
+    public void Remote_dependencies_and_aliases_are_not_resolved_as_Windows_paths()
+    {
+        var result = Read(Minimal + "data-dependencies:\n  - oci://registry/contracts:1\n  - '@vendor/contracts:1'\n  - {value: '../lib.dar', main-package-id: abc}\n");
+        result.Diagnostics.ShouldBeEmpty();
+        result.Value!.DataDependencies.ShouldBe([
+            new DamlDependency("oci://registry/contracts:1", null),
+            new DamlDependency("@vendor/contracts:1", null),
+            new DamlDependency("../lib.dar", @"C:\work\lib.dar"),
+        ]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void A_package_reads_with_its_sources_dependencies_and_DAR()
     {
         var result = Read(Minimal +

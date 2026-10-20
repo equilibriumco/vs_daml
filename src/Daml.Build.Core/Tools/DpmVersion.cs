@@ -33,7 +33,7 @@ public static class DpmVersion
             var match = VersionLine.Match(DamlDiagnosticParser.StripAnsi(line).Trim());
             if (match.Success)
             {
-                return Version.Parse(match.Groups["version"].Value);
+                return Version.TryParse(match.Groups["version"].Value, out var version) ? version : null;
             }
         }
         return null;
@@ -50,7 +50,7 @@ public static class DpmVersion
         }
         if (version is null)
         {
-            var printed = output.Select(l => DamlDiagnosticParser.StripAnsi(l).Trim()).Where(l => l.Length > 0).Take(QuotedLines);
+            var printed = output.Select(l => SecretRedaction.Redact(DamlDiagnosticParser.StripAnsi(l).Trim())).Where(l => l.Length > 0).Take(QuotedLines);
             return new ConfigurationError(
                 DamlDiagnosticCodes.DpmTooOld,
                 $"'dpm --version' printed no version this Daml build knows, so it can't tell whether dpm is new enough ({Minimum} or later). It printed:\n" +

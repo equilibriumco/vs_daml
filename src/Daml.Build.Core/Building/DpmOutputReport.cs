@@ -50,8 +50,9 @@ public sealed class DpmOutputReport
         {
             throw new ArgumentNullException(nameof(line));
         }
-        _parser.AddLine(line);
         _created = DarCreatedLine.TryParse(line) ?? _created;
+        line = SecretRedaction.Redact(line);
+        _parser.AddLine(line);
 
         var text = DamlDiagnosticParser.StripAnsi(line).Trim();
         if (text.Length == 0)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Daml.Build.Core.Codegen;
 using Daml.TestHelpers;
 using Shouldly;
 using Xunit;
@@ -12,23 +13,24 @@ namespace Daml.Build.Tests.MSBuild;
 // generator writes today. With DAML_UPDATE_BINDING_FIXTURES=1 it is rewritten instead.
 public sealed class BindingFixtureTests : IDisposable
 {
-    private static readonly string Fixture = Path.Combine(Repository.Root, @"test\fixtures\bindings\kinds");
-
     private readonly MSBuildSandbox _sandbox = new();
 
     public void Dispose() => _sandbox.Dispose();
 
-    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
-    public void The_kinds_fixture_is_what_the_pinned_generator_writes()
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
+    [InlineData("kinds", "Fixture")]
+    [InlineData("names", "Names")]
+    public void The_fixture_is_what_the_pinned_generator_writes(string fixtureName, string prefix)
     {
+        var fixture = Path.Combine(Repository.Root, @"test\fixtures\bindings", fixtureName);
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
         var dotnet = RequiredTools.Require(ExternalTool.Dotnet);
         _sandbox.UseSdkFeed();
-        _sandbox.Write(@"contracts\daml.yaml", File.ReadAllText(Path.Combine(Fixture, "daml.yaml")));
-        foreach (var file in Directory.GetFiles(Path.Combine(Fixture, "daml"), "*.daml", SearchOption.AllDirectories))
+        _sandbox.Write(@"contracts\daml.yaml", File.ReadAllText(Path.Combine(fixture, "daml.yaml")));
+        foreach (var file in Directory.GetFiles(Path.Combine(fixture, "daml"), "*.daml", SearchOption.AllDirectories))
         {
-            _sandbox.Write(Path.Combine("contracts", file.Substring(Fixture.Length + 1)), File.ReadAllText(file));
+            _sandbox.Write(Path.Combine("contracts", file.Substring(fixture.Length + 1)), File.ReadAllText(file));
         }
         _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\" />\n");
         _sandbox.Write(@"App\App.csproj", $"""
@@ -40,7 +42,7 @@ public sealed class BindingFixtureTests : IDisposable
                 <PackageReference Include="Daml.Build.CSharp" Version="{SdkFeed.Version}" PrivateAssets="all" />
                 <PackageReference Include="Daml.Runtime" Version="{SdkFeed.RuntimeVersion}" />
                 <PackageReference Include="Daml.Ledger.Abstractions" Version="{SdkFeed.RuntimeVersion}" />
-                <DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Fixture" />
+                <DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="{prefix}" />
               </ItemGroup>
             </Project>
             """);
@@ -56,8 +58,13 @@ public sealed class BindingFixtureTests : IDisposable
 
         build.ExitCode.ShouldBe(0, build.Log);
         var generation = Directory.GetDirectories(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml")).ShouldHaveSingleItem();
+        var provenance = GenerationManifest.Read(Path.Combine(generation, GenerationManifest.FileName))!.Package!;
+        if (fixtureName == "names")
+        {
+            provenance.Modules.ShouldBe(["Names", "Names.More", "Names$u0027.Types"], ignoreOrder: true);
+        }
         var generated = CSharpFiles(generation);
-        var expected = Path.Combine(Fixture, "csharp");
+        var expected = Path.Combine(fixture, "csharp");
         if (Environment.GetEnvironmentVariable("DAML_UPDATE_BINDING_FIXTURES") == "1")
         {
             if (Directory.Exists(expected))

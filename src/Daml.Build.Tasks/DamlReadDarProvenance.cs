@@ -40,7 +40,7 @@ public sealed class DamlReadDarProvenance : Task
         }
         try
         {
-            MainPackageId = DarProvenance.Read(dar).MainPackageId;
+            MainPackageId = DarProvenance.ReadManifest(dar).MainPackageId;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
         {

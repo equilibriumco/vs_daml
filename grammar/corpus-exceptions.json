@@ -9,10 +9,6 @@
       "reason": "A compiler primitive that declares the built-in tuple types, `data (a,b) = (a,b)`; only the compiler's own primitives may."
     },
     {
-      "path": "daml-finance/docs/generated/src/test/daml/Daml/Finance/Instrument/Swap/Test/Fpml.daml",
-      "reason": "A `do` statement that starts with a negative number in parentheses, `(-0.052) === …`, inherited from tree-sitter-haskell: `(-1) + 1` as a statement fails without any Daml construct too."
-    },
-    {
       "path": "samples/samples/broken/daml/SyntaxError.daml",
       "reason": "Deliberately broken: this repository's sample of a file with a syntax error (a `with` without fields and no `where`)."
     }

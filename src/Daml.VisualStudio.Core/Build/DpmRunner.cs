@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core;
+using Daml.Build.Core.Building;
 using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.Processes;
 
@@ -72,7 +73,11 @@ public sealed class DpmRunner
         var arguments = DpmCommand.Arguments(kind, allPackages);
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var process = _runner.Start(new ProcessSpec(dpmPath, arguments) { WorkingDirectory = workingDirectory });
+        using var cache = new CompilerCache();
+        var environment = cache.Environment.ToDictionary(p => p.Key, p => p.Value);
+        environment["DAML_PACKAGE"] = allPackages ? null : workingDirectory;
+        environment["DAML_PROJECT"] = null;
+        using var process = _runner.Start(new ProcessSpec(dpmPath, arguments) { WorkingDirectory = workingDirectory, Environment = environment });
         using var kill = cancellationToken.Register(process.KillTree);
         process.StandardInput.Close();
 
@@ -96,6 +101,7 @@ public sealed class DpmRunner
         using var reader = new StreamReader(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         while (await reader.ReadLineAsync().ConfigureAwait(false) is { } line)
         {
+            line = SecretRedaction.Redact(line);
             parser.AddLine(line);
             if (onOutput is not null)
             {

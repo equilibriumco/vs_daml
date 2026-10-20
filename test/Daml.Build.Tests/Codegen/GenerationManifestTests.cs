@@ -40,4 +40,28 @@ public sealed class GenerationManifestTests : IDisposable
         (read.Package, read.Source).ShouldBe((null, null));
         read.Fingerprint.ShouldBe("f1n9");
     }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\outside.cs")]
+    [InlineData(@"..\outside.cs")]
+    [InlineData(@"Contracts\..\outside.cs")]
+    [InlineData(@"/outside.cs")]
+    [InlineData(@"Contracts\Asset.cs:stream")]
+    [InlineData(@"Contracts\Asset.cs.")]
+    [InlineData(@"Contracts\\Asset.cs")]
+    [InlineData("")]
+    public void An_invalid_file_path_invalidates_the_ownership_manifest(string file)
+    {
+        (Manifest() with { Files = [new GenerationManifestFile(file, "abc")] }).Write(_path);
+        GenerationManifest.Read(_path).ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Duplicate_paths_in_other_case_or_slash_spelling_are_rejected()
+    {
+        (Manifest() with { Files = [
+            new GenerationManifestFile(@"Contracts\Asset.cs", "a"),
+            new GenerationManifestFile("contracts/asset.cs", "b")] }).Write(_path);
+        GenerationManifest.Read(_path).ShouldBeNull();
+    }
 }

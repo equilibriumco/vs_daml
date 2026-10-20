@@ -56,6 +56,7 @@
       <Output TaskParameter="SdkVersion" PropertyName="DamlSdkVersion" />
       <Output TaskParameter="SourcePath" PropertyName="DamlSourcePath" />
       <Output TaskParameter="DarPath" PropertyName="DamlDarPath" />
+      <Output TaskParameter="MultiPackageManifestPath" PropertyName="_DamlMultiPackageManifest" />
       <Output TaskParameter="Dependencies" ItemName="DamlDependency" />
       <Output TaskParameter="DataDependencies" ItemName="DamlDataDependency" />
     </ReadDamlManifest>
@@ -65,6 +66,7 @@
        build: Inputs and Outputs alone would miss a deleted or renamed source. -->
   <Target Name="DamlComputeBuildState" DependsOnTargets="DamlResolveManifest">
     <DamlComputeBuildState
+        DpmPath="$(DamlDpmPath)"
         Condition="'$(DesignTimeBuild)' != 'true'"
         ManifestPath="$(DamlManifestPath)"
         SourcePath="$(DamlSourcePath)"
@@ -152,7 +154,7 @@
        built from, and the DAR with the record of its build. -->
   <Target Name="DamlCollectUpToDateCheckItems" DependsOnTargets="DamlResolveManifest">
     <ItemGroup>
-      <UpToDateCheckInput Include="$(DamlManifestPath);@(DamlSource);@(DamlDataDependency)" />
+      <UpToDateCheckInput Include="$(DamlManifestPath);$(_DamlMultiPackageManifest);@(DamlSource);@(DamlDataDependency->'%(DarPath)');@(DamlDependency->'%(DarPath)')" />
       <UpToDateCheckBuilt Include="$(DamlDarPath);$(_DamlBuildStatePath)" />
     </ItemGroup>
   </Target>

@@ -32,6 +32,8 @@ public class ViewStateFileTests
     [InlineData("not json")]
     [InlineData("[]")]
     [InlineData("""{"version":2,"views":{}}""")]
+    [InlineData("""{"version":2147483648,"views":{}}""")]
+    [InlineData("""{"version":18446744073709551616,"views":{}}""")]
     [InlineData("""{"version":1,"views":[]}""")]
     public void A_file_that_cant_be_read_is_no_saved_views(string text)
     {

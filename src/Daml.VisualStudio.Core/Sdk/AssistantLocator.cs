@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using Daml.Build.Core.Configuration;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Tools;
 
@@ -42,7 +44,9 @@ public sealed class AssistantLocator
                 : throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml doesn't exist: {configuredPath}");
         }
 
-        var found = ToolSearch.Find(kind == AssistantKind.Dpm ? "dpm" : "daml", _environment("PATH"), InstallFolder(kind), _fileSystem);
+        var found = kind == AssistantKind.Dpm
+            ? DpmLocation.Find(null, "", _environment, _fileSystem, new List<ConfigurationError>())
+            : ToolSearch.Find("daml", _environment("PATH"), InstallFolder(), _fileSystem);
         return found is null ? null : new AssistantLocation(kind, found);
     }
 
@@ -61,13 +65,13 @@ public sealed class AssistantLocator
         }
     }
 
-    private string? InstallFolder(AssistantKind kind)
+    private string? InstallFolder()
     {
-        var installRoot = kind == AssistantKind.Dpm ? _environment("APPDATA") : _environment("USERPROFILE");
+        var installRoot = _environment("USERPROFILE");
         if (string.IsNullOrEmpty(installRoot))
         {
             return null;
         }
-        return kind == AssistantKind.Dpm ? Path.Combine(installRoot, @"dpm\bin") : Path.Combine(installRoot, @".daml\bin");
+        return Path.Combine(installRoot, @".daml\bin");
     }
 }

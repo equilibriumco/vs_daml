@@ -49,8 +49,8 @@ public interface IBindingRefresher
 /// The background refreshes of bindings. A project asked for is refreshed once two seconds have
 /// passed without another request, one project at a time; asking again for one being refreshed
 /// cancels that run, which is out of date, and queues a new one. While Visual Studio builds, nothing
-/// runs and a running refresh stops; once the build is over, what was asked for before it began is
-/// left to it, since it regenerated those bindings itself, and only what came during it runs.
+/// runs and a running refresh stops. After a successful build or clean, pending requests are
+/// checked again: the global build event does not identify which projects were refreshed.
 /// </summary>
 public sealed class BindingSyncScheduler : IDisposable
 {
@@ -120,26 +120,31 @@ public sealed class BindingSyncScheduler : IDisposable
             _buildStarted = _time.GetUtcNow();
             if (_running is { } running)
             {
-                // Asked for before the build, so the build takes it over.
-                _pending.Insert(0, (running.Target, running.Asked));
+                if (!_pending.Any(p => p.Target == running.Target))
+                {
+                    _pending.Insert(0, (running.Target, running.Asked));
+                }
                 running.Cancel.Cancel();
             }
         }
     }
 
-    /// <summary>The build is over: what it took over is up to date, and the rest runs.</summary>
-    public void BuildFinished()
+    /// <summary>Resumes pending refreshes after success; reports failure for requests interrupted by a failed build.</summary>
+    public void BuildFinished(bool succeeded = true)
     {
         List<BindingRefreshTarget> covered;
         lock (_gate)
         {
             _building = false;
-            covered = _pending.Where(p => p.Asked <= _buildStarted).Select(p => p.Target).ToList();
-            _pending.RemoveAll(p => p.Asked <= _buildStarted);
+            covered = succeeded ? [] : _pending.Where(p => p.Asked <= _buildStarted).Select(p => p.Target).ToList();
+            if (!succeeded)
+            {
+                _pending.RemoveAll(p => p.Asked <= _buildStarted);
+            }
         }
         foreach (var target in covered)
         {
-            Raise(target, BindingSyncState.Ready, "Brought up to date by the build.");
+            Raise(target, BindingSyncState.Failed, "The build failed or was cancelled; the bindings may be out of date.");
         }
         _ = RunAsync();
     }
@@ -195,16 +200,20 @@ public sealed class BindingSyncScheduler : IDisposable
                 {
                     result = await _refresher.RefreshAsync(next.Target, next.Cancel.Token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (next.Cancel.IsCancellationRequested)
                 {
                     // Asked for again, stopped for a build, or dropped; whatever is still due is queued.
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    result = new BindingRefreshResult(false, ex.Message);
                 }
                 bool cancelled;
                 bool followed;
                 lock (_gate)
                 {
                     cancelled = next.Cancel.IsCancellationRequested;
-                    // Asked for again, or taken over by a build: another run, or the build, follows.
+                    // A newer request or a build interruption leaves another refresh queued.
                     followed = _pending.Any(p => p.Target == next.Target);
                     _running = null;
                 }
@@ -222,12 +231,13 @@ public sealed class BindingSyncScheduler : IDisposable
                 }
             }
         }
-        finally
+        catch
         {
             lock (_gate)
             {
                 _pumping = false;
             }
+            throw;
         }
     }
 
@@ -239,6 +249,9 @@ public sealed class BindingSyncScheduler : IDisposable
             var index = _pending.FindIndex(p => p.Asked <= due);
             if (_disposed || _building || index < 0)
             {
+                // Release ownership while still checking the queue under the same lock.
+                // Otherwise a concurrent wake-up can see an active pump just as it exits.
+                _pumping = false;
                 return null;
             }
             var (target, asked) = _pending[index];

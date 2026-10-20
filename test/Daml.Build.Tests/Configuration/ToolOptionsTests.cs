@@ -78,10 +78,8 @@ public class ToolOptionsTests
         Read(("DamlOffline", offline), ("DamlAllowToolInstall", install)).Options.DpmEnvironment
             .ShouldBe(new Dictionary<string, string> { ["DPM_AUTO_INSTALL"] = expected });
 
-    // Leave to install is leave, not a demand: a project that allows installs (as the app template
-    // makes it) still builds offline, and the offline build still downloads nothing.
     [Fact, Trait("Category", "Unit")]
-    public void Offline_wins_over_leave_to_install()
+    public void Offline_overrides_permission_to_install()
     {
         var read = Read(("DamlOffline", "true"), ("DamlAllowToolInstall", "true"));
 

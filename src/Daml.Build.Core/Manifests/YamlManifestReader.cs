@@ -21,17 +21,24 @@ public sealed class YamlManifestReader : IManifestReader
     private static readonly Regex PositionPrefix = new(@"^\(Line: \d+, Col: \d+, Idx: \d+\) - \(Line: \d+, Col: \d+, Idx: \d+\): ", RegexOptions.CultureInvariant);
 
     private readonly IDamlFileSystem _fileSystem;
+    private readonly Func<string, string?> _environment;
 
     /// <summary>Creates a reader over <paramref name="fileSystem"/>.</summary>
-    public YamlManifestReader(IDamlFileSystem fileSystem) =>
+    public YamlManifestReader(IDamlFileSystem fileSystem) : this(fileSystem, Environment.GetEnvironmentVariable) { }
+
+    /// <summary>Creates a reader using an explicit environment for package expansion.</summary>
+    public YamlManifestReader(IDamlFileSystem fileSystem, Func<string, string?> environment)
+    {
         _fileSystem = fileSystem ?? throw new ArgumentNullException(nameof(fileSystem));
+        _environment = environment ?? throw new ArgumentNullException(nameof(environment));
+    }
 
     /// <inheritdoc />
     public ManifestResult<DamlPackageManifest> ReadPackage(string manifestPath)
     {
         var path = DamlPath.Normalize(manifestPath);
         var file = new ManifestFile(path);
-        if (file.Load(_fileSystem) is not { } root)
+        if (file.Load(_fileSystem, _environment) is not { } root)
         {
             return new ManifestResult<DamlPackageManifest>(null, file.Diagnostics);
         }
@@ -45,6 +52,7 @@ public sealed class YamlManifestReader : IManifestReader
             Version = file.Text(root, "version"),
             Source = file.Text(root, "source"),
             Components = file.TextList(root, "components"),
+            LocalComponents = file.LocalComponents,
             Dependencies = file.TextList(root, "dependencies"),
             DataDependencies = file.TextList(root, "data-dependencies"),
             BuildOptions = file.TextList(root, "build-options"),
@@ -72,6 +80,8 @@ public sealed class YamlManifestReader : IManifestReader
             ManifestPath = path,
             Root = folder,
             SdkVersion = file.Text(root, "sdk-version"),
+            Components = file.TextList(root, "components"),
+            LocalComponents = file.LocalComponents,
             Packages = file.Paths(root, "packages", folder),
             Dars = file.Paths(root, "dars", folder),
         };
@@ -85,14 +95,20 @@ public sealed class YamlManifestReader : IManifestReader
 
         public IReadOnlyList<ManifestDiagnostic> Diagnostics => _diagnostics;
 
-        public YamlMappingNode? Load(IDamlFileSystem fileSystem)
+        public Dictionary<string, string> LocalComponents { get; } = new(StringComparer.Ordinal);
+
+        public YamlMappingNode? Load(IDamlFileSystem fileSystem, Func<string, string?>? environment = null)
         {
             string text;
             try
             {
                 text = fileSystem.ReadAllText(path);
+                if (environment is not null)
+                {
+                    text = PackageEnvironment.Expand(text, environment);
+                }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or FormatException)
             {
                 _diagnostics.Add(new ManifestDiagnostic(path, null, null, ManifestSeverity.Error, $"Can't read the manifest: {ex.Message}"));
                 return null;
@@ -170,6 +186,18 @@ public sealed class YamlManifestReader : IManifestReader
                         if (item is YamlScalarNode { Value: { } value })
                         {
                             items.Add((value, item.Start));
+                        }
+                        else if (item is YamlMappingNode mapping && key == "components"
+                            && Text(mapping, "name") is { Length: > 0 } name
+                            && Text(mapping, "path") is { Length: > 0 } localPath)
+                        {
+                            LocalComponents[name] = localPath;
+                            items.Add((name, item.Start));
+                        }
+                        else if (item is YamlMappingNode dependency && key is "dependencies" or "data-dependencies"
+                            && Text(dependency, "value") is { } location)
+                        {
+                            items.Add((location, item.Start));
                         }
                         else
                         {

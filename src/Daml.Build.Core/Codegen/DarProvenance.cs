@@ -25,13 +25,21 @@ public sealed record DarProvenance(
     string MainPackageId,
     IReadOnlyList<string> DependencyPackageIds)
 {
+    /// <summary>The main package's original LF module names; empty for older metadata without a name table.</summary>
+    public IReadOnlyList<string> Modules { get; init; } = [];
+
     private const string ManifestEntry = "META-INF/MANIFEST.MF";
     private const int PackageIdLength = 64;
 
-    /// <summary>Reads the manifest of the DAR at <paramref name="darPath"/>; nothing runs.</summary>
-    /// <exception cref="InvalidDataException">The file isn't a DAR, or its manifest doesn't name its package.</exception>
+    /// <summary>Reads package metadata and available module names, validating the main DALF payload when present.</summary>
+    /// <exception cref="InvalidDataException">The DAR, its manifest or its main DALF payload is invalid.</exception>
     /// <exception cref="IOException">The file can't be read.</exception>
-    public static DarProvenance Read(string darPath)
+    public static DarProvenance Read(string darPath) => Read(darPath, includeModules: true);
+
+    /// <summary>Reads package metadata from the DAR manifest without opening or validating the DALF payload.</summary>
+    public static DarProvenance ReadManifest(string darPath) => Read(darPath, includeModules: false);
+
+    private static DarProvenance Read(string darPath, bool includeModules)
     {
         using var stream = File.OpenRead(LongPaths.Safe(darPath ?? throw new ArgumentNullException(nameof(darPath))));
         ZipArchive zip;
@@ -43,13 +51,10 @@ public sealed record DarProvenance(
         {
             throw new InvalidDataException($"{darPath} isn't a DAR: it isn't a zip archive.", ex);
         }
-        string text;
-        using (zip)
-        {
-            var entry = zip.GetEntry(ManifestEntry) ?? throw new InvalidDataException($"{darPath} isn't a DAR: it has no {ManifestEntry}.");
-            using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
-            text = reader.ReadToEnd();
-        }
+        using var ownedZip = zip;
+        var entry = zip.GetEntry(ManifestEntry) ?? throw new InvalidDataException($"{darPath} isn't a DAR: it has no {ManifestEntry}.");
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+        var text = reader.ReadToEnd();
 
         var fields = Fields(text);
         string? Field(string name) => fields.TryGetValue(name, out var value) ? value : null;
@@ -69,7 +74,13 @@ public sealed record DarProvenance(
             .Distinct(StringComparer.Ordinal)
             .OrderBy(id => id, StringComparer.Ordinal)
             .ToList();
-        return new DarProvenance(name.Substring(0, dash), name.Substring(dash + 1), Field("Sdk-Version"), main, dependencies);
+        IReadOnlyList<string> modules = [];
+        if (includeModules && Field("Main-Dalf") is { } dalf && zip.GetEntry(dalf) is { } mainEntry)
+        {
+            using var mainStream = mainEntry.Open();
+            modules = DalfModules.Read(mainStream, main);
+        }
+        return new DarProvenance(name.Substring(0, dash), name.Substring(dash + 1), Field("Sdk-Version"), main, dependencies) { Modules = modules };
     }
 
     /// <inheritdoc />
@@ -79,7 +90,8 @@ public sealed record DarProvenance(
         && PackageVersion == other.PackageVersion
         && SdkVersion == other.SdkVersion
         && MainPackageId == other.MainPackageId
-        && DependencyPackageIds.SequenceEqual(other.DependencyPackageIds, StringComparer.Ordinal);
+        && DependencyPackageIds.SequenceEqual(other.DependencyPackageIds, StringComparer.Ordinal)
+        && Modules.SequenceEqual(other.Modules, StringComparer.Ordinal);
 
     /// <inheritdoc />
     public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(MainPackageId);

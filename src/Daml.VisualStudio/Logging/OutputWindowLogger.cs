@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Community.VisualStudio.Toolkit;
+using Daml.Build.Core.Diagnostics;
 using Daml.VisualStudio.Core.Logging;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
@@ -66,7 +67,8 @@ internal sealed class OutputWindowLogger : IDamlLogger
             return;
         }
 
-        var details = exception is null ? "" : Environment.NewLine + exception;
+        message = SecretRedaction.Redact(message);
+        var details = exception is null ? "" : SecretRedaction.Redact(Environment.NewLine + exception);
         Enqueue(category, $"[{DateTime.Now:HH:mm:ss.fff}] {LevelTag(level)} {message}{details}{Environment.NewLine}");
 
         if (level == DamlLogLevel.Error)
@@ -79,7 +81,7 @@ internal sealed class OutputWindowLogger : IDamlLogger
     /// Writes <paramref name="line"/> as it is, in order with the log entries around it. The
     /// Output window only jumps to <c>file(line,col): …</c> when the line starts with the path.
     /// </summary>
-    internal void WritePlainLine(DamlLogCategory category, string line) => Enqueue(category, line + Environment.NewLine);
+    internal void WritePlainLine(DamlLogCategory category, string line) => Enqueue(category, SecretRedaction.Redact(line) + Environment.NewLine);
 
     /// <summary>Opens the Output window on the pane of <paramref name="category"/>, creating it if needed.</summary>
     internal async Task ShowAsync(DamlLogCategory category)

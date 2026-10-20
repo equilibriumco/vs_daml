@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using Daml.Build.Core.Building;
+using Daml.Build.Core.FileSystem;
+using Daml.Build.Core.Manifests;
+using System.Linq;
 using Shouldly;
 using Xunit;
 
@@ -32,6 +35,103 @@ public sealed class PackageBuildStateTests : IDisposable
     private string DarPath => Path.Combine(_root, Dar);
 
     private string[] Dependencies => [Path.Combine(_root, @"vendor\finance-1.0.0.dar")];
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_local_DALF_data_dependency_is_tracked_from_manifest_to_build_state()
+    {
+        File.AppendAllText(Manifest, "data-dependencies: [vendor/producer.dalf]\n");
+        Write(@"vendor\producer.dalf", "first DALF");
+        var files = new PhysicalFileSystem();
+        var package = DamlPackageBuild.Read(new YamlManifestReader(files), files, Manifest).Value!;
+        var dependencies = package.DataDependencies.Select(d => d.DarPath!).ToArray();
+        dependencies.ShouldBe([Path.Combine(_root, @"vendor\producer.dalf")]);
+        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, dependencies);
+        State().Record(StatePath, DarPath);
+        State().IsRecordedIn(StatePath, DarPath).ShouldBeTrue();
+        Write(@"vendor\producer.dalf", "changed DALF");
+        State().IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("3.6.0-snapshot.20261020.0", true)]
+    [InlineData("3.6.0-rc.1+build.42", true)]
+    [InlineData("0.1.0", true)]
+    [InlineData("3", false)]
+    [InlineData("3.6", false)]
+    [InlineData("3.6.0.1", false)]
+    [InlineData("3.6.0-01", false)]
+    [InlineData("latest", false)]
+    public void Only_complete_semantic_SDK_versions_allow_reusing_a_recorded_build(string sdk, bool reusable)
+    {
+        Write("daml.yaml", $"sdk-version: {sdk}\nname: contracts\nsource: daml\n");
+        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, Dependencies, _ => null, null);
+        State().Record(StatePath, DarPath);
+        State().IsRecordedIn(StatePath, DarPath).ShouldBe(reusable);
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("")]
+    [InlineData("tools")]
+    [InlineData(null)]
+    public void Configuration_in_the_child_process_home_invalidates_the_build(string? home)
+    {
+        var config = home is null ? @"appdata\dpm\dpm-config.yaml" : Path.Combine(home, "dpm-config.yaml");
+        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, Dependencies,
+            name => name switch { "DPM_HOME" => home, "APPDATA" => Path.Combine(_root, "appdata"), _ => null }, null);
+        Write(config, "edition: open-source\n");
+        var before = State();
+        before.Record(StatePath, DarPath);
+        State().IsRecordedIn(StatePath, DarPath).ShouldBeTrue();
+        Write(config, "edition: enterprise\n");
+        State().IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void SDK_overrides_and_external_multi_package_content_invalidate_the_DAR()
+    {
+        var multiRoot = Path.Combine(_root, "external");
+        Write(@"external\multi-package.yaml", "sdk-version: 3.5.2\n");
+        PackageBuildState State(string sdk) => PackageBuildState.Compute(Manifest, Source, Dependencies,
+            name => name switch { "DPM_SDK_VERSION" => sdk, "DPM_MULTI_PACKAGE" => multiRoot, _ => null }, null);
+        var before = State("3.5.2");
+        State("3.6.0").Fingerprint.ShouldNotBe(before.Fingerprint);
+        Write(@"external\multi-package.yaml", "sdk-version: 3.6.0\n");
+        State("3.5.2").Fingerprint.ShouldNotBe(before.Fingerprint);
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("3.6.0", "3.6.0.yaml")]
+    [InlineData("3.6.0+build.42", "3.6.0+other-build.yaml")]
+    public void An_enterprise_SDK_manifest_change_invalidates_the_DAR_without_an_edition_environment_override(string sdk, string manifest)
+    {
+        var installed = Path.Combine(@"tools\cache\sdk\enterprise", manifest);
+        Write(@"tools\dpm-config.yaml", "edition: enterprise\n");
+        Write(installed, "components: [damlc:3.6.1]\n");
+        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, Dependencies,
+            name => name switch { "DPM_HOME" => Path.Combine(_root, "tools"), "DPM_SDK_VERSION" => sdk, _ => null }, null);
+        var before = State();
+        Write(installed, "components: [damlc:3.6.2]\n");
+        State().Fingerprint.ShouldNotBe(before.Fingerprint);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Expanded_manifest_values_change_the_fingerprint()
+    {
+        Write("daml.yaml", "sdk-version: 3.6.0\nname: $NAME\nsource: daml\n");
+        PackageBuildState State(string value) => PackageBuildState.Compute(Manifest, Source, Dependencies, name => name == "NAME" ? value : null, null);
+        State("first").Fingerprint.ShouldNotBe(State("second").Fingerprint);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Unpinned_or_overridden_components_are_resolved_again_even_after_recording()
+    {
+        Write("daml.yaml", "name: contracts\nsource: daml\n");
+        var unpinned = Compute();
+        unpinned.Record(StatePath, DarPath);
+        unpinned.IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
+        Write("daml.yaml", "sdk-version: 3.6.0\ncomponents:\n  - {name: damlc, path: ../compiler}\n");
+        Compute().CanReuse.ShouldBeFalse();
+    }
 
     private void Write(string relative, string content)
     {
@@ -127,6 +227,34 @@ public sealed class PackageBuildStateTests : IDisposable
 
         now.SourceFingerprint.ShouldBe(built.SourceFingerprint);
         now.IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Changing_the_multi_package_configuration_invalidates_the_DAR()
+    {
+        Write("multi-package.yaml", "sdk-version: 3.5.2\npackages: [.]");
+        var built = Built();
+
+        Write("multi-package.yaml", "sdk-version: 3.6.0\npackages: [.]");
+
+        var now = Compute();
+        now.SourceFingerprint.ShouldBe(built.SourceFingerprint);
+        now.IsRecordedIn(StatePath, DarPath).ShouldBeFalse();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Adding_or_removing_a_nearer_multi_package_changes_the_build_context()
+    {
+        Write("multi-package.yaml", "sdk-version: 3.5.2\npackages: [nested]");
+        Write(@"nested\daml.yaml", "name: nested\nversion: 1.0.0\nsource: ../daml\n");
+        var manifest = Path.Combine(_root, @"nested\daml.yaml");
+        var before = PackageBuildState.Compute(manifest, Source, Dependencies);
+
+        Write(@"nested\multi-package.yaml", "sdk-version: 3.6.0\npackages: [.]");
+        PackageBuildState.Compute(manifest, Source, Dependencies).Fingerprint.ShouldNotBe(before.Fingerprint);
+
+        File.Delete(Path.Combine(_root, @"nested\multi-package.yaml"));
+        PackageBuildState.Compute(manifest, Source, Dependencies).ShouldBe(before);
     }
 
     [Theory, Trait("Category", "Unit")]

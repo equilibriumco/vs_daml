@@ -14,6 +14,12 @@ public sealed record MultiPackageManifest
     /// <summary><c>sdk-version</c>, if given.</summary>
     public string? SdkVersion { get; init; }
 
+    /// <summary>Component overrides inherited by packages in this workspace.</summary>
+    public IReadOnlyList<string> Components { get; init; } = [];
+
+    /// <summary>Local component names and directory paths, relative to the workspace.</summary>
+    public IReadOnlyDictionary<string, string> LocalComponents { get; init; } = new Dictionary<string, string>();
+
     /// <summary><c>packages</c>: full paths of the package folders.</summary>
     public IReadOnlyList<string> Packages { get; init; } = [];
 

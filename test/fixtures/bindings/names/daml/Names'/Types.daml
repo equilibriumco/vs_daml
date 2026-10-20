@@ -1,0 +1,5 @@
+module Names'.Types where
+
+data Entry' = Entry' with
+    value' : Text
+  deriving (Eq, Show)

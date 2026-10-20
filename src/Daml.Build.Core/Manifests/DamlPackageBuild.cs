@@ -15,7 +15,7 @@ namespace Daml.Build.Core.Manifests;
 /// <param name="Components"><c>components</c> as written.</param>
 /// <param name="Source">The sources, which exist.</param>
 /// <param name="Dependencies"><c>dependencies</c>.</param>
-/// <param name="DataDependencies"><c>data-dependencies</c>; every entry is a DAR.</param>
+/// <param name="DataDependencies"><c>data-dependencies</c>, including local DALFs.</param>
 /// <param name="BuildOptions"><c>build-options</c> as written.</param>
 /// <param name="DarPath">Where the build writes the DAR: the output named in <c>build-options</c>, or <c>.daml\dist\&lt;name&gt;-&lt;version&gt;.dar</c>.</param>
 public sealed record DamlPackageBuild(
@@ -31,6 +31,9 @@ public sealed record DamlPackageBuild(
     IReadOnlyList<string> BuildOptions,
     string DarPath)
 {
+    /// <summary>Local component names and paths passed through to DPM.</summary>
+    public IReadOnlyDictionary<string, string> LocalComponents { get; init; } = new Dictionary<string, string>();
+
     /// <summary>
     /// Reads and checks the manifest at <paramref name="manifestPath"/>. Anything dpm would stop on
     /// (a missing name, version or source, sources that aren't there, an output option it couldn't
@@ -74,14 +77,15 @@ public sealed record DamlPackageBuild(
             manifest.SdkVersion,
             manifest.Components,
             source,
-            manifest.Dependencies.Select(d => new DamlDependency(d, IsDar(d) ? DamlPath.Resolve(manifest.PackageRoot, d) : null)).ToList(),
-            manifest.DataDependencies.Select(d => new DamlDependency(d, DamlPath.Resolve(manifest.PackageRoot, d))).ToList(),
+            manifest.Dependencies.Select(d => new DamlDependency(d, DamlDependency.IsLocalArchive(d) ? DamlPath.Resolve(manifest.PackageRoot, d) : null)).ToList(),
+            manifest.DataDependencies.Select(d => new DamlDependency(d, DamlDependency.IsLocalArchive(d) ? DamlPath.Resolve(manifest.PackageRoot, d) : null)).ToList(),
             manifest.BuildOptions,
-            DamlPath.Resolve(manifest.PackageRoot, output ?? Path.Combine(".daml", "dist", $"{name}-{version}.dar")));
+            DamlPath.Resolve(manifest.PackageRoot, output ?? Path.Combine(".daml", "dist", $"{name}-{version}.dar")))
+        {
+            LocalComponents = manifest.LocalComponents,
+        };
         return new ManifestResult<DamlPackageBuild>(package, diagnostics);
     }
-
-    private static bool IsDar(string entry) => entry.EndsWith(".dar", StringComparison.OrdinalIgnoreCase);
 
     private static string? Required(string? value, string key, Action<string> error)
     {

@@ -73,7 +73,13 @@ public abstract class DpmToolTask : ToolTask
     protected override Encoding StandardErrorEncoding => Utf8;
 
     /// <inheritdoc />
-    public override bool Execute() => base.Execute() && !Log.HasLoggedErrors;
+    public override bool Execute()
+    {
+        using var cache = new CompilerCache();
+        // ToolTask snapshots these before ExecuteTool.
+        EnvironmentVariables = (EnvironmentVariables ?? []).Concat([cache.Assignment]).ToArray();
+        return base.Execute() && !Log.HasLoggedErrors;
+    }
 
     /// <inheritdoc />
     public override void Cancel()
@@ -117,7 +123,7 @@ public abstract class DpmToolTask : ToolTask
         if (errors.Count == 0)
         {
             var projectFolder = string.IsNullOrEmpty(project) ? GetWorkingDirectory() : Path.GetDirectoryName(Path.GetFullPath(project))!;
-            _dpm = DpmLocation.Find(options.DpmPath, projectFolder, Environment.GetEnvironmentVariable, new PhysicalFileSystem(), errors);
+            _dpm = DpmLocation.Find(options.DpmPath, projectFolder, Environment.GetEnvironmentVariable, new PhysicalFileSystem(), errors, GetWorkingDirectory());
         }
         foreach (var error in errors)
         {
@@ -131,7 +137,9 @@ public abstract class DpmToolTask : ToolTask
         Timeout = options.ProcessTimeout is { } limit ? (int)Math.Min(int.MaxValue, limit.TotalMilliseconds) : System.Threading.Timeout.Infinite;
         _lockTimeout = options.LockTimeout;
         // Last, so the build's own setting wins over one passed in or inherited.
-        EnvironmentVariables = (EnvironmentVariables ?? []).Concat(options.DpmEnvironment.Select(v => $"{v.Key}={v.Value}")).ToArray();
+        EnvironmentVariables = (EnvironmentVariables ?? [])
+            .Concat(options.DpmEnvironment.Select(v => $"{v.Key}={v.Value}"))
+            .Concat(["DAML_PACKAGE=" + GetWorkingDirectory()]).ToArray();
         if (!DpmIsSupported(options.SkipPreflight, project))
         {
             return false;
@@ -160,6 +168,7 @@ public abstract class DpmToolTask : ToolTask
     /// <inheritdoc />
     protected override void LogEventsFromTextOutput(string singleLine, MessageImportance messageImportance)
     {
+        singleLine = SecretRedaction.Redact(singleLine);
         // dpm's own words go to the detailed log; the report decides what becomes an error. The one
         // line per script of a test run is what -t:DamlTest is for, so it shows at any verbosity.
         if (Command == DpmCommandKind.Test && ScriptResultLine.TryParse(singleLine) is { } result)

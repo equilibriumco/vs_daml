@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core.Manifests;
+using Daml.Build.Core.Building;
 using Daml.Build.Core.Processes;
 using Daml.VisualStudio.Core.Project;
 using Daml.VisualStudio.Core.Server;
@@ -27,6 +28,7 @@ public sealed class SdkResolver
     private readonly ISdkResolver _dpm;
     private readonly ISdkResolver _damlAssistant;
     private readonly DamlcProbe _probe;
+    private readonly Func<string, string?> _environment;
 
     /// <summary>Creates a resolver with the standard dpm and daml assistant strategies.</summary>
     public SdkResolver(IProcessRunner runner, AssistantLocator locator, IManifestReader manifests)
@@ -34,14 +36,22 @@ public sealed class SdkResolver
     {
     }
 
+    /// <summary>Creates a resolver with an explicit environment for SDK overrides.</summary>
+    public SdkResolver(IProcessRunner runner, AssistantLocator locator, IManifestReader manifests, Func<string, string?> environment)
+        : this(locator, manifests, new DpmSdkResolver(runner), new DamlAssistantSdkResolver(runner), new DamlcProbe(runner), environment) { }
+
     /// <summary>Creates a resolver with explicit strategies.</summary>
     public SdkResolver(AssistantLocator locator, IManifestReader manifests, ISdkResolver dpm, ISdkResolver damlAssistant, DamlcProbe probe)
+        : this(locator, manifests, dpm, damlAssistant, probe, Environment.GetEnvironmentVariable) { }
+
+    private SdkResolver(AssistantLocator locator, IManifestReader manifests, ISdkResolver dpm, ISdkResolver damlAssistant, DamlcProbe probe, Func<string, string?> environment)
     {
         _locator = locator ?? throw new ArgumentNullException(nameof(locator));
         _manifests = manifests ?? throw new ArgumentNullException(nameof(manifests));
         _dpm = dpm ?? throw new ArgumentNullException(nameof(dpm));
         _damlAssistant = damlAssistant ?? throw new ArgumentNullException(nameof(damlAssistant));
         _probe = probe ?? throw new ArgumentNullException(nameof(probe));
+        _environment = environment ?? throw new ArgumentNullException(nameof(environment));
     }
 
     /// <summary>
@@ -85,7 +95,7 @@ public sealed class SdkResolver
             if (predatesDpm == false)
             {
                 throw new SdkResolutionException(
-                    $"The workspace uses SDK {contextSdk}, which is run by dpm, and dpm wasn't found on PATH or in %APPDATA%\\dpm\\bin. Install dpm, or set its path in Tools > Options > Daml.");
+                    $"The workspace uses SDK {contextSdk}, which is run by dpm, and dpm wasn't found on PATH or in its home directories. Install dpm, or set its path in Tools > Options > Daml.");
             }
             assistant = damlAssistant;
             assistantSdk = await TryReadAsync(_damlAssistant, damlAssistant, workingDirectory, notes, cancellationToken).ConfigureAwait(false);
@@ -93,7 +103,7 @@ public sealed class SdkResolver
         else
         {
             assistant = dpm ?? throw new SdkResolutionException(
-                "Neither dpm nor the daml assistant was found on PATH, in %APPDATA%\\dpm\\bin or in %USERPROFILE%\\.daml\\bin. " +
+                "Neither dpm nor the daml assistant was found on PATH or in their home directories. " +
                 "Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
         }
 
@@ -125,8 +135,14 @@ public sealed class SdkResolver
     // In multi-package mode the server's working directory usually has no daml.yaml of its own.
     private string? ReadContextSdk(string workingDirectory)
     {
+        if (_environment("DPM_SDK_VERSION") is { } overridden)
+        {
+            return overridden;
+        }
         var manifestPath = Path.Combine(workingDirectory, WorkspaceLocator.PackageManifestName);
-        return _manifests.Exists(manifestPath) ? _manifests.ReadPackage(manifestPath).Value?.SdkVersion : null;
+        var packageSdk = _manifests.Exists(manifestPath) ? _manifests.ReadPackage(manifestPath).Value?.SdkVersion : null;
+        return packageSdk ?? (PackageBuildState.FindMultiPackageManifest(manifestPath, _manifests.Exists, _environment) is { } multi
+            ? _manifests.ReadMultiPackage(multi).Value?.SdkVersion : null);
     }
 
     private List<PackageSdk> ReadPackages(WorkspaceContext workspace, List<string> notes)

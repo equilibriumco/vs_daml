@@ -12,7 +12,7 @@ namespace Daml.Build.Core.Codegen;
 /// </summary>
 public static class GenerationFingerprint
 {
-    /// <summary>The SHA-256 over <paramref name="inputs"/>, the generation contract and the runtime line.</summary>
+    /// <summary>The SHA-256 over <paramref name="inputs"/>, the generation contract and the runtime version.</summary>
     public static string Compute(GenerationFingerprintInputs inputs)
     {
         if (inputs is null)
@@ -27,7 +27,7 @@ public static class GenerationFingerprint
             "dar=" + inputs.DarSha256,
             "source=" + inputs.SourceFingerprint,
             "generator=" + inputs.GeneratorDigest,
-            "runtime=" + ReleaseTools.Runtime.Line,
+            "runtime=" + ReleaseTools.Runtime.Version,
             "dpm=" + inputs.DpmVersion,
             ""));
     }

@@ -19,17 +19,17 @@ internal sealed class SolutionProjectConfigurations
     public SolutionProjectConfigurations(JoinableTaskFactory joinableTaskFactory) => _joinableTaskFactory = joinableTaskFactory;
 
     /// <summary>
-    /// Each loaded project with generated bindings (an <c>obj\daml</c> folder) and the configuration
+    /// Each loaded project with generated bindings and the configuration
     /// the solution builds it in, as Visual Studio names it (<c>Debug|AnyCPU</c>).
     /// </summary>
-    public async Task<IReadOnlyList<(string Project, string Configuration)>> WithBindingsAsync()
+    public async Task<IReadOnlyList<(string Project, string Configuration, string IntermediatePath)>> WithBindingsAsync()
     {
         await _joinableTaskFactory.SwitchToMainThreadAsync();
         var buildManager = await VS.Services.GetSolutionBuildManagerAsync();
-        var found = new List<(string, string)>();
+        var found = new List<(string, string, string)>();
         foreach (var project in await VS.Solutions.GetAllProjectsAsync())
         {
-            if (string.IsNullOrEmpty(project.FullPath) || !Directory.Exists(Path.Combine(Path.GetDirectoryName(project.FullPath)!, "obj", "daml")))
+            if (!string.Equals(Path.GetExtension(project.FullPath), ".csproj", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -40,10 +40,20 @@ internal sealed class SolutionProjectConfigurations
                 && configurations[0] is { } active
                 && ErrorHandler.Succeeded(active.get_CanonicalName(out var name)))
             {
-                found.Add((DamlPath.Normalize(project.FullPath!), name));
+                var intermediate = IntermediatePath(hierarchy as IVsBuildPropertyStorage, name);
+                found.Add((DamlPath.Normalize(project.FullPath!), name, intermediate));
             }
         }
-        return found;
+        await TaskScheduler.Default;
+        return found.Where(p => Directory.Exists(Path.Combine(Path.GetDirectoryName(p.Item1)!, p.Item3, "daml"))).ToList();
+    }
+
+    internal static string IntermediatePath(IVsBuildPropertyStorage? storage, string configuration)
+    {
+        Microsoft.VisualStudio.Shell.ThreadHelper.ThrowIfNotOnUIThread();
+        return storage is not null
+            && ErrorHandler.Succeeded(storage.GetPropertyValue("BaseIntermediateOutputPath", configuration, (uint)_PersistStorageType.PST_PROJECT_FILE, out var value))
+            && !string.IsNullOrWhiteSpace(value) ? value : "obj";
     }
 
     /// <summary>Unloads and reloads <paramref name="projectFile"/>, which makes IntelliSense read it afresh.</summary>

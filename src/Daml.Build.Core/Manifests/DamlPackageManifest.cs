@@ -3,7 +3,8 @@ using System.Collections.Generic;
 namespace Daml.Build.Core.Manifests;
 
 /// <summary>
-/// The fields of a package's <c>daml.yaml</c> that the extension uses. Values are as written in the
+/// The fields of a package's <c>daml.yaml</c> that the extension uses, after environment expansion.
+/// Values retain their spelling in the
 /// file (relative paths stay relative to <see cref="PackageRoot"/>); absent fields are <c>null</c>
 /// or empty. Keys the extension doesn't know are ignored.
 /// </summary>
@@ -30,10 +31,13 @@ public sealed record DamlPackageManifest
     /// <summary><c>components</c> (dpm): component names or OCI references.</summary>
     public IReadOnlyList<string> Components { get; init; } = [];
 
+    /// <summary>Local component names and their directory paths, relative to the package.</summary>
+    public IReadOnlyDictionary<string, string> LocalComponents { get; init; } = new Dictionary<string, string>();
+
     /// <summary><c>dependencies</c>.</summary>
     public IReadOnlyList<string> Dependencies { get; init; } = [];
 
-    /// <summary><c>data-dependencies</c>: DAR paths, relative to the package root.</summary>
+    /// <summary><c>data-dependencies</c>: local DAR paths, OCI locations or artifact aliases.</summary>
     public IReadOnlyList<string> DataDependencies { get; init; } = [];
 
     /// <summary><c>build-options</c>.</summary>

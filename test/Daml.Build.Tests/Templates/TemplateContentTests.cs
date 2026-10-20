@@ -35,18 +35,18 @@ public class TemplateContentTests
     public void Both_templates_create_the_same_Daml_packages(string contracts, string app) =>
         AsContracts(File.ReadAllText(App(app))).ShouldBe(File.ReadAllText(Contracts(contracts)));
 
-    // The generator writes for one runtime line; a project on another doesn't compile.
+    // Templates must use the exact package pair checked by codegen preflight.
     [Theory, Trait("Category", "Unit")]
     [InlineData("Daml.Runtime")]
     [InlineData("Daml.Ledger.Abstractions")]
-    public void The_app_references_the_runtime_line_the_generator_writes_for(string package)
+    public void The_app_references_the_runtime_version_the_generator_writes_for(string package)
     {
         var reference = XDocument.Load(App(@"DamlApp\DamlApp.csproj")).Descendants("PackageReference")
             .Single(r => (string?)r.Attribute("Include") == package);
 
         var version = new Version((string)reference.Attribute("Version")!);
 
-        (version.Major, version.Minor).ShouldBe((ReleaseTools.Runtime.Line.Major, ReleaseTools.Runtime.Line.Minor));
+        version.ShouldBe(ReleaseTools.Runtime.Version);
     }
 
     // dotnet sln add doesn't know Daml projects, and neither host builds a solution entry without a type.

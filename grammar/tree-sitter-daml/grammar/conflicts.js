@@ -53,6 +53,9 @@ module.exports = {
     // Bind vs splice
     [$.pattern, $.expression],
 
+    // A parenthesized negative literal may start either a do expression or a bind pattern.
+    [$._pat_negation, $.literal],
+
     // Signature vs bind
     [$.signature, $.pattern],
 

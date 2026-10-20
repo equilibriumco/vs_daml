@@ -36,6 +36,13 @@ public class ScaleTests
     public async Task The_scale_fixture_answers_within_the_test_strategys_targets()
     {
         var fixture = await Ide.NewScaleFixtureAsync();
+        File.WriteAllText(Path.Combine(fixture, "Directory.Build.props"), """
+            <Project>
+              <PropertyGroup Condition="'$(MSBuildProjectName)' == 'App01'">
+                <BaseIntermediateOutputPath>intermediate\</BaseIntermediateOutputPath>
+              </PropertyGroup>
+            </Project>
+            """);
         await Ide.OpenSolutionAsync(Path.Combine(fixture, "Scale.slnx"));
         object? syncBefore = null;
         try
@@ -168,7 +175,7 @@ public class ScaleTests
             edit.Insert(view.TextBuffer.CurrentSnapshot.Length, "\ntemplate Extra1\n  with\n    issuer : Party\n  where\n    signatory issuer\n");
             edit.Apply();
         }
-        var generated = Path.Combine(fixture, @"App01\obj\Debug\net10.0\Daml");
+        var generated = Path.Combine(fixture, @"App01\intermediate\Debug\net10.0\Daml");
         var clock = Stopwatch.StartNew();
         Ide.Dte().ActiveDocument.Save();
         while (clock.Elapsed < Patience)

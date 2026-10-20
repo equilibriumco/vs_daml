@@ -20,6 +20,40 @@ public class DpmLocationTests
     private string? Find(string? configured) =>
         DpmLocation.Find(configured, Project, name => _environment.TryGetValue(name, out var value) ? value : null, _files, _errors);
 
+    [Fact, Trait("Category", "Unit")]
+    public void A_manifest_outside_the_project_uses_the_child_directory_for_its_relative_home()
+    {
+        _environment["DPM_HOME"] = "tools";
+        _files.AddFile(@"D:\package\tools\bin\dpm.exe", "");
+        _files.AddFile(Project + @"\explicit\dpm.exe", "");
+        string? Locate(string? configured) => DpmLocation.Find(configured, Project,
+            name => _environment.TryGetValue(name, out var value) ? value : null, _files, _errors, @"D:\package");
+        Locate(null).ShouldBe(@"D:\package\tools\bin\dpm.exe");
+        Locate(@"explicit\dpm.exe").ShouldBe(Project + @"\explicit\dpm.exe");
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("")]
+    [InlineData(@"..\tools")]
+    [InlineData(@"D:\configuration-only")]
+    public void A_home_without_an_executable_does_not_hide_the_installed_command(string home)
+    {
+        _environment["DPM_HOME"] = home;
+        _files.AddFile(AppData + @"\dpm\bin\dpm.exe", "");
+        Find(null).ShouldBe(AppData + @"\dpm\bin\dpm.exe");
+        _errors.ShouldBeEmpty();
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("", @"C:\work\Contracts")]
+    [InlineData(@"..\tools", @"C:\work\tools")]
+    public void Relative_home_commands_are_found_against_the_child_working_directory(string home, string resolved)
+    {
+        _environment["DPM_HOME"] = home;
+        _files.AddFile(resolved + @"\bin\dpm.exe", "");
+        Find(null).ShouldBe(resolved + @"\bin\dpm.exe");
+    }
+
     // The extension's own search, so a build runs the dpm the editor does.
     [Fact, Trait("Category", "Unit")]
     public void Unset_it_is_searched_on_PATH_first_and_then_in_its_install_folder()
@@ -30,6 +64,24 @@ public class DpmLocationTests
         _files.AddFile(@"C:\tools\dpm.exe", "");
         Find("").ShouldBe(@"C:\tools\dpm.exe");
         _errors.ShouldBeEmpty();
+    }
+
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(null, @"C:\Users\ann\AppData\Roaming\.dpm")]
+    [InlineData(@"D:\Dpm Home", @"D:\Dpm Home")]
+    public void Default_search_includes_the_documented_and_configured_DPM_home(string? configuredHome, string home)
+    {
+        if (configuredHome is not null)
+        {
+            _environment["DPM_HOME"] = configuredHome;
+        }
+        _files.AddFile(home + @"\bin\dpm.exe", "");
+
+        Find(null).ShouldBe(home + @"\bin\dpm.exe");
+        _errors.ShouldBeEmpty();
+
+        _files.AddFile(@"C:\tools\dpm.exe", "");
+        Find(null).ShouldBe(@"C:\tools\dpm.exe");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -71,7 +123,8 @@ public class DpmLocationTests
 
         var error = _errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.MissingTool);
-        error.Message.ShouldBe(@"dpm wasn't found on PATH or in %APPDATA%\dpm\bin. Install dpm (Digital Asset's package manager), or set DamlDpmPath to it.");
+        error.Message.ShouldContain("DPM_HOME");
+        error.Message.ShouldContain(DamlProperties.DpmPath.Name);
     }
 
     [Fact, Trait("Category", "Unit")]

@@ -31,14 +31,17 @@ public sealed class DamlComputeBuildState : Task
     [Required]
     public string StatePath { get; set; } = "";
 
-    /// <summary>The package's <c>dependencies</c>; those that are DARs carry <c>DarPath</c>.</summary>
+    /// <summary>The package's <c>dependencies</c>; local DARs and DALFs carry <c>DarPath</c>.</summary>
     public ITaskItem[] Dependencies { get; set; } = [];
 
-    /// <summary>The package's <c>data-dependencies</c>, each a DAR.</summary>
+    /// <summary>The package's <c>data-dependencies</c>; local archives carry <c>DarPath</c>.</summary>
     public ITaskItem[] DataDependencies { get; set; } = [];
 
     /// <summary><c>DamlBuildEnabled</c>.</summary>
     public string? BuildEnabled { get; set; }
+
+    /// <summary>The explicit DPM executable, if configured.</summary>
+    public string? DpmPath { get; set; }
 
     /// <summary>Whether dpm has to build the package.</summary>
     [Output]
@@ -68,9 +71,9 @@ public sealed class DamlComputeBuildState : Task
         }
 
         var dars = Dependencies.Select(d => d.GetMetadata("DarPath")).Where(d => d.Length > 0)
-            .Concat(DataDependencies.Select(d => d.ItemSpec))
+            .Concat(DataDependencies.Select(d => d.GetMetadata("DarPath")).Where(d => d.Length > 0))
             .Select(Path.GetFullPath);
-        var state = PackageBuildState.Compute(manifest, SourcePath, dars);
+        var state = PackageBuildState.Compute(manifest, SourcePath, dars, System.Environment.GetEnvironmentVariable, DpmPath);
         Fingerprint = state.Fingerprint;
         SourceFingerprint = state.SourceFingerprint;
         if (!options.BuildEnabled)

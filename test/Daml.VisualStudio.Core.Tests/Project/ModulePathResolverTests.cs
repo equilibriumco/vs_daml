@@ -45,6 +45,15 @@ public class ModulePathResolverTests
     }
 
     [Fact, Trait("Category", "Unit")]
+    public void A_remote_DAR_is_not_matched_to_a_local_package_by_its_filename()
+    {
+        var app = Package(@"C:\repo\app", "name: app\nsource: daml\ndata-dependencies:\n  - oci://registry/lib-1.0.0.dar\n");
+        var lib = Package(@"C:\repo\lib", "name: lib\nversion: 1.0.0\nsource: daml\n");
+        Module(@"C:\repo\lib\daml\Asset.daml", "Asset");
+        Resolve("Asset", app, lib).Status.ShouldBe(ModuleResolutionStatus.Missing);
+    }
+
+    [Fact, Trait("Category", "Unit")]
     public void A_single_file_source_roots_modules_at_its_folder()
     {
         var app = Package(@"C:\repo\app", "name: app\nversion: 1.0.0\nsource: daml/Main.daml\n");

@@ -105,9 +105,11 @@
       <_DamlCodegenReference Include="@(DamlDar)" DamlReferenceSource="DamlDar" />
       <_DamlCodegenReference Include="@(ProjectReference)" Condition="'%(ProjectReference.DamlReference)' != 'true'" DamlReferenceSource="ProjectReference" Namespace="%(ProjectReference.DamlNamespace)" />
       <_DamlRuntimeReference Include="@(ReferencePath)" Condition="'%(ReferencePath.NuGetPackageId)' == 'Daml.Runtime'" />
+      <_DamlLedgerReference Include="@(ReferencePath)" Condition="'%(ReferencePath.NuGetPackageId)' == 'Daml.Ledger.Abstractions'" />
     </ItemGroup>
     <PropertyGroup>
       <_DamlRuntimeVersion>@(_DamlRuntimeReference->'%(NuGetPackageVersion)')</_DamlRuntimeVersion>
+      <_DamlLedgerVersion>@(_DamlLedgerReference->'%(NuGetPackageVersion)')</_DamlLedgerVersion>
     </PropertyGroup>
     <DamlCodegenCSharp
         Condition="'$(DesignTimeBuild)' == 'true'"
@@ -130,7 +132,8 @@
         SkipPreflight="$(DamlSkipPreflight)"
         ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)"
         LockTimeoutSeconds="$(DamlLockTimeoutSeconds)"
-        RuntimeVersion="$(_DamlRuntimeVersion)">
+        RuntimeVersion="$(_DamlRuntimeVersion)"
+        LedgerAbstractionsVersion="$(_DamlLedgerVersion)">
       <Output TaskParameter="GeneratedFiles" ItemName="_DamlGeneratedFile" />
     </DamlCodegenCSharp>
   </Target>
@@ -158,7 +161,8 @@
         SkipPreflight="$(DamlSkipPreflight)"
         ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)"
         LockTimeoutSeconds="$(DamlLockTimeoutSeconds)"
-        RuntimeVersion="$(_DamlRuntimeVersion)">
+        RuntimeVersion="$(_DamlRuntimeVersion)"
+        LedgerAbstractionsVersion="$(_DamlLedgerVersion)">
       <Output TaskParameter="GeneratedFiles" ItemName="_DamlGeneratedFile" />
     </DamlCodegenCSharp>
   </Target>

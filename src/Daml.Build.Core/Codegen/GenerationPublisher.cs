@@ -24,20 +24,11 @@ public enum RecoveryOutcome
 }
 
 /// <summary>
-/// Puts a generation that was produced in a staging folder in place of the published one.
-/// Windows can't swap two folders atomically, so a publish is a sequence: a journal is written,
-/// the old generation moves aside to a backup, the staged one moves in, and only then are the
-/// backup and the journal removed. Any failed move puts the old generation back at once. A
-/// process that dies in between leaves the journal and the folders telling the next real build
-/// what happened, which <see cref="Recover"/> reads before anything else looks at the generation.
-/// Staging, backup and journal live in a work folder inside the generation root: on the same
-/// volume as the generations, so every move is a rename, and shared by every build writing to
-/// that root, so any of them finds what another left behind. They are named by the generation's
-/// id alone (<c>&lt;id&gt;.new</c>, <c>.old</c>, <c>.journal</c>, and <c>.run</c> for the
-/// generator's own folder), so a staged file's path is hardly longer than it will be once
-/// published: the generator's file names are long, and Windows limits paths to 260 characters
-/// unless long paths are turned on. Only one build publishes into a root at a time, under its
-/// lock, so the names need nothing to tell two runs apart.
+/// Publishes a staged generation using a journal and backup so failed moves can be rolled back.
+/// <see cref="Recover"/> handles interrupted publishes before the next real build.
+/// Work stays on the same volume under the generation root, with short names derived from the
+/// generation ID: <c>.new</c>, <c>.old</c>, <c>.journal</c> and <c>.run</c>.
+/// Callers must hold the generation root's lock throughout recovery, staging and publication.
 /// </summary>
 public sealed class GenerationPublisher
 {
@@ -310,11 +301,10 @@ public sealed class GenerationPublisher
         var outcome = RecoveryOutcome.Nothing;
         if (File.Exists(journal))
         {
-            var staging = File.ReadAllLines(journal)
-                .Where(l => l.StartsWith("staging=", StringComparison.Ordinal))
-                .Select(l => Path.Combine(Work, l.Substring("staging=".Length)))
-                .FirstOrDefault();
-            if (staging is not null && Directory.Exists(staging))
+            // The generation ID determines the only staging folder we own. A damaged journal
+            // must never redirect recursive cleanup to another path.
+            var staging = Staging(folderName);
+            if (Directory.Exists(staging))
             {
                 // The new generation never landed.
                 _steps.Delete(staging);
@@ -431,6 +421,10 @@ public sealed class GenerationPublisher
                 {
                     File.SetLastWriteTimeUtc(file, now);
                 }
+                else
+                {
+                    File.SetLastWriteTimeUtc(file, File.GetLastWriteTimeUtc(before));
+                }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PathTooLongException)
@@ -440,7 +434,7 @@ public sealed class GenerationPublisher
     }
 
     private static bool SameContent(string first, string second) =>
-        new FileInfo(first).Length == new FileInfo(second).Length && File.ReadAllBytes(first).SequenceEqual(File.ReadAllBytes(second));
+        new FileInfo(first).Length == new FileInfo(second).Length && Hashing.Sha256File(first) == Hashing.Sha256File(second);
 
     private static GenerationPublishException Failed(string folderName, string what, Exception inner) =>
         new(DamlDiagnosticCodes.CodegenFailed, $"Publishing the generation {folderName} failed: {what}.", inner);

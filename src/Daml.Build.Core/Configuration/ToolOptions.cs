@@ -43,8 +43,7 @@ public sealed record ToolOptions(
         }
         var reader = new PropertyReader(property, errors);
         var offline = reader.Bool(DamlProperties.Offline);
-        // Leave to install is leave, not a demand: an app that allows it (as the template makes
-        // it) still builds offline, wherever DamlOffline was set, and downloads nothing.
+        // Offline overrides permission to install, regardless of property evaluation order.
         var install = reader.Bool(DamlProperties.AllowToolInstall) && !offline;
         var process = reader.Seconds(DamlProperties.ProcessTimeoutSeconds, minimum: 0);
         return new ToolOptions(

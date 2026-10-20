@@ -70,6 +70,10 @@ public sealed record GenerationManifest(
             {
                 text.Append("dependencyPackageId=").Append(id).Append('\n');
             }
+            foreach (var module in package.Modules)
+            {
+                text.Append("darModule=").Append(module).Append('\n');
+            }
         }
         if (Source is { } source)
         {
@@ -92,7 +96,9 @@ public sealed record GenerationManifest(
         }
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var files = new List<GenerationManifestFile>();
+        var filePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var dependencies = new List<string>();
+        var modules = new List<string>();
         foreach (var line in File.ReadAllText(path, Encoding.UTF8).Split('\n').Select(l => l.TrimEnd('\r')))
         {
             var equals = line.IndexOf('=');
@@ -108,11 +114,20 @@ public sealed record GenerationManifest(
                 {
                     return null;
                 }
-                files.Add(new GenerationManifestFile(value.Substring(space + 1), value.Substring(0, space)));
+                var file = value.Substring(space + 1);
+                if (!ValidFilePath(file) || !filePaths.Add(file.Replace('/', '\\')))
+                {
+                    return null;
+                }
+                files.Add(new GenerationManifestFile(file, value.Substring(0, space)));
             }
             else if (key == "dependencyPackageId")
             {
                 dependencies.Add(value);
+            }
+            else if (key == "darModule")
+            {
+                modules.Add(value);
             }
             else
             {
@@ -144,11 +159,19 @@ public sealed record GenerationManifest(
             files)
         {
             Package = Value("darPackage") is { } package && Value("darVersion") is { } version && Value("mainPackageId") is { } main
-                ? new DarProvenance(package, version, Value("darSdk") is { Length: > 0 } sdk ? sdk : null, main, dependencies)
+                ? new DarProvenance(package, version, Value("darSdk") is { Length: > 0 } sdk ? sdk : null, main, dependencies) { Modules = modules }
                 : null,
             Source = Value("sourceManifest") is { } sourceManifest && Value("sourceFingerprint") is { } sourceFingerprint
                 ? new SourceProvenance(sourceManifest, sourceFingerprint)
                 : null,
         };
     }
+
+    private static bool ValidFilePath(string path) =>
+        path.Length > 0 && !Path.IsPathRooted(path)
+        && path.Split(['/', '\\']).All(segment =>
+            segment.Length > 0 && segment is not ("." or "..")
+            && !segment.EndsWith(".", StringComparison.Ordinal)
+            && !segment.EndsWith(" ", StringComparison.Ordinal)
+            && segment.IndexOfAny(Path.GetInvalidFileNameChars()) < 0);
 }

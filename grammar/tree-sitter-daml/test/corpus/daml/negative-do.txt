@@ -1,0 +1,48 @@
+================================================================================
+negative literal: do expressions and bind patterns
+================================================================================
+
+module Negative where
+f = do
+  (-1) + 1
+  (-0.052) === value
+  (-1) <- action
+  pure ()
+
+--------------------------------------------------------------------------------
+
+(daml
+  (header
+    (module
+      (module_id)))
+  (declarations
+    (bind
+      (variable)
+      (match
+        (do
+          (exp
+            (infix
+              (parens
+                (negation
+                  (literal
+                    (integer))))
+              (operator)
+              (literal
+                (integer))))
+          (exp
+            (infix
+              (parens
+                (negation
+                  (literal
+                    (float))))
+              (operator)
+              (variable)))
+          (bind
+            (parens
+              (negation
+                (integer)))
+            (variable))
+          (exp
+            (apply
+              (variable)
+              (unit))))))))

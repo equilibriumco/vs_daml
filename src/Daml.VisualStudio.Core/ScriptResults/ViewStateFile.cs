@@ -32,7 +32,7 @@ public static class ViewStateFile
         {
             return views;
         }
-        if (root is not JObject file || file["version"] is not { Type: JTokenType.Integer } version || (int)version != Version
+        if (root is not JObject file || file["version"] is not { Type: JTokenType.Integer } version || !JToken.DeepEquals(version, new JValue(Version))
             || file["views"] is not JObject saved)
         {
             return views;

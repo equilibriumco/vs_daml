@@ -1879,6 +1879,10 @@ static Symbol texp_context(Env *env) {
     return finish(START_TEXP, "texp_context");
   }
   else if (valid(env, END_TEXP) && current_context(env) == TExp) {
+    // Daml: a following `<-` can turn parentheses into a bind pattern. Include the
+    // next token in lookahead so restoring that suffix invalidates the old expression.
+    while (is_space_char(PEEK) || is_newline(PEEK)) S_ADVANCE;
+    if (not_eof(env)) S_ADVANCE;
     pop(env);
     return finish(END_TEXP, "texp_context");
   }
@@ -3417,6 +3421,9 @@ static Symbol pre_ws_commands(Env *env) {
 }
 
 static Symbol scan_main(Env *env) {
+  // Daml: layout state depends on columns even when this scan emits no layout token.
+  // Mark that dependency so batched indentation edits cannot reuse stale scanner state.
+  (void)column(env);
   MARK("main");
   SEQ(pre_ws_commands(env));
   bool whitespace = skip_space(env);

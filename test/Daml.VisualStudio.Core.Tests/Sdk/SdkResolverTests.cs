@@ -45,7 +45,8 @@ public class SdkResolverTests
     private SdkResolver Resolver() => new(
         _runner,
         new AssistantLocator(_files, name => _environment.TryGetValue(name, out var value) ? value : null),
-        new YamlManifestReader(_files));
+        new YamlManifestReader(_files, name => _environment.TryGetValue(name, out var value) ? value : null),
+        name => _environment.TryGetValue(name, out var value) ? value : null);
 
     private void Package(string root, string sdkVersion) =>
         _files.AddFile(root + @"\daml.yaml", $"sdk-version: {sdkVersion}\nname: {root.Split('\\').Last()}\nversion: 1.0.0\nsource: daml\n");
@@ -66,6 +67,22 @@ public class SdkResolverTests
 
     private Task<SdkResolution> ResolveAsync(WorkspaceContext workspace, LanguageServerOptions? options = null) =>
         Resolver().ResolveAsync(workspace, options ?? new LanguageServerOptions(), CancellationToken.None);
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_context_inherits_the_multi_package_SDK_and_honors_environment_overrides()
+    {
+        _files.AddFile(Dpm, "");
+        _files.AddFile(@"C:\repo\app\daml.yaml", "name: app\nsource: daml\n");
+        _files.AddFile(@"C:\repo\multi-package.yaml", "sdk-version: 3.5.2\n");
+        _runner.On(Dpm, DpmVersions, ActiveJson("3.6.0"));
+        (await ResolveAsync(Ide(@"C:\repo\app"))).ContextSdkVersion.ShouldBe("3.5.2");
+
+        _files.AddFile(@"C:\external\multi-package.yaml", "sdk-version: 3.6.0\n");
+        _environment["DPM_MULTI_PACKAGE"] = @"C:\external";
+        (await ResolveAsync(Ide(@"C:\repo\app"))).ContextSdkVersion.ShouldBe("3.6.0");
+        _environment["DPM_SDK_VERSION"] = "3.5.2";
+        (await ResolveAsync(Ide(@"C:\repo\app"))).ContextSdkVersion.ShouldBe("3.5.2");
+    }
 
     [Fact, Trait("Category", "Unit")]
     public async Task Dpm_with_an_active_sdk_runs_the_package()

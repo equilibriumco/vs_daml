@@ -1,9 +1,9 @@
 # The real-world corpus
 
-Checked 2026-10-14 by `grammar/scripts/corpus-gate.mjs` with tree-sitter CLI 0.27.1, grammar at `baf3469`,
+Checked 2026-10-20 by `grammar/scripts/corpus-gate.mjs` with tree-sitter CLI 0.27.1, grammar at `4ef3e15`,
 corpus collected 2026-10-14T09:29:34Z (`grammar/test/real-world/manifest.json`).
 
-**Gate: passed.** 760 of 764 files (99.5%) parse without errors;
+**Gate: passed.** 761 of 764 files (99.6%) parse without errors;
 at least 99% are required, and every other file must be a known exception below.
 
 ## Sources
@@ -11,7 +11,7 @@ at least 99% are required, and every other file must be a known exception below.
 | Source | Pinned at | SDK | License | Files | Without errors |
 |---|---|---|---|---:|---:|
 | daml | main `682ba2e` | 3.x (main, after 3.4.11) | Apache-2.0 | 258 | 256 |
-| daml-finance | main `5ba1463` | 2.10.0 | Apache-2.0 | 312 | 311 |
+| daml-finance | main `5ba1463` | 2.10.0 | Apache-2.0 | 312 | 312 |
 | splice | 0.9.1 `ec6ec6f` | 3.5.2 | Apache-2.0 | 185 | 185 |
 | samples | working tree | 3.6.0 | Apache-2.0 | 9 | 8 |
 
@@ -38,5 +38,4 @@ Files that don't parse, and why (`grammar/corpus-exceptions.json`).
 |---|---|
 | `daml/sdk/compiler/damlc/daml-prim-src/GHC/Classes.daml` | A compiler primitive run through the C preprocessor before it is parsed: its export list has `#ifdef DAML_BIGNUMERIC` inside the parentheses. User code doesn't do this. |
 | `daml/sdk/compiler/damlc/daml-prim-src/GHC/Tuple.daml` | A compiler primitive that declares the built-in tuple types, `data (a,b) = (a,b)`; only the compiler's own primitives may. |
-| `daml-finance/docs/generated/src/test/daml/Daml/Finance/Instrument/Swap/Test/Fpml.daml` | A `do` statement that starts with a negative number in parentheses, `(-0.052) === …`, inherited from tree-sitter-haskell: `(-1) + 1` as a statement fails without any Daml construct too. |
 | `samples/samples/broken/daml/SyntaxError.daml` | Deliberately broken: this repository's sample of a file with a syntax error (a `with` without fields and no `where`). |
