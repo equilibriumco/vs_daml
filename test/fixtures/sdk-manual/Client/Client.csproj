@@ -9,7 +9,7 @@
   <!-- C# generated from the Daml project, as a user sets it up: the package, the runtime it compiles
        against and the reference that brings the DAR. -->
   <ItemGroup>
-    <PackageReference Include="Daml.Build.CSharp" Version="0.2.0-preview.0" PrivateAssets="all" />
+    <PackageReference Include="Daml.Build.CSharp" Version="0.3.0-preview.0" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
     <DamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="SdkManual" />

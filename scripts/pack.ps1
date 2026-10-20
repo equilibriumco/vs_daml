@@ -52,3 +52,13 @@ Write-Host "VSIX check passed: $($vsix[0].Name) $version (VS 2026 [18.0,), amd64
 $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
+
+# Local packs reuse build number 0, and NuGet never looks again at a version it has extracted:
+# an older copy in the machine's package folder wins over these packages in every restore that
+# uses that folder. Only reported; deleting is the user's call.
+Import-Module (Join-Path $PSScriptRoot 'lib\PackageCache.psm1') -Force
+$machinePackages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
+$stale = @(Get-StalePackageCopy -Package (Get-ChildItem $out -Filter '*.nupkg').FullName -PackagesFolder $machinePackages)
+foreach ($copy in $stale) {
+    Write-Warning "$machinePackages holds another $($copy.Id) $($copy.Version) than this pack; restores that use it get that copy. With Visual Studio closed, delete $($copy.Folder)"
+}

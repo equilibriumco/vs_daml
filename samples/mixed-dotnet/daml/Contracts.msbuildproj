@@ -1,4 +1,4 @@
 <!-- The Daml package in daml.yaml next to this file. Building the project builds the package with dpm
      into .daml\dist; its sources are what daml.yaml names under source:. -->
-<Project Sdk="Daml.Sdk/0.2.0-preview.0">
+<Project Sdk="Daml.Sdk/0.3.0-preview.0">
 </Project>

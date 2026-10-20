@@ -18,9 +18,9 @@ central package versions out, so the solution builds like a user's.
 ## Build
 
 1. `pwsh scripts/pack.ps1` from the repository root leaves `Daml.Sdk` and `Daml.Build.CSharp`
-   (`0.2.0-preview.0`) in `artifacts/packages`, where `nuget.config` here looks for them; everything
+   (`0.3.0-preview.0`) in `artifacts/packages`, where `nuget.config` here looks for them; everything
    else comes from nuget.org. NuGet keeps the first copy of a version it saw, so after a new pack
-   delete `daml.sdk\0.2.0-preview.0` and `daml.build.csharp\0.2.0-preview.0` under
+   delete `daml.sdk\0.3.0-preview.0` and `daml.build.csharp\0.3.0-preview.0` under
    `%USERPROFILE%\.nuget\packages`.
 2. dpm with SDK 3.6.0 installed, and a JDK 17 or later in `JAVA_HOME` for the C# generator.
 3. Build, run, test:

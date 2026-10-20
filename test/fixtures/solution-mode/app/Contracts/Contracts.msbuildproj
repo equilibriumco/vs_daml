@@ -1,4 +1,4 @@
-<Project Sdk="Daml.Sdk/0.2.0-preview.0">
+<Project Sdk="Daml.Sdk/0.3.0-preview.0">
 
   <!-- The contracts use Lib's DAR (data-dependencies in daml.yaml), so that project builds first. -->
   <ItemGroup>
