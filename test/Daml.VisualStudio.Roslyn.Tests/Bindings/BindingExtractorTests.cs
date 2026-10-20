@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Daml.VisualStudio.Core.Bindings;
 using Daml.TestHelpers;
+using Daml.VisualStudio.Core.Bindings;
 using Daml.VisualStudio.Roslyn.Bindings;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;

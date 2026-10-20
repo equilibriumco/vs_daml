@@ -5,10 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Daml.Build.Core.Configuration;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Manifests;
 using Daml.Build.Core.Tools;
-using Daml.Build.Core.Configuration;
 
 namespace Daml.Build.Core.Building;
 

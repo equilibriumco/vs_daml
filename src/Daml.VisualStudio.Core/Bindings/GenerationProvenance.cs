@@ -42,7 +42,8 @@ public sealed record GenerationProvenance(
     public static GenerationProvenance? From(string folder, GenerationManifest manifest) =>
         manifest?.Package is { } package
             ? new GenerationProvenance(folder, manifest.GenerationId, package.MainPackageId, package.DependencyPackageIds, manifest.Namespace,
-                manifest.Owner, manifest.Reference, manifest.ReferenceKind, manifest.Source) { Modules = package.Modules }
+                manifest.Owner, manifest.Reference, manifest.ReferenceKind, manifest.Source)
+            { Modules = package.Modules }
             : null;
 
     /// <summary>

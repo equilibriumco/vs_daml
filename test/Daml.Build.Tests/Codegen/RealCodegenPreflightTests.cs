@@ -51,7 +51,8 @@ public sealed class RealCodegenPreflightTests : IDisposable
                 JavaHome: Path.GetDirectoryName(Path.GetDirectoryName(java))),
             [new CodegenInput(reference, Dar)],
             DesignTime: false,
-            RuntimeVersion: "0.6.0") { LedgerAbstractionsVersion = "0.6.0" };
+            RuntimeVersion: "0.6.0")
+        { LedgerAbstractionsVersion = "0.6.0" };
     }
 
     private static CodegenPreflight Preflight(string codegenRoot) =>

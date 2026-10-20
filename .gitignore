@@ -38,3 +38,6 @@ Desktop.ini
 
 # Spike run output (machine-specific paths); curated evidence goes to the spike report.
 spikes/*/out/
+
+# Kept locally only: the working log of tasks and decisions is not published.
+docs/progress.md

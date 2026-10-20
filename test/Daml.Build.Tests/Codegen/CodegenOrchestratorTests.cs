@@ -66,7 +66,8 @@ public sealed class CodegenOrchestratorTests : IDisposable
         new CodegenOptions(true, _generator.Pin, GeneratedOutputMode.Intermediate, Root, JavaHome: Path.Combine(_root, "jdk")),
         (references.Length == 0 ? [Contracts] : references).Select(r => new CodegenInput(r, Dar)).ToList(),
         designTime,
-        runtime) { LedgerAbstractionsVersion = "0.6.0" };
+        runtime)
+    { LedgerAbstractionsVersion = "0.6.0" };
 
     // The same project in another configuration, target framework or output mode.
     private CodegenRequest Request(string configuration, string targetFramework, GeneratedOutputMode mode, string root) => Request() with

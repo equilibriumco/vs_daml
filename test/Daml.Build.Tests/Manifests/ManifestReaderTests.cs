@@ -16,18 +16,18 @@ public class ManifestReaderTests
     [Fact, Trait("Category", "Unit")]
     public void Package_YAML_expands_before_parsing_but_multi_package_YAML_does_not()
     {
-        const string package = @"C:\work\daml.yaml";
-        const string multi = @"C:\work\multi-package.yaml";
-        _files.AddFile(package, "source: $SOURCE\ncomponents:\n  - {name: damlc, path: '${COMPILER}'}\ndata-dependencies:\n  - {value: 'oci://registry/pkg:1', main-package-id: abc}\n");
-        _files.AddFile(multi, "sdk-version: ${SDK}\n");
+        const string PackagePath = @"C:\work\daml.yaml";
+        const string MultiPath = @"C:\work\multi-package.yaml";
+        _files.AddFile(PackagePath, "source: $SOURCE\ncomponents:\n  - {name: damlc, path: '${COMPILER}'}\ndata-dependencies:\n  - {value: 'oci://registry/pkg:1', main-package-id: abc}\n");
+        _files.AddFile(MultiPath, "sdk-version: ${SDK}\n");
         var reader = new YamlManifestReader(_files, name => name switch { "SOURCE" => "daml", "COMPILER" => "../compiler", _ => null });
 
-        var result = reader.ReadPackage(package);
+        var result = reader.ReadPackage(PackagePath);
         result.Diagnostics.ShouldBeEmpty();
         result.Value!.Source.ShouldBe("daml");
         result.Value.LocalComponents["damlc"].ShouldBe("../compiler");
         result.Value.DataDependencies.ShouldBe(["oci://registry/pkg:1"]);
-        reader.ReadMultiPackage(multi).Value!.SdkVersion.ShouldBe("${SDK}");
+        reader.ReadMultiPackage(MultiPath).Value!.SdkVersion.ShouldBe("${SDK}");
     }
 
     [Fact, Trait("Category", "Unit")]

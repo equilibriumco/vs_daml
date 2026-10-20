@@ -1,9 +1,9 @@
 using System;
 using System.IO;
+using System.Linq;
 using Daml.Build.Core.Building;
 using Daml.Build.Core.FileSystem;
 using Daml.Build.Core.Manifests;
-using System.Linq;
 using Shouldly;
 using Xunit;
 

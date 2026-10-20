@@ -59,9 +59,12 @@ public sealed class GenerationManifestTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public void Duplicate_paths_in_other_case_or_slash_spelling_are_rejected()
     {
-        (Manifest() with { Files = [
+        (Manifest() with
+        {
+            Files = [
             new GenerationManifestFile(@"Contracts\Asset.cs", "a"),
-            new GenerationManifestFile("contracts/asset.cs", "b")] }).Write(_path);
+            new GenerationManifestFile("contracts/asset.cs", "b")]
+        }).Write(_path);
         GenerationManifest.Read(_path).ShouldBeNull();
     }
 }

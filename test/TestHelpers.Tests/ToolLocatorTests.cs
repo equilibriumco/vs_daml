@@ -68,12 +68,12 @@ public class ToolLocatorTests
     [Fact, Trait("Category", "Unit")]
     public void MSBuild_discovery_skips_an_installation_without_the_Dotnet_SDK_resolver()
     {
-        const string bare = @"C:\BuildTools\MSBuild\Current\Bin\MSBuild.exe";
-        const string usable = @"C:\VisualStudio\MSBuild\Current\Bin\MSBuild.exe";
-        _files.UnionWith([bare, usable, @"C:\VisualStudio\MSBuild\Current\Bin\SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll"]);
+        const string Bare = @"C:\BuildTools\MSBuild\Current\Bin\MSBuild.exe";
+        const string Usable = @"C:\VisualStudio\MSBuild\Current\Bin\MSBuild.exe";
+        _files.UnionWith([Bare, Usable, @"C:\VisualStudio\MSBuild\Current\Bin\SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll"]);
 
-        ToolLocator.SelectVisualStudioMSBuild([bare, usable], _files.Contains).ShouldBe(usable);
-        ToolLocator.SelectVisualStudioMSBuild([bare], _files.Contains).ShouldBeNull();
+        ToolLocator.SelectVisualStudioMSBuild([Bare, Usable], _files.Contains).ShouldBe(Usable);
+        ToolLocator.SelectVisualStudioMSBuild([Bare], _files.Contains).ShouldBeNull();
     }
 
     [Fact, Trait("Category", "Unit")]

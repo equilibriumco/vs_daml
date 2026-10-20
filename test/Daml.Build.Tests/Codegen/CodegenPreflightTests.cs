@@ -72,7 +72,8 @@ public sealed class CodegenPreflightTests : IDisposable
             new CodegenOptions(true, _generator.Pin, GeneratedOutputMode.Intermediate, Root, JavaHome: Path.Combine(_root, "jdk")),
             [new CodegenInput(reference, Dar)],
             designTime,
-            runtime) { LedgerAbstractionsVersion = "0.6.0" };
+            runtime)
+        { LedgerAbstractionsVersion = "0.6.0" };
     }
 
     private Task<CodegenPlan> Plan(CodegenRequest request, ToolVersionCache? versions = null) =>
