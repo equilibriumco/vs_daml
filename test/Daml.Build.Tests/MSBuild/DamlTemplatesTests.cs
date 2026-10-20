@@ -94,6 +94,21 @@ public sealed class DamlTemplatesTests : IDisposable
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
+    // A build downloads the generator only when its project says so. The app the template makes says
+    // so unless told not to, so its first build on a machine without the generator doesn't fail.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(new string[0], true)]
+    [InlineData(new[] { "--allow-tool-install", "false" }, false)]
+    public async Task A_new_app_lets_its_first_build_download_the_generator_unless_told_not_to(string[] options, bool allowed)
+    {
+        await NewAsync(["daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App", .. options]);
+
+        var project = System.Xml.Linq.XDocument.Load(Folder(@"Demo.App\Demo.App\Demo.App.csproj"));
+        // Never in an offline build, where asking for a download is a configuration error.
+        var allow = project.Descendants("DamlAllowToolInstall").Select(p => (p.Value, (string?)p.Attribute("Condition"))).ToList();
+        allow.ShouldBe(allowed ? [("true", "'$(DamlOffline)' != 'true'")] : []);
+    }
+
     // What Add New Item makes of an item template of the extension, named as Visual Studio names it.
     private void AddItem(string template, string file, string relativePath)
     {
@@ -120,8 +135,6 @@ public sealed class DamlTemplatesTests : IDisposable
         {
             ["DamlDpmPath"] = dpm,
             ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
-            // Installs the generator once on a machine that hasn't got it yet.
-            ["DamlAllowToolInstall"] = "true",
         };
         const string Tests = @"Demo.App\Demo.App.Contracts.Tests\Demo.App.Contracts.Tests.msbuildproj";
 
@@ -143,5 +156,32 @@ public sealed class DamlTemplatesTests : IDisposable
         failing.ExitCode.ShouldNotBe(0, failing.Log);
         failing.Log.ShouldContain("Script error DAML0001");
         _output.WriteLine($"{host}: build {build.Elapsed.TotalSeconds:F1} s, tests {passing.Elapsed.TotalSeconds:F1} s.");
+    }
+
+    // A machine that has never built a Daml app has no generator in its cache: the app the template
+    // makes downloads the pinned one on its first build, with nothing set by hand. The download comes
+    // from the generator's registry, so this needs the network.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
+    public async Task On_a_machine_without_the_generator_a_new_apps_first_build_downloads_it()
+    {
+        var dpm = RequiredTools.Require(ExternalTool.Dpm);
+        var java = RequiredTools.Require(ExternalTool.Java);
+        await NewAsync("daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App");
+        // Where builds keep their generators, empty.
+        var localAppData = Folder("local-app-data");
+        Directory.CreateDirectory(localAppData);
+
+        var build = _sandbox.Build(MSBuildHost.Dotnet, HostPath(MSBuildHost.Dotnet), @"Demo.App\Demo.App.slnx",
+            environment: new Dictionary<string, string> { ["LOCALAPPDATA"] = localAppData },
+            properties: new Dictionary<string, string>
+            {
+                ["DamlDpmPath"] = dpm,
+                ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            });
+
+        build.ExitCode.ShouldBe(0, build.Log);
+        build.Log.ShouldContain("Generated C# for");
+        Directory.EnumerateFiles(Path.Combine(localAppData, "DamlVisualStudio", "codegen"), "*", SearchOption.AllDirectories).ShouldNotBeEmpty();
+        _output.WriteLine($"First build with the download: {build.Elapsed.TotalSeconds:F1} s.");
     }
 }

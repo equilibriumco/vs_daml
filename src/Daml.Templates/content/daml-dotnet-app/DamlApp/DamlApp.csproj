@@ -6,6 +6,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+<!--#if (AllowToolInstall) -->
+
+  <!-- The C# generator is downloaded once per machine and generator version, digest-checked, into
+       %LOCALAPPDATA%\DamlVisualStudio\codegen. This lets the build do that on its first run; without it
+       a machine that hasn't got the generator stops with DAML0101. Not in an offline build
+       (DamlOffline=true), which never downloads anything. -->
+  <PropertyGroup>
+    <DamlAllowToolInstall Condition="'$(DamlOffline)' != 'true'">true</DamlAllowToolInstall>
+  </PropertyGroup>
+<!--#endif -->
 
   <!-- The build turns the Daml package into C# in this project's obj folder (namespace DamlApp.Contracts
        plus the Daml module) and compiles it with the rest; the generated code needs both runtime packages. -->

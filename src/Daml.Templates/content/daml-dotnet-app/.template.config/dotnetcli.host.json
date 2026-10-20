@@ -4,6 +4,10 @@
     "DamlSdkVersion": {
       "longName": "daml-sdk",
       "shortName": ""
+    },
+    "AllowToolInstall": {
+      "longName": "allow-tool-install",
+      "shortName": ""
     }
   }
 }

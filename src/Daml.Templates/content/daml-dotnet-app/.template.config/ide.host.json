@@ -6,6 +6,12 @@
       "name": { "text": "Daml SDK version" },
       "description": { "text": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>." },
       "isVisible": true
+    },
+    {
+      "id": "AllowToolInstall",
+      "name": { "text": "Download the C# generator on the first build" },
+      "description": { "text": "Let the first build on a machine download the pinned C# code generator (DamlAllowToolInstall in the app's project). Without it, a machine that hasn't got the generator yet needs one build with DamlAllowToolInstall=true first." },
+      "isVisible": true
     }
   ]
 }
