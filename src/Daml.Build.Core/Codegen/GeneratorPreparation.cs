@@ -122,7 +122,7 @@ public sealed class GeneratorPreparation
         Directory.CreateDirectory(temp);
         try
         {
-            GeneratorWorkFolder.Prepare(work, cache.Pin);
+            GeneratorWorkFolder.PrepareInstall(work, cache.Pin);
             var spec = new ProcessSpec(dpm, ["install", "package"])
             {
                 WorkingDirectory = work,

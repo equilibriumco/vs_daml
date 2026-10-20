@@ -94,8 +94,9 @@ public sealed class GeneratorPreparationTests : IDisposable
         InstallSucceeds(spec =>
         {
             File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "daml.yaml")).ShouldContain("  - " + _download.Pin.Reference);
-            // Wherever the cache lives, a multi-package.yaml above it can't reach dpm.
-            File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "multi-package.yaml")).ShouldBe("packages: []\n");
+            // dpm install package beside a multi-package.yaml installs for the packages it lists, and
+            // an empty one has none: dpm 1.0.22 then succeeds without downloading anything.
+            File.Exists(Path.Combine(spec.WorkingDirectory!, "multi-package.yaml")).ShouldBeFalse();
             _installSaw.Add(spec.WorkingDirectory!);
         });
 

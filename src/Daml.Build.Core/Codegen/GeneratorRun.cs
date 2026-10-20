@@ -80,7 +80,7 @@ public sealed class GeneratorRun
         Directory.CreateDirectory(temp);
         try
         {
-            GeneratorWorkFolder.Prepare(run, tools.Cache.Pin);
+            GeneratorWorkFolder.PrepareRun(run, tools.Cache.Pin);
             var arguments = new List<string> { "codegen-cs", "--dar", dar, "--out", staging };
             if (reference.Namespace is { } @namespace)
             {
