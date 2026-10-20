@@ -73,18 +73,20 @@ public class ToolOptionsTests
     [InlineData("false", "false", "false")]
     [InlineData("false", "true", "true")]
     [InlineData("true", "false", "false")]
+    [InlineData("true", "true", "false")]
     public void Dpm_installs_tools_only_when_the_build_allows_it(string offline, string install, string expected) =>
         Read(("DamlOffline", offline), ("DamlAllowToolInstall", install)).Options.DpmEnvironment
             .ShouldBe(new Dictionary<string, string> { ["DPM_AUTO_INSTALL"] = expected });
 
-    // Offline promises no downloads; installing a missing tool is one.
+    // Leave to install is leave, not a demand: a project that allows installs (as the app template
+    // makes it) still builds offline, and the offline build still downloads nothing.
     [Fact, Trait("Category", "Unit")]
-    public void Offline_and_tool_install_cannot_both_be_on()
+    public void Offline_wins_over_leave_to_install()
     {
-        var error = Read(("DamlOffline", "true"), ("DamlAllowToolInstall", "true")).Errors.ShouldHaveSingleItem();
+        var read = Read(("DamlOffline", "true"), ("DamlAllowToolInstall", "true"));
 
-        error.Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        error.Message.ShouldContain("DamlOffline");
-        error.Message.ShouldContain("DamlAllowToolInstall");
+        read.Errors.ShouldBeEmpty();
+        read.Options.Offline.ShouldBeTrue();
+        read.Options.AllowToolInstall.ShouldBeFalse();
     }
 }

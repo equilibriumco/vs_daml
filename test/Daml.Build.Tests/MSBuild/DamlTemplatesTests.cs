@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Daml.Build.Core.Processes;
+using Daml.Build.Tests.Codegen;
 using Daml.TestHelpers;
 using Shouldly;
 using Xunit;
@@ -104,9 +105,41 @@ public sealed class DamlTemplatesTests : IDisposable
         await NewAsync(["daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App", .. options]);
 
         var project = System.Xml.Linq.XDocument.Load(Folder(@"Demo.App\Demo.App\Demo.App.csproj"));
-        // Never in an offline build, where asking for a download is a configuration error.
-        var allow = project.Descendants("DamlAllowToolInstall").Select(p => (p.Value, (string?)p.Attribute("Condition"))).ToList();
-        allow.ShouldBe(allowed ? [("true", "'$(DamlOffline)' != 'true'")] : []);
+        project.Descendants("DamlAllowToolInstall").Select(p => p.Value).ShouldBe(allowed ? ["true"] : []);
+    }
+
+    // The app allows downloads, and an offline build, however late it says so (here after the
+    // project's own properties), still downloads nothing: a missing generator is DAML0107, never a
+    // clash of the two settings.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public async Task A_new_app_built_offline_downloads_nothing_wherever_offline_was_set(MSBuildHost host)
+    {
+        await NewAsync("daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App");
+        _sandbox.Write(@"Demo.App\Directory.Build.targets", "<Project>\n  <PropertyGroup>\n    <DamlOffline>true</DamlOffline>\n  </PropertyGroup>\n</Project>\n");
+        _sandbox.Write(@"jdk\bin\java.exe", "");
+        var dar = Path.Combine(_sandbox.Root, "contracts.dar");
+        TestDar.Write(dar, "demo-app-contracts-0.1.0");
+        var build = new FakeDpmCommand { Stderr = "Created .daml\\dist\\demo-app-contracts-0.1.0.dar\n" };
+        build.Args.Add("build");
+        build.WriteFiles[@".daml\dist\demo-app-contracts-0.1.0.dar"] = "base64:" + Convert.ToBase64String(File.ReadAllBytes(dar));
+        Scenario(build);
+        var environment = _dpm.Environment.ToDictionary(e => e.Key, e => e.Value);
+        environment["LOCALAPPDATA"] = Folder("local-app-data");
+        Directory.CreateDirectory(environment["LOCALAPPDATA"]);
+
+        var run = _sandbox.Build(host, HostPath(host), @"Demo.App\Demo.App\Demo.App.csproj", environment, new Dictionary<string, string>
+        {
+            ["DamlDpmPath"] = _dpm.ExecutablePath,
+            ["DamlJavaHome"] = Folder("jdk"),
+            ["DamlSkipPreflight"] = "true",
+        });
+
+        run.ExitCode.ShouldNotBe(0, run.Log);
+        run.Log.ShouldContain("DAML0107");
+        run.Log.ShouldNotContain("DAML0100");
+        _dpm.ReadCalls().ShouldNotContain(c => c.Args.Contains("install") || c.Args.Contains("codegen-cs"));
     }
 
     // What Add New Item makes of an item template of the extension, named as Visual Studio names it.

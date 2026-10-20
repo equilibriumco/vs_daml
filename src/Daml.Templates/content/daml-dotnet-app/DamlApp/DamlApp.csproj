@@ -10,10 +10,10 @@
 
   <!-- The C# generator is downloaded once per machine and generator version, digest-checked, into
        %LOCALAPPDATA%\DamlVisualStudio\codegen. This lets the build do that on its first run; without it
-       a machine that hasn't got the generator stops with DAML0101. Not in an offline build
-       (DamlOffline=true), which never downloads anything. -->
+       a machine that hasn't got the generator stops with DAML0101. An offline build (DamlOffline=true)
+       still downloads nothing. -->
   <PropertyGroup>
-    <DamlAllowToolInstall Condition="'$(DamlOffline)' != 'true'">true</DamlAllowToolInstall>
+    <DamlAllowToolInstall>true</DamlAllowToolInstall>
   </PropertyGroup>
 <!--#endif -->
 

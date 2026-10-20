@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Daml.Build.Core.Diagnostics;
 
 namespace Daml.Build.Core.Configuration;
 
 /// <summary>How Daml build steps run tools: which dpm, whether anything may be downloaded, how long to wait.</summary>
 /// <param name="DpmPath">dpm as the project sets it; null to look for it.</param>
 /// <param name="Offline">Never install or download anything; a missing tool is an error.</param>
-/// <param name="AllowToolInstall">Let dpm install a missing Daml SDK or code generator.</param>
+/// <param name="AllowToolInstall">Let dpm install a missing Daml SDK or code generator; never in an offline build.</param>
 /// <param name="SkipPreflight">Skip the tool version checks, at the user's own risk.</param>
 /// <param name="ProcessTimeout">How long one tool run may take; null for no limit.</param>
 /// <param name="LockTimeout">How long to wait for another build's lock.</param>
@@ -44,13 +43,9 @@ public sealed record ToolOptions(
         }
         var reader = new PropertyReader(property, errors);
         var offline = reader.Bool(DamlProperties.Offline);
-        var install = reader.Bool(DamlProperties.AllowToolInstall);
-        if (offline && install)
-        {
-            reader.Error(
-                DamlDiagnosticCodes.InvalidConfiguration,
-                $"{DamlProperties.Offline.Name} and {DamlProperties.AllowToolInstall.Name} are both true, but an offline build never installs anything. Turn one of them off.");
-        }
+        // Leave to install is leave, not a demand: an app that allows it (as the template makes
+        // it) still builds offline, wherever DamlOffline was set, and downloads nothing.
+        var install = reader.Bool(DamlProperties.AllowToolInstall) && !offline;
         var process = reader.Seconds(DamlProperties.ProcessTimeoutSeconds, minimum: 0);
         return new ToolOptions(
             reader.Text(DamlProperties.DpmPath),

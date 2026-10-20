@@ -7,12 +7,11 @@ generation: DamlReference C:\work\Contracts\Contracts.msbuildproj namespace=Cont
 generation: DamlDar C:\work\vendor\finance-1.0.0.dar namespace=Finance -> finance-1.0.0-4393cc8da1459acb
 
 == misconfigured.csproj
-tools: dpm=(look for it) offline=True install=True skip-preflight=False
+tools: dpm=(look for it) offline=True install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Source root=(none) java=(PATH)
 generator: (none)
 generation: DamlDar C:\work\vendor\ledger.dar namespace=Ledger -> ledger-fd911920cdeef811
-error DAML0100: DamlOffline and DamlAllowToolInstall are both true, but an offline build never installs anything. Turn one of them off.
 error DAML0100: DamlLockTimeoutSeconds is '0', but it has to be a whole number of seconds from 1 up.
 error DAML0106: DamlCodegenComponent is 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest', but the generator has to be pinned by its digest: oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>.
 error DAML0100: DamlGeneratedDir is '.', which holds the project folder C:\work\App. Generated code needs a folder of its own.
