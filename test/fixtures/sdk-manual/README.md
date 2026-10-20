@@ -15,7 +15,7 @@ versions out, so the solution builds like a user's.
    `Client/Client.csproj` to match.
 2. After every new pack, with Visual Studio closed, delete `%USERPROFILE%\.nuget\packages\daml.sdk\0.3.0-preview.0` and
    `%USERPROFILE%\.nuget\packages\daml.build.csharp\0.3.0-preview.0` (NuGet keeps the first copy of a version and never
-   looks again), then run `dotnet restore test\fixtures\sdk-manual\SdkManual.sln` before opening the solution. Visual
+   looks again; `pack.ps1` warns when they hold another copy), then run `dotnet restore test\fixtures\sdk-manual\SdkManual.sln` before opening the solution. Visual
    Studio evaluates the projects before its own restore brings the packages back, and as the restore writes the same
    files as before, it never evaluates them again: `Client` would build without the package's targets in its design-time
    view, so without its build-order dependency on `Contracts` (DAML0104 "There is no DAR" in a Rebuild) until reloaded.
