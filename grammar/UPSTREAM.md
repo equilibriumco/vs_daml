@@ -108,19 +108,36 @@
    plug it in and the scanner's `with` block; `grep -n Daml src/scanner.c grammar/*.js` finds them,
    apart from the two `daml` lines in `grammar.js`).
 4. `npx tree-sitter generate` and `npx tree-sitter test` must pass; then update the table above.
-## Known issues inherited from upstream
+## Incremental parsing corrections (2026-10-20)
 
-- **A layout block closed by a token is rebuilt wrongly after an edit is undone.** When a block
-  ends at a token rather than at its indentation (`in`, `)`, `|]`, an infix operator) and an edit
-  deletes that token, undoing the edit and parsing incrementally can give an `ERROR` or a
-  differently closed block, while a parse from scratch is right. `tree-sitter fuzz` hits it with
-  about one random seed in four: 12 of the 796 corpus tests over 1 000 trials each. Unmodified
-  tree-sitter-haskell 0.24.1 fails 9 of them, at the same seeds (it doesn't run `tree-sitter
-  fuzz` in its CI, and the CLI exits 0 on fuzz failures); `colons: signature in let` fails at the
-  same seeds as its Haskell twin; `record: ended by then, else and in` and `record: patterns in
-  parentheses` (a `with` block inside a one-line `let … in`) show the same pattern and have no
-  upstream counterpart. To replay one, in `tree-sitter-daml`:
-  `TREE_SITTER_SEED=<seed from the failure> npx tree-sitter fuzz --iterations 1 -i "<test name>"`.
-  Our CI and the Grammar test category fuzz with a fixed seed that passes; `grammar-nightly.yml`,
-  started by hand, tries new seeds, and its libFuzzer and incremental-parsing checks fail on this
-  bug too ("undoing the edits doesn't give the tree of the input back"). Worth reporting upstream; a fix belongs in the scanner's layout handling.
+The scanner records a column dependency on every scan, including scans that emit no layout
+token. This prevents reuse of stale layout state after batched indentation edits. Closing an
+expression context also looks through whitespace to the next token: restoring `<- action`
+after `(-1)` must invalidate the old expression and recover the bind pattern.
+
+`scanner-regressions.test.mjs` replays the failing seeds (106 for `colons: signature in let`,
+84 for negative expressions/bind patterns). The native smoke test checks both edit/undo
+sequences through the exported API. The grammar's negative-literal conflict also fixes the
+full parse of `Fpml.daml`, which is no longer a corpus exception.
+
+## Changed ranges after error recovery (patched runtime)
+
+With tree-sitter 0.27.1, seed 987 of `cpp: newline after decl in layout with one-way if`
+reports an unexpected scope change for `#endif` outside the reported changed ranges, and
+unmodified tree-sitter-haskell 0.24.1 fails the same way. The trees are right: an error at
+the top of the file leaves the layout scanner in a state that puts the final `#endif` inside
+the instance body, and undoing the error moves it back out. The runtime misses the move:
+`ts_subtree_get_changed_ranges`, after re-aligning its two iterators by depth, compares the
+enclosing `declarations` nodes from the middle and declares them identical.
+
+`runtime-patches/changed-ranges-after-realignment.patch` fixes that in every runtime we build
+(the fuzzer and `daml_ts.dll`); the native smoke test replays the sequence and checks that the
+`#endif` line is in the ranges. The CLI's bundled runtime takes no patch, so `tree-sitter fuzz`
+still fails this seed until the pinned CLI includes the fix; the patch goes with that bump.
+Reported upstream: (link once filed).
+
+Replay in the grammar directory:
+`TREE_SITTER_SEED=987 npx tree-sitter fuzz --iterations 1 -i "cpp: newline after decl in layout with one-way if"`.
+PowerShell uses `$env:TREE_SITTER_SEED='987'` before the command.
+The broad fuzz logs and upstream reproduction are recorded in
+[`docs/cold-review-2026-10-20.md`](../docs/cold-review-2026-10-20.md).

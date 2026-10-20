@@ -23,7 +23,13 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 
 $runtimeCommit = (Get-Content -Raw (Join-Path $PSScriptRoot '..\tree-sitter-runtime.txt') | ConvertFrom-StringData).commit.Trim()
 $runtime = Join-Path $Out 'tree-sitter'
-if ((git -C $runtime rev-parse HEAD 2>$null) -ne $runtimeCommit) {
+# The patches in runtime-patches/ go on top of the checkout. A marker records which ones were
+# applied, and the checkout is made afresh when the commit or the set of patches changes.
+$patches = @(Get-ChildItem (Join-Path $PSScriptRoot '..\runtime-patches') -Filter *.patch | Sort-Object Name)
+$wantedPatches = ($patches | ForEach-Object { "$($_.Name) $((Get-FileHash $_.FullName).Hash)" }) -join "`n"
+$appliedMarker = Join-Path $runtime 'applied-patches.txt'
+$appliedPatches = if (Test-Path $appliedMarker) { ([string](Get-Content -Raw $appliedMarker)).Trim() } else { $null }
+if ((git -C $runtime rev-parse HEAD 2>$null) -ne $runtimeCommit -or $appliedPatches -ne $wantedPatches) {
     Remove-Item -Recurse -Force $runtime -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force $runtime | Out-Null
     git -C $runtime init -q
@@ -32,6 +38,11 @@ if ((git -C $runtime rev-parse HEAD 2>$null) -ne $runtimeCommit) {
     git -C $runtime fetch -q --depth 1 origin $runtimeCommit
     git -C $runtime checkout -q FETCH_HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Fetching the tree-sitter runtime failed.' }
+    foreach ($patch in $patches) {
+        git -C $runtime apply --whitespace=nowarn $patch.FullName
+        if ($LASTEXITCODE -ne 0) { throw "The runtime patch $($patch.Name) doesn't apply to $runtimeCommit." }
+    }
+    Set-Content -Path $appliedMarker -Value $wantedPatches -NoNewline
 }
 if (-not (Test-Path (Join-Path $grammar 'src\parser.c'))) {
     throw 'No generated parser: run npx tree-sitter generate in grammar/tree-sitter-daml.'

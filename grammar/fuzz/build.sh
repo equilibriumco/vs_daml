@@ -19,7 +19,13 @@ mkdir -p "$out"
 
 runtime_commit="$(sed -n 's/^commit=\([0-9a-f]*\).*/\1/p' "$here/../tree-sitter-runtime.txt")"
 runtime="$out/tree-sitter"
-if [ "$(git -C "$runtime" rev-parse HEAD 2>/dev/null || true)" != "$runtime_commit" ]; then
+# The patches in runtime-patches/ go on top of the checkout. A marker records which ones were
+# applied, and the checkout is made afresh when the commit or the set of patches changes.
+patches="$here/../runtime-patches"
+wanted_patches="$(cd "$patches" 2>/dev/null && sha256sum *.patch 2>/dev/null || true)"
+applied_patches="$(cat "$runtime/applied-patches.txt" 2>/dev/null || true)"
+if [ "$(git -C "$runtime" rev-parse HEAD 2>/dev/null || true)" != "$runtime_commit" ] ||
+    [ "$applied_patches" != "$wanted_patches" ]; then
   rm -rf "$runtime"
   mkdir -p "$runtime"
   git -C "$runtime" init -q
@@ -27,6 +33,12 @@ if [ "$(git -C "$runtime" rev-parse HEAD 2>/dev/null || true)" != "$runtime_comm
   git -C "$runtime" sparse-checkout set --no-cone /lib/src/ /lib/include/
   git -C "$runtime" fetch -q --depth 1 origin "$runtime_commit"
   git -C "$runtime" checkout -q FETCH_HEAD
+  for patch in "$patches"/*.patch; do
+    [ -e "$patch" ] || continue
+    git -C "$runtime" apply --whitespace=nowarn "$patch" ||
+      { echo "The runtime patch $(basename "$patch") doesn't apply to $runtime_commit." >&2; exit 1; }
+  done
+  printf '%s' "$wanted_patches" > "$runtime/applied-patches.txt"
 fi
 
 if [ ! -f "$grammar/src/parser.c" ]; then

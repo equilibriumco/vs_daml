@@ -1,0 +1,52 @@
+tree-sitter 0.27.1: changed ranges after the iterators are re-aligned by depth
+
+ts_subtree_get_changed_ranges walks the old and new trees side by side. When its two
+iterators end up at different depths at the same position, the deeper one is moved up to an
+ancestor, and the next round compares that ancestor with the other tree's node from the
+middle of the ancestor. iterator_compare can then declare the two identical (same symbol,
+start, size and error cost, no edit recorded in the old one, equal scanner state on the last
+external tokens passed), and the walk jumps to the ancestor's end: the part under the
+current position, which differs in depth, is never reported.
+
+Seen with tree-sitter-haskell and this grammar: an error at the top of the file leaves the
+layout scanner in a state that puts a final #endif inside the instance body. Undoing the
+error moves #endif back out, both trees are right for their text, and the changed ranges
+between them are empty.
+
+A match is never trusted right after a re-alignment; the walk descends instead. The common
+edit path is untouched: an ancestor that contains the edit has changes recorded and is
+descended into already. Drop this patch when tree-sitter-runtime.txt moves to a release
+that includes the fix.
+
+diff --git a/lib/src/get_changed_ranges.c b/lib/src/get_changed_ranges.c
+--- a/lib/src/get_changed_ranges.c
++++ b/lib/src/get_changed_ranges.c
+@@ -423,6 +423,7 @@ unsigned ts_subtree_get_changed_ranges(
+   Iterator new_iter = iterator_new(cursor2, new_tree, language);
+ 
+   unsigned included_range_difference_index = 0;
++  bool realigned = false;
+ 
+   Length position = iterator_start_position(&old_iter);
+   Length next_position = iterator_start_position(&new_iter);
+@@ -445,6 +446,8 @@ unsigned ts_subtree_get_changed_ranges(
+ 
+     // Compare the old and new subtrees.
+     IteratorComparison comparison = iterator_compare(&old_iter, &new_iter);
++    if (realigned && comparison == IteratorMatches) comparison = IteratorMayDiffer;
++    realigned = false;
+ 
+     // Even if the two subtrees appear to be identical, they could differ
+     // internally if they contain a range of text that was previously
+@@ -509,9 +512,11 @@ unsigned ts_subtree_get_changed_ranges(
+     // Ensure that both iterators are at the same depth in the tree.
+     while (old_iter.visible_depth > new_iter.visible_depth) {
+       iterator_ascend(&old_iter);
++      realigned = true;
+     }
+     while (new_iter.visible_depth > old_iter.visible_depth) {
+       iterator_ascend(&new_iter);
++      realigned = true;
+     }
+ 
+     if (is_changed) {

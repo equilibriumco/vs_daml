@@ -8,6 +8,7 @@ published, is [`tree-sitter-daml/`](tree-sitter-daml/README.md); this folder hol
 | `tree-sitter-daml/` | The grammar package: `grammar.js` (upstream's rules in `grammar/*.js`, Daml's in `grammar/daml.js`), the external scanner `src/scanner.c`, `queries/`, tests (`test/corpus`, `test/highlight`, `test/tags`, `test/queries`). MIT. |
 | `UPSTREAM.md` | The tree-sitter-haskell commit the fork starts from, what was changed, how to take upstream changes. |
 | `tree-sitter-runtime.txt` | The tree-sitter runtime built into the fuzzer and the native library: the release of the CLI pinned in `tree-sitter-daml/package.json`. |
+| `runtime-patches/` | Changes to that runtime which every build of it applies; each patch says what it fixes and when it can go. |
 | `docs/nodes.md` | The nodes Daml adds and their fields: the contract for queries and editors. |
 | `docs/corpus.md`, `corpus-sources.psd1`, `corpus-exceptions.json` | The real-world corpus: pinned sources, the gate's last report, the files allowed to fail and why. |
 | `docs/baseline.md` | What the unchanged Haskell grammar made of the corpus, before any Daml rule. |
@@ -58,8 +59,9 @@ pwsh native/build.ps1 [-Package]                                 # daml_ts.dll f
   sanitizers and a minute of fuzzing, the parsing speed (reported only: shared runners are too
   noisy), and the release artifacts through `grammar-artifacts.yml`.
 - `grammar-nightly.yml`, run by hand (Actions → Grammar nightly → Run workflow): ten minutes of fuzzing
-  and 3 000 incremental-parsing cases with a new seed, which often meet the known layout bug in
-  `UPSTREAM.md`.
+  and 3 000 incremental-parsing cases with a new seed. The CLI's bundled runtime lacks the
+  changed-range patch from `runtime-patches/`, so one preprocessor case still fails there; that
+  and the corrected layout regressions are documented in `UPSTREAM.md`.
 - `grammar-artifacts.yml`: `daml_ts.dll` for x64 and ARM64 (smoke test on x64), the WebAssembly
   module (the CLI fetches wasi-sdk), a source archive with the generated parser.
 
@@ -79,4 +81,5 @@ Running the release workflow by hand builds the same files without a release, to
 [`UPSTREAM.md`](UPSTREAM.md) lists what the fork changed and how to rebase onto a newer
 tree-sitter-haskell. A new tree-sitter CLI means a new runtime pin as well: update
 `tree-sitter-daml/package.json` and `tree-sitter-runtime.txt` together (a test fails when they
-disagree), then run the Grammar category, the fuzzer and the native build.
+disagree), drop every patch in `runtime-patches/` that the release includes (the builds fail when
+one no longer applies), then run the Grammar category, the fuzzer and the native build.

@@ -36,9 +36,28 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${pin}")
 file(STRINGS "${pin}" commit REGEX "^commit=")
 string(REGEX REPLACE "^commit=([0-9a-f]+).*" "\\1" commit "${commit}")
 set(runtime "${CMAKE_BINARY_DIR}/tree-sitter")
+
+# The patches in grammar/runtime-patches/ go on top of the checkout. A marker records which ones
+# were applied, and the checkout is made afresh when the commit or the set of patches changes.
+file(GLOB patches CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../grammar/runtime-patches/*.patch")
+list(SORT patches)
+set(wanted_patches "")
+foreach(patch IN LISTS patches)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${patch}")
+  file(SHA256 "${patch}" digest)
+  get_filename_component(name "${patch}" NAME)
+  string(APPEND wanted_patches "${name} ${digest}\n")
+endforeach()
+set(applied_marker "${runtime}/applied-patches.txt")
+set(applied_patches "")
+if(EXISTS "${applied_marker}")
+  file(READ "${applied_marker}" applied_patches)
+endif()
+
 execute_process(COMMAND git -C "${runtime}" rev-parse HEAD
   OUTPUT_VARIABLE head OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
-if(NOT head STREQUAL commit OR NOT EXISTS "${runtime}/LICENSE")
+if(NOT head STREQUAL commit OR NOT EXISTS "${runtime}/LICENSE"
+    OR NOT applied_patches STREQUAL wanted_patches)
   message(STATUS "Fetching the tree-sitter runtime at ${commit}")
   file(REMOVE_RECURSE "${runtime}")
   file(MAKE_DIRECTORY "${runtime}")
@@ -54,6 +73,13 @@ if(NOT head STREQUAL commit OR NOT EXISTS "${runtime}/LICENSE")
       message(FATAL_ERROR "Fetching the tree-sitter runtime failed at `git ${step}`.")
     endif()
   endforeach()
+  foreach(patch IN LISTS patches)
+    execute_process(COMMAND git -C "${runtime}" apply --whitespace=nowarn "${patch}" RESULT_VARIABLE failed)
+    if(failed)
+      message(FATAL_ERROR "The runtime patch ${patch} doesn't apply to ${commit}.")
+    endif()
+  endforeach()
+  file(WRITE "${applied_marker}" "${wanted_patches}")
 endif()
 
 # The exports: every function api.h declares (its declarations start in the first column) and the
