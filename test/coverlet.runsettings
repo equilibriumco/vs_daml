@@ -2,6 +2,13 @@
 <!-- Coverage settings used by scripts/test.ps1. Only product assemblies count: test projects
      and the shared test helpers would otherwise inflate (or dilute) the numbers. -->
 <RunSettings>
+  <!-- The .NET Framework test host runs the tests in a second app domain, and assemblies loaded
+       there have their strong names verified: the instrumented copies coverlet writes no longer
+       pass. The host's default domain doesn't verify. Without the extra domain the net48 host
+       also warns that it can't load the SDK's own extension assemblies; that is noise only. -->
+  <RunConfiguration>
+    <DisableAppDomain>true</DisableAppDomain>
+  </RunConfiguration>
   <DataCollectionRunSettings>
     <DataCollectors>
       <DataCollector friendlyName="XPlat code coverage">
