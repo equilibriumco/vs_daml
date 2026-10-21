@@ -124,15 +124,24 @@ public sealed class GeneratedPropsTests : IDisposable
     }
 
     // MSBuild reads an import without letting anyone replace it; that only holds the new list up.
+    // The reader lets go from a thread of its own: a thread-pool timer can fire late under the
+    // parallel test load, past the writer's retry budget.
     [Fact, Trait("Category", "Unit")]
     public void A_reader_holding_the_old_list_only_delays_the_new_one()
     {
         GeneratedProps.Write(Props, Files, visible: false);
         var reader = new FileStream(Props, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var release = new System.Threading.Timer(_ => reader.Dispose(), null, 150, System.Threading.Timeout.Infinite);
+        var release = new System.Threading.Thread(() =>
+        {
+            System.Threading.Thread.Sleep(150);
+            reader.Dispose();
+        })
+        { IsBackground = true };
+        release.Start();
 
         GeneratedProps.Write(Props, Files.Take(1), visible: false).ShouldBeTrue();
 
+        release.Join();
         XDocument.Load(Props).Root!.Descendants("Compile").ShouldHaveSingleItem();
     }
 

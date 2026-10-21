@@ -81,6 +81,44 @@ public sealed class GenerationStateTests : IDisposable
         (Evaluate(fingerprint: "beef").Status, Evaluate(fingerprint: "beef").Reason).ShouldBe((GenerationStatus.Stale, "Its inputs changed."));
     }
 
+    // Before a build holds the output lock, a clean of another build can remove the folder between
+    // the existence check and the read of its files. A folder that is a junction to a removed target
+    // fails the same way, and does so every time.
+    [Fact, Trait("Category", "Unit")]
+    public void A_folder_removed_while_it_is_read_counts_as_stale()
+    {
+        var target = Path.Combine(Path.GetDirectoryName(_folder)!, "target");
+        Directory.CreateDirectory(target);
+        Junction(_folder, target);
+        try
+        {
+            Directory.Delete(target);
+            Directory.Exists(_folder).ShouldBeTrue();
+
+            var state = Evaluate();
+
+            state.Status.ShouldBe(GenerationStatus.Stale);
+            state.Reason.ShouldBe("It was removed while this build looked at it.");
+        }
+        finally
+        {
+            // A junction goes with a plain delete; the recursive one of Dispose can't look inside it.
+            Directory.Delete(_folder);
+        }
+    }
+
+    private static void Junction(string link, string target)
+    {
+        var mklink = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{target}\"")
+        {
+            CreateNoWindow = true,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+        })!;
+        mklink.WaitForExit();
+        mklink.ExitCode.ShouldBe(0, mklink.StandardOutput.ReadToEnd());
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_deleted_file_makes_it_stale()
     {

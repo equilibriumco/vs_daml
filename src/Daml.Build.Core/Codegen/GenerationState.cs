@@ -44,6 +44,20 @@ public sealed record GenerationState(GenerationStatus Status, string? Reason, IR
         {
             return Stale("There is no generation yet.");
         }
+        try
+        {
+            return Judge(folder, fingerprint, owner);
+        }
+        catch (IOException ex) when (ex is DirectoryNotFoundException or FileNotFoundException)
+        {
+            // Before a build holds the output lock, a clean of another build can take the folder
+            // away between the check above and the reads; the judgement under the lock settles it.
+            return Stale("It was removed while this build looked at it.");
+        }
+    }
+
+    private static GenerationState Judge(string folder, string fingerprint, string owner)
+    {
         var manifestPath = Path.Combine(folder, GenerationManifest.FileName);
         var onDisk = LongPaths.RelativeFiles(folder)
             .Where(f => !string.Equals(f, GenerationManifest.FileName, StringComparison.OrdinalIgnoreCase))
