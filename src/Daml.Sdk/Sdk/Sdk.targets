@@ -100,9 +100,6 @@
         DataDependencies="@(DamlDataDependency)">
       <Output TaskParameter="CreatedDar" PropertyName="DamlCreatedDar" />
     </DamlBuildTask>
-    <!-- A build that found the DAR current tells Visual Studio's up-to-date check so, or the
-         check would keep asking for it. -->
-    <Touch Condition="'$(_DamlShouldBuild)' == 'false' and Exists('$(_DamlBuildStatePath)')" Files="$(_DamlBuildStatePath)" />
     <Message Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(DamlDarPath)')" Importance="high" Text="$(MSBuildProjectName) -> $(DamlDarPath)" />
   </Target>
 

@@ -69,7 +69,7 @@ public class ScaleTests
             }
             Ide.CloseAllDocuments();
 
-            syncBefore = Ide.SetDamlOption("LiveBindingSync", true);
+            syncBefore = await Ide.SetDamlOptionAsync("LiveBindingSync", true);
             var sync = (await BackgroundSyncAsync(fixture)).TotalSeconds;
 
             var warmLenses = lenses.Skip(1).ToList();
@@ -97,7 +97,7 @@ public class ScaleTests
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             if (syncBefore is not null)
             {
-                Ide.SetDamlOption("LiveBindingSync", syncBefore);
+                await Ide.SetDamlOptionAsync("LiveBindingSync", syncBefore);
             }
             Ide.CloseAllDocuments();
             await Ide.CloseSolutionAsync();

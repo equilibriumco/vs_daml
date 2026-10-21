@@ -9,9 +9,9 @@ using Xunit;
 
 namespace Daml.VisualStudio.Tests;
 
-// Comment toggling, auto-closing and word selection come from a language configuration file
-// that Visual Studio picks up by content type. Nothing in the editor tells us when the file is
-// wrong or missing, so its contents and registration are pinned here.
+// Comment toggling, auto-closing and wrapping a selection come from a language configuration
+// file that Visual Studio picks up by content type. Nothing in the editor tells us when the file
+// is wrong or missing, so its contents and registration are pinned here.
 public class LanguageConfigurationTests
 {
     private static readonly string Folder = Path.Combine(Repository.Root, "src", "Daml.VisualStudio", "LanguageConfiguration");
@@ -28,14 +28,15 @@ public class LanguageConfigurationTests
         comments["blockComment"]!.Values<string>().ShouldBe(["{-", "-}"]);
     }
 
-    // Without a grammar VS never closes a quote from the language configuration; the native
-    // brace completion does that instead (see the export test), so the two never both insert.
+    // The editor's brace completion takes exactly these pairs, once the switch for Daml views is
+    // on (see the export tests). Without any listed it falls back to its own set, which pairs the
+    // apostrophe too.
     [Fact, Trait("Category", "Editor")]
-    public void Brackets_close_automatically_and_quotes_are_left_to_native_completion()
+    public void Brackets_and_double_quotes_close_automatically()
     {
-        var opens = Configuration()["autoClosingPairs"]!.Select(p => (string)p["open"]!).ToList();
+        var pairs = Configuration()["autoClosingPairs"]!.Select(p => (string)p["open"]! + (string)p["close"]!).ToList();
 
-        opens.ShouldBe(["(", "[", "{"], ignoreOrder: true);
+        pairs.ShouldBe(["()", "[]", "{}", "\"\""], ignoreOrder: true);
     }
 
     // Scopes such as "string" come from a TextMate grammar, which Daml doesn't register, so a

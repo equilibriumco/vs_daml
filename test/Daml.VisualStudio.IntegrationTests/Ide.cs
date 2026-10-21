@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using EnvDTE;
 using Microsoft.VisualStudio;
@@ -11,6 +12,7 @@ using Microsoft.VisualStudio.Editor;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Shell.TableManager;
+using Microsoft.VisualStudio.Text;
 using Microsoft.VisualStudio.Text.Editor;
 using Microsoft.VisualStudio.Text.Editor.Commanding;
 using Microsoft.VisualStudio.Text.Editor.Commanding.Commands;
@@ -206,6 +208,33 @@ internal static class Ide
         var operations = componentModel.GetService<IEditorOperationsFactoryService>().GetEditorOperations(view);
         // The last handler in the chain is what puts the character into the buffer.
         commands.Execute((textView, buffer) => new TypeCharCommandArgs(textView, buffer, c), () => operations.InsertText(c.ToString()));
+    }
+
+    // The editor's brace completion pairs from its built-in set, apostrophe included, until the
+    // Daml language configuration has loaded: once per session, in the background, after the
+    // first Daml document opens. An apostrophe typed at the end of the buffer tells which set is
+    // in force, so this types one until the configured set answers.
+    public static async Task WaitForLanguageConfigurationAsync(IWpfTextView view)
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+        while (true)
+        {
+            var end = view.TextBuffer.CurrentSnapshot.Length;
+            view.Caret.MoveTo(new SnapshotPoint(view.TextBuffer.CurrentSnapshot, end));
+            TypeChar(view, '\'');
+            var inserted = view.TextBuffer.CurrentSnapshot.Length - end;
+            view.TextBuffer.Delete(new Span(end, inserted));
+            if (inserted == 1)
+            {
+                return;
+            }
+            if (DateTime.UtcNow > deadline)
+            {
+                throw new TimeoutException("Brace completion did not take the Daml language configuration in time.");
+            }
+            await Task.Delay(200);
+        }
     }
 
     public static DTE Dte() => Service<DTE, DTE>();
@@ -621,12 +650,22 @@ internal static class Ide
     /// the page's automation object; <paramref name="name"/> is the option's property. Returns the
     /// value it had, to put back afterwards.
     /// </summary>
-    public static object SetDamlOption(string name, object value)
+    // Through the extension's own options model, saved to the settings store, which is what the
+    // extension reads: a value set through DTE.Properties only changes the page's object in
+    // memory and is never seen by the product. Returns the value before.
+    public static async Task<object?> SetDamlOptionAsync(string name, object value)
     {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var option = Dte().get_Properties("Daml", "General").Item(name);
-        var before = option.Value;
-        option.Value = value;
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "Daml.VisualStudio");
+        Assert.True(assembly is not null, "The Daml extension isn't loaded yet; open a Daml file first.");
+        var options = assembly!.GetType("Daml.VisualStudio.Options.DamlOptions")!;
+        var liveTask = (Task)options.GetMethod("GetLiveInstanceAsync", BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy)!.Invoke(null, null)!;
+        await liveTask;
+        var live = liveTask.GetType().GetProperty("Result")!.GetValue(liveTask)!;
+        var property = options.GetProperty(name) ?? throw new ArgumentException($"DamlOptions has no option {name}.", nameof(name));
+        var before = property.GetValue(live);
+        property.SetValue(live, value);
+        await (Task)options.GetMethod("SaveAsync", BindingFlags.Instance | BindingFlags.Public | BindingFlags.FlattenHierarchy)!.Invoke(live, null)!;
         return before;
     }
 

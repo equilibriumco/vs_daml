@@ -43,15 +43,15 @@ public class LanguageConfigurationTests
         Assert.Equal(Text, view.TextBuffer.CurrentSnapshot.GetText().Replace("\r\n", "\n"));
     }
 
-    // Auto-closing of brackets is not tested here: the language configuration only closes a
-    // bracket for real keystrokes, not for typing simulated through the editor commands. It is
-    // part of the manual checks.
+    // Auto-closing is the editor's own brace completion, not the language configuration:
+    // BraceCompletionTests covers it.
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18), Trait("Category", "Integration")]
     public async Task Typing_an_apostrophe_after_a_name_adds_nothing_else()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var (textView, view) = Ide.OpenScratch(Text);
+        await Ide.WaitForLanguageConfigurationAsync(view);
         var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2);
         view.Caret.MoveTo(line.Start + "answer".Length);
 

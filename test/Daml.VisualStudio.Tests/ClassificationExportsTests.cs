@@ -78,14 +78,28 @@ public class ClassificationExportsTests
         ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
     }
 
+    // The pairs come from the language configuration through the editor's own brace completion;
+    // a second provider of ours would only compete with it. VS keeps brace completion switched
+    // off for a language without an options page, so every editable Daml view gets the switch.
     [Fact, Trait("Category", "Editor")]
-    public async Task Double_quotes_get_native_brace_completion_in_daml_buffers()
+    public async Task Daml_exports_no_brace_pairs_of_its_own()
     {
-        var export = (await MefParts.ExportsAsync(typeof(Microsoft.VisualStudio.Text.BraceCompletion.IBraceCompletionDefaultProvider))).Single();
+        var exports = await MefParts.ExportsAsync(typeof(Microsoft.VisualStudio.Text.BraceCompletion.IBraceCompletionDefaultProvider));
 
+        exports.ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Editor")]
+    public async Task Brace_completion_is_switched_on_for_editable_daml_views()
+    {
+        var parts = await MefParts.DiscoverAsync();
+        var contract = typeof(Microsoft.VisualStudio.Text.Editor.IWpfTextViewCreationListener);
+
+        var definition = MefParts.PartsExporting(parts, contract).Single(p => p.Type.FullName == typeof(Editing.DamlBraceCompletionSwitch).FullName);
+
+        var export = definition.ExportedTypes.Single(e => e.ContractName == MefParts.ContractName(contract));
         ((IEnumerable<string>)export.Metadata["ContentTypes"]!).ShouldBe(["daml"]);
-        ((IEnumerable<char>)export.Metadata["OpeningBraces"]!).ShouldBe(['"']);
-        ((IEnumerable<char>)export.Metadata["ClosingBraces"]!).ShouldBe(['"']);
+        ((IEnumerable<string>)export.Metadata["TextViewRoles"]!).ShouldBe([Microsoft.VisualStudio.Text.Editor.PredefinedTextViewRoles.Editable]);
     }
 
     [Theory, Trait("Category", "Editor")]
