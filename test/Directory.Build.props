@@ -12,6 +12,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
+    <!-- Same version as the test host, see Directory.Packages.props. -->
+    <PackageReference Include="Microsoft.TestPlatform.ObjectModel" PrivateAssets="all" />
     <PackageReference Include="Xunit.SkippableFact" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="coverlet.collector" PrivateAssets="all" />

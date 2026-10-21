@@ -73,6 +73,9 @@
        VS SDK Azure Artifacts feed; it gets added together with a nuget.config. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <!-- Kept at the test SDK's version: xunit.runner.visualstudio pulls an older one onto net48, and the
+         test host then warns about every extension file it scans with the app domain disabled. -->
+    <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
