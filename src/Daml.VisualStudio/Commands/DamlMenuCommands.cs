@@ -33,6 +33,8 @@ internal static class DamlMenuIds
     // Not on the Daml menu: the C# code window's context menu, handled by the editor.
     public const int GoToDamlDefinition = 0x0206;
 
+    public const int ExportDiagnostics = 0x0207;
+
     public const string DocumentationUrl = "https://docs.digitalasset.com/";
 }
 

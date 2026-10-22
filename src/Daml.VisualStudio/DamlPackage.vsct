@@ -56,6 +56,12 @@
           <ButtonText>Show Language Server Log</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidDamlCommandSet" id="ExportDiagnosticsCommand" priority="0x0300" type="Button">
+        <Parent guid="guidDamlCommandSet" id="DamlMenuServerGroup" />
+        <Strings>
+          <ButtonText>Export Diagnostics</ButtonText>
+        </Strings>
+      </Button>
       <Button guid="guidDamlCommandSet" id="BuildCurrentPackageCommand" priority="0x0100" type="Button">
         <Parent guid="guidDamlCommandSet" id="DamlMenuBuildGroup" />
         <Strings>
@@ -119,6 +125,7 @@
       <IDSymbol name="OpenDocumentationCommand" value="0x0204" />
       <IDSymbol name="ShowScriptResultsAtCaretCommand" value="0x0205" />
       <IDSymbol name="GoToDamlDefinitionCommand" value="0x0206" />
+      <IDSymbol name="ExportDiagnosticsCommand" value="0x0207" />
     </GuidSymbol>
   </Symbols>
 

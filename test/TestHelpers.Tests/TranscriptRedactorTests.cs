@@ -51,6 +51,7 @@ public class TranscriptRedactorTests
     [InlineData("DPM_REGISTRY_PASSWORD=hunter2-very-secret", "hunter2")]
     [InlineData("api_key: sk-live-abcdef0123456789", "sk-live")]
     [InlineData("aws AKIAIOSFODNN7EXAMPLE key", "AKIAIOSFODNN7EXAMPLE")]
+    [InlineData("pulling https://jdoe:hunter2pass@registry.example.com/v2/", "hunter2pass")]
     public void Secrets_in_any_text_are_masked(string text, string leak)
     {
         var redacted = Redacted($$$"""{"method":"window/logMessage","params":{"message":"{{{text}}}"}}""");

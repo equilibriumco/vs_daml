@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Daml.VisualStudio.Core.Diagnostics;
 using Newtonsoft.Json.Linq;
 
 namespace Daml.TestHelpers;
@@ -14,18 +15,6 @@ namespace Daml.TestHelpers;
 /// </summary>
 public sealed class TranscriptRedactor
 {
-    private const string Secret = "<redacted secret>";
-
-    // Bearer before JWT, so a token after "Bearer" goes in one piece.
-    private static readonly Regex[] Secrets =
-    [
-        new(@"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]+", RegexOptions.Compiled),
-        new(@"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", RegexOptions.Compiled),
-        new(@"\bgh[pousr]_[A-Za-z0-9]{20,}", RegexOptions.Compiled),
-        new(@"\bAKIA[0-9A-Z]{16}\b", RegexOptions.Compiled),
-        new(@"(?i)\b[\w-]*(password|passwd|secret|token|api[_-]?key)[\w-]*\s*[=:]\s*[^\s""',;]+", RegexOptions.Compiled),
-    ];
-
     private readonly List<(Regex Pattern, string Placeholder)> _paths;
 
     /// <summary>Creates a redactor for the given folders; the longest folder wins where they nest.</summary>
@@ -53,11 +42,7 @@ public sealed class TranscriptRedactor
         {
             text = pattern.Replace(text, placeholder.Replace("$", "$$"));
         }
-        foreach (var secret in Secrets)
-        {
-            text = secret.Replace(text, Secret);
-        }
-        return text;
+        return SensitiveText.MaskSecrets(text);
     }
 
     private JToken RedactToken(JToken token)

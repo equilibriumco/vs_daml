@@ -1,0 +1,39 @@
+2026-10-22 07:50:13.101 info [Extension] Daml extension loaded (version 0.3.0)
+2026-10-22 07:50:13.250 info [LanguageServer] Workspace C:\Users\jdoe-private\source\repos\AcmeMergerSecret (multi-ide), opened by jdoe-private on JDOE-WORKSTATION.
+2026-10-22 07:50:13.260 info [LanguageServer] Starting: C:\Users\jdoe-private\AppData\Roaming\dpm\bin\dpm.cmd damlc multi-ide --log-level=INFO --access-token-file "D:\clients\AcmeMergerSecret\ledger token.jwt"
+2026-10-22 07:50:13.270 info [LanguageServer] damlc: C:\Users\jdoe-private\AppData\Roaming\dpm\cache\components\damlc\3.6.2\damlc-dist-dpm\damlc.exe
+2026-10-22 07:50:14.000 warn [LanguageServer] [Multi-IDE] Opened file:///d%3A/clients/AcmeMergerSecret/daml/Payout.daml outside the workspace
+2026-10-22 07:50:14.100 info [LanguageServer] DAR \\fileserver\AcmeMergerSecret\dars\merger-terms.dar is not readable
+2026-10-22 07:50:14.200 info [Extension] Results cache in C:\Users\jdoe-private\AppData\Local\DamlVisualStudio\codegen\sha256-0f1e2d
+2026-10-22 07:50:14.300 info [Extension] Scratch copy in C:\Users\jdoe-private\AppData\Local\Temp\daml-copy-8812\Main.daml
+2026-10-22 07:50:15.000 fail [LanguageServer] DAML0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.
+2026-10-22 07:50:16.000 info [Build] daml/TypeError.daml:5:9: error:
+    • Couldn't match expected type ‘Int’ with actual type ‘Text’
+    • In the expression: "forty-two-secret-literal"
+      In an equation for ‘total’: total = "forty-two-secret-literal"
+2026-10-22 07:50:16.100 info [Build] daml/Main.daml:12:3: error:
+   |
+12 |   payout = SecretTemplateBody with ceoBonus = 31337
+   |            ^^^^^^^^^^^^^^^^^^
+2026-10-22 07:50:16.200 info [Build] Script execution failed:
+  Failed with status: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: payout 1000000 to Bob is wrong
+  Using Canton Error Category InvalidGivenCurrentSystemStateOther
+2026-10-22 07:50:16.300 info [Build] Script execution failed on commit at Main:39:3:
+  1: create of Main:Merger at unknown source
+     failed due to a missing authorization from 'Mallory'
+
+Partial transaction:
+  Sub-transactions:
+     #0
+     └─> create Main:Merger
+         with
+           acquirer = 'Alice::1220aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; price = 9999999.0
+2026-10-22 07:50:16.400 info [Build] Contract 00bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbcafe archived by Alice::1220aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+2026-10-22 07:50:16.500 dbug [LanguageServer] Sent {"method":"textDocument/didOpen","params":{"textDocument":{"uri":"x","text":"module Main where\nsecretCode = 1"}}}
+2026-10-22 07:50:16.600 dbug [LanguageServer] Got {"method":"daml/virtualResource/didChange","params":{"uri":"daml://x","contents":"<table>merger price 9999999</table>"}}
+2026-10-22 07:50:17.000 warn [Build] dpm couldn't reach https://jdoe:hunter2pass@registry.example.com/v2/
+2026-10-22 07:50:17.100 warn [Build] Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl
+2026-10-22 07:50:17.200 warn [Build] DPM_REGISTRY_PASSWORD=hunter2-very-secret
+2026-10-22 07:50:17.300 warn [Build] token ghp_0123456789abcdefghijABCDEFGHIJ012345 in the environment
+2026-10-22 07:50:17.400 warn [Build] aws AKIAIOSFODNN7EXAMPLE key; contact jdoe@acme-secret.example
+2026-10-22 07:50:18.000 info [LanguageServer] The Daml language server stopped (exit code 1).
