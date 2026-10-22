@@ -91,6 +91,26 @@
                 }
             }
         }
+        # M6: the 1.0 matrix on the lexer. Every category of M3 again, on the current code and the
+        # hosts the compatibility report lists (docs/compat-matrix.md), with the same tools and
+        # thresholds; the grammar stays its own path (M4).
+        M6 = @{
+            Required       = @('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration')
+            Pending        = @{}
+            Tools          = @('dpm', 'java')
+            MSBuildBackend = 'All'
+            Coverage       = @{
+                'net10.0' = @{
+                    'Daml.VisualStudio.Core'           = 85
+                    'Daml.VisualStudio.LanguageServer' = 80
+                    'Daml.Build.Core'                  = 80
+                }
+                'net48'   = @{
+                    'Daml.Build.Tasks'         = 80
+                    'Daml.VisualStudio.Roslyn' = 75
+                }
+            }
+        }
         # M4: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
         # highlight and tag tests, `tree-sitter fuzz`, the scripts' tests and the corpus gate,
         # which in a gate run needs the collected real-world corpus.
