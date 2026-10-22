@@ -76,6 +76,26 @@ public class ToolLocatorTests
         ToolLocator.SelectVisualStudioMSBuild([Bare], _files.Contains).ShouldBeNull();
     }
 
+    // The MSBuild tests also run Visual Studio's design-time builds, whose targets only an IDE installs;
+    // Build Tools with the .NET workload builds everything else, so it is only the fallback.
+    [Fact, Trait("Category", "Unit")]
+    public void MSBuild_discovery_prefers_an_installation_with_the_design_time_targets()
+    {
+        const string BuildTools = @"C:\BuildTools\MSBuild\Current\Bin\MSBuild.exe";
+        const string Ide = @"C:\VisualStudio\MSBuild\Current\Bin\MSBuild.exe";
+        _files.UnionWith(
+        [
+            BuildTools,
+            @"C:\BuildTools\MSBuild\Current\Bin\SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll",
+            Ide,
+            @"C:\VisualStudio\MSBuild\Current\Bin\SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll",
+            @"C:\VisualStudio\MSBuild\Microsoft\VisualStudio\Managed\Microsoft.Managed.DesignTime.targets",
+        ]);
+
+        ToolLocator.SelectVisualStudioMSBuild([BuildTools, Ide], _files.Contains).ShouldBe(Ide);
+        ToolLocator.SelectVisualStudioMSBuild([BuildTools], _files.Contains).ShouldBe(BuildTools);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void DPM_default_homes_have_the_same_precedence_as_the_product()
     {

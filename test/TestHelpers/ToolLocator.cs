@@ -110,7 +110,17 @@ public static class ToolLocator
         return SelectVisualStudioMSBuild(output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()), File.Exists);
     }
 
-    internal static string? SelectVisualStudioMSBuild(IEnumerable<string> candidates, Func<string, bool> exists) =>
-        candidates.FirstOrDefault(path => exists(path)
-            && exists(Path.Combine(Path.GetDirectoryName(path)!, @"SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll")));
+    // Among those that can build .NET SDK projects, one that can also run Visual Studio's
+    // design-time builds (only an IDE installs their targets) comes first; vswhere's order isn't.
+    internal static string? SelectVisualStudioMSBuild(IEnumerable<string> candidates, Func<string, bool> exists)
+    {
+        var usable = candidates.Where(path => exists(path)
+            && exists(Path.Combine(Path.GetDirectoryName(path)!, @"SdkResolvers\Microsoft.DotNet.MSBuildSdkResolver\Microsoft.DotNet.MSBuildSdkResolver.dll"))).ToList();
+        return usable.FirstOrDefault(path => exists(Path.Combine(MSBuildRoot(path), @"Microsoft\VisualStudio\Managed\Microsoft.Managed.DesignTime.targets")))
+            ?? usable.FirstOrDefault();
+    }
+
+    // <root>\MSBuild from <root>\MSBuild\Current\Bin\MSBuild.exe.
+    private static string MSBuildRoot(string msbuildExe) =>
+        Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(msbuildExe)!)!)!;
 }
