@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Daml.VisualStudio.Core.Logging;
@@ -32,7 +33,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Lines_logged_from_background_threads_arrive_in_order()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         await Task.Run(() =>
         {
@@ -51,7 +52,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Each_category_gets_its_own_pane_created_on_first_use()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, "dpm build failed");
         logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "loaded");
@@ -65,7 +66,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Entries_below_the_minimum_level_are_dropped_without_creating_a_pane()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext) { MinimumLevel = DamlLogLevel.Warning };
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null) { MinimumLevel = DamlLogLevel.Warning };
 
         logger.IsEnabled(DamlLogLevel.Information).ShouldBeFalse();
         logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, "noise");
@@ -77,7 +78,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Exception_details_follow_the_message()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "server crashed", new InvalidOperationException("exit code 3"));
         await logger.DrainAsync();
@@ -91,7 +92,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Credentials_are_masked_in_messages_exceptions_and_plain_build_lines()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Error, "fetch https://alice:secret@registry/a",
             new InvalidOperationException("oci://alice:secret@registry/b"));
         logger.WritePlainLine(DamlLogCategory.Build, "https://alice:secret@registry/c");
@@ -136,7 +137,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Interleaved_categories_keep_their_order_within_each_pane()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         foreach (var (category, text) in new[]
         {
@@ -185,7 +186,7 @@ public class OutputWindowLoggerTests
     [Fact, Trait("Category", "Editor")]
     public async Task Plain_lines_keep_their_place_among_log_entries_without_a_prefix()
     {
-        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext);
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "Build started");
         logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error DAML0001: boom");
@@ -197,5 +198,36 @@ public class OutputWindowLoggerTests
         lines[0].ShouldEndWith("info Build started");
         lines[1].ShouldBe(@"C:\repo\Main.daml(5,9): error DAML0001: boom");
         lines[2].ShouldEndWith("warn Build failed");
+    }
+
+    [Fact, Trait("Category", "Editor")]
+    public async Task What_reaches_the_panes_also_reaches_the_log_file_masked_the_same_way()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "daml-logger-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var files = new LogFileSink(new RollingLogFile(folder, 1, TimeProvider.System), TimeProvider.System);
+            var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null, files) { MinimumLevel = DamlLogLevel.Information };
+
+            logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "fetch https://alice:secret@registry/a");
+            logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, "below the minimum level");
+            logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error DAML0001: boom");
+            await logger.DrainFilesAsync();
+            await logger.DrainAsync();
+
+            logger.LogFolder.ShouldBe(folder);
+            var text = File.ReadAllText(RollingLogFile.Files(folder).Single().FullName);
+            text.ShouldContain("warn [LanguageServer] fetch https://***@registry/a");
+            text.ShouldContain(@"info [Build] C:\repo\Main.daml(5,9): error DAML0001: boom");
+            text.ShouldNotContain("secret");
+            text.ShouldNotContain("below the minimum level");
+        }
+        finally
+        {
+            if (Directory.Exists(folder))
+            {
+                Directory.Delete(folder, recursive: true);
+            }
+        }
     }
 }

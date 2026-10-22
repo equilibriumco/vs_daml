@@ -16,7 +16,8 @@ using Microsoft.VisualStudio.Threading;
 namespace Daml.VisualStudio.Logging;
 
 /// <summary>
-/// Writes each category to its own Output window pane; errors also go to the ActivityLog.
+/// Writes each category to its own Output window pane and to the extension's log files; errors
+/// also go to the ActivityLog.
 /// <see cref="Log"/> only enqueues, so it is cheap and safe on any thread. A single job on the
 /// UI thread drains the queue in bounded batches, merging consecutive lines of a category into
 /// one write, and creates a pane the first time its category shows up so unused categories
@@ -41,19 +42,30 @@ internal sealed class OutputWindowLogger : IDamlLogger
 
     private readonly Func<Guid, string, Task<IVsOutputWindowPane?>> _createPaneAsync;
 
+    // The same entries also go to rotating files, which outlive the session and the Output window.
+    private readonly LogFileSink? _files;
+
     [ImportingConstructor]
     public OutputWindowLogger(JoinableTaskContext joinableTaskContext)
-        : this(joinableTaskContext, null)
+        : this(joinableTaskContext, null, new LogFileSink(new RollingLogFile(RollingLogFile.DefaultFolder, CurrentProcessId(), TimeProvider.System), TimeProvider.System))
     {
     }
 
-    // Tests pass their own pane factory to control when pane creation completes.
-    internal OutputWindowLogger(JoinableTaskContext joinableTaskContext, Func<Guid, string, Task<IVsOutputWindowPane?>>? createPaneAsync)
+    // Tests pass their own pane factory to control when pane creation completes, and their own
+    // log folder or none.
+    internal OutputWindowLogger(JoinableTaskContext joinableTaskContext, Func<Guid, string, Task<IVsOutputWindowPane?>>? createPaneAsync, LogFileSink? files = null)
     {
         _flushes = joinableTaskContext.CreateCollection();
         _joinableTaskFactory = joinableTaskContext.CreateFactory(_flushes);
         _createPaneAsync = createPaneAsync ?? CreateOutputPaneAsync;
+        _files = files;
     }
+
+    /// <summary>The folder of the log files, or null when entries only go to the Output window.</summary>
+    internal string? LogFolder => _files?.Folder;
+
+    /// <summary>Completes once everything logged so far is in the log files.</summary>
+    internal Task DrainFilesAsync() => _files?.DrainAsync() ?? Task.CompletedTask;
 
     // Information and up. The log level on the options page is the server's, not this pane's.
     public DamlLogLevel MinimumLevel { get; set; } = DamlLogLevel.Information;
@@ -70,6 +82,7 @@ internal sealed class OutputWindowLogger : IDamlLogger
         message = SecretRedaction.Redact(message);
         var details = exception is null ? "" : SecretRedaction.Redact(Environment.NewLine + exception);
         Enqueue(category, $"[{DateTime.Now:HH:mm:ss.fff}] {LevelTag(level)} {message}{details}{Environment.NewLine}");
+        _files?.Write(category, level, message + details);
 
         if (level == DamlLogLevel.Error)
         {
@@ -81,7 +94,12 @@ internal sealed class OutputWindowLogger : IDamlLogger
     /// Writes <paramref name="line"/> as it is, in order with the log entries around it. The
     /// Output window only jumps to <c>file(line,col): …</c> when the line starts with the path.
     /// </summary>
-    internal void WritePlainLine(DamlLogCategory category, string line) => Enqueue(category, SecretRedaction.Redact(line) + Environment.NewLine);
+    internal void WritePlainLine(DamlLogCategory category, string line)
+    {
+        line = SecretRedaction.Redact(line);
+        Enqueue(category, line + Environment.NewLine);
+        _files?.Write(category, DamlLogLevel.Information, line);
+    }
 
     /// <summary>Opens the Output window on the pane of <paramref name="category"/>, creating it if needed.</summary>
     internal async Task ShowAsync(DamlLogCategory category)
@@ -198,6 +216,12 @@ internal sealed class OutputWindowLogger : IDamlLogger
         DamlLogCategory.Build => (PackageGuids.BuildPane, "Daml Build"),
         _ => (PackageGuids.ExtensionPane, "Daml"),
     };
+
+    private static int CurrentProcessId()
+    {
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
+        return process.Id;
+    }
 
     private static string LevelTag(DamlLogLevel level) => level switch
     {
