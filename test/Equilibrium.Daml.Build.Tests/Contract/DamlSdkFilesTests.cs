@@ -36,7 +36,7 @@ public class DamlSdkFilesTests
             .ShouldBe(MSBuildTargetGraph.DamlSdk.Select(t => t.Target), ignoreOrder: true);
     }
 
-    // A target's condition is judged before its dependencies run (S-09).
+    // A target's condition is judged before its dependencies run.
     [Fact, Trait("Category", "Unit")]
     public void No_target_has_a_condition()
     {
@@ -45,7 +45,7 @@ public class DamlSdkFilesTests
             .Select(t => (string)t.Attribute("Name")!).ShouldBeEmpty();
     }
 
-    // NoTargets assigns CoreBuildDependsOn outright at the end of its own targets (S-06).
+    // NoTargets assigns CoreBuildDependsOn outright at the end of its own targets.
     [Fact, Trait("Category", "Unit")]
     public void The_build_lists_are_joined_only_after_the_NoTargets_targets_are_imported()
     {

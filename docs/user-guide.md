@@ -1,4 +1,4 @@
-# Daml for Visual Studio: user guide
+# EQ Daml Tools for Visual Studio: user guide
 
 Version 0.9.0 beta. Daml editing in Visual Studio 2026 backed by the `damlc` language server, native
 syntax features, Daml Script results next to the code, Daml packages as MSBuild projects, and C#
@@ -18,15 +18,17 @@ MSBuild builds are tested with MSBuild 18.11 and 18.12 and with `dotnet build` (
 
 ## Installation
 
-**Extension.** Extensions > Manage Extensions, search for *Daml for Visual Studio*, install, restart
-Visual Studio. Or close Visual Studio and run `Daml.VisualStudio.vsix`. A newer version installs over
-the old one and keeps your settings. Uninstall from Extensions > Manage Extensions > Installed.
+**Extension.** Extensions > Manage Extensions, search for *EQ Daml Tools for Visual Studio*, install,
+restart Visual Studio. Or close Visual Studio and run `Equilibrium.Daml.VisualStudio.vsix`. A newer
+version installs over the old one and keeps your settings. Uninstall from Extensions > Manage
+Extensions > Installed.
 
-**NuGet packages.** `Daml.Sdk`, `Daml.Build.CSharp` and `Daml.Templates` are on nuget.org as
-prerelease versions. Install the project templates with:
+**NuGet packages.** `Equilibrium.Daml.Sdk`, `Equilibrium.Daml.Build.CSharp` and
+`Equilibrium.Daml.Templates` are on nuget.org as prerelease versions. Install the project templates
+with:
 
 ```
-dotnet new install Daml.Templates::0.9.0-beta.1
+dotnet new install Equilibrium.Daml.Templates::0.9.0-beta.1
 ```
 
 NuGet caches a version once in `%USERPROFILE%\.nuget\packages`. If you replace a package with a
@@ -52,13 +54,13 @@ with Daml projects, then open a `.daml` file. The status bar shows *EQ Daml: sta
 - **Editing**: `--` comments (Ctrl+K,C / Ctrl+K,U); `(`, `[`, `{` and `"` close automatically;
   brace matching and highlighting of the name under the caret (by spelling, not by scope).
 - **Script results**: a *▶ Script results* row appears between a script's signature and its
-  definition. Click it, press Ctrl+. on the line, or use Extensions > EQ Daml Tools > Show Script Results at
-  Caret. The window shows the contract table or the transaction view, follows the theme, works from
+  definition. Click it, press Ctrl+. on the line, or use Extensions > EQ Daml Tools > Show Script
+  Results at Caret. The window shows the contract table or the transaction view, follows the theme, works from
   the keyboard, and keeps the chosen view per script. It needs the Microsoft Edge WebView2 Runtime,
   which ships with Windows 11.
 - **Open Folder build**: right-click `daml.yaml` > Build, Test or Clean; `multi-package.yaml` >
   Build All or Clean All. Output goes to the *EQ Daml Tools: Build* pane, errors to the Error List.
-- **Extensions > Daml**: Restart Language Server, Show Language Server Log, Export Diagnostics,
+- **Extensions > EQ Daml Tools**: Restart Language Server, Show Language Server Log, Export Diagnostics,
   Build Current Package, Test Current Package, Show Script Results at Caret, Open Daml Documentation.
 
 **Solutions.** The server covers all Daml projects of the solution, including ones outside its
@@ -80,12 +82,12 @@ Document, signature help or workspace symbols, so Visual Studio does not offer t
 | Ctrl+K, C / Ctrl+K, U | Comment / uncomment |
 | (unbound) | *Go to Daml Definition* in C#; bind `GoToDamlDefinition` under Tools > Options > Environment > Keyboard |
 
-## Daml projects in MSBuild (`Daml.Sdk`)
+## Daml projects in MSBuild (`Equilibrium.Daml.Sdk`)
 
 A Daml package becomes a solution project with a project file next to its `daml.yaml`:
 
 ```xml
-<Project Sdk="Daml.Sdk/0.9.0-beta.1">
+<Project Sdk="Equilibrium.Daml.Sdk/0.9.0-beta.1">
 </Project>
 ```
 
@@ -98,27 +100,27 @@ in the same directory* to get the same layout as `dotnet new`.
   files, dependency DARs/DALFs, or the effective DPM configuration. Errors use codes `EQD0001`
   (error) and `EQD0002` (warning).
 - **Clean** deletes the DAR and its build record.
-- **Test**: `dotnet build -t:DamlTest` runs every script with `dpm test`.
+- **Test**: `dotnet build -t:EqDamlTest` runs every script with `dpm test`.
 - **Order**: a project that needs another package's DAR references it with
   `<ProjectReference … ReferenceOutputAssembly="false" />`.
 - Concurrent builds of one package run `dpm` one at a time; a build waiting longer than
-  `DamlLockTimeoutSeconds` fails with `EQD0105`.
+  `EqDamlLockTimeoutSeconds` fails with `EQD0105`.
 - Works in Visual Studio, `MSBuild.exe` of Visual Studio 2026 and `dotnet build`.
 
-## C# from Daml (`Daml.Build.CSharp`)
+## C# from Daml (`Equilibrium.Daml.Build.CSharp`)
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Daml.Build.CSharp" Version="0.9.0-beta.1" PrivateAssets="all" />
+  <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.9.0-beta.1" PrivateAssets="all" />
   <PackageReference Include="Daml.Runtime" Version="0.6.0" />
   <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
-  <DamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
-  <DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
+  <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
+  <EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
 </ItemGroup>
 ```
 
-- `DamlReference` points at a Daml project in the solution, which builds first. A plain
-  `ProjectReference` works too, with the namespace in `DamlNamespace` metadata. `DamlDar` points at a
+- `EqDamlReference` points at a Daml project in the solution, which builds first. A plain
+  `ProjectReference` works too, with the namespace in `EqDamlNamespace` metadata. `EqDamlDar` points at a
   DAR outside the solution.
 - `Namespace` is optional and prefixes the generated namespaces. Two references that generate the
   same types fail with `EQD0202`.
@@ -126,8 +128,8 @@ in the same directory* to get the same layout as `dotnet new`.
   packages.
 - **Generator**: `dpm-codegen-cs` 0.6.0, pinned by digest and cached in
   `%LOCALAPPDATA%\EquilibriumDamlTools\codegen`. A build downloads it (about 180 MB) only when
-  `DamlAllowToolInstall` is true; otherwise a missing generator fails with `EQD0101`. Run
-  `dotnet build -p:DamlAllowToolInstall=true` once per machine. Apps created from the template allow
+  `EqDamlAllowToolInstall` is true; otherwise a missing generator fails with `EQD0101`. Run
+  `dotnet build -p:EqDamlAllowToolInstall=true` once per machine. Apps created from the template allow
   the download by default.
 - **Output**: `Intermediate` (default) writes to `obj`; `Source` writes to `Generated\Daml` for
   check-in and supports a single target framework only.
@@ -146,19 +148,19 @@ in the same directory* to get the same layout as `dotnet new`.
 
 | Property | Applies to | Default | Description |
 |---|---|---|---|
-| `DamlDpmPath` | both | empty | dpm to run. Empty: `PATH`, `%DPM_HOME%\bin`, `%APPDATA%\.dpm\bin`, `%APPDATA%\dpm\bin`. |
-| `DamlOffline` | both | false | Never download or install; missing tools fail with `EQD0107`. Overrides `DamlAllowToolInstall`. |
-| `DamlAllowToolInstall` | both | false | Allow installing a missing SDK or downloading the generator. |
-| `DamlSkipPreflight` | both | false | Skip dpm/JDK version checks (with a warning). |
-| `DamlProcessTimeoutSeconds` | both | 1800 | Time limit for one dpm run; 0 disables it (`EQD0110`). |
-| `DamlLockTimeoutSeconds` | both | 600 | Wait limit for another build of the same package or generation (`EQD0105`). |
-| `DamlManifestPath` | Daml | `daml.yaml` next to the project | Package manifest. |
-| `DamlBuildEnabled` | Daml | true | false skips `dpm build` and uses the existing DAR. |
-| `DamlCodegenEnabled` | C# | true | false disables generation. |
-| `DamlCodegenComponent` | C# | pinned generator | Another generator as `oci://<registry>/<repo>:<tag>@sha256:<digest>`; untested ones raise `EQD0106`. |
-| `DamlGeneratedOutputMode` | C# | `Intermediate` | `Intermediate` or `Source`. |
-| `DamlGeneratedDir` | C# | `obj\…\Daml\` or `Generated\Daml\` | Output folder; must be a folder of its own. |
-| `DamlJavaHome` | C# | `$(JAVA_HOME)` | JDK for the generator. |
+| `EqDamlDpmPath` | both | empty | dpm to run. Empty: `PATH`, `%DPM_HOME%\bin`, `%APPDATA%\.dpm\bin`, `%APPDATA%\dpm\bin`. |
+| `EqDamlOffline` | both | false | Never download or install; missing tools fail with `EQD0107`. Overrides `EqDamlAllowToolInstall`. |
+| `EqDamlAllowToolInstall` | both | false | Allow installing a missing SDK or downloading the generator. |
+| `EqDamlSkipPreflight` | both | false | Skip dpm/JDK version checks (with a warning). |
+| `EqDamlProcessTimeoutSeconds` | both | 1800 | Time limit for one dpm run; 0 disables it (`EQD0110`). |
+| `EqDamlLockTimeoutSeconds` | both | 600 | Wait limit for another build of the same package or generation (`EQD0105`). |
+| `EqDamlManifestPath` | Daml | `daml.yaml` next to the project | Package manifest. |
+| `EqDamlBuildEnabled` | Daml | true | false skips `dpm build` and uses the existing DAR. |
+| `EqDamlCodegenEnabled` | C# | true | false disables generation. |
+| `EqDamlCodegenComponent` | C# | pinned generator | Another generator as `oci://<registry>/<repo>:<tag>@sha256:<digest>`; untested ones raise `EQD0106`. |
+| `EqDamlGeneratedOutputMode` | C# | `Intermediate` | `Intermediate` or `Source`. |
+| `EqDamlGeneratedDir` | C# | `obj\…\Daml\` or `Generated\Daml\` | Output folder; must be a folder of its own. |
+| `EqDamlJavaHome` | C# | `$(JAVA_HOME)` | JDK for the generator. |
 
 Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Other values raise
 `EQD0100`.
@@ -169,17 +171,17 @@ Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Ot
 |---|---|---|
 | `EQD0001` / `EQD0002` | Daml compiler error / warning. | Fix the Daml at the reported location. |
 | `EQD0100` | Invalid property, item, path or `daml.yaml` field. | See the message. |
-| `EQD0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.6.0`), set `DamlDpmPath`, or set `DamlAllowToolInstall`. |
-| `EQD0102` | No JDK 17+ for the generator. | Install a JDK or set `DamlJavaHome`. |
+| `EQD0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.6.0`), set `EqDamlDpmPath`, or set `EqDamlAllowToolInstall`. |
+| `EQD0102` | No JDK 17+ for the generator. | Install a JDK or set `EqDamlJavaHome`. |
 | `EQD0103` | dpm older than 1.0.22. | Update dpm. |
 | `EQD0104` | Generation failed. | See the message; for a locked file, build again. |
-| `EQD0105` | Lock wait exceeded `DamlLockTimeoutSeconds`. | Wait, or raise the limit. |
+| `EQD0105` | Lock wait exceeded `EqDamlLockTimeoutSeconds`. | Wait, or raise the limit. |
 | `EQD0106` | Generator not pinned, not tested, or its cache is damaged. | Use the default generator; delete its folder under `codegen`. |
-| `EQD0107` | Offline build needs a missing tool. | Build once online with `DamlAllowToolInstall`. |
+| `EQD0107` | Offline build needs a missing tool. | Build once online with `EqDamlAllowToolInstall`. |
 | `EQD0108` | Generated code would overwrite or delete files it does not own. | See the files named in the message. |
 | `EQD0109` | A failed generation could not restore the previous code. | Build again. |
 | `EQD0110` | dpm or the generator was canceled or timed out. | Build again, or raise the limit. |
-| `EQD0111` | Warning: generated path exceeds 260 characters. | Shorten `DamlGeneratedDir` or enable Windows long paths. |
+| `EQD0111` | Warning: generated path exceeds 260 characters. | Shorten `EqDamlGeneratedDir` or enable Windows long paths. |
 | `EQD0201` | Runtime packages missing or incompatible, or target framework below `net10.0`. | Reference both runtime packages at 0.6.0; target `net10.0`. |
 | `EQD0202` | Two references generate the same types. | Give one a `Namespace`. |
 | `EQD0203` | C#/Daml navigation not possible: sources ambiguous or changed since the build. | Build. |
@@ -211,7 +213,9 @@ language server opened no remote TCP connections in our measurements. `damlc ide
 ## Files on your machine
 
 Settings live in Visual Studio's settings store and survive updates and uninstall. Extension data is
-in `%LOCALAPPDATA%\EquilibriumDamlTools`, shared by all Visual Studio instances and command-line builds:
+in `%LOCALAPPDATA%\EquilibriumDamlTools`, shared by all Visual Studio instances and command-line builds
+(versions before 0.9 used `%LOCALAPPDATA%\DamlVisualStudio`; after an upgrade the first generating build
+downloads the generator again, and the old folder can be deleted):
 
 | Folder | Contents | Safe to delete |
 |---|---|---|
@@ -224,15 +228,16 @@ in `%LOCALAPPDATA%\EquilibriumDamlTools`, shared by all Visual Studio instances 
 | `diagnostics` | Exported diagnostic reports | Yes |
 
 Uninstalling does not remove this folder. Delete it manually after uninstalling, together with
-`%LOCALAPPDATA%\Daml\VisualStudio` if a pre-0.9 version created it. The extension never deletes dpm,
-installed SDKs, project build output or the NuGet cache.
+`%LOCALAPPDATA%\DamlVisualStudio` (and `%LOCALAPPDATA%\Daml\VisualStudio`) if a pre-0.9 version created
+it. The extension never deletes dpm, installed SDKs, project build output or the NuGet cache.
 
 ## Troubleshooting
 
-**Logs.** View > Output, panes *EQ Daml Tools: Language Server* (server start, command line, server log),
-*EQ Daml Tools: Build* and *EQ Daml Tools*. The same entries go to `%LOCALAPPDATA%\EquilibriumDamlTools\logs`, one file per
-session, rotated at 10 MB, five files kept, files older than seven days deleted. Logs can contain file
-paths and compiler messages that quote your code.
+**Logs.** View > Output, panes *EQ Daml Tools: Language Server* (server start, command line, server
+log), *EQ Daml Tools: Build* and *EQ Daml Tools*. The same entries go to
+`%LOCALAPPDATA%\EquilibriumDamlTools\logs`, one file per session, rotated at 10 MB, five files kept,
+files older than seven days deleted. Logs can contain file paths and compiler messages that quote
+your code.
 
 **Diagnostic report.** Extensions > EQ Daml Tools > Export Diagnostics writes a report with versions,
 settings and recent logs to `%LOCALAPPDATA%\EquilibriumDamlTools\diagnostics` and opens it. Paths, user
@@ -258,7 +263,7 @@ full file contents.
 - Generated paths longer than 260 characters (deep `Namespace` values) build with warning `EQD0111`,
   but IntelliSense reports missing types unless Windows long paths are enabled.
 - The first generating build on a machine downloads the generator (about 180 MB) and needs
-  `DamlAllowToolInstall` unless the project came from the app template.
+  `EqDamlAllowToolInstall` unless the project came from the app template.
 - C# is generated for a DAR's own package only; it requires `net10.0` and the 0.6.0 runtime packages.
 - `Source` output mode supports one target framework.
 - Background C# binding updates are a preview and off by default; removed types may stay in
@@ -279,3 +284,9 @@ full file contents.
 Report problems in [GitHub Issues](https://github.com/equilibriumco/vs_daml/issues). Include the
 Visual Studio version, the Daml SDK version and a diagnostic report (Extensions > EQ Daml Tools > Export
 Diagnostics), reviewed before you attach it.
+
+## Trademarks
+
+EQ Daml Tools for Visual Studio is an independent project by Equilibrium and is not affiliated with,
+sponsored by, or endorsed by Digital Asset. Daml and Canton are trademarks of Digital Asset
+(Switzerland) GmbH. Visual Studio is a trademark of Microsoft Corporation.

@@ -146,7 +146,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         run.Log.ShouldContain($@"Shown: {Package}\daml\Main.daml");
     }
 
-    // What the DAR is built from decides, not file times: a deleted source is noticed too (S-06).
+    // What the DAR is built from decides, not file times: a deleted source is noticed too.
     // Debug and Release share the package's DAR. Both find it out of date and one waits for the other;
     // that one finds the DAR the first made from the same inputs and runs no dpm, so nothing rewrites
     // it while a project using it reads it. Visual Studio's own build of a Daml project and that of a

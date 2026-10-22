@@ -1,4 +1,4 @@
-# Daml for Visual Studio
+# EQ Daml Tools for Visual Studio
 
 Visual Studio 2026 extension for [Daml](https://docs.digitalasset.com/), plus MSBuild packages that
 build Daml packages and generate C# from them through the Canton .NET SDK (`dpm codegen-cs`).
@@ -13,11 +13,12 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
   view next to the code.
 - **Open Folder**: build, test and clean `daml.yaml` and `multi-package.yaml` workspaces; errors in
   the Error List.
-- **MSBuild** (`Equilibrium.Daml.Sdk`): Daml packages as `.msbuildproj` projects with incremental `dpm build`.
-- **C# generation** (`Equilibrium.Daml.Build.CSharp`): C# bindings generated in the same build, navigation from
-  C# to Daml, and C# reference counts in Daml files.
-- **Templates** (`Equilibrium.Daml.Templates`): Visual Studio and `dotnet new` templates for Daml and Daml + .NET
-  solutions.
+- **MSBuild** (`Equilibrium.Daml.Sdk`): Daml packages as `.msbuildproj` projects with incremental
+  `dpm build`.
+- **C# generation** (`Equilibrium.Daml.Build.CSharp`): C# bindings generated in the same build,
+  navigation from C# to Daml, and C# reference counts in Daml files.
+- **Templates** (`Equilibrium.Daml.Templates`): Visual Studio and `dotnet new` templates for Daml and
+  Daml + .NET solutions.
 - No telemetry.
 
 ## Requirements
@@ -31,8 +32,9 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
 
 ## Install
 
-- Extension: Visual Studio Marketplace, *Daml for Visual Studio*.
-- Packages: `Equilibrium.Daml.Sdk`, `Equilibrium.Daml.Build.CSharp`, `Equilibrium.Daml.Templates` on nuget.org (prerelease).
+- Extension: Visual Studio Marketplace, *EQ Daml Tools for Visual Studio*.
+- Packages: `Equilibrium.Daml.Sdk`, `Equilibrium.Daml.Build.CSharp` and `Equilibrium.Daml.Templates` on
+  nuget.org (prerelease).
 
 See the [user guide](docs/user-guide.md) for setup, settings, build properties, diagnostic codes,
 troubleshooting and known limitations.
@@ -40,7 +42,7 @@ troubleshooting and known limitations.
 ## Support
 
 Report issues on [GitHub Issues](https://github.com/equilibriumco/vs_daml/issues) with a diagnostic
-report from Extensions > Daml > Export Diagnostics.
+report from Extensions > EQ Daml Tools > Export Diagnostics.
 
 ## Building from source
 
@@ -70,3 +72,9 @@ needs an unlocked interactive session.
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE). Third-party components are listed in [NOTICE](NOTICE).
+
+## Trademarks
+
+EQ Daml Tools for Visual Studio is an independent project by Equilibrium and is not affiliated with,
+sponsored by, or endorsed by Digital Asset. Daml and Canton are trademarks of Digital Asset
+(Switzerland) GmbH. Visual Studio is a trademark of Microsoft Corporation.

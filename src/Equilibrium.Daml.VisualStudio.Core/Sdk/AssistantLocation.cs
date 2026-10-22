@@ -3,7 +3,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Sdk;
 /// <summary>The command-line tool that runs a Daml SDK's commands, damlc included.</summary>
 public enum AssistantKind
 {
-    /// <summary>dpm, Digital Asset's package manager; runs SDK 3.4 and later.</summary>
+    /// <summary>dpm, the Daml package manager; runs SDK 3.4 and later.</summary>
     Dpm,
 
     /// <summary>The older <c>daml</c> assistant; needed for SDKs before 3.4.</summary>
