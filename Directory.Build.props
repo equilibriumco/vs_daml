@@ -38,6 +38,11 @@
     <Product>EQ Daml Tools for Visual Studio</Product>
     <Copyright>Copyright 2026 Equilibrium</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/equilibriumco/vs_daml</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/equilibriumco/vs_daml</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <!-- The commit the package was built from goes into the nuspec next to the URL. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <NeutralLanguage>en</NeutralLanguage>
     <!-- Only the projects that ship as NuGet packages opt back in. -->
     <IsPackable>false</IsPackable>

@@ -17,11 +17,14 @@
     <NoWarn>$(NoWarn);NU5128</NoWarn>
     <Description>dotnet new templates for Daml: daml-contracts (a Daml package with its Daml Script tests, built by MSBuild) and daml-dotnet-app (a solution with those and a C# app using the C# generated from them). Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
     <PackageTags>daml;dotnet-new;templates;equilibrium</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <!-- The VSIX carries the package for Visual Studio's New Project dialog, so every build makes it. -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="README.md" />
+    <None Include="README.md" Pack="true" PackagePath="" />
     <_EqDamlTemplateConfig Include="content\**\.template.config\template.json" />
     <None Include="content\**" Exclude="@(_EqDamlTemplateConfig)" Pack="true" PackagePath="content\" />
   </ItemGroup>

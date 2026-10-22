@@ -13,9 +13,12 @@
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
     <Description>MSBuild project SDK for Daml packages: builds a daml.yaml package with dpm as part of a Visual Studio or dotnet build, reports Daml errors where they are, and hands the DAR to the projects that reference it. Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
     <PackageTags>daml;msbuild;sdk;equilibrium</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="README.md" />
+    <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="Sdk\**" Pack="true" PackagePath="Sdk\" />
   </ItemGroup>
 

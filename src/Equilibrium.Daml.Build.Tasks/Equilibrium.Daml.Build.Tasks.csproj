@@ -8,6 +8,9 @@
     <!-- The output folder is what the packages ship next to the tasks: their own assemblies and
          YamlDotNet. MSBuild's, excluded below, never land in it. -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <!-- Shipped in tasks\, where a symbol package can't reach it, so the PDB travels inside the
+         assembly. -->
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <ItemGroup>

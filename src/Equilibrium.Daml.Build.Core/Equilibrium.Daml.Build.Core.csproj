@@ -4,6 +4,9 @@
        (the tasks also load under dotnet build). -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- The NuGet packages ship it in tasks\, where a symbol package can't reach it, so the PDB
+         travels inside the assembly. -->
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
