@@ -33,40 +33,40 @@ Describe 'Package copies in a NuGet package folder' {
         $script:work = Join-Path ([IO.Path]::GetTempPath()) ('pkgcache-' + [guid]::NewGuid().ToString('N'))
         $script:cache = Join-Path $script:work 'packages'
         New-Item -ItemType Directory -Force -Path $script:cache | Out-Null
-        $script:package = Join-Path $script:work 'Daml.Sdk.0.3.0-preview.0.nupkg'
-        New-TestPackage $script:package 'Daml.Sdk' '0.3.0-preview.0'
+        $script:package = Join-Path $script:work 'Equilibrium.Daml.Sdk.0.3.0-preview.0.nupkg'
+        New-TestPackage $script:package 'Equilibrium.Daml.Sdk' '0.3.0-preview.0'
     }
     AfterEach { if (Test-Path -LiteralPath $script:work) { Remove-Item -LiteralPath $script:work -Recurse -Force } }
 
     It 'names a copy of the same version that came from another package' {
         $older = Join-Path $script:work 'older.nupkg'
-        New-TestPackage $older 'Daml.Sdk' '0.3.0-preview.0' 'older targets'
-        $copy = Add-CachedCopy $script:cache $older 'Daml.Sdk' '0.3.0-preview.0'
+        New-TestPackage $older 'Equilibrium.Daml.Sdk' '0.3.0-preview.0' 'older targets'
+        $copy = Add-CachedCopy $script:cache $older 'Equilibrium.Daml.Sdk' '0.3.0-preview.0'
 
         $stale = @(Get-StalePackageCopy -Package $script:package -PackagesFolder $script:cache)
 
         $stale.Count | Should Be 1
-        $stale[0].Id | Should Be 'Daml.Sdk'
+        $stale[0].Id | Should Be 'Equilibrium.Daml.Sdk'
         $stale[0].Version | Should Be '0.3.0-preview.0'
         $stale[0].Folder | Should Be $copy
     }
 
     It 'passes a copy made from this very package' {
-        Add-CachedCopy $script:cache $script:package 'Daml.Sdk' '0.3.0-preview.0' | Out-Null
+        Add-CachedCopy $script:cache $script:package 'Equilibrium.Daml.Sdk' '0.3.0-preview.0' | Out-Null
 
         @(Get-StalePackageCopy -Package $script:package -PackagesFolder $script:cache).Count | Should Be 0
     }
 
     It 'passes a version the folder never had' {
         $other = Join-Path $script:work 'other.nupkg'
-        New-TestPackage $other 'Daml.Sdk' '0.2.0-preview.0' 'older targets'
-        Add-CachedCopy $script:cache $other 'Daml.Sdk' '0.2.0-preview.0' | Out-Null
+        New-TestPackage $other 'Equilibrium.Daml.Sdk' '0.2.0-preview.0' 'older targets'
+        Add-CachedCopy $script:cache $other 'Equilibrium.Daml.Sdk' '0.2.0-preview.0' | Out-Null
 
         @(Get-StalePackageCopy -Package $script:package -PackagesFolder $script:cache).Count | Should Be 0
     }
 
     It 'names a copy whose hash is missing, as nothing shows it is this package' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $script:cache 'daml.sdk\0.3.0-preview.0') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $script:cache 'equilibrium.daml.sdk\0.3.0-preview.0') | Out-Null
 
         @(Get-StalePackageCopy -Package $script:package -PackagesFolder $script:cache).Count | Should Be 1
     }

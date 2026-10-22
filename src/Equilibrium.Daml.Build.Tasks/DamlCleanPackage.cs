@@ -34,7 +34,7 @@ public sealed class DamlCleanPackage : Task, ICancelableTask
     [Required]
     public string StatePath { get; set; } = "";
 
-    /// <summary><c>DamlLockTimeoutSeconds</c>.</summary>
+    /// <summary><c>EqDamlLockTimeoutSeconds</c>.</summary>
     public string? LockTimeoutSeconds { get; set; }
 
     /// <inheritdoc />

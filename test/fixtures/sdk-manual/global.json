@@ -4,7 +4,7 @@
     "rollForward": "latestPatch"
   },
   "msbuild-sdks": {
-    "Daml.Sdk": "0.3.0-preview.0",
+    "Equilibrium.Daml.Sdk": "0.3.0-preview.0",
     "Microsoft.Build.NoTargets": "3.7.134"
   }
 }

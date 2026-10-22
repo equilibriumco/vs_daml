@@ -13,7 +13,7 @@ namespace Equilibrium.Daml.Build.Tests.Templates;
 // Daml packages, and the projects take their package versions from packing.
 public class TemplateContentTests
 {
-    private static readonly string Content = Path.Combine(Repository.Root, "src", "Daml.Templates", "content");
+    private static readonly string Content = Path.Combine(Repository.Root, "src", "Equilibrium.Daml.Templates", "content");
 
     private static string Contracts(string relativePath) => Path.Combine(Content, "daml-contracts", relativePath);
 

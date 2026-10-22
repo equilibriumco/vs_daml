@@ -304,7 +304,7 @@ public sealed class DpmToolTaskTests : IDisposable
         clock.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(30));
         var error = _engine.Errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
-        error.Message!.ShouldContain("DamlProcessTimeoutSeconds");
+        error.Message!.ShouldContain("EqDamlProcessTimeoutSeconds");
         WaitUntilNoFakeDpmRuns();
     }
 
@@ -363,7 +363,7 @@ public sealed class DpmToolTaskTests : IDisposable
         ToolCalls().ShouldHaveSingleItem().Args.ShouldBe(["test"]);
     }
 
-    // The lines -t:DamlTest is run for show without -v:d; the coverage report after them doesn't.
+    // The lines -t:EqDamlTest is run for show without -v:d; the coverage report after them doesn't.
     [Fact, Trait("Category", "Process")]
     public void Each_script_of_a_test_run_shows_its_result_at_any_verbosity()
     {
@@ -428,7 +428,7 @@ public sealed class DpmToolTaskTests : IDisposable
 
         VersionProbes().ShouldBe(0);
         var warning = _engine.Warnings.ShouldHaveSingleItem();
-        (warning.Code, warning.Message).ShouldBe((DamlDiagnosticCodes.DpmTooOld, "DamlSkipPreflight is true, so the build doesn't check that dpm is new enough."));
+        (warning.Code, warning.Message).ShouldBe((DamlDiagnosticCodes.DpmTooOld, "EqDamlSkipPreflight is true, so the build doesn't check that dpm is new enough."));
     }
 
     private void WaitUntilNoFakeDpmRuns()

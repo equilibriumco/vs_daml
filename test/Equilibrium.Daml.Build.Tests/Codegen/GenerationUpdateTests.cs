@@ -53,7 +53,7 @@ public sealed class GenerationUpdateTests : IDisposable
     private string OutputLock => LockNames.Output(Locks, Root);
 
     private CodegenInput Input => new(
-        new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
+        new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), "Contracts", Id, FolderName),
         Dar);
 
@@ -132,7 +132,7 @@ public sealed class GenerationUpdateTests : IDisposable
         warning.Code.ShouldBe(DamlDiagnosticCodes.LongGeneratedPath);
         var longest = Path.Combine(Folder, DeepPath.Relative);
         warning.Text.ShouldContain($"{longest.Length}: {longest}");
-        warning.Text.ShouldContain("DamlGeneratedDir");
+        warning.Text.ShouldContain("EqDamlGeneratedDir");
         result.Messages.ShouldNotContain(m => m.Severity == DamlDiagnosticSeverity.Error);
         result.Files.Select(f => f.Path).ShouldBe([Path.Combine(Folder, "Asset.cs"), longest]);
     }
@@ -175,7 +175,7 @@ public sealed class GenerationUpdateTests : IDisposable
         var error = result.Messages.ShouldHaveSingleItem();
         (error.Severity, error.Code).ShouldBe((DamlDiagnosticSeverity.Error, DamlDiagnosticCodes.LockTimeout));
         error.Text.ShouldContain(Root);
-        error.Text.ShouldContain("DamlLockTimeoutSeconds");
+        error.Text.ShouldContain("EqDamlLockTimeoutSeconds");
         _generator.Calls.ShouldBeEmpty();
         result.Files.ShouldBeEmpty();
     }

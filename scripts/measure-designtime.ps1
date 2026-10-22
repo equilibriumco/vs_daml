@@ -1,12 +1,12 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Measures what Daml.Build.CSharp adds to the design-time build of a C# project.
+    Measures what Equilibrium.Daml.Build.CSharp adds to the design-time build of a C# project.
 
 .DESCRIPTION
     Creates a solution from the daml-dotnet-app template of artifacts/packages (run pack.ps1
     first) in a temporary folder, with a package folder of its own so the packages are this build's,
-    builds it once, and adds the same C# project without Daml.Build.CSharp and its Daml reference
+    builds it once, and adds the same C# project without Equilibrium.Daml.Build.CSharp and its Daml reference
     as the baseline. A driver project then runs the design-time build Visual Studio asks for
     (CompileDesignTime) of each project -Runs + 1 times in one 64-bit MSBuild.exe of the Visual
     Studio the extension is tested in, each with a fresh evaluation.
@@ -81,11 +81,11 @@ if (-not $NoRun) {
         $withDaml = Join-Path $workspace 'Measure\Measure\Measure.csproj'
         $baseline = Join-Path $workspace 'Measure\Plain\Plain.csproj'
         New-Item -ItemType Directory -Force (Split-Path $baseline) | Out-Null
-        Get-Content $withDaml | Where-Object { $_ -notmatch 'Build\.CSharp|DamlReference' } | Set-Content $baseline
+        Get-Content $withDaml | Where-Object { $_ -notmatch 'Build\.CSharp|EqDamlReference' } | Set-Content $baseline
         Set-Content (Join-Path (Split-Path $baseline) 'Program.cs') 'System.Console.WriteLine("baseline");'
 
         $build = @('-nologo', '-v:m', '-nr:false', '-restore')
-        if ($AllowToolInstall) { $build += '-p:DamlAllowToolInstall=true' }
+        if ($AllowToolInstall) { $build += '-p:EqDamlAllowToolInstall=true' }
         Write-Host 'Building the solution once (dpm, the C# generator, the compiler)...'
         Invoke-Checked 'The first build' $msbuild (@((Join-Path $workspace 'Measure\Measure.slnx')) + $build) | Out-Null
         Invoke-Checked 'Restoring the baseline' $msbuild @($baseline, '-nologo', '-v:m', '-nr:false', '-t:Restore') | Out-Null

@@ -2,7 +2,7 @@
   "$schema": "http://json.schemastore.org/ide.host",
   "symbolInfo": [
     {
-      "id": "DamlSdkVersion",
+      "id": "EqDamlSdkVersion",
       "name": { "text": "Daml SDK version" },
       "description": { "text": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>." },
       "isVisible": true

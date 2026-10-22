@@ -56,7 +56,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
     private GenerationReference Contracts => Reference("Contracts", "0123456789abcdef");
 
     private GenerationReference Reference(string name, string id) => new(
-        DamlReferenceSource.DamlReference, $@"..\{name}\{name}.msbuildproj", Path.Combine(_root, $@"{name}\{name}.msbuildproj"), "Contracts", id, $"{name}-{id}");
+        DamlReferenceSource.EqDamlReference, $@"..\{name}\{name}.msbuildproj", Path.Combine(_root, $@"{name}\{name}.msbuildproj"), "Contracts", id, $"{name}-{id}");
 
     private CodegenRequest Request(bool designTime = false, string? runtime = "0.6.0", params GenerationReference[] references) => new(
         Project,

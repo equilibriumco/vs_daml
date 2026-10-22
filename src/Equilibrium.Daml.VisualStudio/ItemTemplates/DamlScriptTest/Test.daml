@@ -3,7 +3,7 @@ module $safeitemname$ where
 
 import Daml.Script
 
--- | Run by dpm test, or by the DamlTest target of the project, with every other script of the package.
+-- | Run by dpm test, or by the EqDamlTest target of the project, with every other script of the package.
 test : Script ()
 test = script do
   alice <- allocateParty "Alice"

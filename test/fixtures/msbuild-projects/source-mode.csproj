@@ -3,15 +3,15 @@
   <!-- Generated code kept in the project and committed with it. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>
-    <DamlOffline>true</DamlOffline>
+    <EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>
+    <EqDamlOffline>true</EqDamlOffline>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
+    <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
-    <DamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
+    <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
   </ItemGroup>
 
 </Project>

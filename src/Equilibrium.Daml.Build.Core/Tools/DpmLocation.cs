@@ -7,7 +7,7 @@ using Equilibrium.Daml.Build.Core.FileSystem;
 
 namespace Equilibrium.Daml.Build.Core.Tools;
 
-/// <summary>Finds the dpm a build runs, from <c>DamlDpmPath</c> or the same search the extension does.</summary>
+/// <summary>Finds the dpm a build runs, from <c>EqDamlDpmPath</c> or the same search the extension does.</summary>
 public static class DpmLocation
 {
     /// <summary>
@@ -16,7 +16,7 @@ public static class DpmLocation
     /// and then in DPM's home directories. A set value that leads nowhere is an error, never a
     /// fallback to some other dpm.
     /// </summary>
-    /// <param name="configured"><c>DamlDpmPath</c>; null or empty to search.</param>
+    /// <param name="configured"><c>EqDamlDpmPath</c>; null or empty to search.</param>
     /// <param name="projectDirectory">The full path of the project's folder.</param>
     /// <param name="environment">Environment variables by name.</param>
     /// <param name="files">The file system to look in.</param>

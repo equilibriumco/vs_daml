@@ -11,13 +11,13 @@ namespace Equilibrium.Daml.VisualStudio.LanguageClient;
 
 /// <summary>
 /// The Daml projects of the open solution and their manifests: projects whose evaluated
-/// <c>DamlManifestPath</c> is set, as Daml.Sdk sets it to the daml.yaml next to the project. C#
+/// <c>EqDamlManifestPath</c> is set, as Equilibrium.Daml.Sdk sets it to the daml.yaml next to the project. C#
 /// projects and anything else have none. Read on the UI thread through each project's build
 /// property storage; an open folder has no projects and gives none.
 /// </summary>
 internal sealed class SolutionDamlProjects
 {
-    private const string ManifestProperty = "DamlManifestPath";
+    private const string ManifestProperty = "EqDamlManifestPath";
 
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly IDamlLogger _logger;
@@ -52,7 +52,7 @@ internal sealed class SolutionDamlProjects
             {
                 continue;
             }
-            // Daml.Sdk's default is a full path; one the project sets itself may be relative to it.
+            // Equilibrium.Daml.Sdk's default is a full path; one the project sets itself may be relative to it.
             manifests.Add(Path.IsPathRooted(value) ? value! : Path.Combine(Path.GetDirectoryName(project.FullPath)!, value));
         }
         if (manifests.Count > 0)

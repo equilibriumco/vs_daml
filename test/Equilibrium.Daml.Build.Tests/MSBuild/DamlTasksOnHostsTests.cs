@@ -19,16 +19,16 @@ public sealed class DamlTasksOnHostsTests : IDisposable
 {
     private const string PackageProject = """
         <Project>
-          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(DamlTasksAssembly)" />
-          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(DamlTasksAssembly)" />
+          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(EqDamlTasksAssembly)" />
+          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(EqDamlTasksAssembly)" />
           <Target Name="Build">
             <ReadDamlManifest ManifestPath="$(MSBuildProjectDirectory)\daml.yaml">
-              <Output TaskParameter="DarPath" PropertyName="_DamlDar" />
+              <Output TaskParameter="DarPath" PropertyName="_EqDamlDar" />
             </ReadDamlManifest>
-            <DamlBuildTask ManifestPath="$(MSBuildProjectDirectory)\daml.yaml" DarPath="$(_DamlDar)" DpmPath="$(DamlDpmPath)" ProcessTimeoutSeconds="$(DamlProcessTimeoutSeconds)">
-              <Output TaskParameter="CreatedDar" PropertyName="_DamlCreatedDar" />
+            <DamlBuildTask ManifestPath="$(MSBuildProjectDirectory)\daml.yaml" DarPath="$(_EqDamlDar)" DpmPath="$(EqDamlDpmPath)" ProcessTimeoutSeconds="$(EqDamlProcessTimeoutSeconds)">
+              <Output TaskParameter="CreatedDar" PropertyName="_EqDamlCreatedDar" />
             </DamlBuildTask>
-            <Message Importance="high" Text="DAR: $(_DamlCreatedDar)" />
+            <Message Importance="high" Text="DAR: $(_EqDamlCreatedDar)" />
             <Message Importance="high" Text="Host: $(MSBuildRuntimeType) $(MSBuildExtensionsPath)" />
           </Target>
         </Project>
@@ -79,7 +79,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     private MSBuildRun BuildWithFake(MSBuildHost host, string project, params (string Name, string Value)[] properties)
     {
         var all = properties.ToDictionary(p => p.Name, p => p.Value);
-        all["DamlDpmPath"] = _dpm.ExecutablePath;
+        all["EqDamlDpmPath"] = _dpm.ExecutablePath;
         return _sandbox.Build(host, HostPath(host), project, _dpm.Environment, all);
     }
 
@@ -156,7 +156,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     {
         Scenario(BuildCommand("Compiling contracts to a DAR.\n", delay: 120_000));
 
-        var run = BuildWithFake(host, Package("contracts"), ("DamlProcessTimeoutSeconds", "2"));
+        var run = BuildWithFake(host, Package("contracts"), ("EqDamlProcessTimeoutSeconds", "2"));
 
         run.ExitCode.ShouldBe(1, run.Log);
         run.Log.ShouldContain("error DAML0110: dpm build didn't finish within 2 s");
@@ -201,7 +201,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var package = CopySample("single-package");
 
-        var run = _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["DamlDpmPath"] = dpm });
+        var run = _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm });
 
         run.ExitCode.ShouldBe(0, run.Log);
         File.Exists(Path.Combine(_sandbox.Root, package, @".daml\dist\single-package-0.0.1.dar")).ShouldBeTrue(run.Log);
@@ -217,7 +217,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var package = CopySample("broken");
 
-        var run = _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["DamlDpmPath"] = dpm });
+        var run = _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm });
 
         run.ExitCode.ShouldBe(1, run.Log);
         run.Log.ShouldContain($@"{Path.Combine(_sandbox.Root, package)}\daml\TypeError.daml(5,9,5,20): typecheck error DAML0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
@@ -227,19 +227,19 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     // A C# project's codegen step on its own, with one DAR reference and the generated files printed.
     private const string AppProject = """
         <Project>
-          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(DamlTasksAssembly)" />
-          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(DamlTasksAssembly)" />
+          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(EqDamlTasksAssembly)" />
+          <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(EqDamlTasksAssembly)" />
           <ItemGroup>
-            <DamlRef Include="$(DamlDarFile)" DamlReferenceSource="DamlDar" />
+            <DamlRef Include="$(DamlDarFile)" EqDamlReferenceSource="EqDamlDar" />
           </ItemGroup>
           <Target Name="Build">
             <DamlCodegenCSharp ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" Configuration="Debug" TargetFramework="net10.0"
-                References="@(DamlRef)" DesignTime="$(DamlDesignTime)" DpmPath="$(DamlDpmPath)" JavaHome="$(DamlJavaHome)"
-                AllowToolInstall="$(DamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" LedgerAbstractionsVersion="0.6.0" CodegenComponent="$(DamlCodegenComponent)"
-                SkipPreflight="$(DamlSkipPreflight)">
-              <Output TaskParameter="GeneratedFiles" ItemName="_DamlGenerated" />
+                References="@(DamlRef)" DesignTime="$(DamlDesignTime)" DpmPath="$(EqDamlDpmPath)" JavaHome="$(EqDamlJavaHome)"
+                AllowToolInstall="$(EqDamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" LedgerAbstractionsVersion="0.6.0" CodegenComponent="$(EqDamlCodegenComponent)"
+                SkipPreflight="$(EqDamlSkipPreflight)">
+              <Output TaskParameter="GeneratedFiles" ItemName="_EqDamlGenerated" />
             </DamlCodegenCSharp>
-            <Message Importance="high" Text="Generated: @(_DamlGenerated->'%(Filename)%(Extension)')" />
+            <Message Importance="high" Text="Generated: @(_EqDamlGenerated->'%(Filename)%(Extension)')" />
           </Target>
           <Target Name="CleanGenerated">
             <DamlCleanGenerated ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" />
@@ -333,11 +333,11 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var properties = new Dictionary<string, string>
         {
             ["DamlDarFile"] = dar,
-            ["DamlDpmPath"] = _dpm.ExecutablePath,
-            ["DamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
+            ["EqDamlDpmPath"] = _dpm.ExecutablePath,
+            ["EqDamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
             ["DamlRuntimeVersion"] = "0.6.0",
-            ["DamlCodegenComponent"] = cache.Pin.Reference,
-            ["DamlSkipPreflight"] = "true",
+            ["EqDamlCodegenComponent"] = cache.Pin.Reference,
+            ["EqDamlSkipPreflight"] = "true",
         };
         return (app, environment, properties);
     }
@@ -369,16 +369,16 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
         var package = CopyPackage(Path.Combine(Repository.Root, @"third_party\canton-dotnet-sdk-mini-demo\daml"), "demo");
-        _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["DamlDpmPath"] = dpm })
+        _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm })
             .ExitCode.ShouldBe(0);
         var app = _sandbox.Write(@"App\App.proj", AppProject);
         var properties = new Dictionary<string, string>
         {
             ["DamlDarFile"] = Path.Combine(_sandbox.Root, @"demo\.daml\dist\canton-mini-demo-hbde402d4f83a-0.1.0.dar"),
-            ["DamlDpmPath"] = dpm,
-            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            ["EqDamlDpmPath"] = dpm,
+            ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
-            ["DamlAllowToolInstall"] = "true",
+            ["EqDamlAllowToolInstall"] = "true",
             ["DamlRuntimeVersion"] = "0.6.0",
         };
 

@@ -21,7 +21,7 @@ Redistributed in the VSIX and the NuGet packages
 
 ------------------------------------------------------------------------------
 YamlDotNet 18.1.0 (YamlDotNet.dll)
-  Ships in: the VSIX; Daml.Sdk and Daml.Build.CSharp (tasks/netstandard2.0/)
+  Ships in: the VSIX; Equilibrium.Daml.Sdk and Equilibrium.Daml.Build.CSharp (tasks/netstandard2.0/)
   Source:   https://github.com/aaubry/YamlDotNet
   Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013, 2014 Antoine Aubry and contributors.
   Its parser derives from LibYAML: Copyright (c) 2006 Kirill Simonov.
@@ -51,7 +51,7 @@ third_party/daml-extension: webview.js, webview.css
 
 ------------------------------------------------------------------------------
 PolySharp 1.16.0 (compiled into our assemblies)
-  Ships in: the VSIX; Daml.Sdk and Daml.Build.CSharp
+  Ships in: the VSIX; Equilibrium.Daml.Sdk and Equilibrium.Daml.Build.CSharp
   Source:   https://github.com/Sergio0694/PolySharp
   A source generator used at build time; the polyfill types it adds to our
   netstandard2.0 and net48 assemblies are compiled into them.

@@ -23,7 +23,7 @@ function Get-ThisBuildPackages {
         throw "No packages in $folder; run pwsh scripts/pack.ps1 first."
     }
     if ($sdk.Name -notmatch '^(?<prefix>.+)\.Sdk\.(?<version>\d.+)\.nupkg$') { throw "Can't read the version of $($sdk.Name)." }
-    $app = Join-Path $RepositoryRoot 'src\Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj'
+    $app = Join-Path $RepositoryRoot 'src\Equilibrium.Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj'
     $runtime = ([xml](Get-Content $app -Raw)).Project.ItemGroup.PackageReference | Where-Object { $_.Include -eq 'Daml.Runtime' } | Select-Object -First 1
     [pscustomobject] @{
         Folder         = $folder

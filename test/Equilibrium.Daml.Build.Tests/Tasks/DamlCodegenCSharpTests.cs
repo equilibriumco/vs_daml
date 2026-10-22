@@ -35,7 +35,7 @@ public class DamlCodegenCSharpTests
     private static TaskItem Reference(string source, string include, string? @namespace = null, string? dar = null)
     {
         var item = new TaskItem(include);
-        item.SetMetadata("DamlReferenceSource", source);
+        item.SetMetadata("EqDamlReferenceSource", source);
         if (@namespace is not null)
         {
             item.SetMetadata("Namespace", @namespace);
@@ -48,12 +48,12 @@ public class DamlCodegenCSharpTests
     }
 
     private static TaskItem Contracts(string? @namespace = "Contracts") =>
-        Reference("DamlReference", @"..\Contracts\Contracts.msbuildproj", @namespace, @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar");
+        Reference("EqDamlReference", @"..\Contracts\Contracts.msbuildproj", @namespace, @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar");
 
     [Fact, Trait("Category", "Unit")]
     public void The_orchestrator_gets_the_project_its_settings_and_one_input_per_generation()
     {
-        var task = Task(Contracts(), Reference("DamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"));
+        var task = Task(Contracts(), Reference("EqDamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"));
         task.Offline = "true";
         task.RuntimeVersion = "0.6.0";
 
@@ -89,10 +89,10 @@ public class DamlCodegenCSharpTests
     public void A_project_reference_brings_the_sources_its_DAR_was_built_from()
     {
         var contracts = Contracts();
-        contracts.SetMetadata("DamlManifest", @"..\Contracts\daml.yaml");
-        contracts.SetMetadata("DamlSourceFingerprint", "50c");
+        contracts.SetMetadata("EqDamlManifest", @"..\Contracts\daml.yaml");
+        contracts.SetMetadata("EqDamlSourceFingerprint", "50c");
 
-        Task(contracts, Reference("DamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"), Reference("DamlReference", @"..\Other\Other.msbuildproj", null, @"C:\work\Other\other.dar"))
+        Task(contracts, Reference("EqDamlDar", @"..\vendor\finance-1.0.0.dar", "Finance"), Reference("EqDamlReference", @"..\Other\Other.msbuildproj", null, @"C:\work\Other\other.dar"))
             .Execute().ShouldBeTrue();
 
         _orchestrator.Requests.ShouldHaveSingleItem().Inputs.Select(i => i.Source).ShouldBe(
@@ -105,13 +105,13 @@ public class DamlCodegenCSharpTests
         item.SetMetadata("MSBuildSourceProjectFile", project);
         if (manifest is not null)
         {
-            item.SetMetadata("DamlManifest", manifest);
-            item.SetMetadata("DamlSourceFingerprint", fingerprint);
+            item.SetMetadata("EqDamlManifest", manifest);
+            item.SetMetadata("EqDamlSourceFingerprint", fingerprint);
         }
         return item;
     }
 
-    // A ProjectReference is a Daml one only when its project answered GetDamlDar; the rest are plain C# libraries.
+    // A ProjectReference is a Daml one only when its project answered EqDamlGetDar; the rest are plain C# libraries.
     [Fact, Trait("Category", "Unit")]
     public void A_project_reference_is_generated_from_what_its_project_answered_and_the_others_are_left_alone()
     {
@@ -132,7 +132,7 @@ public class DamlCodegenCSharpTests
     [Fact, Trait("Category", "Unit")]
     public void A_Daml_reference_takes_its_DAR_from_its_projects_answer()
     {
-        var task = Task(Reference("DamlReference", @"..\Contracts\Contracts.msbuildproj", "Contracts"));
+        var task = Task(Reference("EqDamlReference", @"..\Contracts\Contracts.msbuildproj", "Contracts"));
         task.Dars = [Answer(@"C:\work\Contracts\Contracts.msbuildproj", @"C:\work\Contracts\.daml\dist\contracts-1.2.0.dar")];
 
         task.Execute().ShouldBeTrue();
@@ -160,7 +160,7 @@ public class DamlCodegenCSharpTests
 
         task.Execute().ShouldBeTrue();
 
-        task.GeneratedFiles.Select(f => (f.ItemSpec, f.GetMetadata("DamlGenerated"), f.GetMetadata("DamlGenerationId"))).ShouldBe(
+        task.GeneratedFiles.Select(f => (f.ItemSpec, f.GetMetadata("EqDamlGenerated"), f.GetMetadata("EqDamlGenerationId"))).ShouldBe(
         [
             (@"C:\work\App\obj\Debug\net10.0\Daml\Contracts-1\Asset.cs", "true", "1"),
             (@"C:\work\App\obj\Debug\net10.0\Daml\Contracts-1\Asset.Give.cs", "true", "1"),
@@ -193,7 +193,7 @@ public class DamlCodegenCSharpTests
     [Fact, Trait("Category", "Unit")]
     public void Bad_settings_and_references_are_all_reported_and_nothing_runs()
     {
-        var task = Task(Contracts(), Contracts(), Reference("DamlReference", @"..\vendor\x.dar"));
+        var task = Task(Contracts(), Contracts(), Reference("EqDamlReference", @"..\vendor\x.dar"));
         task.CodegenComponent = "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest";
         task.LockTimeoutSeconds = "0";
 
@@ -209,7 +209,7 @@ public class DamlCodegenCSharpTests
     [Fact, Trait("Category", "Unit")]
     public void A_project_reference_without_its_DAR_is_a_codegen_error()
     {
-        Task(Reference("DamlReference", @"..\Contracts\Contracts.msbuildproj")).Execute().ShouldBeFalse();
+        Task(Reference("EqDamlReference", @"..\Contracts\Contracts.msbuildproj")).Execute().ShouldBeFalse();
 
         _engine.Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.CodegenFailed);
         _orchestrator.Requests.ShouldBeEmpty();

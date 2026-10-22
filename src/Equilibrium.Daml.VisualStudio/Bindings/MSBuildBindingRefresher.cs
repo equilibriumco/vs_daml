@@ -15,7 +15,7 @@ namespace Equilibrium.Daml.VisualStudio.Bindings;
 
 /// <summary>
 /// Refreshes a project's bindings with Visual Studio's own 64-bit MSBuild in a process of its own
-/// (in the job that dies with Visual Studio): the targeted build <c>DamlRefreshBindings</c> in the
+/// (in the job that dies with Visual Studio): the targeted build <c>EqDamlRefreshBindings</c> in the
 /// configuration the solution builds the project in. What it reports goes to the Error List.
 /// </summary>
 internal sealed class MSBuildBindingRefresher : IBindingRefresher

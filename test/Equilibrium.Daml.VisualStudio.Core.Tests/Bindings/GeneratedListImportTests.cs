@@ -35,7 +35,7 @@ public class GeneratedListImportTests
         GeneratedListImport.Missed(List, Imports, _ => false).ShouldBeFalse();
     }
 
-    // Visual Studio's evaluations leave out private properties such as the package's own _DamlGeneratedProps,
+    // Visual Studio's evaluations leave out private properties such as the package's own _EqDamlGeneratedProps,
     // so the path is worked out from public ones, the way the package does.
     [Fact, Trait("Category", "Unit")]
     public void The_list_path_comes_from_the_projects_public_properties()

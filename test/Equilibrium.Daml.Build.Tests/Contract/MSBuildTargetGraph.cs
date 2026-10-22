@@ -19,41 +19,41 @@ internal static class MSBuildTargetGraph
 {
     public static IReadOnlyList<HookContract> DamlSdkHooks { get; } =
     [
-        new("CoreBuildDependsOn", "DamlBuild"),
-        new("CleanDependsOn", "DamlClean"),
-        new("CollectUpToDateCheckInputDesignTimeDependsOn", "DamlCollectUpToDateCheckItems"),
-        new("CollectUpToDateCheckBuiltDesignTimeDependsOn", "DamlCollectUpToDateCheckItems"),
+        new("CoreBuildDependsOn", "EqDamlBuild"),
+        new("CleanDependsOn", "EqDamlClean"),
+        new("CollectUpToDateCheckInputDesignTimeDependsOn", "EqDamlCollectUpToDateCheckItems"),
+        new("CollectUpToDateCheckBuiltDesignTimeDependsOn", "EqDamlCollectUpToDateCheckItems"),
     ];
 
     public static IReadOnlyList<TargetContract> DamlSdk { get; } =
     [
-        new("DamlResolveManifest"),
-        new("DamlComputeBuildState", "DamlResolveManifest"),
-        new("DamlBuild", "DamlResolveManifest", "DamlComputeBuildState"),
-        new("GetDamlDar", "DamlResolveManifest"),
-        new("DamlTest", "DamlBuild"),
-        new("DamlClean", "DamlResolveManifest"),
-        new("DamlCollectUpToDateCheckItems", "DamlResolveManifest"),
+        new("EqDamlResolveManifest"),
+        new("EqDamlComputeBuildState", "EqDamlResolveManifest"),
+        new("EqDamlBuild", "EqDamlResolveManifest", "EqDamlComputeBuildState"),
+        new("EqDamlGetDar", "EqDamlResolveManifest"),
+        new("EqDamlTest", "EqDamlBuild"),
+        new("EqDamlClean", "EqDamlResolveManifest"),
+        new("EqDamlCollectUpToDateCheckItems", "EqDamlResolveManifest"),
     ];
 
     public static IReadOnlyList<HookContract> CSharpHooks { get; } =
     [
-        new("CoreCompileDependsOn", "DamlCollectGeneratedCompile", First: true),
-        new("CleanDependsOn", "DamlCleanGenerated"),
-        new("CollectUpToDateCheckInputDesignTimeDependsOn", "DamlCollectUpToDateCheckItems"),
-        new("CollectUpToDateCheckBuiltDesignTimeDependsOn", "DamlCollectUpToDateCheckItems"),
+        new("CoreCompileDependsOn", "EqDamlCollectGeneratedCompile", First: true),
+        new("CleanDependsOn", "EqDamlCleanGenerated"),
+        new("CollectUpToDateCheckInputDesignTimeDependsOn", "EqDamlCollectUpToDateCheckItems"),
+        new("CollectUpToDateCheckBuiltDesignTimeDependsOn", "EqDamlCollectUpToDateCheckItems"),
     ];
 
     public static IReadOnlyList<TargetContract> CSharp { get; } =
     [
-        new("DamlResolveDars", "ResolveProjectReferences"),
-        new("DamlEnsureDars", "DamlResolveDars"),
-        new("DamlComputeGenerationState", "DamlEnsureDars"),
-        new("DamlGenerateCSharp", "DamlComputeGenerationState"),
-        new("DamlCollectGeneratedCompile", "DamlGenerateCSharp"),
-        new("DamlBuildReferences", "ResolveProjectReferences"),
-        new("DamlRefreshBindings", "ResolveReferences", "DamlBuildReferences", "DamlResolveDars", "DamlEnsureDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"),
-        new("DamlCleanGenerated"),
-        new("DamlCollectUpToDateCheckItems", "DamlResolveDars"),
+        new("EqDamlResolveDars", "ResolveProjectReferences"),
+        new("EqDamlEnsureDars", "EqDamlResolveDars"),
+        new("EqDamlComputeGenerationState", "EqDamlEnsureDars"),
+        new("EqDamlGenerateCSharp", "EqDamlComputeGenerationState"),
+        new("EqDamlCollectGeneratedCompile", "EqDamlGenerateCSharp"),
+        new("EqDamlBuildReferences", "ResolveProjectReferences"),
+        new("EqDamlRefreshBindings", "ResolveReferences", "EqDamlBuildReferences", "EqDamlResolveDars", "EqDamlEnsureDars", "EqDamlComputeGenerationState", "EqDamlGenerateCSharp", "EqDamlCollectGeneratedCompile"),
+        new("EqDamlCleanGenerated"),
+        new("EqDamlCollectUpToDateCheckItems", "EqDamlResolveDars"),
     ];
 }

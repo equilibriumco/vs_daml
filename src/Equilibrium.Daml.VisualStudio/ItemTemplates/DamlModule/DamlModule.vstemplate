@@ -4,7 +4,7 @@
   <TemplateData>
     <Name>Daml Module</Name>
     <Description>An empty Daml module named after the file. Daml wants the module name to follow the file's path under the package's source folder (A\B.daml is module A.B), so in a subfolder add its path to the name.</Description>
-    <TemplateID>Daml.ItemTemplates.Module</TemplateID>
+    <TemplateID>Equilibrium.Daml.ItemTemplates.Module</TemplateID>
     <ProjectType>CPS Projects</ProjectType>
     <DefaultName>Module.daml</DefaultName>
     <SortOrder>10</SortOrder>

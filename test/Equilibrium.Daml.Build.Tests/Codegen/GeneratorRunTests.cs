@@ -44,7 +44,7 @@ public sealed class GeneratorRunTests : IDisposable
 
     private PlannedGeneration Planned(string? @namespace = "Contracts")
     {
-        var reference = new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
+        var reference = new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             @"C:\work\Contracts\Contracts.msbuildproj", @namespace, "0123456789abcdef", "Contracts-0123456789abcdef");
         return new PlannedGeneration(new CodegenInput(reference, Dar, Sources), @"C:\unused", "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
     }
@@ -207,7 +207,7 @@ public sealed class GeneratorRunTests : IDisposable
 
         problem.Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
         problem.Message.ShouldContain("90 s");
-        problem.Message.ShouldContain("DamlProcessTimeoutSeconds");
+        problem.Message.ShouldContain("EqDamlProcessTimeoutSeconds");
     }
 
     [Fact, Trait("Category", "Unit")]

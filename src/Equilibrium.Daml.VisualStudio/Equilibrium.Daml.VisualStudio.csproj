@@ -73,10 +73,10 @@
     <PackageReference Include="Community.VisualStudio.VSCT" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- New Project: the dotnet new package of Daml.Templates, which builds it, goes into Templates\
+  <!-- New Project: the dotnet new package of Equilibrium.Daml.Templates, which builds it, goes into Templates\
        for the template engine the pkgdef points at. Add New Item: the item templates, zipped. -->
   <ItemGroup>
-    <ProjectReference Include="..\Daml.Templates\Daml.Templates.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj" ReferenceOutputAssembly="false" Private="false" />
     <Content Include="Templates\DamlTemplates.pkgdef" IncludeInVSIX="true" />
     <VSTemplate Include="ItemTemplates\DamlModule\DamlModule.vstemplate" OutputSubPath="Daml" />
     <VSTemplate Include="ItemTemplates\DamlScriptTest\DamlScriptTest.vstemplate" OutputSubPath="Daml" />
@@ -85,11 +85,11 @@
   <!-- The SDK zips the item templates but only takes zips of other projects into the VSIX, so both
        kinds of template are added here, where the manifest's assets expect them. -->
   <Target Name="IncludeDamlTemplates" AfterTargets="GetVsixSourceItems">
-    <MSBuild Projects="..\Daml.Templates\Daml.Templates.csproj" Targets="DamlTemplatesPackage" Properties="Configuration=$(Configuration)">
-      <Output TaskParameter="TargetOutputs" ItemName="_DamlTemplatesPackage" />
+    <MSBuild Projects="..\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj" Targets="EqDamlTemplatesPackage" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlTemplatesPackage" />
     </MSBuild>
     <ItemGroup>
-      <VSIXSourceItem Include="@(_DamlTemplatesPackage)" VSIXSubPath="Templates" />
+      <VSIXSourceItem Include="@(_EqDamlTemplatesPackage)" VSIXSubPath="Templates" />
       <VSIXSourceItem Include="@(IntermediateZipItem)" VSIXSubPath="ItemTemplates\%(IntermediateZipItem.Language)\%(IntermediateZipItem.OutputSubPath)\%(IntermediateZipItem.Culture)" />
     </ItemGroup>
   </Target>

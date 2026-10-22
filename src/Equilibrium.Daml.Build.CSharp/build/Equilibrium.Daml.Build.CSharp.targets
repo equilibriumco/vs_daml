@@ -1,0 +1,248 @@
+<Project>
+
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(_EqDamlCSharpTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlWriteGeneratedProps" AssemblyFile="$(_EqDamlCSharpTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(_EqDamlCSharpTasks)" />
+
+  <!-- An EqDamlReference is a project reference that brings a DAR, never an assembly. The project
+       builds first and is asked for its DAR, like any project reference. -->
+  <ItemGroup>
+    <ProjectReference Include="@(EqDamlReference)" ReferenceOutputAssembly="false" EqDamlReference="true" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <_EqDamlCodegenOff Condition="'$(EqDamlCodegenEnabled)' == 'false' or '$(EqDamlCodegenEnabled)' == 'off' or '$(EqDamlCodegenEnabled)' == 'no'">true</_EqDamlCodegenOff>
+    <!-- Source mode keeps the generated code in the project, where the default globs would find it
+         as well: they mustn't, the build compiles exactly what the manifests list. Intermediate mode
+         decides its folder in the task, once IntermediateOutputPath is known. -->
+    <_EqDamlSourceMode Condition="'$(EqDamlGeneratedOutputMode)' == 'Source'">true</_EqDamlSourceMode>
+    <_EqDamlSourceRoot Condition="'$(_EqDamlSourceMode)' == 'true' and '$(EqDamlGeneratedDir)' != ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(EqDamlGeneratedDir)'))</_EqDamlSourceRoot>
+    <_EqDamlSourceRoot Condition="'$(_EqDamlSourceMode)' == 'true' and '$(EqDamlGeneratedDir)' == ''">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'Generated', 'Daml'))</_EqDamlSourceRoot>
+    <!-- The generated file list of this configuration and target framework, imported below for
+         IntelliSense; not obj\<project>.*.props, which Microsoft.Common.props imports by itself. -->
+    <_EqDamlGeneratedListBase>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'daml', '$(MSBuildProjectFile).$(Configuration).$(TargetFramework)'))</_EqDamlGeneratedListBase>
+    <_EqDamlGeneratedProps>$(_EqDamlGeneratedListBase).g.props</_EqDamlGeneratedProps>
+    <!-- Touched by every real build that brought the bindings up to date: the up-to-date check's
+         record of when that last happened. -->
+    <_EqDamlBuiltStamp>$(_EqDamlGeneratedListBase).built</_EqDamlBuiltStamp>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_EqDamlSourceRoot)' != ''">
+    <Compile Remove="$(_EqDamlSourceRoot)**" />
+    <None Remove="$(_EqDamlSourceRoot)**" />
+  </ItemGroup>
+
+  <Import Project="$(_EqDamlGeneratedProps)" Condition="'$(TargetFramework)' != '' and '$(_EqDamlCodegenOff)' != 'true' and Exists('$(_EqDamlGeneratedProps)')" />
+
+  <PropertyGroup>
+    <CoreCompileDependsOn>EqDamlCollectGeneratedCompile;$(CoreCompileDependsOn)</CoreCompileDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);EqDamlCleanGenerated</CleanDependsOn>
+    <CollectUpToDateCheckInputDesignTimeDependsOn>$(CollectUpToDateCheckInputDesignTimeDependsOn);EqDamlCollectUpToDateCheckItems</CollectUpToDateCheckInputDesignTimeDependsOn>
+    <CollectUpToDateCheckBuiltDesignTimeDependsOn>$(CollectUpToDateCheckBuiltDesignTimeDependsOn);EqDamlCollectUpToDateCheckItems</CollectUpToDateCheckBuiltDesignTimeDependsOn>
+  </PropertyGroup>
+
+  <!-- Order comes from DependsOnTargets alone. A target's condition is judged before its
+       dependencies run, so "only in a real build" sits on the tasks, never on the targets. -->
+
+  <!-- Every project reference is asked for its DAR, with the global properties it was built with,
+       so the answer comes from the same project instance. Projects that aren't Daml projects
+       don't know the target and answer nothing. Only reads, so design-time builds ask too. -->
+  <Target Name="EqDamlResolveDars" DependsOnTargets="ResolveProjectReferences">
+    <MSBuild
+        Projects="@(_MSBuildProjectReferenceExistent)"
+        Targets="EqDamlGetDar"
+        Properties="%(_MSBuildProjectReferenceExistent.SetConfiguration); %(_MSBuildProjectReferenceExistent.SetPlatform); %(_MSBuildProjectReferenceExistent.SetTargetFramework)"
+        RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)"
+        SkipNonexistentTargets="true"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlProjectDar" />
+    </MSBuild>
+  </Target>
+
+  <!-- Visual Studio builds project references itself (BuildingInsideVisualStudio keeps
+       ResolveProjectReferences from building them), in the order it knows of. Before the first
+       restore it doesn't know this project needs its Daml projects, and may build them side by side:
+       a DAR asked for above can be missing, older than its sources, or being written. So inside
+       Visual Studio the Daml projects are built here first, as a build outside it would: one that
+       Visual Studio is building already is waited for under dpm's lock on the package and then found
+       current, one that is current is only checked. They are asked for their DARs again afterwards,
+       as MSBuild keeps the first answer for that project instance. -->
+  <Target Name="EqDamlEnsureDars" DependsOnTargets="EqDamlResolveDars">
+    <ItemGroup Condition="'$(DesignTimeBuild)' != 'true' and '$(BuildingInsideVisualStudio)' == 'true'">
+      <_EqDamlDarProject Include="@(_EqDamlProjectDar->'%(EqDamlSourceProject)')" />
+      <_EqDamlReferencedProject Include="@(_MSBuildProjectReferenceExistent->'%(FullPath)')" />
+      <_EqDamlOtherProject Include="@(_EqDamlReferencedProject)" Exclude="@(_EqDamlDarProject)" />
+      <_EqDamlBuildFirst Include="@(_EqDamlReferencedProject)" />
+      <_EqDamlBuildFirst Remove="@(_EqDamlOtherProject)" />
+    </ItemGroup>
+    <MSBuild
+        Condition="'@(_EqDamlBuildFirst)' != ''"
+        Projects="@(_EqDamlBuildFirst)"
+        Targets="Build"
+        Properties="%(_EqDamlBuildFirst.SetConfiguration); %(_EqDamlBuildFirst.SetPlatform); %(_EqDamlBuildFirst.SetTargetFramework); BuildProjectReferences=true"
+        RemoveProperties="%(_EqDamlBuildFirst.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)" />
+    <MSBuild
+        Condition="'@(_EqDamlBuildFirst)' != ''"
+        Projects="@(_EqDamlBuildFirst)"
+        Targets="EqDamlGetDar"
+        Properties="%(_EqDamlBuildFirst.SetConfiguration); %(_EqDamlBuildFirst.SetPlatform); %(_EqDamlBuildFirst.SetTargetFramework); _EqDamlAfterBuild=true"
+        RemoveProperties="%(_EqDamlBuildFirst.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlBuiltDar" />
+    </MSBuild>
+    <ItemGroup Condition="'@(_EqDamlBuiltDar)' != ''">
+      <_EqDamlProjectDar Remove="@(_EqDamlProjectDar)" />
+      <_EqDamlProjectDar Include="@(_EqDamlBuiltDar)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The references as the project wrote them, and the runtime it compiles against. A design-time
+       build stops here with what the last real build published: it runs nothing and writes nothing. -->
+  <Target Name="EqDamlComputeGenerationState" DependsOnTargets="EqDamlEnsureDars">
+    <ItemGroup>
+      <_EqDamlCodegenReference Include="@(EqDamlReference)" EqDamlReferenceSource="EqDamlReference" />
+      <_EqDamlCodegenReference Include="@(EqDamlDar)" EqDamlReferenceSource="EqDamlDar" />
+      <_EqDamlCodegenReference Include="@(ProjectReference)" Condition="'%(ProjectReference.EqDamlReference)' != 'true'" EqDamlReferenceSource="ProjectReference" Namespace="%(ProjectReference.EqDamlNamespace)" />
+      <_EqDamlRuntimeReference Include="@(ReferencePath)" Condition="'%(ReferencePath.NuGetPackageId)' == 'Daml.Runtime'" />
+      <_EqDamlLedgerReference Include="@(ReferencePath)" Condition="'%(ReferencePath.NuGetPackageId)' == 'Daml.Ledger.Abstractions'" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_EqDamlRuntimeVersion>@(_EqDamlRuntimeReference->'%(NuGetPackageVersion)')</_EqDamlRuntimeVersion>
+      <_EqDamlLedgerVersion>@(_EqDamlLedgerReference->'%(NuGetPackageVersion)')</_EqDamlLedgerVersion>
+    </PropertyGroup>
+    <DamlCodegenCSharp
+        Condition="'$(DesignTimeBuild)' == 'true'"
+        DesignTime="true"
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        TargetFrameworks="$(TargetFrameworks)"
+        References="@(_EqDamlCodegenReference)"
+        Dars="@(_EqDamlProjectDar)"
+        CodegenEnabled="$(EqDamlCodegenEnabled)"
+        CodegenComponent="$(EqDamlCodegenComponent)"
+        GeneratedOutputMode="$(EqDamlGeneratedOutputMode)"
+        GeneratedDir="$(EqDamlGeneratedDir)"
+        JavaHome="$(EqDamlJavaHome)"
+        DpmPath="$(EqDamlDpmPath)"
+        Offline="$(EqDamlOffline)"
+        AllowToolInstall="$(EqDamlAllowToolInstall)"
+        SkipPreflight="$(EqDamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(EqDamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)"
+        RuntimeVersion="$(_EqDamlRuntimeVersion)"
+        LedgerAbstractionsVersion="$(_EqDamlLedgerVersion)">
+      <Output TaskParameter="GeneratedFiles" ItemName="_EqDamlGeneratedFile" />
+    </DamlCodegenCSharp>
+  </Target>
+
+  <!-- A real build: the settings and references checked, then every generation brought up to date
+       under its locks and judged afresh each time, never by file times. -->
+  <Target Name="EqDamlGenerateCSharp" DependsOnTargets="EqDamlComputeGenerationState">
+    <DamlCodegenCSharp
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        TargetFrameworks="$(TargetFrameworks)"
+        References="@(_EqDamlCodegenReference)"
+        Dars="@(_EqDamlProjectDar)"
+        CodegenEnabled="$(EqDamlCodegenEnabled)"
+        CodegenComponent="$(EqDamlCodegenComponent)"
+        GeneratedOutputMode="$(EqDamlGeneratedOutputMode)"
+        GeneratedDir="$(EqDamlGeneratedDir)"
+        JavaHome="$(EqDamlJavaHome)"
+        DpmPath="$(EqDamlDpmPath)"
+        Offline="$(EqDamlOffline)"
+        AllowToolInstall="$(EqDamlAllowToolInstall)"
+        SkipPreflight="$(EqDamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(EqDamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)"
+        RuntimeVersion="$(_EqDamlRuntimeVersion)"
+        LedgerAbstractionsVersion="$(_EqDamlLedgerVersion)">
+      <Output TaskParameter="GeneratedFiles" ItemName="_EqDamlGeneratedFile" />
+    </DamlCodegenCSharp>
+  </Target>
+
+  <!-- Always: the compiler gets exactly the files of the current generations, whatever the props
+       imported at evaluation listed, and no generated file of a reference that is gone. -->
+  <Target Name="EqDamlCollectGeneratedCompile" DependsOnTargets="EqDamlGenerateCSharp">
+    <ItemGroup>
+      <Compile Remove="@(Compile)" Condition="'%(Compile.EqDamlGenerated)' == 'true'" />
+      <Compile Include="@(_EqDamlGeneratedFile)" Condition="'$(_EqDamlSourceMode)' == 'true'" />
+      <Compile Include="@(_EqDamlGeneratedFile)" Condition="'$(_EqDamlSourceMode)' != 'true'" Visible="false" />
+    </ItemGroup>
+    <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' != 'true'" PropsPath="$(_EqDamlGeneratedProps)" Files="@(_EqDamlGeneratedFile)" Visible="$(_EqDamlSourceMode)" />
+    <DamlWriteGeneratedProps Condition="'$(DesignTimeBuild)' == 'true'" PropsPath="$(_EqDamlGeneratedProps)" OnlyIfMissing="true" />
+    <!-- Not after a refresh: the project itself wasn't compiled, so the next build has to. -->
+    <Touch Condition="'$(DesignTimeBuild)' != 'true' and '$(_EqDamlRefreshing)' != 'true'" Files="$(_EqDamlBuiltStamp)" AlwaysCreate="true" />
+  </Target>
+
+  <!-- Only in a refresh: the Daml projects among the project references (EqDamlReference or plain),
+       built as this project's own build would build them, each with its own references. The refresh
+       runs with BuildProjectReferences=false, so C# libraries are only resolved, never compiled. The
+       projects are told apart with a probe of their own, so EqDamlGetDar of the build proper still
+       reads the DARs this target builds instead of an answer MSBuild kept from before. -->
+  <Target Name="EqDamlBuildReferences" DependsOnTargets="ResolveProjectReferences">
+    <PropertyGroup>
+      <_EqDamlRefreshing>true</_EqDamlRefreshing>
+    </PropertyGroup>
+    <MSBuild
+        Projects="@(_MSBuildProjectReferenceExistent)"
+        Targets="EqDamlGetDar"
+        Properties="%(_MSBuildProjectReferenceExistent.SetConfiguration); %(_MSBuildProjectReferenceExistent.SetPlatform); %(_MSBuildProjectReferenceExistent.SetTargetFramework); _EqDamlRefreshProbe=true"
+        RemoveProperties="%(_MSBuildProjectReferenceExistent.GlobalPropertiesToRemove)"
+        SkipNonexistentTargets="true"
+        BuildInParallel="$(BuildInParallel)">
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlRefreshProbe" />
+    </MSBuild>
+    <ItemGroup>
+      <_EqDamlRefreshReference Include="@(_MSBuildProjectReferenceExistent->'%(FullPath)')" />
+      <_EqDamlRefreshDamlProject Include="@(_EqDamlRefreshProbe->'%(MSBuildSourceProjectFile)')" />
+      <_EqDamlRefreshOther Include="@(_EqDamlRefreshReference)" Exclude="@(_EqDamlRefreshDamlProject)" />
+      <_EqDamlRefreshReference Remove="@(_EqDamlRefreshOther)" />
+    </ItemGroup>
+    <MSBuild
+        Projects="@(_EqDamlRefreshReference)"
+        Targets="Build"
+        Properties="%(_EqDamlRefreshReference.SetConfiguration); %(_EqDamlRefreshReference.SetPlatform); %(_EqDamlRefreshReference.SetTargetFramework); BuildProjectReferences=true"
+        RemoveProperties="%(_EqDamlRefreshReference.GlobalPropertiesToRemove)"
+        BuildInParallel="$(BuildInParallel)" />
+  </Target>
+
+  <!-- Bindings brought up to date without compiling the project: what refreshing them in the
+       background runs, with BuildProjectReferences=false. ResolveReferences gives the Daml.Runtime
+       version the generator's checks need. -->
+  <Target Name="EqDamlRefreshBindings" DependsOnTargets="ResolveReferences;EqDamlBuildReferences;EqDamlResolveDars;EqDamlEnsureDars;EqDamlComputeGenerationState;EqDamlGenerateCSharp;EqDamlCollectGeneratedCompile" />
+
+  <!-- What this project generated, and nothing the generator didn't write; the generator's caches stay.
+       The file list is emptied, not deleted: Visual Studio watches only the files the evaluation
+       imported, so a deleted list would drop out of it and the next build's list go unnoticed. -->
+  <Target Name="EqDamlCleanGenerated">
+    <DamlCleanGenerated
+        ProjectPath="$(MSBuildProjectFullPath)"
+        IntermediateOutputPath="$(IntermediateOutputPath)"
+        Configuration="$(Configuration)"
+        TargetFramework="$(TargetFramework)"
+        GeneratedOutputMode="$(EqDamlGeneratedOutputMode)"
+        GeneratedDir="$(EqDamlGeneratedDir)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)" />
+    <DamlWriteGeneratedProps Condition="Exists('$(_EqDamlGeneratedProps)')" PropsPath="$(_EqDamlGeneratedProps)" />
+    <Delete Files="$(_EqDamlBuiltStamp)" />
+  </Target>
+
+  <!-- What Visual Studio's fast up-to-date check has to know: the DARs, from projects or files,
+       and these build files are inputs; the stamp says when the bindings were last brought up to
+       date. A generated file gone missing is a missing Compile input already. -->
+  <Target Name="EqDamlCollectUpToDateCheckItems" DependsOnTargets="EqDamlResolveDars">
+    <ItemGroup>
+      <UpToDateCheckInput Include="@(_EqDamlProjectDar);@(EqDamlDar->'%(FullPath)')" />
+      <UpToDateCheckInput Include="$(MSBuildThisFileFullPath);$(MSBuildThisFileDirectory)$(MSBuildThisFileName).props" />
+      <UpToDateCheckBuilt Include="$(_EqDamlBuiltStamp)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

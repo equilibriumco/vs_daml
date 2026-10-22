@@ -150,7 +150,7 @@ public sealed class GenerationStateTests : IDisposable
         state.Status.ShouldBe(GenerationStatus.Conflict);
         state.ForeignFiles.ShouldBe([@"S09\Notes.cs"]);
         state.Reason.ShouldBe(
-            $@"{_folder} has files the generator didn't write: S09\Notes.cs. The build never deletes them; move them out, or give DamlGeneratedDir a folder of its own.");
+            $@"{_folder} has files the generator didn't write: S09\Notes.cs. The build never deletes them; move them out, or give EqDamlGeneratedDir a folder of its own.");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -180,7 +180,7 @@ public sealed class GenerationStateTests : IDisposable
         var state = Evaluate(owner: @"C:\work\Other\Other.csproj");
 
         state.Status.ShouldBe(GenerationStatus.Conflict);
-        state.Reason.ShouldBe($@"{_folder} holds bindings generated for C:\work\App\App.csproj, not for C:\work\Other\Other.csproj. Give each project a DamlGeneratedDir of its own.");
+        state.Reason.ShouldBe($@"{_folder} holds bindings generated for C:\work\App\App.csproj, not for C:\work\Other\Other.csproj. Give each project a EqDamlGeneratedDir of its own.");
     }
 
     [Theory, Trait("Category", "Unit")]

@@ -3,11 +3,11 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// <summary>How a C# project names something to generate bindings from.</summary>
 public enum DamlReferenceSource
 {
-    /// <summary>A <c>DamlReference</c> item: a Daml project in the solution.</summary>
-    DamlReference,
+    /// <summary>A <c>EqDamlReference</c> item: a Daml project in the solution.</summary>
+    EqDamlReference,
 
-    /// <summary>A <c>DamlDar</c> item: a DAR file from outside the solution.</summary>
-    DamlDar,
+    /// <summary>A <c>EqDamlDar</c> item: a DAR file from outside the solution.</summary>
+    EqDamlDar,
 
     /// <summary>A plain <c>ProjectReference</c> to a Daml project, as Visual Studio adds one.</summary>
     ProjectReference,

@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
-// The Daml.Sdk package as dotnet pack makes it from the built solution.
+// The Equilibrium.Daml.Sdk package as dotnet pack makes it from the built solution.
 public sealed class DamlSdkPackageTests : IDisposable
 {
     private readonly string _output = Path.Combine(Path.GetTempPath(), "daml-sdk-pack-" + Guid.NewGuid().ToString("N"));
@@ -64,9 +64,9 @@ public sealed class DamlSdkPackageTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public async Task The_package_is_an_MSBuild_SDK_with_its_props_targets_and_tasks_only()
     {
-        var (entries, metadata) = await PackAsync(@"src\Daml.Sdk\Daml.Sdk.csproj", "Daml.Sdk");
+        var (entries, metadata) = await PackAsync(@"src\Equilibrium.Daml.Sdk\Equilibrium.Daml.Sdk.csproj", "Equilibrium.Daml.Sdk");
 
-        entries.ShouldBe(["Daml.Sdk.nuspec", "Sdk/Sdk.props", "Sdk/Sdk.targets", .. Tasks], ignoreOrder: true);
+        entries.ShouldBe(["Equilibrium.Daml.Sdk.nuspec", "Sdk/Sdk.props", "Sdk/Sdk.targets", .. Tasks], ignoreOrder: true);
         metadata.Descendants().Where(e => e.Name.LocalName == "packageType").Select(e => (string?)e.Attribute("name")).ShouldBe(["MSBuildSdk"]);
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
         ShouldBeApacheLicensed(metadata);
@@ -77,9 +77,9 @@ public sealed class DamlSdkPackageTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public async Task The_CSharp_package_is_a_development_dependency_with_build_files_named_after_it()
     {
-        var (entries, metadata) = await PackAsync(@"src\Daml.Build.CSharp\Daml.Build.CSharp.csproj", "Daml.Build.CSharp");
+        var (entries, metadata) = await PackAsync(@"src\Equilibrium.Daml.Build.CSharp\Equilibrium.Daml.Build.CSharp.csproj", "Equilibrium.Daml.Build.CSharp");
 
-        entries.ShouldBe(["Daml.Build.CSharp.nuspec", "build/Daml.Build.CSharp.props", "build/Daml.Build.CSharp.targets", .. Tasks], ignoreOrder: true);
+        entries.ShouldBe(["Equilibrium.Daml.Build.CSharp.nuspec", "build/Equilibrium.Daml.Build.CSharp.props", "build/Equilibrium.Daml.Build.CSharp.targets", .. Tasks], ignoreOrder: true);
         metadata.Elements().Single(e => e.Name.LocalName == "developmentDependency").Value.ShouldBe("true");
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
         ShouldBeApacheLicensed(metadata);
@@ -90,23 +90,23 @@ public sealed class DamlSdkPackageTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public async Task The_templates_package_holds_both_templates_with_its_own_release_written_in()
     {
-        var (entries, metadata) = await PackAsync(@"src\Daml.Templates\Daml.Templates.csproj", "Daml.Templates");
+        var (entries, metadata) = await PackAsync(@"src\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj", "Equilibrium.Daml.Templates");
 
-        var content = Path.Combine(Repository.Root, @"src\Daml.Templates\content");
+        var content = Path.Combine(Repository.Root, @"src\Equilibrium.Daml.Templates\content");
         var files = Directory.GetFiles(content, "*", SearchOption.AllDirectories).Select(f => "content/" + f.Substring(content.Length + 1).Replace('\\', '/'));
-        entries.ShouldBe(["Daml.Templates.nuspec", .. files], ignoreOrder: true);
+        entries.ShouldBe(["Equilibrium.Daml.Templates.nuspec", .. files], ignoreOrder: true);
         metadata.Descendants().Where(e => e.Name.LocalName == "packageType").Select(e => (string?)e.Attribute("name")).ShouldBe(["Template"]);
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
         ShouldBeApacheLicensed(metadata);
         var version = metadata.Elements().Single(e => e.Name.LocalName == "version").Value;
-        using var package = ZipFile.OpenRead(Directory.GetFiles(_output, "Daml.Templates.*.nupkg").ShouldHaveSingleItem());
+        using var package = ZipFile.OpenRead(Directory.GetFiles(_output, "Equilibrium.Daml.Templates.*.nupkg").ShouldHaveSingleItem());
         foreach (var template in new[] { "daml-contracts", "daml-dotnet-app" })
         {
             using var reader = new StreamReader(package.GetEntry($"content/{template}/.template.config/template.json")!.Open());
             var config = await reader.ReadToEndAsync();
             config.ShouldNotContain("@Package");
             config.ShouldContain($"\"value\": \"{version}\"");
-            config.ShouldContain("\"value\": \"Daml\"");
+            config.ShouldContain("\"value\": \"Equilibrium.Daml\"");
         }
     }
 }

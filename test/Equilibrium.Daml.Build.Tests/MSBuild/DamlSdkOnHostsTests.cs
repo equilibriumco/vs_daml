@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
-// Daml projects as users write them, <Project Sdk="Daml.Sdk/…">, with NuGet resolving the SDK
+// Daml projects as users write them, <Project Sdk="Equilibrium.Daml.Sdk/…">, with NuGet resolving the SDK
 // from a local feed, in MSBuild.exe of Visual Studio 2026 and in dotnet msbuild, with a fake dpm.
 public sealed class DamlSdkOnHostsTests : IDisposable
 {
@@ -33,12 +33,12 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         _sandbox.UseSdkFeed();
         _sandbox.Write(@"contracts\daml.yaml", manifest);
         _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n");
-        return _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\">\n{body}\n</Project>\n");
+        return _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Equilibrium.Daml.Sdk/{SdkFeed.Version}\">\n{body}\n</Project>\n");
     }
 
     private const string ShowItems = """
           <Target Name="ShowItems">
-            <Message Importance="high" Text="Source: %(DamlSource.FullPath)" />
+            <Message Importance="high" Text="Source: %(EqDamlSource.FullPath)" />
             <Message Importance="high" Text="Shown: %(None.FullPath)" />
           </Target>
         """;
@@ -70,7 +70,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     private MSBuildRun Build(MSBuildHost host, string project, string? target = null, params (string Name, string Value)[] properties)
     {
         var all = properties.ToDictionary(p => p.Name, p => p.Value);
-        all["DamlDpmPath"] = _dpm.ExecutablePath;
+        all["EqDamlDpmPath"] = _dpm.ExecutablePath;
         return _sandbox.Build(host, HostPath(host), project, _dpm.Environment, all, target);
     }
 
@@ -115,7 +115,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
         var restore = Build(host, project, target: "Restore");
         var designTime = Build(host, project, null, ("DesignTimeBuild", "true"));
-        var dar = Build(host, project, target: "GetDamlDar", ("DesignTimeBuild", "true"));
+        var dar = Build(host, project, target: "EqDamlGetDar", ("DesignTimeBuild", "true"));
 
         restore.ExitCode.ShouldBe(0, restore.Log);
         designTime.ExitCode.ShouldBe(0, designTime.Log);
@@ -160,7 +160,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         slow.DelayMilliseconds = 1500;
         Scenario(slow);
         var project = DamlProject();
-        var properties = new Dictionary<string, string> { ["DamlDpmPath"] = _dpm.ExecutablePath };
+        var properties = new Dictionary<string, string> { ["EqDamlDpmPath"] = _dpm.ExecutablePath };
         var restore = _sandbox.Build(host, HostPath(host), project, _dpm.Environment, properties, "Restore", restore: false);
 
         var runs = await System.Threading.Tasks.Task.WhenAll(
@@ -201,12 +201,12 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         Scenario(CreatesTheDar());
         var project = DamlProject();
 
-        var off = Build(host, project, null, ("DamlBuildEnabled", "off"));
-        var unusable = Build(host, project, null, ("DamlBuildEnabled", "sometimes"));
+        var off = Build(host, project, null, ("EqDamlBuildEnabled", "off"));
+        var unusable = Build(host, project, null, ("EqDamlBuildEnabled", "sometimes"));
 
         off.ExitCode.ShouldBe(0, off.Log);
         unusable.ExitCode.ShouldBe(1, unusable.Log);
-        unusable.Log.ShouldContain("error DAML0100: DamlBuildEnabled is 'sometimes'");
+        unusable.Log.ShouldContain("error DAML0100: EqDamlBuildEnabled is 'sometimes'");
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
@@ -231,8 +231,8 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
     // What Visual Studio's fast up-to-date check is told, also through its own design-time targets.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
-    [InlineData(MSBuildHost.MSBuildExe, "DamlCollectUpToDateCheckItems")]
-    [InlineData(MSBuildHost.Dotnet, "DamlCollectUpToDateCheckItems")]
+    [InlineData(MSBuildHost.MSBuildExe, "EqDamlCollectUpToDateCheckItems")]
+    [InlineData(MSBuildHost.Dotnet, "EqDamlCollectUpToDateCheckItems")]
     [InlineData(MSBuildHost.MSBuildExe, "CollectUpToDateCheckInputDesignTime;CollectUpToDateCheckBuiltDesignTime")]
     public void The_up_to_date_check_knows_what_the_DAR_is_built_from(MSBuildHost host, string targets)
     {
@@ -273,7 +273,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         test.Stdout = File.ReadAllText(Path.Combine(Repository.Root, @"test\fixtures\build-output\test-failing-script.stdout.txt"));
         Scenario(CreatesTheDar(), test);
 
-        var run = Build(host, DamlProject(), target: "DamlTest");
+        var run = Build(host, DamlProject(), target: "EqDamlTest");
 
         run.ExitCode.ShouldBe(1, run.Log);
         run.Log.ShouldContain($@"{Package}\daml\Main.daml(47,");
@@ -293,7 +293,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         var first = DamlProject();
         _sandbox.Write(@"other\daml.yaml", Manifest);
         _sandbox.Write(@"other\daml\Main.daml", "module Main where\n");
-        var second = _sandbox.Write(@"other\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.NextPatch}\">\n</Project>\n");
+        var second = _sandbox.Write(@"other\Contracts.msbuildproj", $"<Project Sdk=\"Equilibrium.Daml.Sdk/{SdkFeed.NextPatch}\">\n</Project>\n");
         var both = _sandbox.Write("all.proj", """
             <Project>
               <Target Name="Build">
@@ -304,7 +304,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         Build(host, first, target: "Restore").ExitCode.ShouldBe(0);
         Build(host, second, target: "Restore").ExitCode.ShouldBe(0);
 
-        var all = _sandbox.Build(host, HostPath(host), both, _dpm.Environment, new Dictionary<string, string> { ["DamlDpmPath"] = _dpm.ExecutablePath }, restore: false);
+        var all = _sandbox.Build(host, HostPath(host), both, _dpm.Environment, new Dictionary<string, string> { ["EqDamlDpmPath"] = _dpm.ExecutablePath }, restore: false);
 
         all.ExitCode.ShouldBe(0, all.Log);
         all.Log.ShouldContain($@"Contracts -> {Package}\.daml\dist\contracts-1.2.0.dar");
@@ -335,16 +335,16 @@ public sealed class DamlSdkOnHostsTests : IDisposable
             }
         }
         var project = _sandbox.Write(@"contracts\Contracts.msbuildproj", $$"""
-            <Project Sdk="Daml.Sdk/{{SdkFeed.Version}}">
+            <Project Sdk="Equilibrium.Daml.Sdk/{{SdkFeed.Version}}">
               <Target Name="ShowDar">
-                <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="GetDamlDar">
+                <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="EqDamlGetDar">
                   <Output TaskParameter="TargetOutputs" ItemName="_Dar" />
                 </MSBuild>
-                <Message Importance="high" Text="Package id: %(_Dar.DamlMainPackageId), built from: %(_Dar.DamlSourceFingerprint)" />
+                <Message Importance="high" Text="Package id: %(_Dar.EqDamlMainPackageId), built from: %(_Dar.EqDamlSourceFingerprint)" />
               </Target>
             </Project>
             """);
-        var properties = new Dictionary<string, string> { ["DamlDpmPath"] = dpm };
+        var properties = new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm };
 
         var first = _sandbox.Build(host, hostPath, project, properties: properties);
         var second = _sandbox.Build(host, hostPath, project, properties: properties, target: "Build;ShowDar");
@@ -373,11 +373,11 @@ public sealed class DamlSdkOnHostsTests : IDisposable
                 <ProjectReference Include="..\contracts\Contracts.msbuildproj" ReferenceOutputAssembly="false" />
               </ItemGroup>
               <Target Name="ShowDamlDar" AfterTargets="ResolveProjectReferences">
-                <MSBuild Projects="@(ProjectReference)" Targets="GetDamlDar">
-                  <Output TaskParameter="TargetOutputs" ItemName="_DamlDar" />
+                <MSBuild Projects="@(ProjectReference)" Targets="EqDamlGetDar">
+                  <Output TaskParameter="TargetOutputs" ItemName="_EqDamlDar" />
                 </MSBuild>
-                <Message Importance="high" Text="DAR: @(_DamlDar) exists=%(_DamlDar.Exists) package=%(_DamlDar.DamlPackageName)-%(_DamlDar.DamlPackageVersion)" />
-                <Message Importance="high" Text="Built from: %(_DamlDar.DamlSourceFingerprint) per %(_DamlDar.DamlManifest)" />
+                <Message Importance="high" Text="DAR: @(_EqDamlDar) exists=%(_EqDamlDar.Exists) package=%(_EqDamlDar.EqDamlPackageName)-%(_EqDamlDar.EqDamlPackageVersion)" />
+                <Message Importance="high" Text="Built from: %(_EqDamlDar.EqDamlSourceFingerprint) per %(_EqDamlDar.EqDamlManifest)" />
               </Target>
             </Project>
             """);

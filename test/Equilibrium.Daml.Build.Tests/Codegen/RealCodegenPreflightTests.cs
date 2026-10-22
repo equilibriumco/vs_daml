@@ -42,7 +42,7 @@ public sealed class RealCodegenPreflightTests : IDisposable
 
     private CodegenRequest Request(string dpm, string java, bool offline, bool install)
     {
-        var reference = new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
+        var reference = new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), null, "0123456789abcdef", "Contracts-0123456789abcdef");
         return new CodegenRequest(
             Path.Combine(_root, @"App\App.csproj"), "Debug", "net10.0",

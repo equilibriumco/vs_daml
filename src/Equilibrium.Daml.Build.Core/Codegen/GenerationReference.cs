@@ -26,5 +26,5 @@ public sealed record GenerationReference(
     string FolderName)
 {
     /// <summary>Whether the reference is a project or a DAR.</summary>
-    public DamlReferenceKind Kind => Source == DamlReferenceSource.DamlDar ? DamlReferenceKind.Dar : DamlReferenceKind.Project;
+    public DamlReferenceKind Kind => Source == DamlReferenceSource.EqDamlDar ? DamlReferenceKind.Dar : DamlReferenceKind.Project;
 }

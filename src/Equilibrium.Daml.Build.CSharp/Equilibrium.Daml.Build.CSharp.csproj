@@ -1,4 +1,4 @@
-<!-- Daml.Build.CSharp, a build-only package for C# projects: build\ holds the props and targets NuGet
+<!-- Equilibrium.Daml.Build.CSharp, a build-only package for C# projects: build\ holds the props and targets NuGet
      imports into the project that references it, tasks\ the tasks they run. Its files are named
      after the package id, as NuGet requires, so they take PackageIdPrefix when packed. -->
 <Project Sdk="Microsoft.Build.NoTargets">
@@ -17,10 +17,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="build\Daml.Build.CSharp.props" Pack="true" PackagePath="build\$(PackageId).props" />
-    <None Include="build\Daml.Build.CSharp.targets" Pack="true" PackagePath="build\$(PackageId).targets" />
+    <None Include="build\Equilibrium.Daml.Build.CSharp.props" Pack="true" PackagePath="build\$(PackageId).props" />
+    <None Include="build\Equilibrium.Daml.Build.CSharp.targets" Pack="true" PackagePath="build\$(PackageId).targets" />
   </ItemGroup>
 
-  <Import Project="..\DamlPackageTasks.targets" />
+  <Import Project="..\EqDamlPackageTasks.targets" />
 
 </Project>

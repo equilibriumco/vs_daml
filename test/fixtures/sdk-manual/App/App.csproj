@@ -10,10 +10,10 @@
 
   <!-- What a C# project gets from the Daml project it references. -->
   <Target Name="ShowDamlDar" AfterTargets="ResolveProjectReferences">
-    <MSBuild Projects="@(ProjectReference)" Targets="GetDamlDar">
-      <Output TaskParameter="TargetOutputs" ItemName="_DamlDar" />
+    <MSBuild Projects="@(ProjectReference)" Targets="EqDamlGetDar">
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlDar" />
     </MSBuild>
-    <Message Importance="high" Text="DAR: @(_DamlDar) (package id %(_DamlDar.DamlMainPackageId))" />
+    <Message Importance="high" Text="DAR: @(_EqDamlDar) (package id %(_EqDamlDar.EqDamlMainPackageId))" />
   </Target>
 
 </Project>

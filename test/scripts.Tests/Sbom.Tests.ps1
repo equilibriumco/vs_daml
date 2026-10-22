@@ -43,7 +43,7 @@ function New-VsixFiles {
         New-File 'Assets/webview/LICENSE' ('c' * 64)
         New-File 'LICENSE'
         New-File 'NOTICE'
-        New-File 'Templates/Daml.Templates.0.3.0-preview.7.nupkg'
+        New-File 'Templates/Equilibrium.Daml.Templates.0.3.0-preview.7.nupkg'
         New-File 'extension.vsixmanifest'
     )
 }
@@ -102,10 +102,10 @@ Describe 'SBOM of what an artifact ships' {
         $own.hashes[0].alg | Should Be 'SHA-256'
         $own.hashes[0].content | Should Be ('1' * 64)
         (Get-Component $bom 'Equilibrium.Daml.Build.Core').Count | Should Be 1
-        $templates = (Get-Component $bom 'Daml.Templates')[0]
+        $templates = (Get-Component $bom 'Equilibrium.Daml.Templates')[0]
         $templates.version | Should Be '0.3.0-preview.7'
-        $templates.purl | Should Be 'pkg:nuget/Daml.Templates@0.3.0-preview.7'
-        $templates.evidence.occurrences[0].location | Should Be 'Templates/Daml.Templates.0.3.0-preview.7.nupkg'
+        $templates.purl | Should Be 'pkg:nuget/Equilibrium.Daml.Templates@0.3.0-preview.7'
+        $templates.evidence.occurrences[0].location | Should Be 'Templates/Equilibrium.Daml.Templates.0.3.0-preview.7.nupkg'
         $bom.metadata.component.supplier.name | Should Be 'Equilibrium'
         $bom.metadata.component.licenses[0].license.id | Should Be 'Apache-2.0'
     }
@@ -135,7 +135,7 @@ Describe 'SBOM of what an artifact ships' {
     }
 
     It 'describes an artifact without packages, as the tool leaves it out when a project has none' {
-        $tool = '{ "metadata": { "component": { "bom-ref": "pkg:nuget/Daml.Templates@0.3.0", "name": "Daml.Templates", "version": "0.3.0" } }, "dependencies": [ { "ref": "pkg:nuget/Daml.Templates@0.3.0" } ] }' | ConvertFrom-Json
+        $tool = '{ "metadata": { "component": { "bom-ref": "pkg:nuget/Equilibrium.Daml.Templates@0.3.0", "name": "Equilibrium.Daml.Templates", "version": "0.3.0" } }, "dependencies": [ { "ref": "pkg:nuget/Equilibrium.Daml.Templates@0.3.0" } ] }' | ConvertFrom-Json
         $files = @(New-File 'content/a/template.json')
         $assemblies = Get-PackageAssembly -PackagesFolder $TestDrive -Bom $tool
         $assemblies.Count | Should Be 0

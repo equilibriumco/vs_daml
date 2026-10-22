@@ -64,8 +64,8 @@ public sealed class DpmOutputReport
             _failures.Add(AtManifest(
                 _options.Offline ? DamlDiagnosticCodes.MissingToolOffline : DamlDiagnosticCodes.MissingTool,
                 text + (_options.Offline
-                    ? " DamlOffline is true, so the build installs nothing; install it beforehand with that command."
-                    : _options.AllowToolInstall ? "" : " Install it with that command, or set DamlAllowToolInstall to true to let the build install it.")));
+                    ? " EqDamlOffline is true, so the build installs nothing; install it beforehand with that command."
+                    : _options.AllowToolInstall ? "" : " Install it with that command, or set EqDamlAllowToolInstall to true to let the build install it.")));
         }
         else if (text.StartsWith("error while auto-installing", StringComparison.Ordinal))
         {

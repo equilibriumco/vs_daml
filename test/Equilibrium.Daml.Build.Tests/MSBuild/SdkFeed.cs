@@ -8,8 +8,8 @@ using Equilibrium.Daml.TestHelpers;
 
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
-// A package folder for sandboxes to resolve the Daml packages from, as users do: Daml.Sdk and
-// Daml.Build.CSharp packed once per test run, under versions of their own so no NuGet cache can
+// A package folder for sandboxes to resolve the Daml packages from, as users do: Equilibrium.Daml.Sdk and
+// Equilibrium.Daml.Build.CSharp packed once per test run, under versions of their own so no NuGet cache can
 // hold an older copy, next to the NoTargets package the SDK imports and the runtime the generated
 // C# compiles against, both taken from this machine's NuGet cache. No network is involved. The
 // dotnet new templates are packed beside it under the same version.
@@ -42,7 +42,7 @@ internal static class SdkFeed
     public static string Folder => Created.Value;
 
     /// <summary>The dotnet new templates, packed under <see cref="Version"/>, so the projects they create use the feed's packages.</summary>
-    public static string Templates => Path.Combine(Folder, "templates", $"Daml.Templates.{Version}.nupkg");
+    public static string Templates => Path.Combine(Folder, "templates", $"Equilibrium.Daml.Templates.{Version}.nupkg");
 
     private static string Configuration =>
         typeof(SdkFeed).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug";
@@ -63,13 +63,13 @@ internal static class SdkFeed
         AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(folder);
 
         // From what the solution build left, so nothing is rebuilt under tests that read it.
-        foreach (var project in new[] { @"src\Daml.Sdk\Daml.Sdk.csproj", @"src\Daml.Build.CSharp\Daml.Build.CSharp.csproj" })
+        foreach (var project in new[] { @"src\Equilibrium.Daml.Sdk\Equilibrium.Daml.Sdk.csproj", @"src\Equilibrium.Daml.Build.CSharp\Equilibrium.Daml.Build.CSharp.csproj" })
         {
             Pack(folder, project, Version);
             Pack(folder, project, NextPatch);
         }
         // Out of the feed's way: dotnet new installs it, NuGet never restores it.
-        Pack(Path.Combine(folder, "templates"), @"src\Daml.Templates\Daml.Templates.csproj", Version);
+        Pack(Path.Combine(folder, "templates"), @"src\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj", Version);
 
         var packages = Environment.GetEnvironmentVariable("NUGET_PACKAGES") is { Length: > 0 } custom
             ? custom

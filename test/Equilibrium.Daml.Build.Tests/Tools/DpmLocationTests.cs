@@ -113,7 +113,7 @@ public class DpmLocationTests
         Find(@"C:\dmp\bin\dpm.cmd").ShouldBeNull();
         var error = _errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.MissingTool);
-        error.Message.ShouldBe(@"DamlDpmPath is 'C:\dmp\bin\dpm.cmd', but there is no file at C:\dmp\bin\dpm.cmd.");
+        error.Message.ShouldBe(@"EqDamlDpmPath is 'C:\dmp\bin\dpm.cmd', but there is no file at C:\dmp\bin\dpm.cmd.");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -132,6 +132,6 @@ public class DpmLocationTests
     {
         Find("dpm-next").ShouldBeNull();
 
-        _errors.ShouldHaveSingleItem().Message.ShouldBe("DamlDpmPath is 'dpm-next', but no dpm-next is on PATH.");
+        _errors.ShouldHaveSingleItem().Message.ShouldBe("EqDamlDpmPath is 'dpm-next', but no dpm-next is on PATH.");
     }
 }

@@ -19,7 +19,7 @@ public static class JavaLocation
     /// JAVA_HOME), else the first java.exe on PATH. A set folder without java is an error, never a
     /// fallback to another Java.
     /// </summary>
-    /// <param name="javaHome"><c>DamlJavaHome</c>.</param>
+    /// <param name="javaHome"><c>EqDamlJavaHome</c>.</param>
     /// <param name="environment">Environment variables by name.</param>
     /// <param name="files">The file system to look in.</param>
     /// <param name="errors">Gets a DAML0102 error when there is no java to use.</param>

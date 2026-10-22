@@ -56,8 +56,8 @@ public sealed class GeneratedPropsTests : IDisposable
 
         var items = XDocument.Load(Props).Root!.Elements("ItemGroup").Elements("Compile").ToList();
         items.Select(i => (string?)i.Attribute("Include")).ShouldBe(Files.Select(f => f.Path));
-        items.ShouldAllBe(i => (string?)i.Attribute("DamlGenerated") == "true"
-            && (string?)i.Attribute("DamlGenerationId") == "0123456789abcdef"
+        items.ShouldAllBe(i => (string?)i.Attribute("EqDamlGenerated") == "true"
+            && (string?)i.Attribute("EqDamlGenerationId") == "0123456789abcdef"
             && (string?)i.Attribute("Visible") == "false");
     }
 

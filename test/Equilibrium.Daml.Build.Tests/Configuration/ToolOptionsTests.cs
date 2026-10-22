@@ -35,8 +35,8 @@ public class ToolOptionsTests
     public void Set_properties_are_read()
     {
         var (options, errors) = Read(
-            ("DamlDpmPath", @"C:\tools\dpm.cmd"), ("DamlOffline", "true"), ("DamlSkipPreflight", "yes"),
-            ("DamlProcessTimeoutSeconds", " 30 "), ("DamlLockTimeoutSeconds", "5"));
+            ("EqDamlDpmPath", @"C:\tools\dpm.cmd"), ("EqDamlOffline", "true"), ("EqDamlSkipPreflight", "yes"),
+            ("EqDamlProcessTimeoutSeconds", " 30 "), ("EqDamlLockTimeoutSeconds", "5"));
 
         errors.ShouldBeEmpty();
         options.ShouldBe(new ToolOptions(
@@ -46,17 +46,17 @@ public class ToolOptionsTests
 
     [Fact, Trait("Category", "Unit")]
     public void A_process_timeout_of_zero_means_no_limit() =>
-        Read(("DamlProcessTimeoutSeconds", "0")).Options.ProcessTimeout.ShouldBeNull();
+        Read(("EqDamlProcessTimeoutSeconds", "0")).Options.ProcessTimeout.ShouldBeNull();
 
     [Theory, Trait("Category", "Unit")]
-    [InlineData("DamlOffline", "maybe")]
-    [InlineData("DamlAllowToolInstall", "1")]
-    [InlineData("DamlSkipPreflight", "sure")]
-    [InlineData("DamlProcessTimeoutSeconds", "-1")]
-    [InlineData("DamlProcessTimeoutSeconds", "ten")]
-    [InlineData("DamlProcessTimeoutSeconds", "1.5")]
-    [InlineData("DamlLockTimeoutSeconds", "0")]
-    [InlineData("DamlLockTimeoutSeconds", "99999999999")]
+    [InlineData("EqDamlOffline", "maybe")]
+    [InlineData("EqDamlAllowToolInstall", "1")]
+    [InlineData("EqDamlSkipPreflight", "sure")]
+    [InlineData("EqDamlProcessTimeoutSeconds", "-1")]
+    [InlineData("EqDamlProcessTimeoutSeconds", "ten")]
+    [InlineData("EqDamlProcessTimeoutSeconds", "1.5")]
+    [InlineData("EqDamlLockTimeoutSeconds", "0")]
+    [InlineData("EqDamlLockTimeoutSeconds", "99999999999")]
     public void A_value_out_of_range_is_a_configuration_error_naming_the_property(string name, string value)
     {
         var errors = Read((name, value)).Errors;
@@ -75,13 +75,13 @@ public class ToolOptionsTests
     [InlineData("true", "false", "false")]
     [InlineData("true", "true", "false")]
     public void Dpm_installs_tools_only_when_the_build_allows_it(string offline, string install, string expected) =>
-        Read(("DamlOffline", offline), ("DamlAllowToolInstall", install)).Options.DpmEnvironment
+        Read(("EqDamlOffline", offline), ("EqDamlAllowToolInstall", install)).Options.DpmEnvironment
             .ShouldBe(new Dictionary<string, string> { ["DPM_AUTO_INSTALL"] = expected });
 
     [Fact, Trait("Category", "Unit")]
     public void Offline_overrides_permission_to_install()
     {
-        var read = Read(("DamlOffline", "true"), ("DamlAllowToolInstall", "true"));
+        var read = Read(("EqDamlOffline", "true"), ("EqDamlAllowToolInstall", "true"));
 
         read.Errors.ShouldBeEmpty();
         read.Options.Offline.ShouldBeTrue();

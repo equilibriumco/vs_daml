@@ -63,7 +63,7 @@ public sealed class CodegenPreflightTests : IDisposable
 
     private CodegenRequest Request(Func<ToolOptions, ToolOptions>? tools = null, string? runtime = "0.6.0", string targetFramework = "net10.0", bool designTime = false)
     {
-        var reference = new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
+        var reference = new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), "Contracts", "0123456789abcdef", "Contracts-0123456789abcdef");
         var options = new ToolOptions(null, Offline: false, AllowToolInstall: false, SkipPreflight: false, TimeSpan.FromSeconds(60), TimeSpan.FromSeconds(5));
         return new CodegenRequest(

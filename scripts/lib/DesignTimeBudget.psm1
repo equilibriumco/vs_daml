@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 <#
-    The design-time build overhead of Daml.Build.CSharp and its budget. A driver project runs the
+    The design-time build overhead of Equilibrium.Daml.Build.CSharp and its budget. A driver project runs the
     design-time build of a C# project several times in one MSBuild process and prints one line per
     run: DAML-DTB-RUN <run> <ticks>. The first run pays for loading and JIT-compiling everything once
     (the cold run); the rest are what Visual Studio sees for every design-time build after that
@@ -51,9 +51,9 @@ function Measure-DesignTimeOverhead {
     .SYNOPSIS
         The cold and warm design-time builds of the project without Daml (the baseline) and with it.
     .PARAMETER Baseline
-        The runs of the project without Daml.Build.CSharp, in milliseconds, the first being the cold one.
+        The runs of the project without Equilibrium.Daml.Build.CSharp, in milliseconds, the first being the cold one.
     .PARAMETER WithDaml
-        The runs of the same project with Daml.Build.CSharp and a Daml reference.
+        The runs of the same project with Equilibrium.Daml.Build.CSharp and a Daml reference.
     #>
     [CmdletBinding()]
     param(
@@ -96,7 +96,7 @@ function Test-DesignTimeBudget {
     [pscustomobject] @{
         Passed   = $passed
         BudgetMs = $BudgetMs
-        Message  = ('Warm design-time overhead of Daml.Build.CSharp: {0:0} ms, {1} the budget of {2:0} ms.' -f $overhead, $verdict, $BudgetMs)
+        Message  = ('Warm design-time overhead of Equilibrium.Daml.Build.CSharp: {0:0} ms, {1} the budget of {2:0} ms.' -f $overhead, $verdict, $BudgetMs)
     }
 }
 

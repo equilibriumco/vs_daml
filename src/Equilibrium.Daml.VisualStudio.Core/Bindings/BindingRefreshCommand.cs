@@ -8,10 +8,10 @@ using System.Text.RegularExpressions;
 namespace Equilibrium.Daml.VisualStudio.Core.Bindings;
 
 /// <summary>
-/// The MSBuild run behind a background refresh: the targeted build <c>DamlRefreshBindings</c> of the
+/// The MSBuild run behind a background refresh: the targeted build <c>EqDamlRefreshBindings</c> of the
 /// C# project in the configuration Visual Studio builds it in. References give their DARs, but no
 /// C# library is compiled (<c>BuildProjectReferences=false</c>), and installing tools stays up to the
-/// project's own <c>DamlAllowToolInstall</c>.
+/// project's own <c>EqDamlAllowToolInstall</c>.
 /// </summary>
 public static class BindingRefreshCommand
 {
@@ -29,7 +29,7 @@ public static class BindingRefreshCommand
         var arguments = new List<string>
         {
             target.Project,
-            "-t:DamlRefreshBindings",
+            "-t:EqDamlRefreshBindings",
             "-p:Configuration=" + configuration,
             "-p:Platform=" + platform,
             "-p:BuildProjectReferences=false",

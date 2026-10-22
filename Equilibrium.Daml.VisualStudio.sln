@@ -37,15 +37,15 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.VisualStud
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.Build.Tasks", "src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj", "{485CEBEB-BDB6-4B53-B29F-11D0E0056FE7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.Sdk", "src\Daml.Sdk\Daml.Sdk.csproj", "{A87031C4-BFCD-441D-B0AE-ADD90BA0D709}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.Sdk", "src\Equilibrium.Daml.Sdk\Equilibrium.Daml.Sdk.csproj", "{A87031C4-BFCD-441D-B0AE-ADD90BA0D709}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.Build.CSharp", "src\Daml.Build.CSharp\Daml.Build.CSharp.csproj", "{180C0361-D64A-46DB-8AAF-C7C34C71C9E1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.Build.CSharp", "src\Equilibrium.Daml.Build.CSharp\Equilibrium.Daml.Build.CSharp.csproj", "{180C0361-D64A-46DB-8AAF-C7C34C71C9E1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.VisualStudio.Roslyn", "src\Equilibrium.Daml.VisualStudio.Roslyn\Equilibrium.Daml.VisualStudio.Roslyn.csproj", "{A1D77BDD-D1A8-45B7-96CF-71965CDEB5E5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.VisualStudio.Roslyn.Tests", "test\Equilibrium.Daml.VisualStudio.Roslyn.Tests\Equilibrium.Daml.VisualStudio.Roslyn.Tests.csproj", "{011C0087-BEFA-4AD8-A626-EE5B8D3FA336}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Daml.Templates", "src\Daml.Templates\Daml.Templates.csproj", "{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Equilibrium.Daml.Templates", "src\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj", "{9557E936-D9BF-4BD8-B826-0D0CCD1517E1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,0 +1,159 @@
+<Project>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
+
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_EqDamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlComputeBuildState" AssemblyFile="$(_EqDamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_EqDamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_EqDamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlReadDarProvenance" AssemblyFile="$(_EqDamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanPackage" AssemblyFile="$(_EqDamlSdkTasks)" />
+
+  <!-- What Solution Explorer and Visual Studio's up-to-date check see: the manifest and the
+       package's sources. They are read from daml.yaml while the project is evaluated, when no task
+       can run; the build itself goes by ReadDamlManifest. A single source file brings its folder,
+       where damlc finds what it imports. -->
+  <PropertyGroup>
+    <_EqDamlPackageRoot>$([System.IO.Path]::GetDirectoryName('$(EqDamlManifestPath)'))</_EqDamlPackageRoot>
+    <_EqDamlManifestText Condition="Exists('$(EqDamlManifestPath)')">$([System.IO.File]::ReadAllText('$(EqDamlManifestPath)'))</_EqDamlManifestText>
+    <_EqDamlSourceSetting>$([System.Text.RegularExpressions.Regex]::Match('$(_EqDamlManifestText)', '(?m)^source:[ \t]*[^\r\n#]*').Value)</_EqDamlSourceSetting>
+    <_EqDamlSourceSetting>$([System.Text.RegularExpressions.Regex]::Replace('$(_EqDamlSourceSetting)', '^source:|\x22|\x27', '').Trim())</_EqDamlSourceSetting>
+    <_EqDamlSourceFolder Condition="'$(_EqDamlSourceSetting)' != ''">$([MSBuild]::NormalizeDirectory('$(_EqDamlPackageRoot)', '$(_EqDamlSourceSetting)'))</_EqDamlSourceFolder>
+    <_EqDamlSourceFolder Condition="'$(_EqDamlSourceSetting)' != '' and $(_EqDamlSourceSetting.EndsWith('.daml'))">$([MSBuild]::NormalizeDirectory('$(_EqDamlPackageRoot)', '$([System.IO.Path]::GetDirectoryName('$(_EqDamlSourceSetting)'))'))</_EqDamlSourceFolder>
+    <_EqDamlBuildStatePath>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(BaseIntermediateOutputPath)', 'daml.build.state'))</_EqDamlBuildStatePath>
+    <!-- A Daml project has no NuGet packages to resolve, and may never have been restored: a C#
+         project's EqDamlReference becomes a project reference only in that project's package
+         targets, which its restore doesn't see, so building the C# project alone builds this one
+         unrestored. -->
+    <SkipResolvePackageAssets Condition="'$(SkipResolvePackageAssets)' == '' and !Exists('$(ProjectAssetsFile)')">true</SkipResolvePackageAssets>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_EqDamlSourceFolder)' != ''">
+    <EqDamlSource Include="$(_EqDamlSourceFolder)**\*.daml" Exclude="$(_EqDamlSourceFolder)**\.daml\**;$(_EqDamlSourceFolder)**\obj\**;$(_EqDamlSourceFolder)**\bin\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(EqDamlManifestPath)" Condition="Exists('$(EqDamlManifestPath)')" />
+    <None Include="@(EqDamlSource)" />
+  </ItemGroup>
+
+  <!-- NoTargets assigns CoreBuildDependsOn outright at the end of its targets, so Daml's targets can
+       only join the lists here, after that import; anything set earlier is lost. -->
+  <PropertyGroup>
+    <CoreBuildDependsOn>$(CoreBuildDependsOn);EqDamlBuild</CoreBuildDependsOn>
+    <CleanDependsOn>$(CleanDependsOn);EqDamlClean</CleanDependsOn>
+    <CollectUpToDateCheckInputDesignTimeDependsOn>$(CollectUpToDateCheckInputDesignTimeDependsOn);EqDamlCollectUpToDateCheckItems</CollectUpToDateCheckInputDesignTimeDependsOn>
+    <CollectUpToDateCheckBuiltDesignTimeDependsOn>$(CollectUpToDateCheckBuiltDesignTimeDependsOn);EqDamlCollectUpToDateCheckItems</CollectUpToDateCheckBuiltDesignTimeDependsOn>
+  </PropertyGroup>
+
+  <!-- Order comes from DependsOnTargets alone. A target's condition is judged before its
+       dependencies run, so "only in a real build" sits on the tasks, never on the targets. -->
+
+  <!-- What the manifest says: the package, its SDK, where its sources are and where its DAR goes. -->
+  <Target Name="EqDamlResolveManifest">
+    <ReadDamlManifest ManifestPath="$(EqDamlManifestPath)">
+      <Output TaskParameter="PackageName" PropertyName="EqDamlPackageName" />
+      <Output TaskParameter="PackageVersion" PropertyName="EqDamlPackageVersion" />
+      <Output TaskParameter="SdkVersion" PropertyName="EqDamlSdkVersion" />
+      <Output TaskParameter="SourcePath" PropertyName="EqDamlSourcePath" />
+      <Output TaskParameter="DarPath" PropertyName="EqDamlDarPath" />
+      <Output TaskParameter="MultiPackageManifestPath" PropertyName="_EqDamlMultiPackageManifest" />
+      <Output TaskParameter="Dependencies" ItemName="EqDamlDependency" />
+      <Output TaskParameter="DataDependencies" ItemName="EqDamlDataDependency" />
+    </ReadDamlManifest>
+  </Target>
+
+  <!-- Whether the DAR is current, judged from what it is built from before deciding to skip the
+       build: Inputs and Outputs alone would miss a deleted or renamed source. -->
+  <Target Name="EqDamlComputeBuildState" DependsOnTargets="EqDamlResolveManifest">
+    <DamlComputeBuildState
+        DpmPath="$(EqDamlDpmPath)"
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ManifestPath="$(EqDamlManifestPath)"
+        SourcePath="$(EqDamlSourcePath)"
+        DarPath="$(EqDamlDarPath)"
+        StatePath="$(_EqDamlBuildStatePath)"
+        Dependencies="@(EqDamlDependency)"
+        DataDependencies="@(EqDamlDataDependency)"
+        BuildEnabled="$(EqDamlBuildEnabled)">
+      <Output TaskParameter="ShouldBuild" PropertyName="_EqDamlShouldBuild" />
+      <Output TaskParameter="Fingerprint" PropertyName="_EqDamlBuildFingerprint" />
+      <Output TaskParameter="SourceFingerprint" PropertyName="_EqDamlSourceFingerprint" />
+    </DamlComputeBuildState>
+  </Target>
+
+  <Target Name="EqDamlBuild" DependsOnTargets="EqDamlResolveManifest;EqDamlComputeBuildState">
+    <DamlBuildTask
+        Condition="'$(_EqDamlShouldBuild)' == 'true'"
+        ManifestPath="$(EqDamlManifestPath)"
+        DarPath="$(EqDamlDarPath)"
+        DpmPath="$(EqDamlDpmPath)"
+        Offline="$(EqDamlOffline)"
+        AllowToolInstall="$(EqDamlAllowToolInstall)"
+        SkipPreflight="$(EqDamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(EqDamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)"
+        StatePath="$(_EqDamlBuildStatePath)"
+        Fingerprint="$(_EqDamlBuildFingerprint)"
+        SourceFingerprint="$(_EqDamlSourceFingerprint)"
+        SourcePath="$(EqDamlSourcePath)"
+        Dependencies="@(EqDamlDependency)"
+        DataDependencies="@(EqDamlDataDependency)">
+      <Output TaskParameter="CreatedDar" PropertyName="EqDamlCreatedDar" />
+    </DamlBuildTask>
+    <Message Condition="'$(DesignTimeBuild)' != 'true' and Exists('$(EqDamlDarPath)')" Importance="high" Text="$(MSBuildProjectName) -> $(EqDamlDarPath)" />
+  </Target>
+
+  <!-- What a referencing project asks for: the DAR and where it came from, its package id from the
+       DAR itself and the sources its build recorded. Only reads, so design-time builds can ask;
+       never builds, as the reference builds this project first. -->
+  <Target Name="EqDamlGetDar" DependsOnTargets="EqDamlResolveManifest" Returns="@(_EqDamlDarOutput)">
+    <DamlReadDarProvenance DarPath="$(EqDamlDarPath)" StatePath="$(_EqDamlBuildStatePath)">
+      <Output TaskParameter="MainPackageId" PropertyName="_EqDamlMainPackageId" />
+      <Output TaskParameter="SourceFingerprint" PropertyName="_EqDamlRecordedSources" />
+    </DamlReadDarProvenance>
+    <ItemGroup>
+      <_EqDamlDarOutput Include="$(EqDamlDarPath)">
+        <EqDamlPackageName>$(EqDamlPackageName)</EqDamlPackageName>
+        <EqDamlPackageVersion>$(EqDamlPackageVersion)</EqDamlPackageVersion>
+        <EqDamlSdkVersion>$(EqDamlSdkVersion)</EqDamlSdkVersion>
+        <EqDamlMainPackageId>$(_EqDamlMainPackageId)</EqDamlMainPackageId>
+        <EqDamlSourceProject>$(MSBuildProjectFullPath)</EqDamlSourceProject>
+        <EqDamlSourceFingerprint>$(_EqDamlRecordedSources)</EqDamlSourceFingerprint>
+        <EqDamlManifest>$(EqDamlManifestPath)</EqDamlManifest>
+        <Exists>$([System.IO.File]::Exists('$(EqDamlDarPath)'))</Exists>
+      </_EqDamlDarOutput>
+    </ItemGroup>
+  </Target>
+
+  <!-- Only on request: dotnet build -t:EqDamlTest. -->
+  <Target Name="EqDamlTest" DependsOnTargets="EqDamlBuild">
+    <DamlTestTask
+        Condition="'$(DesignTimeBuild)' != 'true'"
+        ManifestPath="$(EqDamlManifestPath)"
+        DpmPath="$(EqDamlDpmPath)"
+        Offline="$(EqDamlOffline)"
+        AllowToolInstall="$(EqDamlAllowToolInstall)"
+        SkipPreflight="$(EqDamlSkipPreflight)"
+        ProcessTimeoutSeconds="$(EqDamlProcessTimeoutSeconds)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)" />
+  </Target>
+
+  <!-- The package's own outputs only: its DAR and the build's record, never a dpm cache. -->
+  <Target Name="EqDamlClean" DependsOnTargets="EqDamlResolveManifest">
+    <DamlCleanPackage
+        ManifestPath="$(EqDamlManifestPath)"
+        DarPath="$(EqDamlDarPath)"
+        StatePath="$(_EqDamlBuildStatePath)"
+        LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)" />
+  </Target>
+
+  <!-- What Visual Studio's fast up-to-date check has to know about a Daml project: what the DAR is
+       built from, and the DAR with the record of its build. -->
+  <Target Name="EqDamlCollectUpToDateCheckItems" DependsOnTargets="EqDamlResolveManifest">
+    <ItemGroup>
+      <UpToDateCheckInput Include="$(EqDamlManifestPath);$(_EqDamlMultiPackageManifest);@(EqDamlSource);@(EqDamlDataDependency->'%(DarPath)');@(EqDamlDependency->'%(DarPath)')" />
+      <UpToDateCheckBuilt Include="$(EqDamlDarPath);$(_EqDamlBuildStatePath)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

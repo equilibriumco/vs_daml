@@ -68,7 +68,7 @@ internal sealed class MSBuildSandbox : IDisposable
     private string? _packages;
 
     /// <summary>
-    /// Makes projects in the sandbox resolve <c>Daml.Sdk</c> as users do, from <see cref="SdkFeed"/>
+    /// Makes projects in the sandbox resolve <c>Equilibrium.Daml.Sdk</c> as users do, from <see cref="SdkFeed"/>
     /// into a package folder of the sandbox's own; builds restore first from then on.
     /// </summary>
     public void UseSdkFeed()
@@ -112,7 +112,7 @@ internal sealed class MSBuildSandbox : IDisposable
     /// <param name="hostPath">MSBuild.exe or dotnet.exe.</param>
     /// <param name="project">The project, relative to the sandbox.</param>
     /// <param name="environment">Extra variables for the host and the tools it starts.</param>
-    /// <param name="properties">Global properties; <c>DamlTasksAssembly</c> is always set.</param>
+    /// <param name="properties">Global properties; <c>EqDamlTasksAssembly</c> is always set.</param>
     /// <param name="target">The target to build; null for the project's default.</param>
     /// <param name="restore">With <see cref="UseSdkFeed"/>, whether to restore first; a project without NuGet has no Restore.</param>
     public MSBuildRun Build(
@@ -131,7 +131,7 @@ internal sealed class MSBuildSandbox : IDisposable
             arguments.Add("msbuild");
         }
         arguments.AddRange([Path.Combine(Root, project), "-nologo", "-nodeReuse:false", "-maxCpuCount:1", "-verbosity:minimal",
-            $"-fileLoggerParameters:LogFile={log};Verbosity=normal;Encoding=UTF-8", $"-property:DamlTasksAssembly={TaskAssembly}"]);
+            $"-fileLoggerParameters:LogFile={log};Verbosity=normal;Encoding=UTF-8", $"-property:EqDamlTasksAssembly={TaskAssembly}"]);
         if (_packages is not null && restore)
         {
             arguments.Add("-restore");

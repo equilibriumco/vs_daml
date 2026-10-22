@@ -10,10 +10,10 @@ using Xunit;
 
 namespace Equilibrium.Daml.Build.Tests.Contract;
 
-// The Daml.Sdk files as shipped, held to the target graph and the properties of the contract.
+// The Equilibrium.Daml.Sdk files as shipped, held to the target graph and the properties of the contract.
 public class DamlSdkFilesTests
 {
-    private static readonly string SdkFolder = Path.Combine(Repository.Root, @"src\Daml.Sdk\Sdk");
+    private static readonly string SdkFolder = Path.Combine(Repository.Root, @"src\Equilibrium.Daml.Sdk\Sdk");
 
     private static XDocument Load(string name) => XDocument.Load(Path.Combine(SdkFolder, name), LoadOptions.SetLineInfo);
 
@@ -82,7 +82,7 @@ public class DamlSdkFilesTests
     {
         var root = Load("Sdk.targets").Root!;
         var declared = root.Elements("UsingTask").ToList();
-        declared.ShouldAllBe(u => (string?)u.Attribute("AssemblyFile") == "$(_DamlSdkTasks)");
+        declared.ShouldAllBe(u => (string?)u.Attribute("AssemblyFile") == "$(_EqDamlSdkTasks)");
         var tasks = typeof(Equilibrium.Daml.Build.Tasks.ReadDamlManifest).Assembly;
         foreach (var name in declared.Select(u => (string)u.Attribute("TaskName")!))
         {

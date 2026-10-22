@@ -39,13 +39,13 @@ public sealed class DamlCleanGenerated : OrchestratorTask
     /// <summary><c>$(TargetFramework)</c> of this inner build.</summary>
     public string? TargetFramework { get; set; }
 
-    /// <summary><c>DamlGeneratedOutputMode</c>.</summary>
+    /// <summary><c>EqDamlGeneratedOutputMode</c>.</summary>
     public string? GeneratedOutputMode { get; set; }
 
-    /// <summary><c>DamlGeneratedDir</c>.</summary>
+    /// <summary><c>EqDamlGeneratedDir</c>.</summary>
     public string? GeneratedDir { get; set; }
 
-    /// <summary><c>DamlLockTimeoutSeconds</c>.</summary>
+    /// <summary><c>EqDamlLockTimeoutSeconds</c>.</summary>
     public string? LockTimeoutSeconds { get; set; }
 
     /// <inheritdoc />

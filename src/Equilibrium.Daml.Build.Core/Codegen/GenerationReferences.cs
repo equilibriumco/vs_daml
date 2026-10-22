@@ -18,8 +18,8 @@ public static class GenerationReferences
 
     /// <summary>
     /// Resolves each reference against the project, checks it, and gives it its identity. A Daml
-    /// project listed both as a <c>DamlReference</c> and as a plain <c>ProjectReference</c> is one
-    /// reference, described by the <c>DamlReference</c>. A reference declared twice with the same
+    /// project listed both as a <c>EqDamlReference</c> and as a plain <c>ProjectReference</c> is one
+    /// reference, described by the <c>EqDamlReference</c>. A reference declared twice with the same
     /// namespace would write the same output twice and is an error.
     /// </summary>
     /// <param name="declared">The references, in the order the project declares them; plain project references only when they are Daml projects.</param>
@@ -54,7 +54,7 @@ public static class GenerationReferences
                 continue;
             }
             candidates.Add(resolved);
-            if (reference.Source == DamlReferenceSource.DamlReference)
+            if (reference.Source == DamlReferenceSource.EqDamlReference)
             {
                 explicitProjects.Add(resolved.Path);
             }
@@ -86,14 +86,14 @@ public static class GenerationReferences
     {
         var path = DamlPath.Resolve(projectDirectory, reference.Include);
         var isDar = path.EndsWith(DarExtension, StringComparison.OrdinalIgnoreCase);
-        if (reference.Source == DamlReferenceSource.DamlDar && !isDar)
+        if (reference.Source == DamlReferenceSource.EqDamlDar && !isDar)
         {
-            Invalid(errors, $"DamlDar {reference.Include} isn't a .dar file. Reference a Daml project with DamlReference instead.");
+            Invalid(errors, $"EqDamlDar {reference.Include} isn't a .dar file. Reference a Daml project with EqDamlReference instead.");
             return null;
         }
-        if (reference.Source != DamlReferenceSource.DamlDar && isDar)
+        if (reference.Source != DamlReferenceSource.EqDamlDar && isDar)
         {
-            Invalid(errors, $"{reference.Source} {reference.Include} is a DAR. Reference DAR files with DamlDar instead.");
+            Invalid(errors, $"{reference.Source} {reference.Include} is a DAR. Reference DAR files with EqDamlDar instead.");
             return null;
         }
 
@@ -108,7 +108,7 @@ public static class GenerationReferences
             return null;
         }
 
-        var kind = reference.Source == DamlReferenceSource.DamlDar ? DamlReferenceKind.Dar : DamlReferenceKind.Project;
+        var kind = reference.Source == DamlReferenceSource.EqDamlDar ? DamlReferenceKind.Dar : DamlReferenceKind.Project;
         var id = GenerationIdentity.Id(kind, path, @namespace, generatorDigest);
         return new GenerationReference(reference.Source, reference.Include, path, @namespace, id, GenerationIdentity.FolderName(path, id));
     }

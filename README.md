@@ -13,10 +13,10 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
   view next to the code.
 - **Open Folder**: build, test and clean `daml.yaml` and `multi-package.yaml` workspaces; errors in
   the Error List.
-- **MSBuild** (`Daml.Sdk`): Daml packages as `.msbuildproj` projects with incremental `dpm build`.
-- **C# generation** (`Daml.Build.CSharp`): C# bindings generated in the same build, navigation from
+- **MSBuild** (`Equilibrium.Daml.Sdk`): Daml packages as `.msbuildproj` projects with incremental `dpm build`.
+- **C# generation** (`Equilibrium.Daml.Build.CSharp`): C# bindings generated in the same build, navigation from
   C# to Daml, and C# reference counts in Daml files.
-- **Templates** (`Daml.Templates`): Visual Studio and `dotnet new` templates for Daml and Daml + .NET
+- **Templates** (`Equilibrium.Daml.Templates`): Visual Studio and `dotnet new` templates for Daml and Daml + .NET
   solutions.
 - No telemetry.
 
@@ -32,7 +32,7 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
 ## Install
 
 - Extension: Visual Studio Marketplace, *Daml for Visual Studio*.
-- Packages: `Daml.Sdk`, `Daml.Build.CSharp`, `Daml.Templates` on nuget.org (prerelease).
+- Packages: `Equilibrium.Daml.Sdk`, `Equilibrium.Daml.Build.CSharp`, `Equilibrium.Daml.Templates` on nuget.org (prerelease).
 
 See the [user guide](docs/user-guide.md) for setup, settings, build properties, diagnostic codes,
 troubleshooting and known limitations.

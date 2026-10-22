@@ -31,7 +31,7 @@ public sealed class DamlWriteGeneratedPropsTests : IDisposable
         Files = files.Select(f =>
         {
             var item = new TaskItem(Path.Combine(_root, f));
-            item.SetMetadata("DamlGenerationId", "0123456789abcdef");
+            item.SetMetadata("EqDamlGenerationId", "0123456789abcdef");
             return item;
         }).ToArray(),
     };

@@ -54,7 +54,7 @@ if (-not $NoRun) {
         $env:VSLANG = '1033'
         & (Join-Path $PSScriptRoot 'new-scale-fixture.ps1') -Path $fixture -SdkPackageVersion $thisBuild.Version -RuntimeVersion $thisBuild.RuntimeVersion `
             -PackagePrefix $thisBuild.Prefix -Packages $Packages -ModulesPerPackage $ModulesPerPackage -TemplatesPerPackage $TemplatesPerPackage -CSharpProjects $CSharpProjects
-        $references = @(Get-ChildItem $fixture -Recurse -Filter *.csproj | Select-String -Pattern '<DamlReference ').Count
+        $references = @(Get-ChildItem $fixture -Recurse -Filter *.csproj | Select-String -Pattern '<EqDamlReference ').Count
         $files = @(Get-ChildItem $fixture -Recurse -Filter *.daml).Count
         $lines = (Get-ChildItem $fixture -Recurse -Filter *.daml | ForEach-Object { @(Get-Content $_.FullName).Count } | Measure-Object -Sum).Sum
 
@@ -64,7 +64,7 @@ if (-not $NoRun) {
             $log = Join-Path $artifacts "$name.log"
             $arguments = @((Join-Path $fixture 'Scale.slnx'), '-restore', '-m', '-nologo', '-v:m', '-nr:false',
                 "-bl:$(Join-Path $artifacts "$name.binlog")", "-flp:verbosity=normal;logfile=$log")
-            if ($AllowToolInstall) { $arguments += '-p:DamlAllowToolInstall=true' }
+            if ($AllowToolInstall) { $arguments += '-p:EqDamlAllowToolInstall=true' }
             $clock = [Diagnostics.Stopwatch]::StartNew()
             & $msbuild @arguments | Out-Null
             $exit = $LASTEXITCODE

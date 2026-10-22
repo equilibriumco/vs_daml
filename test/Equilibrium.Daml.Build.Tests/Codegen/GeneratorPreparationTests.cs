@@ -119,7 +119,7 @@ public sealed class GeneratorPreparationTests : IDisposable
         problem.Code.ShouldBe(DamlDiagnosticCodes.MissingTool);
         problem.Message.ShouldBe(
             "The C# code generator ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0 isn't in its cache: Nothing of the pinned component was downloaded. " +
-            "Set DamlAllowToolInstall to true to let the build download it, once per generator version.");
+            "Set EqDamlAllowToolInstall to true to let the build download it, once per generator version.");
         _runner.Calls.ShouldBeEmpty();
     }
 
@@ -129,7 +129,7 @@ public sealed class GeneratorPreparationTests : IDisposable
         var problem = (await Prepare(Options(install: false, offline: true))).ShouldNotBeNull();
 
         problem.Code.ShouldBe(DamlDiagnosticCodes.MissingToolOffline);
-        problem.Message.ShouldEndWith("DamlOffline is true, so the build doesn't download it. Build once online with DamlAllowToolInstall set to true.");
+        problem.Message.ShouldEndWith("EqDamlOffline is true, so the build doesn't download it. Build once online with EqDamlAllowToolInstall set to true.");
         _runner.Calls.ShouldBeEmpty();
     }
 
@@ -216,7 +216,7 @@ public sealed class GeneratorPreparationTests : IDisposable
         var problem = (await Prepare(Options(lockSeconds: 0.3))).ShouldNotBeNull();
 
         problem.Code.ShouldBe(DamlDiagnosticCodes.LockTimeout);
-        problem.Message.ShouldContain("DamlLockTimeoutSeconds");
+        problem.Message.ShouldContain("EqDamlLockTimeoutSeconds");
     }
 
     // Two projects building at once both find the generator missing; one downloads it.
@@ -239,6 +239,6 @@ public sealed class GeneratorPreparationTests : IDisposable
         var problem = (await Prepare(Options())).ShouldNotBeNull();
 
         problem.Code.ShouldBe(DamlDiagnosticCodes.CancelledOrTimedOut);
-        problem.Message.ShouldContain("DamlProcessTimeoutSeconds");
+        problem.Message.ShouldContain("EqDamlProcessTimeoutSeconds");
     }
 }

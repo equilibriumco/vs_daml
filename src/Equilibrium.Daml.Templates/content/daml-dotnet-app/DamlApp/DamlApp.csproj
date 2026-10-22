@@ -10,10 +10,10 @@
 
   <!-- The C# generator is downloaded once per machine and generator version, digest-checked, into
        %LOCALAPPDATA%\DamlVisualStudio\codegen. This lets the build do that on its first run; without it
-       a machine that hasn't got the generator stops with DAML0101. An offline build (DamlOffline=true)
+       a machine that hasn't got the generator stops with DAML0101. An offline build (EqDamlOffline=true)
        still downloads nothing. -->
   <PropertyGroup>
-    <DamlAllowToolInstall>true</DamlAllowToolInstall>
+    <EqDamlAllowToolInstall>true</EqDamlAllowToolInstall>
   </PropertyGroup>
 <!--#endif -->
 
@@ -23,7 +23,7 @@
     <PackageReference Include="DAML_PACKAGE_PREFIX.Build.CSharp" Version="DAML_PACKAGES_VERSION" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
-    <DamlReference Include="..\DamlApp.Contracts\DamlApp.Contracts.msbuildproj" Namespace="DamlApp.Contracts" />
+    <EqDamlReference Include="..\DamlApp.Contracts\DamlApp.Contracts.msbuildproj" Namespace="DamlApp.Contracts" />
   </ItemGroup>
 
 </Project>

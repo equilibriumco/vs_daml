@@ -39,22 +39,22 @@ public abstract class DpmToolTask : ToolTask
     [Required]
     public string ManifestPath { get; set; } = "";
 
-    /// <summary><c>DamlDpmPath</c>.</summary>
+    /// <summary><c>EqDamlDpmPath</c>.</summary>
     public string? DpmPath { get; set; }
 
-    /// <summary><c>DamlOffline</c>.</summary>
+    /// <summary><c>EqDamlOffline</c>.</summary>
     public string? Offline { get; set; }
 
-    /// <summary><c>DamlAllowToolInstall</c>.</summary>
+    /// <summary><c>EqDamlAllowToolInstall</c>.</summary>
     public string? AllowToolInstall { get; set; }
 
-    /// <summary><c>DamlProcessTimeoutSeconds</c>.</summary>
+    /// <summary><c>EqDamlProcessTimeoutSeconds</c>.</summary>
     public string? ProcessTimeoutSeconds { get; set; }
 
-    /// <summary><c>DamlSkipPreflight</c>: don't check dpm's version.</summary>
+    /// <summary><c>EqDamlSkipPreflight</c>: don't check dpm's version.</summary>
     public string? SkipPreflight { get; set; }
 
-    /// <summary><c>DamlLockTimeoutSeconds</c>: how long to wait for another build of the same package.</summary>
+    /// <summary><c>EqDamlLockTimeoutSeconds</c>: how long to wait for another build of the same package.</summary>
     public string? LockTimeoutSeconds { get; set; }
 
     /// <summary>The dpm command this task runs.</summary>
@@ -170,7 +170,7 @@ public abstract class DpmToolTask : ToolTask
     {
         singleLine = SecretRedaction.Redact(singleLine);
         // dpm's own words go to the detailed log; the report decides what becomes an error. The one
-        // line per script of a test run is what -t:DamlTest is for, so it shows at any verbosity.
+        // line per script of a test run is what -t:EqDamlTest is for, so it shows at any verbosity.
         if (Command == DpmCommandKind.Test && ScriptResultLine.TryParse(singleLine) is { } result)
         {
             Log.LogMessage(MessageImportance.High, result);

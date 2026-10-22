@@ -74,7 +74,7 @@ foreach ($package in Get-ChildItem $Packages -Filter '*.nupkg') {
     $project = switch -Wildcard ($metadata.id) {
         '*.Sdk' { 'src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj' }
         '*.Build.CSharp' { 'src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj' }
-        '*.Templates' { 'src\Daml.Templates\Daml.Templates.csproj' }
+        '*.Templates' { 'src\Equilibrium.Daml.Templates\Equilibrium.Daml.Templates.csproj' }
         default { throw "No SBOM source project is known for package $($metadata.id)." }
     }
     $artifacts.Add(@{ File = $package; Name = $metadata.id; Version = $metadata.version; Type = 'Library'; Project = $project; NuGet = $true })

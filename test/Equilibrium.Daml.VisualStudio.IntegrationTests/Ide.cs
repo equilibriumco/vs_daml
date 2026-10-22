@@ -387,8 +387,8 @@ internal static class Ide
         var packages = Path.Combine(RepoRoot(), "artifacts", "packages");
         var sdk = Directory.Exists(packages) ? Directory.GetFiles(packages, "*.Sdk.*.nupkg").Select(Path.GetFileName).FirstOrDefault() : null;
         var name = sdk is null ? null : System.Text.RegularExpressions.Regex.Match(sdk, @"^(?<prefix>.+)\.Sdk\.(?<version>\d.+)\.nupkg$");
-        Assert.True(name is { Success: true }, $"No Daml.Sdk package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
-        var app = System.Xml.Linq.XDocument.Load(Path.Combine(RepoRoot(), @"src\Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj"));
+        Assert.True(name is { Success: true }, $"No Equilibrium.Daml.Sdk package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
+        var app = System.Xml.Linq.XDocument.Load(Path.Combine(RepoRoot(), @"src\Equilibrium.Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj"));
         var runtime = (string)app.Descendants("PackageReference").First(r => (string?)r.Attribute("Include") == "Daml.Runtime").Attribute("Version")!;
         var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
         UseThisBuildsPackages(root);

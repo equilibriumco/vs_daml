@@ -2,9 +2,9 @@
   "$schema": "http://json.schemastore.org/template",
   "author": "Equilibrium",
   "classifications": [ "Canton", "Windows", "Console" ],
-  "identity": "Daml.Templates.DotnetApp",
+  "identity": "Equilibrium.Daml.Templates.DotnetApp",
   "name": "Daml and .NET App",
-  "description": "A solution with a Daml package, its Daml Script tests and a C# console app that uses the C# generated from the package in the same build (Daml.Sdk and Daml.Build.CSharp).",
+  "description": "A solution with a Daml package, its Daml Script tests and a C# console app that uses the C# generated from the package in the same build (Equilibrium.Daml.Sdk and Equilibrium.Daml.Build.CSharp).",
   "shortName": "daml-dotnet-app",
   "tags": {
     "language": "Daml",
@@ -23,13 +23,13 @@
       "replaces": "DamlApp",
       "fileRename": "DamlApp"
     },
-    "DamlPackageName": {
+    "EqDamlPackageName": {
       "type": "derived",
       "valueSource": "name",
       "valueTransform": "damlPackageName",
       "replaces": "daml-app"
     },
-    "DamlSdkVersion": {
+    "EqDamlSdkVersion": {
       "type": "parameter",
       "datatype": "text",
       "defaultValue": "3.6.0",
@@ -40,15 +40,15 @@
       "type": "parameter",
       "datatype": "bool",
       "defaultValue": "true",
-      "description": "Let the first build on a machine download the pinned C# code generator (DamlAllowToolInstall in the app's project). Without it, a machine that hasn't got the generator yet needs one build with DamlAllowToolInstall=true first."
+      "description": "Let the first build on a machine download the pinned C# code generator (EqDamlAllowToolInstall in the app's project). Without it, a machine that hasn't got the generator yet needs one build with EqDamlAllowToolInstall=true first."
     },
-    "DamlPackagesVersion": {
+    "EqDamlPackagesVersion": {
       "type": "generated",
       "generator": "constant",
       "parameters": { "value": "@PackageVersion@" },
       "replaces": "DAML_PACKAGES_VERSION"
     },
-    "DamlPackageIdPrefix": {
+    "EqDamlPackageIdPrefix": {
       "type": "generated",
       "generator": "constant",
       "parameters": { "value": "@PackageIdPrefix@" },

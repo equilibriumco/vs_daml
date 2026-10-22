@@ -1,6 +1,6 @@
 <!-- Templates for dotnet new: a Daml contracts project with a project of Daml Script tests next to it,
      and a solution with both and a C# app on the generated bindings. The projects they create
-     reference Daml.Sdk and Daml.Build.CSharp of the same release, so packing writes this package's
+     reference Equilibrium.Daml.Sdk and Equilibrium.Daml.Build.CSharp of the same release, so packing writes this package's
      version and id prefix into each template.json. -->
 <Project Sdk="Microsoft.Build.NoTargets">
 
@@ -22,26 +22,26 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <_DamlTemplateConfig Include="content\**\.template.config\template.json" />
-    <None Include="content\**" Exclude="@(_DamlTemplateConfig)" Pack="true" PackagePath="content\" />
+    <_EqDamlTemplateConfig Include="content\**\.template.config\template.json" />
+    <None Include="content\**" Exclude="@(_EqDamlTemplateConfig)" Pack="true" PackagePath="content\" />
   </ItemGroup>
 
   <!-- Each template.json goes into the package with @PackageVersion@ and @PackageIdPrefix@ replaced. -->
-  <Target Name="DamlStampTemplates" BeforeTargets="_GetPackageFiles">
+  <Target Name="EqDamlStampTemplates" BeforeTargets="_GetPackageFiles">
     <ItemGroup>
-      <_DamlTemplateConfig>
+      <_EqDamlTemplateConfig>
         <Stamped>$(IntermediateOutputPath)templates\%(RecursiveDir)template.json</Stamped>
         <Text>$([System.IO.File]::ReadAllText('%(FullPath)').Replace('@PackageVersion@', '$(PackageVersion)').Replace('@PackageIdPrefix@', '$(PackageIdPrefix)'))</Text>
-      </_DamlTemplateConfig>
+      </_EqDamlTemplateConfig>
     </ItemGroup>
-    <WriteLinesToFile File="%(_DamlTemplateConfig.Stamped)" Lines="$([MSBuild]::Escape('%(_DamlTemplateConfig.Text)'))" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <WriteLinesToFile File="%(_EqDamlTemplateConfig.Stamped)" Lines="$([MSBuild]::Escape('%(_EqDamlTemplateConfig.Text)'))" Overwrite="true" WriteOnlyWhenDifferent="true" />
     <ItemGroup>
-      <None Include="%(_DamlTemplateConfig.Stamped)" Pack="true" PackagePath="content\%(_DamlTemplateConfig.RecursiveDir)" />
-      <FileWrites Include="%(_DamlTemplateConfig.Stamped)" />
+      <None Include="%(_EqDamlTemplateConfig.Stamped)" Pack="true" PackagePath="content\%(_EqDamlTemplateConfig.RecursiveDir)" />
+      <FileWrites Include="%(_EqDamlTemplateConfig.Stamped)" />
     </ItemGroup>
   </Target>
 
   <!-- Where the build put the package; reads only, so the VSIX can ask for it after the build. -->
-  <Target Name="DamlTemplatesPackage" Returns="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PackageOutputPath)', '$(PackageId).$(PackageVersion).nupkg'))" />
+  <Target Name="EqDamlTemplatesPackage" Returns="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PackageOutputPath)', '$(PackageId).$(PackageVersion).nupkg'))" />
 
 </Project>

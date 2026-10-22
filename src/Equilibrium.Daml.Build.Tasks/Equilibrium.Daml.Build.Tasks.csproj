@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Equilibrium.Daml.Build.Tests" PublicKey="$(DamlBuildPublicKey)" />
+    <InternalsVisibleTo Include="Equilibrium.Daml.Build.Tests" PublicKey="$(EqDamlBuildPublicKey)" />
   </ItemGroup>
 
 </Project>

@@ -32,26 +32,26 @@ public sealed class BindingFixtureTests : IDisposable
         {
             _sandbox.Write(Path.Combine("contracts", file.Substring(fixture.Length + 1)), File.ReadAllText(file));
         }
-        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\" />\n");
+        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Equilibrium.Daml.Sdk/{SdkFeed.Version}\" />\n");
         _sandbox.Write(@"App\App.csproj", $"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 <TargetFramework>net10.0</TargetFramework>
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Daml.Build.CSharp" Version="{SdkFeed.Version}" PrivateAssets="all" />
+                <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="{SdkFeed.Version}" PrivateAssets="all" />
                 <PackageReference Include="Daml.Runtime" Version="{SdkFeed.RuntimeVersion}" />
                 <PackageReference Include="Daml.Ledger.Abstractions" Version="{SdkFeed.RuntimeVersion}" />
-                <DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="{prefix}" />
+                <EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="{prefix}" />
               </ItemGroup>
             </Project>
             """);
         var properties = new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = dpm,
-            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            ["EqDamlDpmPath"] = dpm,
+            ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
-            ["DamlAllowToolInstall"] = "true",
+            ["EqDamlAllowToolInstall"] = "true",
         };
 
         var build = _sandbox.Build(MSBuildHost.Dotnet, dotnet, @"App\App.csproj", properties: properties);

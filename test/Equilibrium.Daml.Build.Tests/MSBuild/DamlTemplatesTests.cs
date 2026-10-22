@@ -66,7 +66,7 @@ public sealed class DamlTemplatesTests : IDisposable
         Scenario(build);
 
         var run = _sandbox.Build(host, HostPath(host), @"Acme.Contracts\Acme.Contracts.Tests\Acme.Contracts.Tests.msbuildproj",
-            _dpm.Environment, new Dictionary<string, string> { ["DamlDpmPath"] = _dpm.ExecutablePath });
+            _dpm.Environment, new Dictionary<string, string> { ["EqDamlDpmPath"] = _dpm.ExecutablePath });
 
         run.ExitCode.ShouldBe(0, run.Log);
         var contracts = Folder(@"Acme.Contracts\Acme.Contracts");
@@ -105,7 +105,7 @@ public sealed class DamlTemplatesTests : IDisposable
         await NewAsync(["daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App", .. options]);
 
         var project = System.Xml.Linq.XDocument.Load(Folder(@"Demo.App\Demo.App\Demo.App.csproj"));
-        project.Descendants("DamlAllowToolInstall").Select(p => p.Value).ShouldBe(allowed ? ["true"] : []);
+        project.Descendants("EqDamlAllowToolInstall").Select(p => p.Value).ShouldBe(allowed ? ["true"] : []);
     }
 
     // The app allows downloads, and an offline build, however late it says so (here after the
@@ -117,7 +117,7 @@ public sealed class DamlTemplatesTests : IDisposable
     public async Task A_new_app_built_offline_downloads_nothing_wherever_offline_was_set(MSBuildHost host)
     {
         await NewAsync("daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App");
-        _sandbox.Write(@"Demo.App\Directory.Build.targets", "<Project>\n  <PropertyGroup>\n    <DamlOffline>true</DamlOffline>\n  </PropertyGroup>\n</Project>\n");
+        _sandbox.Write(@"Demo.App\Directory.Build.targets", "<Project>\n  <PropertyGroup>\n    <EqDamlOffline>true</EqDamlOffline>\n  </PropertyGroup>\n</Project>\n");
         _sandbox.Write(@"jdk\bin\java.exe", "");
         var dar = Path.Combine(_sandbox.Root, "contracts.dar");
         TestDar.Write(dar, "demo-app-contracts-0.1.0");
@@ -131,9 +131,9 @@ public sealed class DamlTemplatesTests : IDisposable
 
         var run = _sandbox.Build(host, HostPath(host), @"Demo.App\Demo.App\Demo.App.csproj", environment, new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = _dpm.ExecutablePath,
-            ["DamlJavaHome"] = Folder("jdk"),
-            ["DamlSkipPreflight"] = "true",
+            ["EqDamlDpmPath"] = _dpm.ExecutablePath,
+            ["EqDamlJavaHome"] = Folder("jdk"),
+            ["EqDamlSkipPreflight"] = "true",
         });
 
         run.ExitCode.ShouldNotBe(0, run.Log);
@@ -166,8 +166,8 @@ public sealed class DamlTemplatesTests : IDisposable
         AddItem("DamlScriptTest", "Test.daml", @"Demo.App\Demo.App.Contracts.Tests\daml\ExtraTest.daml");
         var properties = new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = dpm,
-            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            ["EqDamlDpmPath"] = dpm,
+            ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
         };
         const string Tests = @"Demo.App\Demo.App.Contracts.Tests\Demo.App.Contracts.Tests.msbuildproj";
 
@@ -180,12 +180,12 @@ public sealed class DamlTemplatesTests : IDisposable
         app.ExitCode.ShouldBe(0, app.Stdout + app.Stderr);
         app.Stdout.Trim().ShouldBe("Gold from Daml package demo-app-contracts 0.1.0");
 
-        var passing = _sandbox.Build(host, hostPath, Tests, properties: properties, target: "DamlTest");
+        var passing = _sandbox.Build(host, hostPath, Tests, properties: properties, target: "EqDamlTest");
         passing.ExitCode.ShouldBe(0, passing.Log);
 
         var script = Folder(@"Demo.App\Demo.App.Contracts.Tests\daml\Test.daml");
         File.WriteAllText(script, File.ReadAllText(script).Replace("found.owner === bob", "found.owner === alice"));
-        var failing = _sandbox.Build(host, hostPath, Tests, properties: properties, target: "DamlTest");
+        var failing = _sandbox.Build(host, hostPath, Tests, properties: properties, target: "EqDamlTest");
         failing.ExitCode.ShouldNotBe(0, failing.Log);
         failing.Log.ShouldContain("Script error DAML0001");
         _output.WriteLine($"{host}: build {build.Elapsed.TotalSeconds:F1} s, tests {passing.Elapsed.TotalSeconds:F1} s.");
@@ -208,8 +208,8 @@ public sealed class DamlTemplatesTests : IDisposable
             environment: new Dictionary<string, string> { ["LOCALAPPDATA"] = localAppData },
             properties: new Dictionary<string, string>
             {
-                ["DamlDpmPath"] = dpm,
-                ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+                ["EqDamlDpmPath"] = dpm,
+                ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             });
 
         build.ExitCode.ShouldBe(0, build.Log);

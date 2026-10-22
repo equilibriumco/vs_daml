@@ -50,16 +50,16 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     public string? TargetFrameworks { get; set; }
 
     /// <summary>
-    /// The Daml references as written, each with <c>DamlReferenceSource</c> (<c>DamlReference</c>,
-    /// <c>DamlDar</c> or <c>ProjectReference</c>), its <c>Namespace</c> and, for a project, the
+    /// The Daml references as written, each with <c>EqDamlReferenceSource</c> (<c>EqDamlReference</c>,
+    /// <c>EqDamlDar</c> or <c>ProjectReference</c>), its <c>Namespace</c> and, for a project, the
     /// <c>DarPath</c> the project returned.
     /// </summary>
     public ITaskItem[] References { get; set; } = [];
 
     /// <summary>
-    /// What the referenced projects answered to <c>GetDamlDar</c>: each DAR with
+    /// What the referenced projects answered to <c>EqDamlGetDar</c>: each DAR with
     /// <c>MSBuildSourceProjectFile</c>, the project that built it, and that project's
-    /// <c>DamlManifest</c> and <c>DamlSourceFingerprint</c>. A <c>ProjectReference</c> whose project
+    /// <c>EqDamlManifest</c> and <c>EqDamlSourceFingerprint</c>. A <c>ProjectReference</c> whose project
     /// gave none isn't a Daml project and is no reference of this task's.
     /// </summary>
     public ITaskItem[] Dars { get; set; } = [];
@@ -67,37 +67,37 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     /// <summary>A design-time build, which reads the last generations and writes nothing.</summary>
     public bool DesignTime { get; set; }
 
-    /// <summary><c>DamlCodegenEnabled</c>.</summary>
+    /// <summary><c>EqDamlCodegenEnabled</c>.</summary>
     public string? CodegenEnabled { get; set; }
 
-    /// <summary><c>DamlCodegenComponent</c>.</summary>
+    /// <summary><c>EqDamlCodegenComponent</c>.</summary>
     public string? CodegenComponent { get; set; }
 
-    /// <summary><c>DamlGeneratedOutputMode</c>.</summary>
+    /// <summary><c>EqDamlGeneratedOutputMode</c>.</summary>
     public string? GeneratedOutputMode { get; set; }
 
-    /// <summary><c>DamlGeneratedDir</c>.</summary>
+    /// <summary><c>EqDamlGeneratedDir</c>.</summary>
     public string? GeneratedDir { get; set; }
 
-    /// <summary><c>DamlJavaHome</c>.</summary>
+    /// <summary><c>EqDamlJavaHome</c>.</summary>
     public string? JavaHome { get; set; }
 
-    /// <summary><c>DamlDpmPath</c>.</summary>
+    /// <summary><c>EqDamlDpmPath</c>.</summary>
     public string? DpmPath { get; set; }
 
-    /// <summary><c>DamlOffline</c>.</summary>
+    /// <summary><c>EqDamlOffline</c>.</summary>
     public string? Offline { get; set; }
 
-    /// <summary><c>DamlAllowToolInstall</c>.</summary>
+    /// <summary><c>EqDamlAllowToolInstall</c>.</summary>
     public string? AllowToolInstall { get; set; }
 
-    /// <summary><c>DamlSkipPreflight</c>.</summary>
+    /// <summary><c>EqDamlSkipPreflight</c>.</summary>
     public string? SkipPreflight { get; set; }
 
-    /// <summary><c>DamlProcessTimeoutSeconds</c>.</summary>
+    /// <summary><c>EqDamlProcessTimeoutSeconds</c>.</summary>
     public string? ProcessTimeoutSeconds { get; set; }
 
-    /// <summary><c>DamlLockTimeoutSeconds</c>.</summary>
+    /// <summary><c>EqDamlLockTimeoutSeconds</c>.</summary>
     public string? LockTimeoutSeconds { get; set; }
 
     /// <summary>The version of <c>Daml.Runtime</c> the project resolved; empty when it doesn't reference it.</summary>
@@ -106,7 +106,7 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     /// <summary>The resolved Daml.Ledger.Abstractions package version.</summary>
     public string? LedgerAbstractionsVersion { get; set; }
 
-    /// <summary>The generated files to compile, with <c>DamlGenerated=true</c> and their <c>DamlGenerationId</c>.</summary>
+    /// <summary>The generated files to compile, with <c>EqDamlGenerated=true</c> and their <c>EqDamlGenerationId</c>.</summary>
     [Output]
     public ITaskItem[] GeneratedFiles { get; private set; } = [];
 
@@ -186,14 +186,14 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
         return answers;
     }
 
-    // A plain ProjectReference counts only when its project is a Daml one: it answered GetDamlDar.
+    // A plain ProjectReference counts only when its project is a Daml one: it answered EqDamlGetDar.
     private static bool IsDaml(ITaskItem item, string projectDirectory, Dictionary<string, ITaskItem> answers) =>
-        item.GetMetadata("DamlReferenceSource") != nameof(DamlReferenceSource.ProjectReference)
+        item.GetMetadata("EqDamlReferenceSource") != nameof(DamlReferenceSource.ProjectReference)
         || item.GetMetadata("DarPath").Length > 0
         || answers.ContainsKey(DamlPath.Resolve(projectDirectory, item.ItemSpec));
 
     private static DeclaredDamlReference Declared(ITaskItem item) => new(
-        Enum.TryParse<DamlReferenceSource>(item.GetMetadata("DamlReferenceSource"), out var source) ? source : DamlReferenceSource.DamlReference,
+        Enum.TryParse<DamlReferenceSource>(item.GetMetadata("EqDamlReferenceSource"), out var source) ? source : DamlReferenceSource.EqDamlReference,
         item.ItemSpec,
         item.GetMetadata("Namespace"));
 
@@ -209,7 +209,7 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
             {
                 darByProject.Add(project, dar);
             }
-            var (manifest, fingerprint) = (item.GetMetadata("DamlManifest"), item.GetMetadata("DamlSourceFingerprint"));
+            var (manifest, fingerprint) = (item.GetMetadata("EqDamlManifest"), item.GetMetadata("EqDamlSourceFingerprint"));
             if (manifest.Length > 0 && fingerprint.Length > 0 && !sourcesByProject.ContainsKey(project))
             {
                 sourcesByProject.Add(project, new SourceProvenance(DamlPath.Resolve(projectDirectory, manifest), fingerprint));
@@ -243,8 +243,8 @@ public sealed class DamlCodegenCSharp : OrchestratorTask
     private static ITaskItem Compile(GeneratedFile file)
     {
         var item = new TaskItem(file.Path);
-        item.SetMetadata("DamlGenerated", "true");
-        item.SetMetadata("DamlGenerationId", file.GenerationId);
+        item.SetMetadata("EqDamlGenerated", "true");
+        item.SetMetadata("EqDamlGenerationId", file.GenerationId);
         return item;
     }
 }

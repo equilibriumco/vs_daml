@@ -42,7 +42,7 @@ public class CodegenOptionsTests
     [Fact, Trait("Category", "Unit")]
     public void Source_mode_writes_into_the_project_by_default()
     {
-        var (options, errors) = Read(("DamlGeneratedOutputMode", "source"));
+        var (options, errors) = Read(("EqDamlGeneratedOutputMode", "source"));
 
         errors.ShouldBeEmpty();
         options.OutputMode.ShouldBe(GeneratedOutputMode.Source);
@@ -53,7 +53,7 @@ public class CodegenOptionsTests
     [Fact, Trait("Category", "Unit")]
     public void Source_mode_takes_a_single_target_framework()
     {
-        var error = Read(("DamlGeneratedOutputMode", "Source"), ("TargetFrameworks", "net10.0; net11.0")).Errors.ShouldHaveSingleItem();
+        var error = Read(("EqDamlGeneratedOutputMode", "Source"), ("TargetFrameworks", "net10.0; net11.0")).Errors.ShouldHaveSingleItem();
 
         error.Code.ShouldBe(DamlDiagnosticCodes.OutputConflict);
         error.Message.ShouldContain("net10.0; net11.0");
@@ -65,7 +65,7 @@ public class CodegenOptionsTests
     [InlineData("Source", "net10.0;")]
     [InlineData("Intermediate", "net10.0;net11.0")]
     public void One_target_framework_or_intermediate_mode_is_fine(string mode, string targetFrameworks) =>
-        Read(("DamlGeneratedOutputMode", mode), ("TargetFrameworks", targetFrameworks)).Errors.ShouldBeEmpty();
+        Read(("EqDamlGeneratedOutputMode", mode), ("TargetFrameworks", targetFrameworks)).Errors.ShouldBeEmpty();
 
     [Theory, Trait("Category", "Unit")]
     [InlineData("Intermediate", @"obj\Debug\net10.0\Bindings", @"C:\work\App\obj\Debug\net10.0\Bindings")]
@@ -73,7 +73,7 @@ public class CodegenOptionsTests
     [InlineData("Source", @"..\Shared\Generated", @"C:\work\Shared\Generated")]
     public void A_chosen_folder_resolves_against_the_project(string mode, string folder, string expected)
     {
-        var (options, errors) = Read(("DamlGeneratedOutputMode", mode), ("DamlGeneratedDir", folder));
+        var (options, errors) = Read(("EqDamlGeneratedOutputMode", mode), ("EqDamlGeneratedDir", folder));
 
         errors.ShouldBeEmpty();
         options.GeneratedRoot.ShouldBe(expected);
@@ -102,18 +102,18 @@ public class CodegenOptionsTests
     [InlineData("Intermediate", @"obj\Debug\net10.0")]
     public void A_folder_that_holds_the_project_or_is_shared_between_builds_in_intermediate_mode_is_refused(string mode, string folder)
     {
-        var (options, errors) = Read(("DamlGeneratedOutputMode", mode), ("DamlGeneratedDir", folder));
+        var (options, errors) = Read(("EqDamlGeneratedOutputMode", mode), ("EqDamlGeneratedDir", folder));
 
         var error = errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        error.Message.ShouldContain("DamlGeneratedDir");
+        error.Message.ShouldContain("EqDamlGeneratedDir");
         options.GeneratedRoot.ShouldBeNull();
     }
 
     [Fact, Trait("Category", "Unit")]
     public void An_unknown_output_mode_is_refused()
     {
-        var (options, errors) = Read(("DamlGeneratedOutputMode", "Both"));
+        var (options, errors) = Read(("EqDamlGeneratedOutputMode", "Both"));
 
         errors.ShouldHaveSingleItem().Message.ShouldContain("'Both'");
         options.GeneratedRoot.ShouldBeNull();
@@ -124,7 +124,7 @@ public class CodegenOptionsTests
     {
         var reference = $"oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.7.0@sha256:{Digest}";
 
-        var (options, errors) = Read(("DamlCodegenComponent", reference));
+        var (options, errors) = Read(("EqDamlCodegenComponent", reference));
 
         errors.ShouldBeEmpty();
         options.Component!.Digest.ShouldBe(Digest);
@@ -135,19 +135,19 @@ public class CodegenOptionsTests
     [Fact, Trait("Category", "Unit")]
     public void A_generator_without_a_digest_is_a_pin_error_even_without_preflight()
     {
-        var (options, errors) = Read(("DamlCodegenComponent", "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest"), ("DamlSkipPreflight", "true"));
+        var (options, errors) = Read(("EqDamlCodegenComponent", "oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest"), ("EqDamlSkipPreflight", "true"));
 
         var error = errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.GeneratorPinConflict);
-        error.Message.ShouldContain("DamlCodegenComponent");
+        error.Message.ShouldContain("EqDamlCodegenComponent");
         options.Component.ShouldBeNull();
     }
 
     [Fact, Trait("Category", "Unit")]
     public void Codegen_can_be_switched_off() =>
-        Read(("DamlCodegenEnabled", "false")).Options.Enabled.ShouldBeFalse();
+        Read(("EqDamlCodegenEnabled", "false")).Options.Enabled.ShouldBeFalse();
 
     [Fact, Trait("Category", "Unit")]
     public void A_non_boolean_switch_is_refused() =>
-        Read(("DamlCodegenEnabled", "sometimes")).Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
+        Read(("EqDamlCodegenEnabled", "sometimes")).Errors.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
 }

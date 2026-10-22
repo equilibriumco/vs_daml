@@ -3,21 +3,21 @@
   <!-- Every setting wrong at once: one build reports all of it. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <DamlOffline>true</DamlOffline>
-    <DamlAllowToolInstall>true</DamlAllowToolInstall>
-    <DamlLockTimeoutSeconds>0</DamlLockTimeoutSeconds>
-    <DamlCodegenComponent>oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest</DamlCodegenComponent>
-    <DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>
-    <DamlGeneratedDir>.</DamlGeneratedDir>
+    <EqDamlOffline>true</EqDamlOffline>
+    <EqDamlAllowToolInstall>true</EqDamlAllowToolInstall>
+    <EqDamlLockTimeoutSeconds>0</EqDamlLockTimeoutSeconds>
+    <EqDamlCodegenComponent>oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest</EqDamlCodegenComponent>
+    <EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>
+    <EqDamlGeneratedDir>.</EqDamlGeneratedDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
+    <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
-    <DamlReference Include="..\vendor\finance-1.0.0.dar" />
-    <DamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="My Contracts" />
-    <DamlDar Include="..\vendor\ledger.dar" Namespace="Ledger" />
-    <DamlDar Include="..\VENDOR\Ledger.dar" Namespace="Ledger" />
+    <EqDamlReference Include="..\vendor\finance-1.0.0.dar" />
+    <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="My Contracts" />
+    <EqDamlDar Include="..\vendor\ledger.dar" Namespace="Ledger" />
+    <EqDamlDar Include="..\VENDOR\Ledger.dar" Namespace="Ledger" />
   </ItemGroup>
 
 </Project>

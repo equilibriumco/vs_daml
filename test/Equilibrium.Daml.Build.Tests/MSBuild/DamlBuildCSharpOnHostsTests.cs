@@ -16,8 +16,8 @@ using Xunit.Abstractions;
 
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
-// C# projects as users write them: Daml.Build.CSharp and Daml.Runtime from a local feed, DARs
-// from files and from Daml.Sdk projects, built by MSBuild.exe of Visual Studio 2026 and by dotnet
+// C# projects as users write them: Equilibrium.Daml.Build.CSharp and Daml.Runtime from a local feed, DARs
+// from files and from Equilibrium.Daml.Sdk projects, built by MSBuild.exe of Visual Studio 2026 and by dotnet
 // msbuild, with a fake dpm, a fake generator and a synthetic generator cache.
 public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 {
@@ -26,9 +26,9 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     // What the project's own targets show of the build, for the tests to read from the log.
     private const string ShowTargets = """
           <Target Name="ShowEvaluated">
-            <Message Importance="high" Text="Evaluated: %(Compile.FullPath)" Condition="'%(Compile.DamlGenerated)' == 'true'" />
+            <Message Importance="high" Text="Evaluated: %(Compile.FullPath)" Condition="'%(Compile.EqDamlGenerated)' == 'true'" />
           </Target>
-          <Target Name="ShowCompiled" DependsOnTargets="DamlCollectGeneratedCompile">
+          <Target Name="ShowCompiled" DependsOnTargets="EqDamlCollectGeneratedCompile">
             <Message Importance="high" Text="Compiled: %(Compile.FullPath)" />
           </Target>
           <Target Name="ShowUpToDateCheck" DependsOnTargets="CollectUpToDateCheckInputDesignTime;CollectUpToDateCheckBuiltDesignTime">
@@ -38,7 +38,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
             <Message Importance="high" Text="Built targets: $(CollectUpToDateCheckBuiltDesignTimeDependsOn)" />
           </Target>
           <Target Name="ShowRuntime">
-            <Message Importance="high" Text="Runtime: $(_DamlRuntimeVersion)" />
+            <Message Importance="high" Text="Runtime: $(_EqDamlRuntimeVersion)" />
           </Target>
         """;
 
@@ -90,7 +90,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
                 {properties}
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Daml.Build.CSharp" Version="{version ?? SdkFeed.Version}" PrivateAssets="all" />
+                <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="{version ?? SdkFeed.Version}" PrivateAssets="all" />
                 <PackageReference Include="Daml.Runtime" Version="{SdkFeed.RuntimeVersion}" />
                 <PackageReference Include="Daml.Ledger.Abstractions" Version="{SdkFeed.RuntimeVersion}" />
                 {items}
@@ -156,12 +156,12 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         _dpm.SetScenario(scenario);
     }
 
-    // A Daml project on Daml.Sdk next to the C# one.
+    // A Daml project on Equilibrium.Daml.Sdk next to the C# one.
     private void Contracts(string? sdkVersion = null)
     {
         _sandbox.Write(@"contracts\daml.yaml", "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n");
         _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n");
-        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{sdkVersion ?? SdkFeed.Version}\" />\n");
+        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Equilibrium.Daml.Sdk/{sdkVersion ?? SdkFeed.Version}\" />\n");
     }
 
     private MSBuildRun Build(MSBuildHost host, string? target = null, bool restore = true, params (string Name, string Value)[] properties) =>
@@ -171,10 +171,10 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     {
         var all = new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = _dpm.ExecutablePath,
-            ["DamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
-            ["DamlCodegenComponent"] = _pin!.Reference,
-            ["DamlSkipPreflight"] = "true",
+            ["EqDamlDpmPath"] = _dpm.ExecutablePath,
+            ["EqDamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
+            ["EqDamlCodegenComponent"] = _pin!.Reference,
+            ["EqDamlSkipPreflight"] = "true",
         };
         foreach (var (name, value) in properties)
         {
@@ -212,7 +212,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void A_DAR_is_generated_and_compiled_and_the_next_build_runs_no_generator(MSBuildHost host)
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -232,14 +232,14 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         GeneratorRuns().ShouldBe(1);
     }
 
-    // The Daml project builds its DAR through Daml.Sdk, the C# project turns it into C# and compiles
+    // The Daml project builds its DAR through Equilibrium.Daml.Sdk, the C# project turns it into C# and compiles
     // it; the packages a patch apart, as in a solution updated one project at a time.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]
     public void A_Daml_project_reference_goes_from_the_SDK_through_the_generator_into_the_compiler(MSBuildHost host)
     {
-        App("""<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""", version: SdkFeed.NextPatch);
+        App("""<EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""", version: SdkFeed.NextPatch);
         Contracts();
         Scenario(BuildsTheDar(), Generator("Contracts"));
         Uses("Contracts");
@@ -265,7 +265,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void Inside_Visual_Studio_a_DAR_not_built_yet_is_built_before_generating(MSBuildHost host)
     {
-        App("""<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
+        App("""<EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
         Contracts();
         Scenario(BuildsTheDar(), Generator("Contracts"));
         Uses("Contracts");
@@ -294,7 +294,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void Inside_Visual_Studio_a_DAR_older_than_its_sources_is_built_again_before_generating(MSBuildHost host)
     {
-        App("""<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
+        App("""<EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""");
         Contracts();
         Scenario(BuildsTheDar(), Generator("Contracts"));
         Uses("Contracts");
@@ -313,8 +313,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     // regenerated from it, with the runtime known to the generator's checks, but neither the project nor
     // its C# library compiled, and the up-to-date check's stamp left alone, so the next build compiles.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
-    [InlineData(MSBuildHost.MSBuildExe, """<DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""")]
-    [InlineData(MSBuildHost.Dotnet, """<ProjectReference Include="..\contracts\Contracts.msbuildproj" DamlNamespace="Contracts" />""")]
+    [InlineData(MSBuildHost.MSBuildExe, """<EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />""")]
+    [InlineData(MSBuildHost.Dotnet, """<ProjectReference Include="..\contracts\Contracts.msbuildproj" EqDamlNamespace="Contracts" />""")]
     public void A_refresh_regenerates_from_the_new_DAR_and_compiles_nothing(MSBuildHost host, string reference)
     {
         App(reference + """<ProjectReference Include="..\Lib\Lib.csproj" />""");
@@ -330,7 +330,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 
         _sandbox.Write(@"contracts\daml\Main.daml", "module Main where\n\n-- edited\n");
         Scenario(BuildsTheDar("contracts-edited"), Generator("Contracts"));
-        var refresh = Build(host, "DamlRefreshBindings;ShowRuntime", restore: false, ("BuildProjectReferences", "false"));
+        var refresh = Build(host, "EqDamlRefreshBindings;ShowRuntime", restore: false, ("BuildProjectReferences", "false"));
 
         refresh.ExitCode.ShouldBe(0, refresh.Log);
         (DarBuilds() - builds, GeneratorRuns() - runs).ShouldBe((1, 1));
@@ -379,10 +379,10 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     {
         Scenario(Generator("Finance"), Generator("Treasury"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Uses("Finance");
         var first = Build(MSBuildHost.MSBuildExe);
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Treasury" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Treasury" />""");
         Uses("Treasury");
 
         var second = Build(MSBuildHost.MSBuildExe);
@@ -398,7 +398,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void A_type_gone_from_the_DAR_is_gone_from_the_build_and_the_disk()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         var first = Build(MSBuildHost.Dotnet);
@@ -419,7 +419,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void A_withdrawn_reference_leaves_no_generated_code_behind()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         var first = Build(MSBuildHost.MSBuildExe);
@@ -439,7 +439,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Source_mode_compiles_each_generated_file_once_next_to_the_hand_written_ones()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -465,8 +465,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void Source_mode_with_two_target_frameworks_stops_before_the_generator()
     {
         App(
-            """<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
-            "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>",
+            """<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
+            "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>",
             "<TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
@@ -482,7 +482,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Another_generator_pin_regenerates_the_same_DAR_and_drops_the_old_generation()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -491,7 +491,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         var next = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"), variant: "next release");
         new GeneratorCache(next.Root, next.Pin).MarkReady();
 
-        var second = Build(MSBuildHost.Dotnet, properties: ("DamlCodegenComponent", next.Pin.Reference));
+        var second = Build(MSBuildHost.Dotnet, properties: ("EqDamlCodegenComponent", next.Pin.Reference));
 
         first.ExitCode.ShouldBe(0, first.Log);
         second.ExitCode.ShouldBe(0, second.Log);
@@ -508,7 +508,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData("deleted generation")]
     public void Damaged_generated_code_is_generated_again_by_the_next_build(string damage)
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -543,8 +543,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void Two_DARs_with_one_file_name_generate_side_by_side()
     {
         App("""
-            <DamlDar Include="..\north\finance.dar" Namespace="North" />
-            <DamlDar Include="..\south\finance.dar" Namespace="South" />
+            <EqDamlDar Include="..\north\finance.dar" Namespace="North" />
+            <EqDamlDar Include="..\south\finance.dar" Namespace="South" />
             """);
         Scenario(Generator("North"), Generator("South"));
         Dar(@"north\finance.dar", "finance-north");
@@ -569,7 +569,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void A_multi_targeted_project_generates_once_per_target_framework(MSBuildHost host)
     {
         App(
-            """<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
+            """<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
             frameworks: "<TargetFrameworks>net10.0;net10.0-windows</TargetFrameworks>");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
@@ -598,7 +598,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Source_mode_never_deletes_a_file_of_the_users_own()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         var first = Build(MSBuildHost.Dotnet);
@@ -613,7 +613,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         steps.Add(("rebuild", Build(MSBuildHost.Dotnet, "Rebuild"), 1, "error DAML0108"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
         steps.Add(("new DAR", Build(MSBuildHost.Dotnet), 1, Stopped));
-        App("", "<DamlGeneratedOutputMode>Source</DamlGeneratedOutputMode>");
+        App("", "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>");
         steps.Add(("reference removed", Build(MSBuildHost.Dotnet), 0, Kept));
         steps.Add(("clean", Build(MSBuildHost.Dotnet, "Clean"), 0, Kept));
 
@@ -634,7 +634,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public async Task A_refresh_and_a_build_at_once_generate_once(MSBuildHost host)
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         var generator = Generator("Finance");
         generator.DelayMilliseconds = 1500;
         Scenario(generator);
@@ -644,7 +644,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 
         var runs = await Task.WhenAll(
             Task.Run(() => Build(host, restore: false)),
-            Task.Run(() => Build(host, "DamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))));
+            Task.Run(() => Build(host, "EqDamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))));
         var next = Build(host, restore: false);
 
         restore.ExitCode.ShouldBe(0, restore.Log);
@@ -660,7 +660,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public async Task A_clean_and_a_refresh_at_once_leave_no_half_generation()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -671,7 +671,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
 
         var runs = await Task.WhenAll(
-            Task.Run(() => Build(MSBuildHost.Dotnet, "DamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))),
+            Task.Run(() => Build(MSBuildHost.Dotnet, "EqDamlRefreshBindings", restore: false, ("BuildProjectReferences", "false"))),
             Task.Run(() => Build(MSBuildHost.Dotnet, "Clean", restore: false)));
         var left = Directory.Exists(GeneratedRoot) ? Directory.GetFileSystemEntries(GeneratedRoot) : [];
         var whole = left.All(g => File.Exists(Path.Combine(g, GenerationManifest.FileName)) && Directory.GetFiles(g, "*.cs", SearchOption.AllDirectories).Length == 2);
@@ -692,7 +692,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public async Task Two_projects_on_different_generator_pins_build_at_once_each_in_its_own_home()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         var generator = Generator("Finance");
         generator.DelayMilliseconds = 1500;
         Scenario(generator);
@@ -706,7 +706,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 
         var runs = await Task.WhenAll(
             Task.Run(() => Build(MSBuildHost.MSBuildExe)),
-            Task.Run(() => BuildProject(@"Other\Other.csproj", MSBuildHost.MSBuildExe, properties: ("DamlCodegenComponent", other.Pin.Reference))));
+            Task.Run(() => BuildProject(@"Other\Other.csproj", MSBuildHost.MSBuildExe, properties: ("EqDamlCodegenComponent", other.Pin.Reference))));
 
         runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
         _dpm.ReadCalls().Where(c => c.Args.Count > 0 && c.Args[0] == "codegen-cs").Select(c => c.Environment["DPM_HOME"])
@@ -717,8 +717,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void Two_DARs_generating_the_same_types_fail_with_DAML0202()
     {
         App("""
-            <DamlDar Include="..\vendor\finance-1.0.0.dar" />
-            <DamlDar Include="..\vendor\treasury-1.0.0.dar" />
+            <EqDamlDar Include="..\vendor\finance-1.0.0.dar" />
+            <EqDamlDar Include="..\vendor\treasury-1.0.0.dar" />
             """);
         Scenario(Generator(null));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
@@ -737,7 +737,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void Design_time_builds_run_no_tool_and_show_what_the_last_build_generated(MSBuildHost host)
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -770,7 +770,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void Generated_files_past_260_characters_compile_with_a_DAML0111_warning()
     {
         var @namespace = "Finance." + string.Join(".", Enumerable.Repeat("Settlement", 13));
-        App($"""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="{@namespace}" />""");
+        App($"""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="{@namespace}" />""");
         Scenario(Generator(@namespace));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses(@namespace);
@@ -791,7 +791,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Clean_removes_the_generated_code_empties_its_list_and_leaves_the_rest()
     {
-        App("""<DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
         Scenario(Generator("Finance"));
         var dar = Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
@@ -814,8 +814,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     public void The_up_to_date_check_gets_the_DARs_and_the_stamp_and_keeps_its_own_targets()
     {
         App("""
-            <DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />
-            <DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
+            <EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="Contracts" />
+            <EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
             """);
         Contracts();
         Scenario(BuildsTheDar(), Generator("Contracts"), Generator("Finance"));
@@ -826,13 +826,13 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 
         build.ExitCode.ShouldBe(0, build.Log);
         check.ExitCode.ShouldBe(0, check.Log);
-        Lines(check.Log, "Input targets: ").ShouldBe(["CompileDesignTime;ResolveCodeAnalysisRuleSet;DamlCollectUpToDateCheckItems"]);
-        Lines(check.Log, "Built targets: ").ShouldBe(["CompileDesignTime;DamlCollectUpToDateCheckItems"]);
+        Lines(check.Log, "Input targets: ").ShouldBe(["CompileDesignTime;ResolveCodeAnalysisRuleSet;EqDamlCollectUpToDateCheckItems"]);
+        Lines(check.Log, "Built targets: ").ShouldBe(["CompileDesignTime;EqDamlCollectUpToDateCheckItems"]);
         var inputs = Lines(check.Log, "Input: ");
         inputs.ShouldContain(Path.Combine(_sandbox.Root, @"contracts\.daml\dist\contracts-1.2.0.dar"));
         inputs.ShouldContain(dar);
-        inputs.ShouldContain(f => f.EndsWith(@"\build\Daml.Build.CSharp.targets", StringComparison.OrdinalIgnoreCase));
-        inputs.ShouldContain(f => f.EndsWith(@"\build\Daml.Build.CSharp.props", StringComparison.OrdinalIgnoreCase));
+        inputs.ShouldContain(f => f.EndsWith(@"\build\Equilibrium.Daml.Build.CSharp.targets", StringComparison.OrdinalIgnoreCase));
+        inputs.ShouldContain(f => f.EndsWith(@"\build\Equilibrium.Daml.Build.CSharp.props", StringComparison.OrdinalIgnoreCase));
         Lines(check.Log, "Built: ").ShouldContain(Stamp);
         GeneratorRuns().ShouldBe(2);
     }
@@ -871,7 +871,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     {
         var hostPath = HostPath(MSBuildHost.Dotnet);
         var properties = RealProjects();
-        var home = Path.GetDirectoryName(Path.GetDirectoryName(properties["DamlDpmPath"]))!;
+        var home = Path.GetDirectoryName(Path.GetDirectoryName(properties["EqDamlDpmPath"]))!;
         var before = Snapshot(home);
 
         var build = _sandbox.Build(MSBuildHost.Dotnet, hostPath, @"App\App.csproj", properties: properties);
@@ -902,27 +902,27 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         var fixture = Path.Combine(Repository.Root, @"test\fixtures\sdk-manual\Contracts");
         _sandbox.Write(@"contracts\daml.yaml", File.ReadAllText(Path.Combine(fixture, "daml.yaml")));
         _sandbox.Write(@"contracts\daml\Asset.daml", File.ReadAllText(Path.Combine(fixture, @"daml\Asset.daml")));
-        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Daml.Sdk/{SdkFeed.Version}\" />\n");
+        _sandbox.Write(@"contracts\Contracts.msbuildproj", $"<Project Sdk=\"Equilibrium.Daml.Sdk/{SdkFeed.Version}\" />\n");
         _sandbox.Write(@"App\App.csproj", $"""
             <Project Sdk="Microsoft.NET.Sdk">
               <PropertyGroup>
                 {SingleFramework}
               </PropertyGroup>
               <ItemGroup>
-                <PackageReference Include="Daml.Build.CSharp" Version="{SdkFeed.Version}" PrivateAssets="all" />
+                <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="{SdkFeed.Version}" PrivateAssets="all" />
                 <PackageReference Include="Daml.Runtime" Version="{SdkFeed.RuntimeVersion}" />
                 <PackageReference Include="Daml.Ledger.Abstractions" Version="{SdkFeed.RuntimeVersion}" />
-                <DamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="SdkManual" />
+                <EqDamlReference Include="..\contracts\Contracts.msbuildproj" Namespace="SdkManual" />
               </ItemGroup>
             {ShowTargets}
             </Project>
             """);
         return new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = dpm,
-            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            ["EqDamlDpmPath"] = dpm,
+            ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
-            ["DamlAllowToolInstall"] = "true",
+            ["EqDamlAllowToolInstall"] = "true",
         };
     }
 }

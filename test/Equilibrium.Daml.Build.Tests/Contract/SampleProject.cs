@@ -48,9 +48,9 @@ internal sealed class SampleProject
             var include = (string?)item.Attribute("Include") ?? "";
             DeclaredDamlReference? reference = item.Name.LocalName switch
             {
-                "DamlReference" => new(DamlReferenceSource.DamlReference, include, Metadata(item, "Namespace")),
-                "DamlDar" => new(DamlReferenceSource.DamlDar, include, Metadata(item, "Namespace")),
-                "ProjectReference" => new(DamlReferenceSource.ProjectReference, include, Metadata(item, "DamlNamespace")),
+                "EqDamlReference" => new(DamlReferenceSource.EqDamlReference, include, Metadata(item, "Namespace")),
+                "EqDamlDar" => new(DamlReferenceSource.EqDamlDar, include, Metadata(item, "Namespace")),
+                "ProjectReference" => new(DamlReferenceSource.ProjectReference, include, Metadata(item, "EqDamlNamespace")),
                 _ => null,
             };
             if (reference is not null)

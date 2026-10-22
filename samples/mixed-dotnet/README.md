@@ -1,8 +1,8 @@
 # mixed-dotnet
 
-A Daml + C# solution: Daml contracts and their Daml Script tests as MSBuild projects on `Daml.Sdk`,
+A Daml + C# solution: Daml contracts and their Daml Script tests as MSBuild projects on `Equilibrium.Daml.Sdk`,
 and a C# console app that uses the C# the build generates from the contracts through
-`Daml.Build.CSharp`.
+`Equilibrium.Daml.Build.CSharp`.
 
 | Path | What it is |
 |---|---|
@@ -17,18 +17,18 @@ central package versions out, so the solution builds like a user's.
 
 ## Build
 
-1. `pwsh scripts/pack.ps1` from the repository root leaves `Daml.Sdk` and `Daml.Build.CSharp`
+1. `pwsh scripts/pack.ps1` from the repository root leaves `Equilibrium.Daml.Sdk` and `Equilibrium.Daml.Build.CSharp`
    (`0.3.0-preview.0`) in `artifacts/packages`, where `nuget.config` here looks for them; everything
    else comes from nuget.org. NuGet keeps the first copy of a version it saw, so after a new pack
-   delete `daml.sdk\0.3.0-preview.0` and `daml.build.csharp\0.3.0-preview.0` under
+   delete `equilibrium.daml.sdk\0.3.0-preview.0` and `equilibrium.daml.build.csharp\0.3.0-preview.0` under
    `%USERPROFILE%\.nuget\packages`; `pack.ps1` warns and names the folders when they hold another copy.
 2. dpm with SDK 3.6.0 installed, and a JDK 17 or later in `JAVA_HOME` for the C# generator.
 3. Build, run, test:
 
    ```powershell
-   dotnet build MixedDotnet.slnx -p:DamlAllowToolInstall=true   # the flag only until the generator is installed
+   dotnet build MixedDotnet.slnx -p:EqDamlAllowToolInstall=true   # the flag only until the generator is installed
    dotnet App\bin\Debug\net10.0\App.dll                        # Gold from Daml package mixed-dotnet-contracts 0.1.0
-   dotnet build daml\test\Contracts.Tests.msbuildproj -t:DamlTest   # a line per script: ok, or failed with an error
+   dotnet build daml\test\Contracts.Tests.msbuildproj -t:EqDamlTest   # a line per script: ok, or failed with an error
    ```
 
    Or open `MixedDotnet.slnx` in Visual Studio 2026 and build the solution. Without .NET, the Daml

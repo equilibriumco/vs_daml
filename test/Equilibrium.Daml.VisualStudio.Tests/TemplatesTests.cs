@@ -46,11 +46,11 @@ public sealed class TemplatesTests : IDisposable
         var package = _vsix.Entries.Where(e => e.FullName.StartsWith("Templates/", StringComparison.Ordinal) && e.Name.EndsWith(".nupkg", StringComparison.Ordinal)).ShouldHaveSingleItem();
 
         using var nested = new ZipArchive(package.Open());
-        var nuspec = XDocument.Parse(Read(nested.GetEntry("Daml.Templates.nuspec")!)).Root!;
+        var nuspec = XDocument.Parse(Read(nested.GetEntry("Equilibrium.Daml.Templates.nuspec")!)).Root!;
         var version = nuspec.Descendants().Single(e => e.Name.LocalName == "version").Value;
         var release = (string)XDocument.Parse(Read(Entry("extension.vsixmanifest"))).Descendants(Vsix + "Identity").Single().Attribute("Version")!;
         version.ShouldStartWith(string.Join(".", release.Split('.').Take(3)));
-        package.Name.ShouldBe($"Daml.Templates.{version}.nupkg");
+        package.Name.ShouldBe($"Equilibrium.Daml.Templates.{version}.nupkg");
         nested.Entries.Select(e => e.FullName).ShouldContain("content/daml-contracts/.template.config/template.json");
         nested.Entries.Select(e => e.FullName).ShouldContain("content/daml-dotnet-app/.template.config/template.json");
     }
@@ -95,7 +95,7 @@ public sealed class TemplatesTests : IDisposable
             .Where(l => !l.StartsWith(";", StringComparison.Ordinal));
 
         // $PackageFolder$ is the pkgdef's own folder, which already is the one with the package.
-        lines.ShouldBe([@"[$RootKey$\TemplateEngine\Templates\DamlTemplates]", @"""InstalledPath""=""$PackageFolder$"""]);
+        lines.ShouldBe([@"[$RootKey$\TemplateEngine\Templates\EqDamlTemplates]", @"""InstalledPath""=""$PackageFolder$"""]);
         Assets("Microsoft.VisualStudio.VsPackage").Select(a => (string)a.Attribute("Path")!).ShouldContain(@"Templates\DamlTemplates.pkgdef");
     }
 

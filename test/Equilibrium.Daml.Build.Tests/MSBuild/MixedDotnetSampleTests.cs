@@ -16,7 +16,7 @@ using Xunit.Abstractions;
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
 // samples\mixed-dotnet as a user gets it: Daml contracts with Splice data-dependencies and their Script
-// tests as Daml.Sdk projects, and a C# app on the C# generated from the contracts, in one solution.
+// tests as Equilibrium.Daml.Sdk projects, and a C# app on the C# generated from the contracts, in one solution.
 public sealed class MixedDotnetSampleTests : IDisposable
 {
     private static readonly string Sample = Repository.Sample("mixed-dotnet");
@@ -36,7 +36,7 @@ public sealed class MixedDotnetSampleTests : IDisposable
     {
         var properties = XDocument.Load(Path.Combine(Repository.Root, "Directory.Build.props")).Descendants();
         var prefix = properties.Single(p => p.Name.LocalName == "VersionPrefix").Value;
-        var prerelease = properties.Single(p => p.Name.LocalName == "DamlPrerelease").Value == "true";
+        var prerelease = properties.Single(p => p.Name.LocalName == "EqDamlPrerelease").Value == "true";
         return prerelease ? prefix + "-preview.0" : prefix;
     }
 
@@ -51,9 +51,9 @@ public sealed class MixedDotnetSampleTests : IDisposable
 
         foreach (var project in Directory.GetFiles(Sample, "*.msbuildproj", SearchOption.AllDirectories))
         {
-            XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe($"Daml.Sdk/{LocalPackageVersion()}", project);
+            XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe($"Equilibrium.Daml.Sdk/{LocalPackageVersion()}", project);
         }
-        PackageVersion(app, "Daml.Build.CSharp").ShouldBe(LocalPackageVersion());
+        PackageVersion(app, "Equilibrium.Daml.Build.CSharp").ShouldBe(LocalPackageVersion());
         PackageVersion(app, "Daml.Runtime").ShouldBe(ReleaseTools.RuntimeVersion);
         PackageVersion(app, "Daml.Ledger.Abstractions").ShouldBe(ReleaseTools.RuntimeVersion);
         PackageVersion(app, "Splice.Api.Token.Holding.V2").ShouldBe(SdkFeed.SpliceVersion);
@@ -79,8 +79,8 @@ public sealed class MixedDotnetSampleTests : IDisposable
         foreach (var project in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.*proj", SearchOption.AllDirectories))
         {
             var text = File.ReadAllText(project);
-            text = Regex.Replace(text, @"Daml\.Sdk/[^""]+", $"Daml.Sdk/{SdkFeed.Version}");
-            text = Regex.Replace(text, @"Include=""Daml\.Build\.CSharp"" Version=""[^""]+""", $"Include=\"Daml.Build.CSharp\" Version=\"{SdkFeed.Version}\"");
+            text = Regex.Replace(text, @"Equilibrium\.Daml\.Sdk/[^""]+", $"Equilibrium.Daml.Sdk/{SdkFeed.Version}");
+            text = Regex.Replace(text, @"Include=""Equilibrium\.Daml\.Build\.CSharp"" Version=""[^""]+""", $"Include=\"Equilibrium.Daml.Build.CSharp\" Version=\"{SdkFeed.Version}\"");
             File.WriteAllText(project, text);
         }
         foreach (var manifest in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.yaml", SearchOption.AllDirectories))
@@ -107,10 +107,10 @@ public sealed class MixedDotnetSampleTests : IDisposable
         CopySample(sdk);
         var properties = new Dictionary<string, string>
         {
-            ["DamlDpmPath"] = dpm,
-            ["DamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
+            ["EqDamlDpmPath"] = dpm,
+            ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
-            ["DamlAllowToolInstall"] = "true",
+            ["EqDamlAllowToolInstall"] = "true",
         };
 
         var build = _sandbox.Build(host, hostPath, @"mixed-dotnet\MixedDotnet.slnx", properties: properties);
@@ -123,7 +123,7 @@ public sealed class MixedDotnetSampleTests : IDisposable
         app.ExitCode.ShouldBe(0, app.Stdout + app.Stderr);
         app.Stdout.Trim().ShouldBe("Gold from Daml package mixed-dotnet-contracts 0.1.0");
 
-        var tests = _sandbox.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "DamlTest");
+        var tests = _sandbox.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "EqDamlTest");
         tests.ExitCode.ShouldBe(0, tests.Log);
         _output.WriteLine($"{host}, SDK {sdk}: build {build.Elapsed.TotalSeconds:F1} s, tests {tests.Elapsed.TotalSeconds:F1} s.");
     }

@@ -1,6 +1,6 @@
 # Sample C# projects with Daml bindings
 
-Shapes of projects that use `Daml.Build.CSharp`, read by `MSBuildContractTests` in `Equilibrium.Daml.Build.Tests`.
+Shapes of projects that use `Equilibrium.Daml.Build.CSharp`, read by `MSBuildContractTests` in `Equilibrium.Daml.Build.Tests`.
 The test takes their properties and their `DamlReference`, `DamlDar` and `ProjectReference` items as
 written, without evaluating MSBuild (so no conditions or imports here), places each project in a
 virtual `C:\work\App` folder and snapshots what the build contract makes of it. The Daml projects

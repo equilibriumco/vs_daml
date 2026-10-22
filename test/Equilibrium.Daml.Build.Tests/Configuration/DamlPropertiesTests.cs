@@ -9,12 +9,12 @@ namespace Equilibrium.Daml.Build.Tests.Configuration;
 public class DamlPropertiesTests
 {
     [Fact, Trait("Category", "Unit")]
-    public void Every_property_is_listed_once_under_the_Daml_prefix()
+    public void Every_property_is_listed_once_under_the_EqDaml_prefix()
     {
         var names = DamlProperties.All.Select(p => p.Name).ToList();
 
         names.ShouldBeUnique();
-        names.ShouldAllBe(n => n.StartsWith("Daml"));
+        names.ShouldAllBe(n => n.StartsWith("EqDaml"));
         typeof(DamlProperties).GetProperties().Length.ShouldBe(DamlProperties.All.Count + 1, "a property missing from All");
     }
 

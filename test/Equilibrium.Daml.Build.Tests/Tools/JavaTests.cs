@@ -34,7 +34,7 @@ public class JavaTests
         var problem = JavaVersion.Problem(11, @"C:\jdk-11\bin\java.exe", []).ShouldNotBeNull();
         problem.Code.ShouldBe(DamlDiagnosticCodes.MissingJava);
         problem.Message.ShouldBe(
-            @"Java 11 (C:\jdk-11\bin\java.exe) is older than 17, which the C# code generator needs. Install JDK 17 or later and point DamlJavaHome or JAVA_HOME at it.");
+            @"Java 11 (C:\jdk-11\bin\java.exe) is older than 17, which the C# code generator needs. Install JDK 17 or later and point EqDamlJavaHome or JAVA_HOME at it.");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -69,7 +69,7 @@ public class JavaTests
 
         var error = _errors.ShouldHaveSingleItem();
         (error.Code, error.Message).ShouldBe((DamlDiagnosticCodes.MissingJava,
-            @"DamlJavaHome is 'C:\jre-missing', but C:\jre-missing\bin\java.exe doesn't exist. Point it, or JAVA_HOME, at a JDK 17 or later."));
+            @"EqDamlJavaHome is 'C:\jre-missing', but C:\jre-missing\bin\java.exe doesn't exist. Point it, or JAVA_HOME, at a JDK 17 or later."));
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -77,7 +77,7 @@ public class JavaTests
     {
         Find(@"tools\jdk").ShouldBeNull();
 
-        _errors.ShouldHaveSingleItem().Message.ShouldBe(@"DamlJavaHome is 'tools\jdk', which isn't the full path of a JDK folder.");
+        _errors.ShouldHaveSingleItem().Message.ShouldBe(@"EqDamlJavaHome is 'tools\jdk', which isn't the full path of a JDK folder.");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -86,6 +86,6 @@ public class JavaTests
         Find("").ShouldBeNull();
 
         _errors.ShouldHaveSingleItem().Message.ShouldBe(
-            "The C# code generator needs Java, and none was found: DamlJavaHome and JAVA_HOME are empty and no java.exe is on PATH. Install JDK 17 or later.");
+            "The C# code generator needs Java, and none was found: EqDamlJavaHome and JAVA_HOME are empty and no java.exe is on PATH. Install JDK 17 or later.");
     }
 }

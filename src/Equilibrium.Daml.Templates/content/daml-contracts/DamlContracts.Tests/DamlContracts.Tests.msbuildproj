@@ -1,5 +1,5 @@
 <!-- The Daml Script tests, a package of their own so the contracts' DAR doesn't depend on daml-script.
-     Build runs no tests; the DamlTest target (dotnet build -t:DamlTest) runs every script with dpm test. -->
+     Build runs no tests; the EqDamlTest target (dotnet build -t:EqDamlTest) runs every script with dpm test. -->
 <Project Sdk="DAML_PACKAGE_PREFIX.Sdk/DAML_PACKAGES_VERSION">
 
   <!-- The tests use the contracts' DAR (data-dependencies in daml.yaml), so that project builds first. -->

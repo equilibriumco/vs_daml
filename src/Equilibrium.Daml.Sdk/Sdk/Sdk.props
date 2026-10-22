@@ -16,12 +16,12 @@
   <PropertyGroup>
     <!-- Nothing is compiled, so the cheapest framework will do; it is what referencing projects negotiate with. -->
     <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">netstandard2.0</TargetFramework>
-    <DamlManifestPath Condition="'$(DamlManifestPath)' == ''">$(MSBuildProjectDirectory)\daml.yaml</DamlManifestPath>
-    <DamlBuildEnabled Condition="'$(DamlBuildEnabled)' == ''">true</DamlBuildEnabled>
+    <EqDamlManifestPath Condition="'$(EqDamlManifestPath)' == ''">$(MSBuildProjectDirectory)\daml.yaml</EqDamlManifestPath>
+    <EqDamlBuildEnabled Condition="'$(EqDamlBuildEnabled)' == ''">true</EqDamlBuildEnabled>
     <!-- The items a Daml project shows come from its manifest, not from every file in its folder,
          which would bring in damlc's own .daml folder. -->
     <EnableDefaultItems Condition="'$(EnableDefaultItems)' == ''">false</EnableDefaultItems>
-    <_DamlSdkTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_DamlSdkTasks>
+    <_EqDamlSdkTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_EqDamlSdkTasks>
   </PropertyGroup>
 
 </Project>

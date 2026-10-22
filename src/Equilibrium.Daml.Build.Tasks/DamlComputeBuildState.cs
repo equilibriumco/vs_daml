@@ -37,7 +37,7 @@ public sealed class DamlComputeBuildState : Task
     /// <summary>The package's <c>data-dependencies</c>; local archives carry <c>DarPath</c>.</summary>
     public ITaskItem[] DataDependencies { get; set; } = [];
 
-    /// <summary><c>DamlBuildEnabled</c>.</summary>
+    /// <summary><c>EqDamlBuildEnabled</c>.</summary>
     public string? BuildEnabled { get; set; }
 
     /// <summary>The explicit DPM executable, if configured.</summary>

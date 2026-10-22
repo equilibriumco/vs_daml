@@ -18,6 +18,6 @@
     <None Include="Sdk\**" Pack="true" PackagePath="Sdk\" />
   </ItemGroup>
 
-  <Import Project="..\DamlPackageTasks.targets" />
+  <Import Project="..\EqDamlPackageTasks.targets" />
 
 </Project>

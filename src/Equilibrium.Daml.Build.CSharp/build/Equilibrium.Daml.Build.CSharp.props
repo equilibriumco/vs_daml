@@ -1,0 +1,13 @@
+<!-- Equilibrium.Daml.Build.CSharp: generates C# from the DARs a C# project references and compiles it with the
+     project. These are the defaults of its settings; set any of them in the project to change it. -->
+<Project>
+
+  <PropertyGroup>
+    <EqDamlCodegenEnabled Condition="'$(EqDamlCodegenEnabled)' == ''">true</EqDamlCodegenEnabled>
+    <EqDamlCodegenComponent Condition="'$(EqDamlCodegenComponent)' == ''">oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548</EqDamlCodegenComponent>
+    <EqDamlGeneratedOutputMode Condition="'$(EqDamlGeneratedOutputMode)' == ''">Intermediate</EqDamlGeneratedOutputMode>
+    <EqDamlJavaHome Condition="'$(EqDamlJavaHome)' == ''">$(JAVA_HOME)</EqDamlJavaHome>
+    <_EqDamlCSharpTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_EqDamlCSharpTasks>
+  </PropertyGroup>
+
+</Project>

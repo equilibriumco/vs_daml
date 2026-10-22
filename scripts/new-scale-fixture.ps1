@@ -18,7 +18,7 @@ param(
     [Parameter(Mandatory)] [string] $Path,
     [Parameter(Mandatory)] [string] $SdkPackageVersion,
     [Parameter(Mandatory)] [string] $RuntimeVersion,
-    [string] $PackagePrefix = 'Daml',
+    [string] $PackagePrefix = 'Equilibrium.Daml',
     [string] $DamlSdk = '3.6.0',
     [ValidateRange(1, 100)] [int] $Packages = 20,
     [ValidateRange(1, 500)] [int] $ModulesPerPackage = 50,
@@ -110,7 +110,7 @@ for ($c = 1; $c -le $CSharpProjects; $c++) {
     $app = 'App{0:00}' -f $c
     # Every package gets a project; with more projects than packages they wrap around.
     $references = @((((2 * $c - 2) % $Packages) + 1), (((2 * $c - 1) % $Packages) + 1)) | Select-Object -Unique
-    $items = ($references | ForEach-Object { "    <DamlReference Include=`"..\$(Package $_)\$(Package $_).msbuildproj`" Namespace=`"Scale.$(Package $_)`" />" }) -join "`n"
+    $items = ($references | ForEach-Object { "    <EqDamlReference Include=`"..\$(Package $_)\$(Package $_).msbuildproj`" Namespace=`"Scale.$(Package $_)`" />" }) -join "`n"
     Write-File "$app\$app.csproj" @"
 <Project Sdk="Microsoft.NET.Sdk">
 

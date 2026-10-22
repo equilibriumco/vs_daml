@@ -19,9 +19,9 @@ public class GenerationReferencesTests
         return (GenerationReferences.Resolve(declared, Project, Digest, errors), errors);
     }
 
-    private static DeclaredDamlReference Daml(string include, string? @namespace = null) => new(DamlReferenceSource.DamlReference, include, @namespace);
+    private static DeclaredDamlReference Daml(string include, string? @namespace = null) => new(DamlReferenceSource.EqDamlReference, include, @namespace);
 
-    private static DeclaredDamlReference Dar(string include, string? @namespace = null) => new(DamlReferenceSource.DamlDar, include, @namespace);
+    private static DeclaredDamlReference Dar(string include, string? @namespace = null) => new(DamlReferenceSource.EqDamlDar, include, @namespace);
 
     private static DeclaredDamlReference Plain(string include, string? @namespace = null) => new(DamlReferenceSource.ProjectReference, include, @namespace);
 
@@ -53,7 +53,7 @@ public class GenerationReferencesTests
 
         errors.ShouldBeEmpty();
         var reference = references.ShouldHaveSingleItem();
-        reference.Source.ShouldBe(DamlReferenceSource.DamlReference);
+        reference.Source.ShouldBe(DamlReferenceSource.EqDamlReference);
         reference.Namespace.ShouldBe("Contracts");
     }
 
@@ -71,8 +71,8 @@ public class GenerationReferencesTests
     }
 
     [Theory, Trait("Category", "Unit")]
-    [InlineData(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj")]
-    [InlineData(DamlReferenceSource.DamlDar, @"C:\vendor\finance.dar")]
+    [InlineData(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj")]
+    [InlineData(DamlReferenceSource.EqDamlDar, @"C:\vendor\finance.dar")]
     [InlineData(DamlReferenceSource.ProjectReference, @"..\Contracts\Contracts.msbuildproj")]
     public void The_same_reference_twice_with_the_same_namespace_is_an_output_conflict(DamlReferenceSource source, string include)
     {
@@ -91,7 +91,7 @@ public class GenerationReferencesTests
 
         var error = errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        error.Message.ShouldContain("DamlDar");
+        error.Message.ShouldContain("EqDamlDar");
         references.ShouldBeEmpty();
     }
 

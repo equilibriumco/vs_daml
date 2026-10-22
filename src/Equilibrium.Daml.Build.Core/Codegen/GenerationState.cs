@@ -72,7 +72,7 @@ public sealed record GenerationState(GenerationStatus Status, string? Reason, IR
             return new GenerationState(
                 GenerationStatus.Conflict,
                 $"{manifestPath} is incomplete or uses an unsupported schema, so ownership of {folder} cannot be established. " +
-                "Restore its manifest or choose another DamlGeneratedDir; the build leaves these files untouched.",
+                "Restore its manifest or choose another EqDamlGeneratedDir; the build leaves these files untouched.",
                 [],
                 onDisk);
         }

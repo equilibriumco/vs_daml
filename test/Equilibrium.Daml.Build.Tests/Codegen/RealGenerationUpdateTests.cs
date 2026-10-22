@@ -67,7 +67,7 @@ public sealed class RealGenerationUpdateTests : IDisposable
         new ToolOptions(dpm, offline, install, SkipPreflight: false, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(5)),
         new CodegenOptions(true, ReleaseTools.CodegenComponent, GeneratedOutputMode.Intermediate, Root, JavaHome: Path.GetDirectoryName(Path.GetDirectoryName(java))),
         [new CodegenInput(
-            new GenerationReference(DamlReferenceSource.DamlReference, @"..\Contracts\Contracts.msbuildproj",
+            new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
                 Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), null, "0123456789abcdef", FolderName),
             dar)],
         DesignTime: false,

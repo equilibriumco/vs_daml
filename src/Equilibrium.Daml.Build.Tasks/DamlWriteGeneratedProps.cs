@@ -18,7 +18,7 @@ public sealed class DamlWriteGeneratedProps : Task
     [Required]
     public string PropsPath { get; set; } = "";
 
-    /// <summary>The generated files to compile, each with <c>DamlGenerationId</c>.</summary>
+    /// <summary>The generated files to compile, each with <c>EqDamlGenerationId</c>.</summary>
     public ITaskItem[] Files { get; set; } = [];
 
     /// <summary>Whether Solution Explorer shows them: in Source mode, not under obj.</summary>
@@ -37,7 +37,7 @@ public sealed class DamlWriteGeneratedProps : Task
             {
                 GeneratedProps.EnsureExists(path);
             }
-            else if (GeneratedProps.Write(path, Files.Select(f => new GeneratedFile(f.GetMetadata("FullPath"), f.GetMetadata("DamlGenerationId"))), Visible))
+            else if (GeneratedProps.Write(path, Files.Select(f => new GeneratedFile(f.GetMetadata("FullPath"), f.GetMetadata("EqDamlGenerationId"))), Visible))
             {
                 Log.LogMessage(MessageImportance.Low, $"{path} lists the generated files now.");
             }

@@ -6,11 +6,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
+    <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
-    <DamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
-    <DamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
+    <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
+    <EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
   </ItemGroup>
 
 </Project>

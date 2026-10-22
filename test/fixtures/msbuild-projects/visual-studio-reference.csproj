@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- What Add > Project Reference writes; the namespace comes from DamlNamespace when set. -->
+  <!-- What Add > Project Reference writes; the namespace comes from EqDamlNamespace when set. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
+    <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.3.0-preview" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
     <ProjectReference Include="..\Contracts\Contracts.msbuildproj" />
-    <ProjectReference Include="..\Ledger\Ledger.msbuildproj" DamlNamespace="Ledger.Bindings" />
+    <ProjectReference Include="..\Ledger\Ledger.msbuildproj" EqDamlNamespace="Ledger.Bindings" />
   </ItemGroup>
 
 </Project>

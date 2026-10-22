@@ -37,7 +37,7 @@ public class DpmVersionTests
         problem.Code.ShouldBe(DamlDiagnosticCodes.DpmTooOld);
         problem.Message.ShouldBe(
             "dpm 1.0.10 is older than 1.0.22, the oldest this Daml build supports. Install a newer dpm, " +
-            "or set DamlSkipPreflight to true to build with this one at your own risk.");
+            "or set EqDamlSkipPreflight to true to build with this one at your own risk.");
     }
 
     [Fact, Trait("Category", "Unit")]

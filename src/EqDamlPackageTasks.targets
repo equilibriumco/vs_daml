@@ -9,15 +9,15 @@
     <None Include="$(MSBuildThisFileDirectory)..\NOTICE" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
-  <Target Name="DamlPackTasks" BeforeTargets="_GetPackageFiles">
+  <Target Name="EqDamlPackTasks" BeforeTargets="_GetPackageFiles">
     <MSBuild Projects="$(MSBuildThisFileDirectory)Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj" Targets="GetTargetPath" Properties="Configuration=$(Configuration)">
-      <Output TaskParameter="TargetOutputs" ItemName="_DamlTasksAssembly" />
+      <Output TaskParameter="TargetOutputs" ItemName="_EqDamlTasksAssembly" />
     </MSBuild>
     <PropertyGroup>
-      <_DamlTasksFolder>@(_DamlTasksAssembly->'%(RootDir)%(Directory)')</_DamlTasksFolder>
+      <_EqDamlTasksFolder>@(_EqDamlTasksAssembly->'%(RootDir)%(Directory)')</_EqDamlTasksFolder>
     </PropertyGroup>
     <ItemGroup>
-      <None Include="$(_DamlTasksFolder)*.dll" Pack="true" PackagePath="tasks\netstandard2.0\" />
+      <None Include="$(_EqDamlTasksFolder)*.dll" Pack="true" PackagePath="tasks\netstandard2.0\" />
     </ItemGroup>
   </Target>
 

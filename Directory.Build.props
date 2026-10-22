@@ -41,24 +41,24 @@
     <NeutralLanguage>en</NeutralLanguage>
     <!-- Only the projects that ship as NuGet packages opt back in. -->
     <IsPackable>false</IsPackable>
-    <!-- What the NuGet packages' ids start with (Daml.Sdk, Daml.Build.CSharp, Daml.Templates): a working
+    <!-- What the NuGet packages' ids start with (Equilibrium.Daml.Sdk, Equilibrium.Daml.Build.CSharp, Equilibrium.Daml.Templates): a working
          name until the use of the Daml name is agreed, so a new one renames packages, not code. -->
-    <PackageIdPrefix>Daml</PackageIdPrefix>
+    <PackageIdPrefix>Equilibrium.Daml</PackageIdPrefix>
   </PropertyGroup>
 
   <!-- One version for everything. The VSIX manifest only accepts numeric versions, so the
        build number goes into the fourth part there and into the prerelease label on NuGet:
          VSIX / FileVersion   0.3.0.42
          NuGet                0.3.0-preview.42
-       Local builds use build number 0; CI passes its run number. Drop DamlPrerelease for a
+       Local builds use build number 0; CI passes its run number. Drop EqDamlPrerelease for a
        stable release. -->
   <PropertyGroup>
     <VersionPrefix>0.3.0</VersionPrefix>
-    <DamlPrerelease>true</DamlPrerelease>
-    <DamlBuildNumber Condition="'$(DamlBuildNumber)' == '' and '$(GITHUB_RUN_NUMBER)' != ''">$(GITHUB_RUN_NUMBER)</DamlBuildNumber>
-    <DamlBuildNumber Condition="'$(DamlBuildNumber)' == ''">0</DamlBuildNumber>
-    <VersionSuffix Condition="'$(DamlPrerelease)' == 'true'">preview.$(DamlBuildNumber)</VersionSuffix>
-    <FileVersion>$(VersionPrefix).$(DamlBuildNumber)</FileVersion>
+    <EqDamlPrerelease>true</EqDamlPrerelease>
+    <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == '' and '$(GITHUB_RUN_NUMBER)' != ''">$(GITHUB_RUN_NUMBER)</EqDamlBuildNumber>
+    <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == ''">0</EqDamlBuildNumber>
+    <VersionSuffix Condition="'$(EqDamlPrerelease)' == 'true'">preview.$(EqDamlBuildNumber)</VersionSuffix>
+    <FileVersion>$(VersionPrefix).$(EqDamlBuildNumber)</FileVersion>
     <!-- Kept at major.minor so assemblies loaded into devenv don't change identity on every build. -->
     <AssemblyVersion>$(VersionPrefix.Split('.')[0]).$(VersionPrefix.Split('.')[1]).0.0</AssemblyVersion>
   </PropertyGroup>
@@ -67,7 +67,7 @@
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Core' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Tasks' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.VisualStudio.Core' or '$(MSBuildProjectName)' == 'TestHelpers' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Tests' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.VisualStudio.Core.Tests' or '$(MSBuildProjectName)' == 'TestHelpers.Tests'">
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>$(RepoRoot)src\Equilibrium.Daml.Build.Core\Equilibrium.Daml.Build.snk</AssemblyOriginatorKeyFile>
-    <PublicKey>$(DamlBuildPublicKey)</PublicKey>
+    <PublicKey>$(EqDamlBuildPublicKey)</PublicKey>
     <AssemblyVersion>$(FileVersion)</AssemblyVersion>
   </PropertyGroup>
 

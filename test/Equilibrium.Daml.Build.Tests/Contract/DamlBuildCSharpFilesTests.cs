@@ -10,12 +10,12 @@ using Xunit;
 
 namespace Equilibrium.Daml.Build.Tests.Contract;
 
-// The Daml.Build.CSharp build files as shipped, held to the target graph and the properties of the contract.
+// The Equilibrium.Daml.Build.CSharp build files as shipped, held to the target graph and the properties of the contract.
 public class DamlBuildCSharpFilesTests
 {
-    private static readonly string BuildFolder = Path.Combine(Repository.Root, @"src\Daml.Build.CSharp\build");
+    private static readonly string BuildFolder = Path.Combine(Repository.Root, @"src\Equilibrium.Daml.Build.CSharp\build");
 
-    private static XElement Load(string extension) => XDocument.Load(Path.Combine(BuildFolder, "Daml.Build.CSharp" + extension)).Root!;
+    private static XElement Load(string extension) => XDocument.Load(Path.Combine(BuildFolder, "Equilibrium.Daml.Build.CSharp" + extension)).Root!;
 
     private static List<XElement> Targets() => Load(".targets").Elements("Target").ToList();
 
@@ -56,7 +56,7 @@ public class DamlBuildCSharpFilesTests
         }
     }
 
-    // Settings with a value of their own; DamlGeneratedDir depends on the mode and is worked out later.
+    // Settings with a value of their own; EqDamlGeneratedDir depends on the mode and is worked out later.
     [Fact, Trait("Category", "Unit")]
     public void The_props_give_the_CSharp_project_properties_their_defaults()
     {
@@ -75,7 +75,7 @@ public class DamlBuildCSharpFilesTests
     {
         var root = Load(".targets");
         var declared = root.Elements("UsingTask").ToList();
-        declared.ShouldAllBe(u => (string?)u.Attribute("AssemblyFile") == "$(_DamlCSharpTasks)");
+        declared.ShouldAllBe(u => (string?)u.Attribute("AssemblyFile") == "$(_EqDamlCSharpTasks)");
         var tasks = typeof(Equilibrium.Daml.Build.Tasks.DamlCodegenCSharp).Assembly;
         foreach (var name in declared.Select(u => (string)u.Attribute("TaskName")!))
         {

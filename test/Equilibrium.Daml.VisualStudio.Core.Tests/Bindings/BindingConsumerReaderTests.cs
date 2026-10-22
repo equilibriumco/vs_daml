@@ -61,7 +61,7 @@ public sealed class BindingConsumerReaderTests : IDisposable
         ], ignoreOrder: true);
     }
 
-    // The name Daml.Build.CSharp gives the list: obj\daml\<project file>.<configuration>.<framework>.g.props.
+    // The name Equilibrium.Daml.Build.CSharp gives the list: obj\daml\<project file>.<configuration>.<framework>.g.props.
     [Fact, Trait("Category", "Unit")]
     public void The_list_is_where_the_build_writes_it()
     {

@@ -36,8 +36,8 @@ public class MSBuildContractTests
         {
             Line(text, $"  {code} {name}");
         }
-        Targets(text, "Daml.Sdk targets", MSBuildTargetGraph.DamlSdkHooks, MSBuildTargetGraph.DamlSdk);
-        Targets(text, "Daml.Build.CSharp targets", MSBuildTargetGraph.CSharpHooks, MSBuildTargetGraph.CSharp);
+        Targets(text, "Equilibrium.Daml.Sdk targets", MSBuildTargetGraph.DamlSdkHooks, MSBuildTargetGraph.DamlSdk);
+        Targets(text, "Equilibrium.Daml.Build.CSharp targets", MSBuildTargetGraph.CSharpHooks, MSBuildTargetGraph.CSharp);
         return Verifier.Verify(text.ToString());
     }
 
@@ -78,15 +78,15 @@ public class MSBuildContractTests
     public void Generated_code_reaches_the_compiler_through_one_chain_of_targets()
     {
         var dependsOn = MSBuildTargetGraph.CSharp.ToDictionary(t => t.Target, t => t.DependsOn);
-        var chain = new List<string> { "DamlCollectGeneratedCompile" };
+        var chain = new List<string> { "EqDamlCollectGeneratedCompile" };
         while (dependsOn.TryGetValue(chain[0], out var next) && next.Length == 1)
         {
             chain.Insert(0, next[0]);
         }
 
-        chain.ShouldBe(["ResolveProjectReferences", "DamlResolveDars", "DamlEnsureDars", "DamlComputeGenerationState", "DamlGenerateCSharp", "DamlCollectGeneratedCompile"]);
-        MSBuildTargetGraph.CSharpHooks.ShouldContain(new HookContract("CoreCompileDependsOn", "DamlCollectGeneratedCompile", First: true));
-        dependsOn["DamlRefreshBindings"].ShouldBe(["ResolveReferences", "DamlBuildReferences", .. chain.Skip(1)]);
+        chain.ShouldBe(["ResolveProjectReferences", "EqDamlResolveDars", "EqDamlEnsureDars", "EqDamlComputeGenerationState", "EqDamlGenerateCSharp", "EqDamlCollectGeneratedCompile"]);
+        MSBuildTargetGraph.CSharpHooks.ShouldContain(new HookContract("CoreCompileDependsOn", "EqDamlCollectGeneratedCompile", First: true));
+        dependsOn["EqDamlRefreshBindings"].ShouldBe(["ResolveReferences", "EqDamlBuildReferences", .. chain.Skip(1)]);
     }
 
     [Fact, Trait("Category", "Unit")]

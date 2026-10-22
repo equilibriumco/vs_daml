@@ -3,8 +3,8 @@
 <VSTemplate Version="3.0.0" Type="Item" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
   <TemplateData>
     <Name>Daml Script Test</Name>
-    <Description>A Daml module with a Daml Script test, which dpm test (or the DamlTest target) runs with every other script of the package. It belongs in a test package, one that depends on daml-script; the module name follows the file's path under the source folder.</Description>
-    <TemplateID>Daml.ItemTemplates.ScriptTest</TemplateID>
+    <Description>A Daml module with a Daml Script test, which dpm test (or the EqDamlTest target) runs with every other script of the package. It belongs in a test package, one that depends on daml-script; the module name follows the file's path under the source folder.</Description>
+    <TemplateID>Equilibrium.Daml.ItemTemplates.ScriptTest</TemplateID>
     <ProjectType>CPS Projects</ProjectType>
     <DefaultName>Test.daml</DefaultName>
     <SortOrder>20</SortOrder>

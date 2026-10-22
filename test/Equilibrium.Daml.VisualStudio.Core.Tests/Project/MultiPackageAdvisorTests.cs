@@ -17,7 +17,7 @@ public class MultiPackageAdvisorTests
 
     public MultiPackageAdvisorTests() => _advisor = new MultiPackageAdvisor(_files, new YamlManifestReader(_files));
 
-    // The package's daml.yaml, as a project's DamlManifestPath names it.
+    // The package's daml.yaml, as a project's EqDamlManifestPath names it.
     private string Package(string root, string name = "pkg")
     {
         var manifest = root + @"\daml.yaml";

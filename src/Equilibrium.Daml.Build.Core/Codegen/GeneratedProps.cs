@@ -63,7 +63,7 @@ public static class GeneratedProps
         foreach (var file in files)
         {
             text.Append("    <Compile Include=\"").Append(Escape(file.Path))
-                .Append("\" DamlGenerated=\"true\" DamlGenerationId=\"").Append(Escape(file.GenerationId)).Append('"')
+                .Append("\" EqDamlGenerated=\"true\" EqDamlGenerationId=\"").Append(Escape(file.GenerationId)).Append('"')
                 .Append(visible ? "" : " Visible=\"false\"")
                 .Append(" />\n");
         }
@@ -146,7 +146,7 @@ public static class GeneratedProps
         try
         {
             return XDocument.Load(path).Root?.Descendants("Compile")
-                .Select(c => new GeneratedFile(Unescape((string?)c.Attribute("Include") ?? ""), Unescape((string?)c.Attribute("DamlGenerationId") ?? "")))
+                .Select(c => new GeneratedFile(Unescape((string?)c.Attribute("Include") ?? ""), Unescape((string?)c.Attribute("EqDamlGenerationId") ?? "")))
                 .Where(f => f.Path.Length > 0)
                 .ToList() ?? [];
         }

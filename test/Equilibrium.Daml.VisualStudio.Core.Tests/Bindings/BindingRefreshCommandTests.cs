@@ -15,9 +15,9 @@ public class BindingRefreshCommandTests
         var arguments = BindingRefreshCommand.Arguments(new BindingRefreshTarget(@"C:\sln\App\App.csproj", null), "Debug", "AnyCPU", @"C:\sln");
 
         arguments.ShouldBe([
-            @"C:\sln\App\App.csproj", "-t:DamlRefreshBindings", "-p:Configuration=Debug", "-p:Platform=AnyCPU", "-p:BuildProjectReferences=false",
+            @"C:\sln\App\App.csproj", "-t:EqDamlRefreshBindings", "-p:Configuration=Debug", "-p:Platform=AnyCPU", "-p:BuildProjectReferences=false",
             @"-p:SolutionDir=C:\sln\", "-nologo", "-nodeReuse:false", "-verbosity:minimal", "-consoleLoggerParameters:NoSummary"]);
-        arguments.ShouldNotContain(a => a.Contains("DamlAllowToolInstall"));
+        arguments.ShouldNotContain(a => a.Contains("EqDamlAllowToolInstall"));
     }
 
     [Fact, Trait("Category", "Unit")]

@@ -11,7 +11,7 @@ public class PackageOptionsTests
     private static (PackageOptions Options, List<ConfigurationError> Errors) Read(string? buildEnabled)
     {
         var errors = new List<ConfigurationError>();
-        return (PackageOptions.Read(name => name == "DamlBuildEnabled" ? buildEnabled : null, errors), errors);
+        return (PackageOptions.Read(name => name == "EqDamlBuildEnabled" ? buildEnabled : null, errors), errors);
     }
 
     [Theory, Trait("Category", "Unit")]
@@ -38,6 +38,6 @@ public class PackageOptionsTests
         options.BuildEnabled.ShouldBeTrue();
         var error = errors.ShouldHaveSingleItem();
         error.Code.ShouldBe(DamlDiagnosticCodes.InvalidConfiguration);
-        error.Message.ShouldContain("DamlBuildEnabled is 'sometimes'");
+        error.Message.ShouldContain("EqDamlBuildEnabled is 'sometimes'");
     }
 }

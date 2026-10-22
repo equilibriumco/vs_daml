@@ -87,7 +87,7 @@ public class DpmOutputReportTests
         var error = Report(SdkMissing, exitCode: 1).Messages.ShouldHaveSingleItem();
 
         (error.Code, error.File, error.Line).ShouldBe(("DAML0101", Manifest, 0));
-        error.Text.ShouldBe(SdkMissing + " Install it with that command, or set DamlAllowToolInstall to true to let the build install it.");
+        error.Text.ShouldBe(SdkMissing + " Install it with that command, or set EqDamlAllowToolInstall to true to let the build install it.");
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -96,7 +96,7 @@ public class DpmOutputReportTests
         var error = Report(SdkMissing, exitCode: 1, Offline).Messages.ShouldHaveSingleItem();
 
         error.Code.ShouldBe("DAML0107");
-        error.Text.ShouldBe(SdkMissing + " DamlOffline is true, so the build installs nothing; install it beforehand with that command.");
+        error.Text.ShouldBe(SdkMissing + " EqDamlOffline is true, so the build installs nothing; install it beforehand with that command.");
     }
 
     [Fact, Trait("Category", "Unit")]

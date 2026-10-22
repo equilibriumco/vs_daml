@@ -1,4 +1,4 @@
-# Build output. Root-anchored on purpose: src/Daml.Build.CSharp/build/ is NuGet
+# Build output. Root-anchored on purpose: src/Equilibrium.Daml.Build.CSharp/build/ is NuGet
 # package content and has to stay tracked.
 /artifacts/
 /build/
