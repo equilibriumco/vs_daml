@@ -10,7 +10,9 @@ using Daml.Build.Core.Diagnostics;
 using Daml.Build.Core.Processes;
 using Daml.TestHelpers;
 using Daml.VisualStudio.Core.Build;
+using Daml.VisualStudio.Core.Diagnostics;
 using Daml.VisualStudio.Core.Logging;
+using Daml.VisualStudio.Core.Tests.Diagnostics;
 using Shouldly;
 using Xunit;
 
@@ -83,6 +85,45 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         _logger.Entries.ShouldContain(l => l.Message == "[build] Compiling broken to a DAR.");
         _logger.Entries.ShouldNotContain(l => l.Message.Trim().Length == 0);
         _logger.Entries.ShouldAllBe(l => l.Category == DamlLogCategory.Build);
+    }
+
+    [Theory, Trait("Category", "Process")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Compiler_code_is_masked_from_logged_build_output_and_flattened_diagnostics(bool flattened)
+    {
+        using var coordinator = Coordinator();
+        var run = await coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
+        var folder = Path.Combine(_fake.RootDirectory, "logs");
+        var sink = new LogFileSink(new RollingLogFile(folder, 7, TimeProvider.System), TimeProvider.System);
+        if (flattened)
+        {
+            // CurrentPackage passes these lines to WritePlainLine, which writes them to this sink.
+            foreach (var diagnostic in run.Diagnostics)
+            {
+                sink.Write(DamlLogCategory.Build, DamlLogLevel.Information, diagnostic.ToOutputLine());
+            }
+        }
+        else
+        {
+            foreach (var entry in _logger.Entries)
+            {
+                sink.Write(entry.Category, entry.Level, entry.Message);
+            }
+        }
+        await sink.DrainAsync();
+        File.ReadAllText(RollingLogFile.Files(folder).Single().FullName).ShouldContain("forty-two");
+
+        var report = DiagnosticReport.Create(new DiagnosticReportInput { LogFolder = folder },
+            DiagnosticRedactorTests.Redactor, TimeProvider.System);
+
+        report.ShouldNotContain("forty-two");
+        report.ShouldNotContain("total =");
+        report.ShouldContain("TypeError.daml");
+        report.ShouldContain(flattened ? "(5,9): error DAML0001:" : "TypeError.daml:5:9: error:");
+        report.ShouldContain("Couldn't match expected type ‘Int’ with actual type ‘Text’");
+        report.ShouldContain("In the expression: <redacted code>");
+        report.ShouldContain("info [Build]");
     }
 
     [Fact, Trait("Category", "Process")]
