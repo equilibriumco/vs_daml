@@ -68,6 +68,8 @@ public sealed class TemplatesTests : IDisposable
 
         ((string)config["tags"]!["language"]!).ShouldBe("Daml");
         config["classifications"]!.Values<string>().ShouldNotContain("Daml");
+        // Canton is a trademark we don't use in names or tags.
+        config["classifications"]!.Values<string>().ShouldNotContain("Canton");
         config["classifications"]!.Values<string>().ShouldContain("Windows");
     }
 
