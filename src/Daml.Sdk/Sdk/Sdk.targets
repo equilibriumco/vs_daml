@@ -2,12 +2,12 @@
 
   <Import Project="Sdk.targets" Sdk="Microsoft.Build.NoTargets" Version="3.7.134" />
 
-  <UsingTask TaskName="Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlComputeBuildState" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlReadDarProvenance" AssemblyFile="$(_DamlSdkTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlCleanPackage" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.ReadDamlManifest" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlComputeBuildState" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlBuildTask" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlTestTask" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlReadDarProvenance" AssemblyFile="$(_DamlSdkTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanPackage" AssemblyFile="$(_DamlSdkTasks)" />
 
   <!-- What Solution Explorer and Visual Studio's up-to-date check see: the manifest and the
        package's sources. They are read from daml.yaml while the project is evaluated, when no task

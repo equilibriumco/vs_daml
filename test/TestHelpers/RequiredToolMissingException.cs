@@ -1,6 +1,6 @@
 using System;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>Raised in gate runs when a test needs a tool that isn't installed.</summary>
 public sealed class RequiredToolMissingException : Exception

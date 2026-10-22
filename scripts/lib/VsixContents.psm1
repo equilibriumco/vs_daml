@@ -32,7 +32,7 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
         $manifestText = Read-ZipText $zip 'extension.vsixmanifest'
         if (-not $manifestText) { return @('no extension.vsixmanifest') }
         $manifest = [xml]$manifestText
-        $pkgdef = Read-ZipText $zip 'Daml.VisualStudio.pkgdef'
+        $pkgdef = Read-ZipText $zip 'Equilibrium.Daml.VisualStudio.pkgdef'
         if ($null -eq $pkgdef) { $pkgdef = '' }
         $codeBases = Get-CodeBases $pkgdef
 
@@ -42,7 +42,7 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
         # polyfill with our own entries, the Community Toolkit with the entry its targets write.
         $allowed = @('YamlDotNet', 'Microsoft.Bcl.TimeProvider', 'Community.VisualStudio.Toolkit')
         New-Item -ItemType Directory -Force -Path $scratch | Out-Null
-        foreach ($dll in $zip.Entries | Where-Object { $_.Name -match '\.dll$' -and $_.Name -notmatch '^Daml\.' }) {
+        foreach ($dll in $zip.Entries | Where-Object { $_.Name -match '\.dll$' -and $_.Name -notmatch '^Equilibrium\.Daml\.' }) {
             $file = Join-Path $scratch $dll.Name
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($dll, $file, $true)
             $identity = [System.Reflection.AssemblyName]::GetAssemblyName($file)
@@ -84,7 +84,7 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
     }
 
     # The MIT notices of the libraries we bundle have to travel with them.
-    foreach ($own in 'Daml.VisualStudio.dll', 'Daml.VisualStudio.Core.dll', 'Daml.VisualStudio.LanguageServer.dll', 'Daml.Build.Core.dll', 'Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE') {
+    foreach ($own in 'Equilibrium.Daml.VisualStudio.dll', 'Equilibrium.Daml.VisualStudio.Core.dll', 'Equilibrium.Daml.VisualStudio.LanguageServer.dll', 'Equilibrium.Daml.Build.Core.dll', 'Equilibrium.Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE') {
         if ($own -notin $entries) { $problems.Add("missing $own") }
     }
     # Visual Studio loads its own copies of these; ours would shadow or conflict with them.

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- What needs Roslyn: finding the Daml declarations in generated C# and the C# declarations
+       that stand for them. Public Roslyn API only; Visual Studio provides Roslyn itself, so it is
+       referenced for compiling and never ships with the extension. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Equilibrium.Daml.VisualStudio.Core\Equilibrium.Daml.VisualStudio.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Equilibrium.Daml.VisualStudio.Roslyn.Tests" />
+  </ItemGroup>
+
+</Project>

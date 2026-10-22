@@ -2,7 +2,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Daml.TestHelpers;
+using Equilibrium.Daml.TestHelpers;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using Xunit;
@@ -10,7 +10,7 @@ using Xunit;
 // The array and synchronous overloads are what a net48 client calls; they are exercised on purpose.
 #pragma warning disable CA1835, VSTHRD103
 
-namespace Daml.TestHelpers.Tests;
+namespace Equilibrium.Daml.TestHelpers.Tests;
 
 public class LspTranscriptRecorderTests
 {

@@ -1,4 +1,4 @@
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>External programs that some tests need installed.</summary>
 public enum ExternalTool

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Shouldly;
 using Xunit;
 
-namespace Daml.TestHelpers.Tests;
+namespace Equilibrium.Daml.TestHelpers.Tests;
 
 public class FakeDpmTests
 {

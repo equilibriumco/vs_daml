@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Daml.VisualStudio.Core.Logging;
+using Equilibrium.Daml.VisualStudio.Core.Logging;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>One entry a <see cref="RecordingLogger"/> received.</summary>
 public sealed record LogEntry(DamlLogCategory Category, DamlLogLevel Level, string Message, Exception? Exception);

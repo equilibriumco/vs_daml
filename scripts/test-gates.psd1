@@ -3,14 +3,14 @@
     # Which test projects hold which category. test.ps1 launches only these, and refuses to run
     # when a test project under test/ is listed nowhere, so a new project can't silently drop out.
     Projects = @{
-        Unit        = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'Daml.VisualStudio.Roslyn.Tests', 'TestHelpers.Tests')
+        Unit        = @('Equilibrium.Daml.Build.Tests', 'Equilibrium.Daml.VisualStudio.Core.Tests', 'Equilibrium.Daml.VisualStudio.LanguageServer.Tests', 'Equilibrium.Daml.VisualStudio.Roslyn.Tests', 'TestHelpers.Tests')
         # Tests that start real processes (the fake dpm, the fake language server, cmd.exe) and
         # wait on them: kept out of Unit, which stays fast and deterministic.
-        Process     = @('Daml.Build.Tests', 'Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
-        Editor      = @('Daml.VisualStudio.Tests')
-        Contract    = @('Daml.VisualStudio.Core.Tests', 'Daml.VisualStudio.LanguageServer.Tests')
-        MSBuild     = @('Daml.Build.Tests')
-        Integration = @('Daml.VisualStudio.IntegrationTests')
+        Process     = @('Equilibrium.Daml.Build.Tests', 'Equilibrium.Daml.VisualStudio.Core.Tests', 'Equilibrium.Daml.VisualStudio.LanguageServer.Tests', 'TestHelpers.Tests')
+        Editor      = @('Equilibrium.Daml.VisualStudio.Tests')
+        Contract    = @('Equilibrium.Daml.VisualStudio.Core.Tests', 'Equilibrium.Daml.VisualStudio.LanguageServer.Tests')
+        MSBuild     = @('Equilibrium.Daml.Build.Tests')
+        Integration = @('Equilibrium.Daml.VisualStudio.IntegrationTests')
     }
 
     # What a gate run (-RequiredTools) must prove:
@@ -37,9 +37,9 @@
             Tools    = @()
             Coverage = @{
                 'net10.0' = @{
-                    'Daml.VisualStudio.Core'           = 85
-                    'Daml.VisualStudio.LanguageServer' = 80
-                    'Daml.Build.Core'                  = 80
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
                 }
             }
         }
@@ -51,9 +51,9 @@
             Tools    = @('dpm')
             Coverage = @{
                 'net10.0' = @{
-                    'Daml.VisualStudio.Core'           = 85
-                    'Daml.VisualStudio.LanguageServer' = 80
-                    'Daml.Build.Core'                  = 80
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
                 }
             }
         }
@@ -65,9 +65,9 @@
             Tools    = @('dpm')
             Coverage = @{
                 'net10.0' = @{
-                    'Daml.VisualStudio.Core'           = 85
-                    'Daml.VisualStudio.LanguageServer' = 80
-                    'Daml.Build.Core'                  = 80
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
                 }
             }
         }
@@ -81,13 +81,13 @@
             MSBuildBackend = 'All'
             Coverage       = @{
                 'net10.0' = @{
-                    'Daml.VisualStudio.Core'           = 85
-                    'Daml.VisualStudio.LanguageServer' = 80
-                    'Daml.Build.Core'                  = 80
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
                 }
                 'net48'   = @{
-                    'Daml.Build.Tasks'         = 80
-                    'Daml.VisualStudio.Roslyn' = 75
+                    'Equilibrium.Daml.Build.Tasks'         = 80
+                    'Equilibrium.Daml.VisualStudio.Roslyn' = 75
                 }
             }
         }
@@ -100,13 +100,13 @@
             MSBuildBackend = 'All'
             Coverage       = @{
                 'net10.0' = @{
-                    'Daml.VisualStudio.Core'           = 85
-                    'Daml.VisualStudio.LanguageServer' = 80
-                    'Daml.Build.Core'                  = 80
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
                 }
                 'net48'   = @{
-                    'Daml.Build.Tasks'         = 80
-                    'Daml.VisualStudio.Roslyn' = 75
+                    'Equilibrium.Daml.Build.Tasks'         = 80
+                    'Equilibrium.Daml.VisualStudio.Roslyn' = 75
                 }
             }
         }

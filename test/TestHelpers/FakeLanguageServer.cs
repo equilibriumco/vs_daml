@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using StreamJsonRpc;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// The fake Daml language server plus a temp folder holding its scenario and the log of

@@ -21,7 +21,7 @@ function New-BriefReport([string] $Folder, [string] $Type, [hashtable] $MediansM
         $benchmarks += @{ Type = $Type; Method = $method; Statistics = @{ Median = $MediansMs[$method] * 1e6 } }
     }
     $report = @{ Title = $Type; Benchmarks = $benchmarks } | ConvertTo-Json -Depth 5
-    Set-Content -LiteralPath (Join-Path $Folder "Daml.VisualStudio.Benchmarks.$Type-report-brief.json") -Value $report
+    Set-Content -LiteralPath (Join-Path $Folder "Equilibrium.Daml.VisualStudio.Benchmarks.$Type-report-brief.json") -Value $report
 }
 
 Describe 'Test-BenchBudgets' {
@@ -91,7 +91,7 @@ Describe 'Test-BenchBudgets' {
 
     It 'rejects duplicate measurements instead of silently selecting a report' {
         New-BriefReport (Join-Path $results 'duplicate') 'Lexer' @{ Whole = 10 }
-        Copy-Item (Join-Path $results 'duplicate\Daml.VisualStudio.Benchmarks.Lexer-report-brief.json') (Join-Path $results 'duplicate\another-report-brief.json')
+        Copy-Item (Join-Path $results 'duplicate\Equilibrium.Daml.VisualStudio.Benchmarks.Lexer-report-brief.json') (Join-Path $results 'duplicate\another-report-brief.json')
         Get-ThrownMessage { Test-BenchBudgets -ResultsPath (Join-Path $results 'duplicate') -Budgets @{ 'Lexer.Whole' = 30 } } | Should Match 'Duplicate benchmark result: Lexer\.Whole'
     }
 

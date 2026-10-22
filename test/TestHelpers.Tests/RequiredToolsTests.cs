@@ -1,7 +1,7 @@
 using Shouldly;
 using Xunit;
 
-namespace Daml.TestHelpers.Tests;
+namespace Equilibrium.Daml.TestHelpers.Tests;
 
 public class RequiredToolsTests
 {

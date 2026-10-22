@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The binding index on an AdhocWorkspace, on .NET Framework as in Visual Studio. The generated
+       C# under test targets net10.0 and the Daml runtime, so their assemblies are downloaded as
+       plain files (no framework check) and handed to the test compilations as references. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Roslyn's runtime, which Visual Studio provides to the product. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageDownload Include="Microsoft.NETCore.App.Ref" Version="[10.0.0]" />
+    <PackageDownload Include="Daml.Runtime" Version="[0.6.0]" />
+    <PackageDownload Include="Daml.Ledger.Abstractions" Version="[0.6.0]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+      <_Parameter1>NuGetPackageRoot</_Parameter1>
+      <_Parameter2>$(NuGetPackageRoot)</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Equilibrium.Daml.VisualStudio.Roslyn\Equilibrium.Daml.VisualStudio.Roslyn.csproj" />
+    <ProjectReference Include="..\TestHelpers\TestHelpers.csproj" />
+  </ItemGroup>
+
+</Project>

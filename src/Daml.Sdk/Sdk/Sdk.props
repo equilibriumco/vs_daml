@@ -21,7 +21,7 @@
     <!-- The items a Daml project shows come from its manifest, not from every file in its folder,
          which would bring in damlc's own .daml folder. -->
     <EnableDefaultItems Condition="'$(EnableDefaultItems)' == ''">false</EnableDefaultItems>
-    <_DamlSdkTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Daml.Build.Tasks.dll</_DamlSdkTasks>
+    <_DamlSdkTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_DamlSdkTasks>
   </PropertyGroup>
 
 </Project>

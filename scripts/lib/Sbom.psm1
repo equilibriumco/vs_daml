@@ -2,7 +2,9 @@
 # one artifact actually carries, and checks that SBOM and NOTICE against the artifact.
 Set-StrictMode -Version Latest
 
-$script:ownFile = '^Daml\..+\.(dll|nupkg)$'
+# Our assemblies carry the Equilibrium prefix; the package files keep the Daml prefix until the
+# package ids are renamed.
+$script:ownFile = '^Equilibrium\.Daml\..+\.(dll|nupkg)$|^Daml\.(Sdk|Build\.CSharp|Templates)\..+\.nupkg$'
 # License texts and notices travel with the code they cover; they aren't components themselves.
 $script:licenseDocument = '(?i)(license|notice|copying)'
 $script:noticeWording = @{

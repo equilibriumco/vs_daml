@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using Daml.VisualStudio.Core.Diagnostics;
+using Equilibrium.Daml.VisualStudio.Core.Diagnostics;
 using Newtonsoft.Json.Linq;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// Makes a recorded LSP message safe to keep outside the machine: known folders become

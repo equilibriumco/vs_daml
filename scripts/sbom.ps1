@@ -66,14 +66,14 @@ $artifacts = [System.Collections.Generic.List[object]]::new()
 $vsix = @(Get-ChildItem $Packages -Filter '*.vsix')
 if ($vsix.Count -ne 1) { throw "Expected one VSIX in $Packages, found $($vsix.Count)." }
 $identity = ([xml](Read-ZipEntry $vsix[0].FullName 'extension.vsixmanifest')).SelectSingleNode("//*[local-name()='Identity']")
-$artifacts.Add(@{ File = $vsix[0]; Name = 'Daml.VisualStudio'; Version = $identity.GetAttribute('Version'); Type = 'Application'; Project = 'src\Daml.VisualStudio\Daml.VisualStudio.csproj' })
+$artifacts.Add(@{ File = $vsix[0]; Name = 'Equilibrium.Daml.VisualStudio'; Version = $identity.GetAttribute('Version'); Type = 'Application'; Project = 'src\Equilibrium.Daml.VisualStudio\Equilibrium.Daml.VisualStudio.csproj' })
 foreach ($package in Get-ChildItem $Packages -Filter '*.nupkg') {
     $zip = [IO.Compression.ZipFile]::OpenRead($package.FullName)
     try { $nuspecName = @($zip.Entries | Where-Object { $_.FullName -notmatch '/' -and $_.Name -like '*.nuspec' })[0].Name } finally { $zip.Dispose() }
     $metadata = ([xml](Read-ZipEntry $package.FullName $nuspecName)).package.metadata
     $project = switch -Wildcard ($metadata.id) {
-        '*.Sdk' { 'src\Daml.Build.Tasks\Daml.Build.Tasks.csproj' }
-        '*.Build.CSharp' { 'src\Daml.Build.Tasks\Daml.Build.Tasks.csproj' }
+        '*.Sdk' { 'src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj' }
+        '*.Build.CSharp' { 'src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj' }
         '*.Templates' { 'src\Daml.Templates\Daml.Templates.csproj' }
         default { throw "No SBOM source project is known for package $($metadata.id)." }
     }

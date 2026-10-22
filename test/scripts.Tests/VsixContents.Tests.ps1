@@ -8,7 +8,7 @@ function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $
         $writer = [IO.StreamWriter]::new($manifest.Open())
         try { $writer.Write('<PackageManifest><Metadata><Identity Id="' + $Id + '" Version="' + $Version + '" /></Metadata><Installation><InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,)"><ProductArchitecture>amd64</ProductArchitecture></InstallationTarget></Installation></PackageManifest>') }
         finally { $writer.Dispose() }
-        $required = @('[Content_Types].xml', 'Daml.VisualStudio.dll', 'Daml.VisualStudio.Core.dll', 'Daml.VisualStudio.LanguageServer.dll', 'Daml.Build.Core.dll', 'Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE')
+        $required = @('[Content_Types].xml', 'Equilibrium.Daml.VisualStudio.dll', 'Equilibrium.Daml.VisualStudio.Core.dll', 'Equilibrium.Daml.VisualStudio.LanguageServer.dll', 'Equilibrium.Daml.Build.Core.dll', 'Equilibrium.Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE')
         foreach ($name in @($required | Where-Object { $_ -notin $Without }) + $ExtraEntries) {
             $zip.CreateEntry($name) | Out-Null
         }
@@ -51,7 +51,7 @@ Describe 'Release VSIX contents' {
     }
 
     It 'rejects referenced-project symbols and assembly documentation' {
-        New-TestVsix $script:vsix @('Daml.VisualStudio.Core.pdb', 'Daml.VisualStudio.Core.xml')
+        New-TestVsix $script:vsix @('Equilibrium.Daml.VisualStudio.Core.pdb', 'Equilibrium.Daml.VisualStudio.Core.xml')
         $problems = @(Test-Vsix $script:vsix)
         $problems.Count | Should Be 2
         ($problems -join ';') | Should Match 'Core.pdb'

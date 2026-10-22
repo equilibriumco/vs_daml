@@ -1,5 +1,5 @@
 <Project>
-  <Import Project="$(MSBuildThisFileDirectory)src\Daml.Build.Core\Daml.Build.Signing.props" />
+  <Import Project="$(MSBuildThisFileDirectory)src\Equilibrium.Daml.Build.Core\Equilibrium.Daml.Build.Signing.props" />
 
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
@@ -64,9 +64,9 @@
   </PropertyGroup>
 
   <!-- Strong-named libraries need strong-named dependencies and friend test assemblies on net48. -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Daml.Build.Core' or '$(MSBuildProjectName)' == 'Daml.Build.Tasks' or '$(MSBuildProjectName)' == 'Daml.VisualStudio.Core' or '$(MSBuildProjectName)' == 'TestHelpers' or '$(MSBuildProjectName)' == 'Daml.Build.Tests' or '$(MSBuildProjectName)' == 'Daml.VisualStudio.Core.Tests' or '$(MSBuildProjectName)' == 'TestHelpers.Tests'">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Core' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Tasks' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.VisualStudio.Core' or '$(MSBuildProjectName)' == 'TestHelpers' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.Build.Tests' or '$(MSBuildProjectName)' == 'Equilibrium.Daml.VisualStudio.Core.Tests' or '$(MSBuildProjectName)' == 'TestHelpers.Tests'">
     <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>$(RepoRoot)src\Daml.Build.Core\Daml.Build.snk</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>$(RepoRoot)src\Equilibrium.Daml.Build.Core\Equilibrium.Daml.Build.snk</AssemblyOriginatorKeyFile>
     <PublicKey>$(DamlBuildPublicKey)</PublicKey>
     <AssemblyVersion>$(FileVersion)</AssemblyVersion>
   </PropertyGroup>

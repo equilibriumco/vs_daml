@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using StreamJsonRpc;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>A running fake server process and the LSP client connected to its stdio.</summary>
 public sealed class FakeLanguageServerSession : IDisposable

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using Daml.TestHelpers;
+using Equilibrium.Daml.TestHelpers;
 
-namespace Daml.TestFakes.Dpm;
+namespace Equilibrium.Daml.TestFakes.Dpm;
 
 /// <summary>
 /// Fake dpm. FAKE_DPM_SCENARIO points at a JSON file:

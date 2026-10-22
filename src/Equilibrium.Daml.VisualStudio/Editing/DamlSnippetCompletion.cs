@@ -1,0 +1,130 @@
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.ComponentModel.Composition;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Equilibrium.Daml.VisualStudio.Core.Snippets;
+using Equilibrium.Daml.VisualStudio.Core.Syntax;
+using Microsoft.VisualStudio.Core.Imaging;
+using Microsoft.VisualStudio.Imaging;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion;
+using Microsoft.VisualStudio.Language.Intellisense.AsyncCompletion.Data;
+using Microsoft.VisualStudio.Text;
+using Microsoft.VisualStudio.Text.Adornments;
+using Microsoft.VisualStudio.Text.Editor;
+using Microsoft.VisualStudio.Utilities;
+
+namespace Equilibrium.Daml.VisualStudio.Editing;
+
+/// <summary>Adds the Daml snippets to completion in Daml views; the language server provides everything else.</summary>
+[Export(typeof(IAsyncCompletionSourceProvider))]
+[Name("Daml snippets")]
+[ContentType(DamlContentDefinition.ContentTypeName)]
+internal sealed class DamlSnippetCompletionSourceProvider : IAsyncCompletionSourceProvider
+{
+    public IAsyncCompletionSource GetOrCreate(ITextView textView) =>
+        textView.Properties.GetOrCreateSingletonProperty(() => new DamlSnippetCompletionSource(textView));
+}
+
+/// <summary>
+/// Offers the snippets that compile where the first word of a line is: the top-level ones in
+/// the first column, choices and interface instances among a template's or interface's
+/// declarations. Committing one is left to <see cref="DamlSnippetCommitManager"/>, which finds
+/// the snippet on the item.
+/// </summary>
+internal sealed class DamlSnippetCompletionSource(ITextView view) : IAsyncCompletionSource
+{
+    /// <summary>The property under which an item carries its <see cref="DamlSnippet"/>.</summary>
+    public const string SnippetProperty = "Daml.Snippet";
+
+    private static readonly ImageElement Icon = new(KnownMonikers.Snippet.ToImageId(), "Snippet");
+
+    private IReadOnlyList<DamlSnippet> SnippetsAt(SnapshotPoint start)
+    {
+        var line = start.GetContainingLine();
+        var lines = DamlTokenCache.For(start.Snapshot.TextBuffer).Get(start.Snapshot);
+        return DamlSnippets.For(SnippetContext.Place(lines, line.LineNumber, start.Position - line.Start.Position, view.Options.GetOptionValue(DefaultOptions.TabSizeOptionId)));
+    }
+
+    public CompletionStartData InitializeCompletion(CompletionTrigger trigger, SnapshotPoint triggerLocation, CancellationToken token)
+    {
+        var typed = trigger.Reason == CompletionTriggerReason.Insertion;
+        if ((typed && !char.IsLetter(trigger.Character))
+            || !(typed || trigger.Reason is CompletionTriggerReason.Invoke or CompletionTriggerReason.InvokeAndCommitIfUnique))
+        {
+            return CompletionStartData.DoesNotParticipateInCompletion;
+        }
+        var line = triggerLocation.GetContainingLine();
+        var lines = DamlTokenCache.For(triggerLocation.Snapshot.TextBuffer).Get(triggerLocation.Snapshot);
+        if (SnippetContext.ApplicableSpan(lines, line.LineNumber, triggerLocation.Position - line.Start.Position) is not { } span
+            || SnippetsAt(line.Start + span.Start).Count == 0)
+        {
+            return CompletionStartData.DoesNotParticipateInCompletion;
+        }
+        return new CompletionStartData(CompletionParticipation.ProvidesItems, new SnapshotSpan(line.Start + span.Start, span.Length));
+    }
+
+    public Task<CompletionContext> GetCompletionContextAsync(IAsyncCompletionSession session, CompletionTrigger trigger, SnapshotPoint triggerLocation, SnapshotSpan applicableToSpan, CancellationToken token)
+    {
+        var items = SnippetsAt(applicableToSpan.Start).Select(snippet =>
+        {
+            var item = new CompletionItem(snippet.Shortcut, this, Icon, ImmutableArray<CompletionFilter>.Empty, snippet.Title,
+                snippet.Shortcut, snippet.Shortcut, snippet.Shortcut, ImmutableArray<ImageElement>.Empty);
+            item.Properties.AddProperty(SnippetProperty, snippet);
+            return item;
+        });
+        return Task.FromResult(new CompletionContext(items.ToImmutableArray()));
+    }
+
+    public Task<object> GetDescriptionAsync(IAsyncCompletionSession session, CompletionItem item, CancellationToken token)
+    {
+        var snippet = item.Properties.GetProperty<DamlSnippet>(SnippetProperty);
+        return Task.FromResult<object>(snippet.Description + "\n\n" + SnippetExpander.Expand(snippet.Body, "", "\n").Text);
+    }
+}
+
+/// <summary>
+/// Hands out the snippet commit manager of a Daml view. It runs before the language server's
+/// manager, which only commits its own items anyway, so a snippet committed by a character the
+/// server listed still reaches this one.
+/// </summary>
+[Export(typeof(IAsyncCompletionCommitManagerProvider))]
+[Name("Daml snippets")]
+[Order(Before = "default")]
+[ContentType(DamlContentDefinition.ContentTypeName)]
+internal sealed class DamlSnippetCommitManagerProvider : IAsyncCompletionCommitManagerProvider
+{
+    public IAsyncCompletionCommitManager GetOrCreate(ITextView textView) =>
+        textView.Properties.GetOrCreateSingletonProperty(() => new DamlSnippetCommitManager());
+}
+
+/// <summary>
+/// Inserts a committed snippet with its default values, indented like its line, and selects the
+/// first field so typing replaces it. Items that aren't snippets are left to their own source.
+/// </summary>
+internal sealed class DamlSnippetCommitManager : IAsyncCompletionCommitManager
+{
+    public System.Collections.Generic.IEnumerable<char> PotentialCommitCharacters => ImmutableArray<char>.Empty;
+
+    public bool ShouldCommitCompletion(IAsyncCompletionSession session, SnapshotPoint location, char typedChar, CancellationToken token) => false;
+
+    public CommitResult TryCommit(IAsyncCompletionSession session, ITextBuffer buffer, CompletionItem item, char typedChar, CancellationToken token)
+    {
+        if (!item.Properties.TryGetProperty(DamlSnippetCompletionSource.SnippetProperty, out DamlSnippet snippet))
+        {
+            return CommitResult.Unhandled;
+        }
+        var span = session.ApplicableToSpan.GetSpan(buffer.CurrentSnapshot);
+        var line = span.Start.GetContainingLine();
+        var indent = line.GetText().Substring(0, span.Start.Position - line.Start.Position);
+        var newline = line.LineBreakLength > 0 ? line.GetLineBreakText() : session.TextView.Options.GetOptionValue(DefaultOptions.NewLineCharacterOptionId);
+        var expanded = SnippetExpander.Expand(snippet.Body, indent, newline);
+
+        var after = buffer.Replace(span, expanded.Text);
+        var start = span.Start.Position + expanded.Selection.Start;
+        session.TextView.Selection.Select(new SnapshotSpan(after, start, expanded.Selection.Length), isReversed: false);
+        session.TextView.Caret.MoveTo(new SnapshotPoint(after, start + expanded.Selection.Length));
+        return CommitResult.Handled;
+    }
+}

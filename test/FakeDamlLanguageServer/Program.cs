@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using StreamJsonRpc;
 
-namespace Daml.TestFakes.LanguageServer;
+namespace Equilibrium.Daml.TestFakes.LanguageServer;
 
 /// <summary>
 /// Fake Daml language server speaking LSP (Content-Length framing) over stdin/stdout.

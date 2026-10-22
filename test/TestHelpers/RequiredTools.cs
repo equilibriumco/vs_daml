@@ -1,7 +1,7 @@
 using System;
 using Xunit;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// Gate for tests that need an external tool. Locally a missing tool skips the test; in gate

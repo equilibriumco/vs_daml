@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Extension code outside devenv: MEF exports checked with VS-MEF discovery, and VS services
+       mocked by the VS SDK test framework. There is no real editor here (no ITextBuffer); editor
+       behaviour is tested through Core logic and in the IDE tests. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <!-- Required by the VS SDK test framework. -->
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" />
+    <PackageReference Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" />
+    <PackageReference Include="Microsoft.VisualStudio.Composition" />
+    <!-- The extension references these without runtime assets (VS provides them); MEF discovery
+         and the build tests need to load them. -->
+    <PackageReference Include="Microsoft.VisualStudio.Workspace" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" />
+    <!-- Same for WebView2: devenv has it in PrivateAssemblies, the test host doesn't. -->
+    <PackageReference Include="Microsoft.Web.WebView2" />
+    <!-- And Roslyn, which devenv provides to the C# navigation parts. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" />
+    <PackageReference Include="Microsoft.VisualStudio.LanguageServices" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem" />
+    <!-- Only to pin the version Workspace.Extensions.VS asks for; its build targets stay out. -->
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Equilibrium.Daml.VisualStudio\Equilibrium.Daml.VisualStudio.csproj" />
+    <ProjectReference Include="..\TestHelpers\TestHelpers.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -6,7 +6,7 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <AssemblyName>dpm</AssemblyName>
-    <RootNamespace>Daml.TestFakes.Dpm</RootNamespace>
+    <RootNamespace>Equilibrium.Daml.TestFakes.Dpm</RootNamespace>
     <ImplicitUsings>disable</ImplicitUsings>
   </PropertyGroup>
 

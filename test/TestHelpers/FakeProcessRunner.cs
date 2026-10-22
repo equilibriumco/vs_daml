@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Daml.Build.Core.Processes;
+using Equilibrium.Daml.Build.Core.Processes;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// <see cref="IProcessRunner"/> that answers from a script instead of starting anything. A call

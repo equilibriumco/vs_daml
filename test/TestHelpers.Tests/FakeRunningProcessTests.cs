@@ -1,10 +1,10 @@
 using System.Threading.Tasks;
-using Daml.Build.Core.Processes;
-using Daml.TestHelpers;
+using Equilibrium.Daml.Build.Core.Processes;
+using Equilibrium.Daml.TestHelpers;
 using Shouldly;
 using Xunit;
 
-namespace Daml.TestHelpers.Tests;
+namespace Equilibrium.Daml.TestHelpers.Tests;
 
 public class FakeRunningProcessTests
 {

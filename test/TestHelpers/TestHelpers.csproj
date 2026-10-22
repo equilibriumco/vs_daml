@@ -4,8 +4,8 @@
        missing one skips a test or fails it, driving the fake dpm, and an in-memory file system. -->
   <PropertyGroup>
     <TargetFrameworks>net48;net10.0</TargetFrameworks>
-    <RootNamespace>Daml.TestHelpers</RootNamespace>
-    <AssemblyName>Daml.TestHelpers</AssemblyName>
+    <RootNamespace>Equilibrium.Daml.TestHelpers</RootNamespace>
+    <AssemblyName>Equilibrium.Daml.TestHelpers</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,11 +13,11 @@
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="StreamJsonRpc" />
     <PackageReference Include="MessagePack" />
-    <InternalsVisibleTo Include="Daml.TestHelpers.Tests" />
+    <InternalsVisibleTo Include="Equilibrium.Daml.TestHelpers.Tests" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Daml.VisualStudio.Core\Daml.VisualStudio.Core.csproj" />
+    <ProjectReference Include="..\..\src\Equilibrium.Daml.VisualStudio.Core\Equilibrium.Daml.VisualStudio.Core.csproj" />
   </ItemGroup>
 
   <!-- Build the fakes first, but don't reference them: they are separate net10.0 executables

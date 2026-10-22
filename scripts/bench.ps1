@@ -37,7 +37,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib\BenchBudgets.psm1') -Force
 $root = Split-Path $PSScriptRoot -Parent
-$project = Join-Path $root 'test\Daml.VisualStudio.Benchmarks\Daml.VisualStudio.Benchmarks.csproj'
+$project = Join-Path $root 'test\Equilibrium.Daml.VisualStudio.Benchmarks\Equilibrium.Daml.VisualStudio.Benchmarks.csproj'
 $artifacts = Join-Path $root "artifacts\bench\$Framework"
 
 if (-not $BaselineResultsPath) { $BaselineResultsPath = Join-Path $root "artifacts\bench\baseline\$Framework\results" }

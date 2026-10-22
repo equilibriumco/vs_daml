@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
     -Targets 'Build', 'Pack' -Properties @{ PackageOutputPath = $out }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$vsix = @(Get-ChildItem (Join-Path $root 'src\Daml.VisualStudio\bin\Release') -Recurse -Filter '*.vsix' -ErrorAction SilentlyContinue)
+$vsix = @(Get-ChildItem (Join-Path $root 'src\Equilibrium.Daml.VisualStudio\bin\Release') -Recurse -Filter '*.vsix' -ErrorAction SilentlyContinue)
 if (-not $vsix) {
     Write-Host 'Release build produced no VSIX.' -ForegroundColor Red
     exit 1
@@ -42,7 +42,7 @@ if ($vsix.Count -ne 1) {
 }
 
 Import-Module (Join-Path $PSScriptRoot 'lib\VsixContents.psm1') -Force
-$version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root 'src\Daml.VisualStudio\bin\Release\net48\Daml.VisualStudio.dll')).FileVersion
+$version = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root 'src\Equilibrium.Daml.VisualStudio\bin\Release\net48\Equilibrium.Daml.VisualStudio.dll')).FileVersion
 $vsixProblems = @(Test-Vsix $vsix[0].FullName -ExpectedVersion $version)
 if ($vsixProblems) {
     $vsixProblems | ForEach-Object { Write-Host "VSIX check: $_" -ForegroundColor Red }

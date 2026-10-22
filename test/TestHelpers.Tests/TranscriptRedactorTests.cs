@@ -1,9 +1,9 @@
-using Daml.TestHelpers;
+using Equilibrium.Daml.TestHelpers;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using Xunit;
 
-namespace Daml.TestHelpers.Tests;
+namespace Equilibrium.Daml.TestHelpers.Tests;
 
 // Transcripts leave the machine (CI artifacts, fixtures in the repository), so every planted
 // secret below must be gone after redaction.

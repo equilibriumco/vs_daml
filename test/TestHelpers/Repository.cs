@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>Locations inside this repository, for tests that read the checked-in samples.</summary>
 public static class Repository

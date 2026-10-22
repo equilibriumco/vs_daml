@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Equilibrium.Daml.Build.Core and the tasks on a fake build engine; the MSBuild-level tests (fake and
+       real dpm) join later. -->
+  <PropertyGroup>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Verify.Xunit" />
+    <!-- At run time here, unlike in the tasks project: the tests execute tasks in their own process. -->
+    <PackageReference Include="Microsoft.Build.Framework" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" />
+  </ItemGroup>
+
+  <!-- Into the NuGet cache at restore, for the local feed the MSBuild tests build from: the C# generated
+       from samples\mixed-dotnet implements the Splice token standard interfaces these packages hold. -->
+  <ItemGroup>
+    <PackageDownload Include="Splice.Api.Token.Holding.V2" Version="[1.0.0.17]" />
+    <PackageDownload Include="Splice.Api.Token.Transfer.Instruction.V2" Version="[1.0.0.17]" />
+    <PackageDownload Include="Splice.Api.Token.Metadata.V1" Version="[1.0.0.17]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Equilibrium.Daml.Build.Core\Equilibrium.Daml.Build.Core.csproj" />
+    <ProjectReference Include="..\..\src\Equilibrium.Daml.Build.Tasks\Equilibrium.Daml.Build.Tasks.csproj" />
+    <ProjectReference Include="..\TestHelpers\TestHelpers.csproj" />
+  </ItemGroup>
+
+</Project>

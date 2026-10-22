@@ -1,0 +1,151 @@
+<!-- Explicit SDK imports: the VSIX targets below need TargetName and friends, which only exist
+     after Sdk.targets, so they can't be imported from the project body. -->
+<Project>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- The extension itself, packaged as a VSIX. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+
+    <IncludeAssemblyInVSIXContainer>true</IncludeAssemblyInVSIXContainer>
+    <!-- Symbols travel with a Debug VSIX only; the Marketplace artefact ships without them. -->
+    <IncludeDebugSymbolsInVSIXContainer Condition="'$(Configuration)' == 'Debug'">true</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInVSIXContainer Condition="'$(Configuration)' != 'Debug'">false</IncludeDebugSymbolsInVSIXContainer>
+    <IncludeDebugSymbolsInLocalVSIXDeployment>true</IncludeDebugSymbolsInLocalVSIXDeployment>
+    <CopyBuildOutputToOutputDirectory>true</CopyBuildOutputToOutputDirectory>
+    <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+    <!-- Command-line builds never touch an Exp hive; scripts/install-exp.ps1 does that.
+         Inside the IDE the usual F5 deploy keeps working. -->
+    <DeployExtension Condition="'$(BuildingInsideVisualStudio)' != 'true'">false</DeployExtension>
+  </PropertyGroup>
+
+  <!-- Devenv ships these. They reach us transitively through Microsoft.VisualStudio.SDK
+       (ExcludeAssets doesn't flow to dependencies) and the VSSDK suppression list misses them;
+       its entry for System.Text.Encodings.Web is misspelt. Shipping our own copies would
+       shadow the host's versions. -->
+  <ItemGroup>
+    <SuppressFromVsix Include="Microsoft.VisualStudio.Extensibility.Editor.Contracts.dll" />
+    <SuppressFromVsix Include="Microsoft.VisualStudio.Linux.ConnectionManager.Store.dll" />
+    <SuppressFromVsix Include="System.Text.Encodings.Web.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="source.extension.vsixmanifest" SubType="Designer" />
+    <VSCTCompile Include="DamlPackage.vsct" ResourceName="Menus.ctmenu" />
+    <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
+    <!-- Copyright and license notices of the third-party code the VSIX bundles. -->
+    <Content Include="..\..\NOTICE" Link="NOTICE" IncludeInVSIX="true" />
+  </ItemGroup>
+
+  <!-- Comment toggling, auto-closing and word boundaries for .daml files; the pkgdef points
+       Visual Studio at the json by content type. -->
+  <ItemGroup>
+    <Content Include="LanguageConfiguration\daml-language-configuration.json" IncludeInVSIX="true" />
+    <Content Include="LanguageConfiguration\DamlLanguageConfiguration.pkgdef" IncludeInVSIX="true" />
+  </ItemGroup>
+
+  <!-- The script results page: the pinned script and stylesheet from the Daml VS Code extension,
+       with its licence, and our shim that stands in for the VS Code API. -->
+  <ItemGroup>
+    <Content Include="..\..\third_party\daml-extension\webview.js" Link="Assets\webview\webview.js" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\daml-extension\webview.css" Link="Assets\webview\webview.css" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\third_party\daml-extension\LICENSE" Link="Assets\webview\LICENSE" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="ScriptResults\Assets\shim.js" Link="Assets\webview\shim.js" IncludeInVSIX="true" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.SDK" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.LanguageServer.Client" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS" ExcludeAssets="runtime" />
+    <!-- Roslyn, for Daml navigation in C# files: Visual Studio provides it. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.EditorFeatures.Text" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.LanguageServices" ExcludeAssets="runtime" />
+    <PackageReference Include="Microsoft.VisualStudio.ProjectSystem" ExcludeAssets="runtime" />
+    <PackageReference Include="Community.VisualStudio.Toolkit.17" />
+    <!-- Compile only: Visual Studio ships WebView2 and redirects every version up to its own,
+         so the VSIX carries none of it. The build assets go too; they would copy WebView2Loader.dll. -->
+    <PackageReference Include="Microsoft.Web.WebView2" ExcludeAssets="runtime;native;build;buildTransitive" />
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" PrivateAssets="all" />
+    <!-- Build only: VSGlobals.vsct names Visual Studio's own menus (Extensions) for the VSCT. -->
+    <PackageReference Include="Community.VisualStudio.VSCT" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- New Project: the dotnet new package of Daml.Templates, which builds it, goes into Templates\
+       for the template engine the pkgdef points at. Add New Item: the item templates, zipped. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Daml.Templates\Daml.Templates.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <Content Include="Templates\DamlTemplates.pkgdef" IncludeInVSIX="true" />
+    <VSTemplate Include="ItemTemplates\DamlModule\DamlModule.vstemplate" OutputSubPath="Daml" />
+    <VSTemplate Include="ItemTemplates\DamlScriptTest\DamlScriptTest.vstemplate" OutputSubPath="Daml" />
+  </ItemGroup>
+
+  <!-- The SDK zips the item templates but only takes zips of other projects into the VSIX, so both
+       kinds of template are added here, where the manifest's assets expect them. -->
+  <Target Name="IncludeDamlTemplates" AfterTargets="GetVsixSourceItems">
+    <MSBuild Projects="..\Daml.Templates\Daml.Templates.csproj" Targets="DamlTemplatesPackage" Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_DamlTemplatesPackage" />
+    </MSBuild>
+    <ItemGroup>
+      <VSIXSourceItem Include="@(_DamlTemplatesPackage)" VSIXSubPath="Templates" />
+      <VSIXSourceItem Include="@(IntermediateZipItem)" VSIXSubPath="ItemTemplates\%(IntermediateZipItem.Language)\%(IntermediateZipItem.OutputSubPath)\%(IntermediateZipItem.Culture)" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Equilibrium.Daml.VisualStudio.Core\Equilibrium.Daml.VisualStudio.Core.csproj" />
+    <ProjectReference Include="..\Equilibrium.Daml.VisualStudio.LanguageServer\Equilibrium.Daml.VisualStudio.LanguageServer.csproj" />
+    <ProjectReference Include="..\Equilibrium.Daml.Build.Core\Equilibrium.Daml.Build.Core.csproj" />
+    <ProjectReference Include="..\Equilibrium.Daml.VisualStudio.Roslyn\Equilibrium.Daml.VisualStudio.Roslyn.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Equilibrium.Daml.VisualStudio.Tests" />
+  </ItemGroup>
+
+  <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
+  <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
+
+  <!-- The product registration needs the version as a compile-time constant; it comes from the
+       same VersionPrefix as everything else. -->
+  <Target Name="WriteProductVersion" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_ProductVersionFile>$(IntermediateOutputPath)ProductInfo.Version.g.cs</_ProductVersionFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_ProductVersionFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="namespace $(RootNamespace)%3B;internal static partial class ProductInfo { public const string Version = &quot;$(VersionPrefix)&quot;%3B }" />
+    <ItemGroup>
+      <Compile Include="$(_ProductVersionFile)" />
+      <FileWrites Include="$(_ProductVersionFile)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- The SDK rewrites the manifest only when source.extension.vsixmanifest changes, so after a
+       version change it would keep shipping the old one; one written for another version goes. -->
+  <Target Name="ForgetManifestOfAnotherVersion" BeforeTargets="DetokenizeVsixManifestFile" Condition="Exists('$(IntermediateVsixManifest)')">
+    <ReadLinesFromFile File="$(IntermediateVsixManifest)">
+      <Output TaskParameter="Lines" ItemName="_WrittenManifestLines" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_WrittenManifest>@(_WrittenManifestLines)</_WrittenManifest>
+    </PropertyGroup>
+    <Delete Files="$(IntermediateVsixManifest)" Condition="!$(_WrittenManifest.Contains('Version=&quot;$(FileVersion)&quot;'))" />
+  </Target>
+
+  <!-- Documentation never ships; Release also excludes referenced-project symbols. -->
+  <Target Name="DropDevelopmentFilesFromVsix" AfterTargets="GetVsixSourceItems">
+    <ItemGroup>
+      <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'%(Extension)' == '.xml'" />
+      <VSIXSourceItem Remove="@(VSIXSourceItem)" Condition="'$(Configuration)' != 'Debug' and '%(Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- The VSSDK.BuildTools package only points VSToolsPath at its tools; SDK-style projects
+       have to pull in the VSIX targets themselves. -->
+  <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="Exists('$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets')" />
+
+</Project>

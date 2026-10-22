@@ -7,7 +7,7 @@
     <DamlCodegenComponent Condition="'$(DamlCodegenComponent)' == ''">oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548</DamlCodegenComponent>
     <DamlGeneratedOutputMode Condition="'$(DamlGeneratedOutputMode)' == ''">Intermediate</DamlGeneratedOutputMode>
     <DamlJavaHome Condition="'$(DamlJavaHome)' == ''">$(JAVA_HOME)</DamlJavaHome>
-    <_DamlCSharpTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Daml.Build.Tasks.dll</_DamlCSharpTasks>
+    <_DamlCSharpTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_DamlCSharpTasks>
   </PropertyGroup>
 
 </Project>

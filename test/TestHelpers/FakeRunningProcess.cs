@@ -1,8 +1,8 @@
 using System.IO;
 using System.Threading.Tasks;
-using Daml.Build.Core.Processes;
+using Equilibrium.Daml.Build.Core.Processes;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// <see cref="IRunningProcess"/> whose exit a test triggers by hand. Killing or disposing it

@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Restores and builds Daml.VisualStudio.sln with VS 2026 MSBuild.
+    Restores and builds Equilibrium.Daml.VisualStudio.sln with VS 2026 MSBuild.
 
 .DESCRIPTION
     Picks the build instance (MSBuild 18.x compatible with the SDK in
@@ -42,7 +42,7 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
 # NuGet audit findings stay warnings (see Directory.Build.props); everything else fails the build.
 $msbuildArgs = @(
-    (Join-Path $root 'Daml.VisualStudio.sln')
+    (Join-Path $root 'Equilibrium.Daml.VisualStudio.sln')
     '-restore'
     "-target:$($Targets -join ';')"
     "-p:Configuration=$Configuration"

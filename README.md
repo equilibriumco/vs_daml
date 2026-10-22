@@ -61,7 +61,7 @@ needs an unlocked interactive session.
 
 | Folder | Contents |
 |---|---|
-| `src/` | Extension (`Daml.VisualStudio`), host-independent libraries, MSBuild tasks and packages |
+| `src/` | Extension (`Equilibrium.Daml.VisualStudio`), host-independent libraries, MSBuild tasks and packages |
 | `test/` | Tests, fakes and fixtures |
 | `samples/` | Sample workspaces |
 | `grammar/`, `native/` | Tree-sitter grammar for Daml (separate artifact) |

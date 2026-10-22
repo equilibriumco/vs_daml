@@ -9,7 +9,7 @@ function New-ToolBom {
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.7",
-  "metadata": { "component": { "type": "application", "bom-ref": "Daml.VisualStudio@1.0.0.0", "name": "Daml.VisualStudio", "version": "1.0.0.0" } },
+  "metadata": { "component": { "type": "application", "bom-ref": "Equilibrium.Daml.VisualStudio@1.0.0.0", "name": "Equilibrium.Daml.VisualStudio", "version": "1.0.0.0" } },
   "components": [
     { "type": "library", "bom-ref": "pkg:nuget/YamlDotNet@18.1.0", "name": "YamlDotNet", "version": "18.1.0", "licenses": [ { "license": { "id": "MIT" } } ], "purl": "pkg:nuget/YamlDotNet@18.1.0" },
     { "type": "library", "bom-ref": "pkg:nuget/Microsoft.VisualStudio.SDK@17.14.40265", "name": "Microsoft.VisualStudio.SDK", "version": "17.14.40265", "purl": "pkg:nuget/Microsoft.VisualStudio.SDK@17.14.40265" },
@@ -17,7 +17,7 @@ function New-ToolBom {
     { "type": "library", "bom-ref": "pkg:nuget/Toolkit@17.0.551", "name": "Toolkit", "version": "17.0.551", "licenses": [ { "license": { "id": "Apache-2.0" } } ], "purl": "pkg:nuget/Toolkit@17.0.551" }
   ],
   "dependencies": [
-    { "ref": "Daml.VisualStudio@1.0.0.0", "dependsOn": [ "pkg:nuget/YamlDotNet@18.1.0", "pkg:nuget/Microsoft.VisualStudio.SDK@17.14.40265", "pkg:nuget/Newtonsoft.Json@13.0.3", "pkg:nuget/Toolkit@17.0.551" ] },
+    { "ref": "Equilibrium.Daml.VisualStudio@1.0.0.0", "dependsOn": [ "pkg:nuget/YamlDotNet@18.1.0", "pkg:nuget/Microsoft.VisualStudio.SDK@17.14.40265", "pkg:nuget/Newtonsoft.Json@13.0.3", "pkg:nuget/Toolkit@17.0.551" ] },
     { "ref": "pkg:nuget/YamlDotNet@18.1.0" },
     { "ref": "pkg:nuget/Microsoft.VisualStudio.SDK@17.14.40265", "dependsOn": [ "pkg:nuget/Newtonsoft.Json@13.0.3" ] },
     { "ref": "pkg:nuget/Newtonsoft.Json@13.0.3", "dependsOn": [] },
@@ -35,8 +35,8 @@ function New-File([string] $Path, [string] $Sha256 = ('0' * 64)) {
 # differently from its package), a vendored script and the license files.
 function New-VsixFiles {
     @(
-        New-File 'Daml.VisualStudio.dll' ('1' * 64)
-        New-File 'Daml.Build.Core.dll'
+        New-File 'Equilibrium.Daml.VisualStudio.dll' ('1' * 64)
+        New-File 'Equilibrium.Daml.Build.Core.dll'
         New-File 'YamlDotNet.dll'
         New-File 'Community.VisualStudio.Toolkit.dll'
         New-File 'Assets/webview/webview.js' ('a' * 64)
@@ -83,25 +83,25 @@ Describe 'SBOM of what an artifact ships' {
 
     It 'prunes the dependency graph to the components it keeps' {
         $bom = Select-TestSbom
-        $refs = @($bom.components | ForEach-Object { $_.'bom-ref' }) + 'Daml.VisualStudio@1.0.0.0'
+        $refs = @($bom.components | ForEach-Object { $_.'bom-ref' }) + 'Equilibrium.Daml.VisualStudio@1.0.0.0'
         foreach ($entry in $bom.dependencies) {
             $refs -contains $entry.ref | Should Be $true
             foreach ($target in @($entry.dependsOn)) { $refs -contains $target | Should Be $true }
         }
-        $root = @($bom.dependencies | Where-Object { $_.ref -eq 'Daml.VisualStudio@1.0.0.0' })[0]
+        $root = @($bom.dependencies | Where-Object { $_.ref -eq 'Equilibrium.Daml.VisualStudio@1.0.0.0' })[0]
         @($root.dependsOn).Count | Should Be @($bom.components).Count
         @(@($bom.dependencies | Where-Object { $_.ref -eq 'pkg:nuget/Toolkit@17.0.551' })[0].dependsOn).Count | Should Be 0
     }
 
     It 'lists our own assemblies and the nested templates package under our name and license' {
         $bom = Select-TestSbom
-        $own = (Get-Component $bom 'Daml.VisualStudio')[0]
+        $own = (Get-Component $bom 'Equilibrium.Daml.VisualStudio')[0]
         $own.version | Should Be '0.3.0.7'
         $own.supplier.name | Should Be 'Equilibrium'
         $own.licenses[0].license.id | Should Be 'Apache-2.0'
         $own.hashes[0].alg | Should Be 'SHA-256'
         $own.hashes[0].content | Should Be ('1' * 64)
-        (Get-Component $bom 'Daml.Build.Core').Count | Should Be 1
+        (Get-Component $bom 'Equilibrium.Daml.Build.Core').Count | Should Be 1
         $templates = (Get-Component $bom 'Daml.Templates')[0]
         $templates.version | Should Be '0.3.0-preview.7'
         $templates.purl | Should Be 'pkg:nuget/Daml.Templates@0.3.0-preview.7'

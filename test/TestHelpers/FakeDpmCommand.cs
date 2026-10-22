@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>One scripted dpm invocation and its outcome.</summary>
 public sealed class FakeDpmCommand

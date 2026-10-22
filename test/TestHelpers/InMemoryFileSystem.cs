@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
-using Daml.Build.Core.FileSystem;
+using Equilibrium.Daml.Build.Core.FileSystem;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// In-memory <see cref="IDamlFileSystem"/>. Adding a file also creates its parent directories;

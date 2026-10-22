@@ -1,4 +1,4 @@
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// Exit codes the fake dpm uses for its own failures. Compiled into both the fake executable

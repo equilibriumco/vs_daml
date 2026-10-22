@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $env:DAML_UPDATE_BINDING_FIXTURES = '1'
 try {
-    dotnet test (Join-Path $root 'test\Daml.Build.Tests\Daml.Build.Tests.csproj') --no-build -f net10.0 `
+    dotnet test (Join-Path $root 'test\Equilibrium.Daml.Build.Tests\Equilibrium.Daml.Build.Tests.csproj') --no-build -f net10.0 `
         --filter 'FullyQualifiedName~BindingFixtureTests' --nologo
     exit $LASTEXITCODE
 }

@@ -1,8 +1,8 @@
 <Project>
 
-  <UsingTask TaskName="Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(_DamlCSharpTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlWriteGeneratedProps" AssemblyFile="$(_DamlCSharpTasks)" />
-  <UsingTask TaskName="Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(_DamlCSharpTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCodegenCSharp" AssemblyFile="$(_DamlCSharpTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlWriteGeneratedProps" AssemblyFile="$(_DamlCSharpTasks)" />
+  <UsingTask TaskName="Equilibrium.Daml.Build.Tasks.DamlCleanGenerated" AssemblyFile="$(_DamlCSharpTasks)" />
 
   <!-- A DamlReference is a project reference that brings a DAR, never an assembly. The project
        builds first and is asked for its DAR, like any project reference. -->

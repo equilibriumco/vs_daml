@@ -6,7 +6,7 @@ record constructor, a plain one and an empty one, and an enum. `csharp/` is what
 for byte: the C# a project gets with `<DamlReference … Namespace="Fixture" />`, without the generation manifest (which
 holds paths of the machine that built it).
 
-The binding index tests (`test/Daml.VisualStudio.Roslyn.Tests`) compile these files and read the Daml declarations back
+The binding index tests (`test/Equilibrium.Daml.VisualStudio.Roslyn.Tests`) compile these files and read the Daml declarations back
 from them, so they test against the generator's real output rather than a guess of it.
 
 | What | Version |
@@ -16,7 +16,7 @@ from them, so they test against the generator's real output rather than a guess 
 | Main package ID | `bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1` |
 
 ## Keeping it current
-`BindingFixtureTests` in `test/Daml.Build.Tests` (category `MSBuild`, backend `Real`) builds this package and generates
+`BindingFixtureTests` in `test/Equilibrium.Daml.Build.Tests` (category `MSBuild`, backend `Real`) builds this package and generates
 its C# through `Daml.Sdk` and `Daml.Build.CSharp`, as a user's solution does, and fails when the result differs from
 `csharp/`. After a generator or SDK update, regenerate it with:
 

@@ -5,12 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Daml.Build.Core.Processes;
+using Equilibrium.Daml.Build.Core.Processes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// A throwaway copy of the fake dpm in its own temp directory (<c>bin\dpm.exe</c>), wired to a

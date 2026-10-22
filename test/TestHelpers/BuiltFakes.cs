@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 
-namespace Daml.TestHelpers;
+namespace Equilibrium.Daml.TestHelpers;
 
 // Build output folders of the fake executables, baked into this assembly by TestHelpers.csproj.
 internal static class BuiltFakes

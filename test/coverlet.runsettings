@@ -13,8 +13,8 @@
       <DataCollector friendlyName="XPlat code coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[Daml.*]*</Include>
-          <Exclude>[Daml.TestHelpers]*,[*.Tests]*,[*.IntegrationTests]*</Exclude>
+          <Include>[Equilibrium.Daml.*]*</Include>
+          <Exclude>[Equilibrium.Daml.TestHelpers]*,[*.Tests]*,[*.IntegrationTests]*</Exclude>
           <ExcludeByAttribute>GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
           <SkipAutoProps>true</SkipAutoProps>
         </Configuration>

@@ -21,7 +21,7 @@ param(
     [ValidateSet('Debug', 'Release')]
     [string] $Configuration = 'Debug',
 
-    # Defaults to the newest VSIX under src/Daml.VisualStudio/bin/<Configuration>.
+    # Defaults to the newest VSIX under src/Equilibrium.Daml.VisualStudio/bin/<Configuration>.
     [string] $VsixPath,
 
     [string] $VsInstallationPath
@@ -35,7 +35,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $root = Get-RepoRoot
 
 if (-not $VsixPath) {
-    $binDir = Join-Path $root "src\Daml.VisualStudio\bin\$Configuration"
+    $binDir = Join-Path $root "src\Equilibrium.Daml.VisualStudio\bin\$Configuration"
     $VsixPath = Get-ChildItem $binDir -Recurse -Filter '*.vsix' -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName
     if (-not $VsixPath) { throw "No VSIX found under '$binDir'. Run scripts/build.ps1 -Configuration $Configuration first." }
