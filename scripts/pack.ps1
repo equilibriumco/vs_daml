@@ -49,6 +49,16 @@ if ($vsixProblems) {
     exit 1
 }
 Write-Host "VSIX check passed: $($vsix[0].Name) $version (VS 2026 [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
+
+# The listing goes out with the VSIX, so a listing that breaks the trademark rules stops the pack too.
+Import-Module (Join-Path $PSScriptRoot 'lib\Marketplace.psm1') -Force
+$marketplace = Join-Path $root 'src\Equilibrium.Daml.VisualStudio\Marketplace'
+$listingProblems = @(Test-MarketplaceListing -PublishManifest (Join-Path $marketplace 'publishManifest.json') -VsixManifest (Join-Path $root 'src\Equilibrium.Daml.VisualStudio\source.extension.vsixmanifest'))
+if ($listingProblems) {
+    $listingProblems | ForEach-Object { Write-Host "Marketplace listing: $_" -ForegroundColor Red }
+    exit 1
+}
+Write-Host 'Marketplace listing check passed.'
 $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }

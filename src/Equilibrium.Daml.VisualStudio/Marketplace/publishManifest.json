@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json.schemastore.org/vsix-publish",
+  "categories": [ "programming languages", "build", "coding" ],
+  "identity": {
+    "internalName": "EqDamlTools"
+  },
+  "overview": "overview.md",
+  "priceCategory": "free",
+  "publisher": "Equilibrium",
+  "private": false,
+  "qna": false,
+  "repo": "https://github.com/equilibriumco/vs_daml"
+}
