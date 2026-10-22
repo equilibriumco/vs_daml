@@ -5,6 +5,8 @@
 
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)Daml.Build.Tasks\Daml.Build.Tasks.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <!-- The tasks bring YamlDotNet, whose MIT notice has to travel with it. -->
+    <None Include="$(MSBuildThisFileDirectory)..\NOTICE" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
   <Target Name="DamlPackTasks" BeforeTargets="_GetPackageFiles">

@@ -34,6 +34,8 @@
     <None Include="source.extension.vsixmanifest" SubType="Designer" />
     <VSCTCompile Include="DamlPackage.vsct" ResourceName="Menus.ctmenu" />
     <Content Include="..\..\LICENSE" Link="LICENSE" IncludeInVSIX="true" />
+    <!-- Copyright and license notices of the third-party code the VSIX bundles. -->
+    <Content Include="..\..\NOTICE" Link="NOTICE" IncludeInVSIX="true" />
   </ItemGroup>
 
   <!-- Comment toggling, auto-closing and word boundaries for .daml files; the pkgdef points

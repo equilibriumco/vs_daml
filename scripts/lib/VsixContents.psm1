@@ -75,7 +75,8 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
         if ($arch.Count -ne 1 -or $arch[0] -ne 'amd64') { $problems.Add("InstallationTarget $($target.Id) architectures '$($arch -join ', ')', expected amd64 only") }
     }
 
-    foreach ($own in 'Daml.VisualStudio.dll', 'Daml.VisualStudio.Core.dll', 'Daml.VisualStudio.LanguageServer.dll', 'Daml.Build.Core.dll', 'Daml.VisualStudio.pkgdef') {
+    # The MIT notices of the libraries we bundle have to travel with them.
+    foreach ($own in 'Daml.VisualStudio.dll', 'Daml.VisualStudio.Core.dll', 'Daml.VisualStudio.LanguageServer.dll', 'Daml.Build.Core.dll', 'Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE') {
         if ($own -notin $entries) { $problems.Add("missing $own") }
     }
     # Visual Studio loads its own copies of these; ours would shadow or conflict with them.

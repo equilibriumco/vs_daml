@@ -37,6 +37,7 @@
     <Authors>Equilibrium</Authors>
     <Product>Daml for Visual Studio</Product>
     <Copyright>Copyright 2026 Equilibrium</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <NeutralLanguage>en</NeutralLanguage>
     <!-- Only the projects that ship as NuGet packages opt back in. -->
     <IsPackable>false</IsPackable>

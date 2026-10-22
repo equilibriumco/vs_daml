@@ -29,8 +29,16 @@ public sealed class DamlSdkPackageTests : IDisposable
     private static string Configuration =>
         typeof(DamlSdkPackageTests).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug";
 
+    // NOTICE carries YamlDotNet's MIT notice, which has to go wherever its assembly goes.
     private static readonly string[] Tasks =
-        ["tasks/netstandard2.0/Daml.Build.Core.dll", "tasks/netstandard2.0/Daml.Build.Tasks.dll", "tasks/netstandard2.0/YamlDotNet.dll"];
+        ["tasks/netstandard2.0/Daml.Build.Core.dll", "tasks/netstandard2.0/Daml.Build.Tasks.dll", "tasks/netstandard2.0/YamlDotNet.dll", "NOTICE"];
+
+    private static void ShouldBeApacheLicensed(XElement metadata)
+    {
+        var license = metadata.Elements().Single(e => e.Name.LocalName == "license");
+        ((string?)license.Attribute("type")).ShouldBe("expression");
+        license.Value.ShouldBe("Apache-2.0");
+    }
 
     // From what the solution build left, so nothing is rebuilt under tests that read it, and with
     // the nuspec kept out of obj, where a run for the other framework may be packing too.
@@ -61,6 +69,7 @@ public sealed class DamlSdkPackageTests : IDisposable
         entries.ShouldBe(["Daml.Sdk.nuspec", "Sdk/Sdk.props", "Sdk/Sdk.targets", .. Tasks], ignoreOrder: true);
         metadata.Descendants().Where(e => e.Name.LocalName == "packageType").Select(e => (string?)e.Attribute("name")).ShouldBe(["MSBuildSdk"]);
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
+        ShouldBeApacheLicensed(metadata);
     }
 
     // build\, not buildTransitive\: the package acts on the project that references it, and never
@@ -73,6 +82,7 @@ public sealed class DamlSdkPackageTests : IDisposable
         entries.ShouldBe(["Daml.Build.CSharp.nuspec", "build/Daml.Build.CSharp.props", "build/Daml.Build.CSharp.targets", .. Tasks], ignoreOrder: true);
         metadata.Elements().Single(e => e.Name.LocalName == "developmentDependency").Value.ShouldBe("true");
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
+        ShouldBeApacheLicensed(metadata);
     }
 
     // dotnet new finds each template under content\, and each template.json names the release that
@@ -87,6 +97,7 @@ public sealed class DamlSdkPackageTests : IDisposable
         entries.ShouldBe(["Daml.Templates.nuspec", .. files], ignoreOrder: true);
         metadata.Descendants().Where(e => e.Name.LocalName == "packageType").Select(e => (string?)e.Attribute("name")).ShouldBe(["Template"]);
         metadata.Descendants().Where(e => e.Name.LocalName == "dependency").ShouldBeEmpty();
+        ShouldBeApacheLicensed(metadata);
         var version = metadata.Elements().Single(e => e.Name.LocalName == "version").Value;
         using var package = ZipFile.OpenRead(Directory.GetFiles(_output, "Daml.Templates.*.nupkg").ShouldHaveSingleItem());
         foreach (var template in new[] { "daml-contracts", "daml-dotnet-app" })

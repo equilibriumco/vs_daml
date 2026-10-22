@@ -3,13 +3,67 @@ Copyright 2026 Equilibrium
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
 
-Third-party components are listed below together with their licenses. Their
-sources and license files live under third_party/<name>/.
+Third-party components are listed below together with their licenses. The
+first part lists what the Visual Studio extension (VSIX) and the NuGet packages
+redistribute; the second part, material that is only in the source repository.
+Vendored sources and their license files live under third_party/<name>/, each
+with a PIN file that records the upstream commit and the hash of every file.
+The full text of the MIT License, which several components use, is at the end.
+
+==============================================================================
+Redistributed in the VSIX and the NuGet packages
+==============================================================================
 
 ------------------------------------------------------------------------------
-third_party/daml-extension
+YamlDotNet 18.1.0 (YamlDotNet.dll)
+  Ships in: the VSIX; Daml.Sdk and Daml.Build.CSharp (tasks/netstandard2.0/)
+  Source:   https://github.com/aaubry/YamlDotNet
+  Copyright (c) 2008, 2009, 2010, 2011, 2012, 2013, 2014 Antoine Aubry and contributors.
+  Its parser derives from LibYAML: Copyright (c) 2006 Kirill Simonov.
+  Both licensed under the MIT License (text below).
+
+------------------------------------------------------------------------------
+Microsoft.Bcl.TimeProvider 8.0.1 (Microsoft.Bcl.TimeProvider.dll)
+  Ships in: the VSIX
+  Source:   https://github.com/dotnet/runtime
+  Copyright (c) .NET Foundation and Contributors.
+  Licensed under the MIT License (text below).
+
+------------------------------------------------------------------------------
+Community.VisualStudio.Toolkit.17 17.0.551 (Community.VisualStudio.Toolkit.dll)
+  Ships in: the VSIX
+  Source:   https://github.com/VsixCommunity/Community.VisualStudio.Toolkit
+  Copyright 2017 LigerShark; Copyright (c) Mads Kristensen.
+  Licensed under the Apache License, Version 2.0 (see LICENSE). The project
+  has no NOTICE file of its own.
+
+------------------------------------------------------------------------------
+third_party/daml-extension: webview.js, webview.css
+  Ships in: the VSIX (Assets/webview/, with the license as Assets/webview/LICENSE)
+  Source:   https://github.com/digital-asset/daml (see third_party/daml-extension/PIN)
+  Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates.
+  Licensed under the Apache License, Version 2.0 (third_party/daml-extension/LICENSE).
+
+------------------------------------------------------------------------------
+PolySharp 1.16.0 (compiled into our assemblies)
+  Ships in: the VSIX; Daml.Sdk and Daml.Build.CSharp
+  Source:   https://github.com/Sergio0694/PolySharp
+  A source generator used at build time; the polyfill types it adds to our
+  netstandard2.0 and net48 assemblies are compiled into them.
+  Copyright (c) 2026 Sergio Pedri.
+  The generated types come from the .NET runtime:
+  Copyright (c) .NET Foundation and Contributors.
+  Both licensed under the MIT License (text below).
+
+==============================================================================
+In the source repository only
+==============================================================================
+
+------------------------------------------------------------------------------
+third_party/daml-extension: TestGrammar.daml, daml12.tmLanguage.xml
+  Used by tests and as reference; none of the artifacts ships them.
   Source:  https://github.com/digital-asset/daml (see third_party/daml-extension/PIN)
-  webview.js, webview.css, TestGrammar.daml
+  TestGrammar.daml
     Copyright (c) 2026 Digital Asset (Switzerland) GmbH and/or its affiliates.
     Licensed under the Apache License, Version 2.0 (third_party/daml-extension/LICENSE).
   daml12.tmLanguage.xml
@@ -34,3 +88,30 @@ grammar/tree-sitter-daml
   A modified copy (renamed, extended for Daml) of tree-sitter-haskell.
   Copyright (c) 2014 Max Brunsfeld and the tree-sitter-haskell contributors.
   Licensed under the MIT License (grammar/tree-sitter-daml/LICENSE).
+  Released as a separate artifact with its own notices; the VSIX and the NuGet
+  packages do not contain it.
+
+==============================================================================
+MIT License
+==============================================================================
+
+Applies to the components above that name it, each under its own copyright
+notice as given there.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
