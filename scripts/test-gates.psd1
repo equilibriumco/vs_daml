@@ -91,9 +91,8 @@
                 }
             }
         }
-        # M6: the 1.0 matrix on the lexer. Every category of M3 again, on the current code and the
-        # hosts the compatibility report lists (docs/compat-matrix.md), with the same tools and
-        # thresholds; the grammar stays its own path (M4).
+        # M6: the 1.0 release on the lexer. Every category of M3 again, run on each supported host
+        # with the same tools and thresholds; the grammar stays its own path (M4).
         M6 = @{
             Required       = @('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration')
             Pending        = @{}

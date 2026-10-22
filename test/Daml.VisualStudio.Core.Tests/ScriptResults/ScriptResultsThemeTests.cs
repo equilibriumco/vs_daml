@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Daml.VisualStudio.Core.ScriptResults;
+using FsCheck.Xunit;
 using Shouldly;
 using Xunit;
 
@@ -31,9 +34,9 @@ public class ScriptResultsThemeTests
         css.ShouldContain($"a, a:visited {{ color: {link}; }}");
     }
 
+    // VS Code's own palette is where the colours start; where it reads, it is kept.
     [Theory, Trait("Category", "Unit")]
     [InlineData("#1e1e1e", "#f14c4c")]
-    [InlineData("#252526", "#f14c4c")]
     [InlineData("#ffffff", "#cd3131")]
     [InlineData("#f5f5f5", "#cd3131")]
     public void The_ansi_palette_follows_the_brightness_of_the_background(string background, string red)
@@ -45,6 +48,59 @@ public class ScriptResultsThemeTests
         {
             css.ShouldContain($"--vscode-terminal-ansi{name}: #");
         }
+    }
+
+    // VS Code's light keywords (green) and types (bright yellow) are faint on white, its dark red
+    // dim on a lighter dark grey; each is moved until it reads.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("#ffffff", "Green", "#00bc00")]
+    [InlineData("#ffffff", "BrightYellow", "#b5ba00")]
+    [InlineData("#2b2b2b", "Red", "#f14c4c")]
+    public void A_colour_that_doesnt_read_on_the_background_is_moved_until_it_does(string background, string name, string original)
+    {
+        var colours = Colours(new ScriptResultsTheme(background, "#808080", "Segoe UI", 9).ToCss());
+
+        colours[$"ansi{name}"].ShouldNotBe(original);
+        ColourContrast.Ratio(colours[$"ansi{name}"], background).ShouldBeGreaterThanOrEqualTo(ColourContrast.Minimum);
+    }
+
+    [Property(MaxTest = 500), Trait("Category", "Unit")]
+    public bool Every_colour_of_the_page_reads_on_any_background(byte r, byte g, byte b)
+    {
+        var background = $"#{r:x2}{g:x2}{b:x2}";
+        var colours = Colours(new ScriptResultsTheme(background, "#808080", "Segoe UI", 9).ToCss());
+
+        return colours.Count == 11 && colours.Values.All(c => ColourContrast.Ratio(c, background) >= ColourContrast.Minimum);
+    }
+
+    // The jumps between contracts in the transaction view are coloured with --link-color, which
+    // VS Code's extension defines and the page itself doesn't.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("#1e1e1e")]
+    [InlineData("#ffffff")]
+    public void In_page_links_get_the_link_colour(string background)
+    {
+        var colours = Colours(new ScriptResultsTheme(background, "#808080", "Segoe UI", 9).ToCss());
+
+        colours["link"].ShouldBe(colours["a"]);
+    }
+
+    // The checkboxes, the button and the scrollbars are drawn by the browser, light unless told.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("#1e1e1e", "dark")]
+    [InlineData("#ffffff", "light")]
+    public void Controls_and_scrollbars_follow_the_brightness_of_the_background(string background, string scheme) =>
+        new ScriptResultsTheme(background, "#808080", "Segoe UI", 9).ToCss().ShouldContain($"  color-scheme: {scheme};\n");
+
+    // Every colour the stylesheet sets, by variable name (without "--vscode-terminal-" or "--"
+    // and "-color"), plus "a" for the colour of links.
+    private static Dictionary<string, string> Colours(string css)
+    {
+        var colours = Regex.Matches(css, @"--(?:vscode-terminal-)?(?<name>ansi\w+|link)(?:-color)?: (?<hex>#[0-9a-f]{6});")
+            .Cast<Match>()
+            .ToDictionary(m => m.Groups["name"].Value, m => m.Groups["hex"].Value);
+        colours["a"] = Regex.Match(css, @"a, a:visited \{ color: (?<hex>#[0-9a-f]{6}); \}").Groups["hex"].Value;
+        return colours;
     }
 
     [Theory, Trait("Category", "Unit")]

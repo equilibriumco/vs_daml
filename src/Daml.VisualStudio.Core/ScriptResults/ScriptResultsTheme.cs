@@ -7,7 +7,8 @@ namespace Daml.VisualStudio.Core.ScriptResults;
 /// <summary>
 /// The editor's look, as the CSS variables the results page reads: the page was written for VS
 /// Code and colours itself from <c>--vscode-*</c> variables. The ANSI colours it uses for
-/// highlighting follow VS Code's light or dark defaults, picked by how bright the background is.
+/// highlighting start from VS Code's light or dark defaults, picked by how bright the background
+/// is, and each is darkened or lightened where it would be too faint to read on the background.
 /// </summary>
 public sealed class ScriptResultsTheme : IEquatable<ScriptResultsTheme>
 {
@@ -57,21 +58,26 @@ public sealed class ScriptResultsTheme : IEquatable<ScriptResultsTheme>
     public string ToCss()
     {
         var pixels = Math.Round(FontSizePoints * 96 / 72, 1).ToString(CultureInfo.InvariantCulture);
+        // VS Code's link colours; the browser's own blue is unreadable on a dark background.
+        var link = ColourContrast.Readable(IsDark ? "#3794ff" : "#006ab1", Background);
         var css = new StringBuilder(":root {\n")
+            // Form controls and scrollbars are the browser's; without this they stay light.
+            .Append("  color-scheme: ").Append(IsDark ? "dark" : "light").Append(";\n")
             .Append("  --vscode-editor-background: ").Append(Background).Append(";\n")
             .Append("  --vscode-editor-foreground: ").Append(Foreground).Append(";\n")
             .Append("  --vscode-font-family: \"").Append(FontFamily).Append("\", sans-serif;\n")
-            .Append("  --vscode-font-size: ").Append(pixels).Append("px;\n");
+            .Append("  --vscode-font-size: ").Append(pixels).Append("px;\n")
+            // The jumps between contracts in the transaction view use it; VS Code's extension sets it.
+            .Append("  --link-color: ").Append(link).Append(";\n");
         foreach (var (name, dark, light) in Ansi)
         {
-            css.Append("  --vscode-terminal-ansi").Append(name).Append(": ").Append(IsDark ? dark : light).Append(";\n");
+            css.Append("  --vscode-terminal-ansi").Append(name).Append(": ").Append(ColourContrast.Readable(IsDark ? dark : light, Background)).Append(";\n");
         }
         return css.Append("}\n")
             .Append("body { background: var(--vscode-editor-background); color: var(--vscode-editor-foreground); ")
             .Append("font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); }\n")
             .Append("table, th, td { border-color: var(--vscode-editor-foreground); }\n")
-            // VS Code's link colours; the browser's own blue is unreadable on a dark background.
-            .Append("a, a:visited { color: ").Append(IsDark ? "#3794ff" : "#006ab1").Append("; }\n")
+            .Append("a, a:visited { color: ").Append(link).Append("; }\n")
             .ToString();
     }
 
