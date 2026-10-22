@@ -365,6 +365,64 @@ public class ScriptResultsTests
         }
     }
 
+    // Without a mouse: the jumps between contracts take the keyboard and land on the contract, and
+    // a screen reader gets the words behind the S, O and W of the disclosure cells.
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 6 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public async Task The_results_page_works_from_the_keyboard_and_names_its_disclosure_cells()
+    {
+        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+        ResultsWindow.CloseAll();
+        var folder = Ide.CopySample("single-package");
+        Ide.OpenFolder(folder);
+        try
+        {
+            var view = await OpenWithRowsAsync(Path.Combine(folder, "daml", "Main.daml"), expectedRows: 1);
+            await ShowResultsOfAsync(view, "setup");
+            var browser = await BrowserAsync("Script: setup", view);
+            await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV"));
+
+            var names = (string?)await ResultsWindow.EvalAsync(browser,
+                "Array.from(new Set(Array.from(document.querySelectorAll('td.disclosure.disclosed')).map(c => c.getAttribute('aria-label')))).sort().join(',')");
+            Assert.Equal("Observer,Signatory,Witness", names);
+
+            // The jumps live in the transaction view; the view the page opens with is put back after.
+            await ResultsWindow.EvalAsync(browser, "toggle_view()");
+            try
+            {
+                var pressed = (string?)await ResultsWindow.EvalAsync(browser, """
+                    (() => { const jump = Array.from(document.querySelectorAll('.da-hl-link')).find(l => (l.getAttribute('onclick') || '').includes("'n#1:0'"));
+                             if (!jump) return 'no jump to #1:0';
+                             if (jump.tabIndex !== 0 || jump.getAttribute('role') !== 'link') return 'not a link: tabindex ' + jump.tabIndex + ', role ' + jump.getAttribute('role');
+                             jump.focus();
+                             if (document.activeElement !== jump) return 'the jump took no focus';
+                             jump.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+                             return 'pressed'; })()
+                    """);
+                Assert.Equal("pressed", pressed);
+
+                var landed = "";
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+                while (DateTime.UtcNow < deadline && landed != "n#1:0")
+                {
+                    await Task.Delay(200);
+                    landed = (string?)await ResultsWindow.EvalAsync(browser, "document.activeElement ? document.activeElement.id : ''") ?? "";
+                }
+                Assert.Equal("n#1:0", landed);
+            }
+            finally
+            {
+                await ResultsWindow.EvalAsync(browser, "toggle_view()");
+            }
+        }
+        finally
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ResultsWindow.CloseAll();
+            Ide.CloseAllDocuments();
+            await Ide.CloseFolderAsync();
+        }
+    }
+
     private static async Task<IWpfTextView> OpenWithRowsAsync(string path, int expectedRows)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

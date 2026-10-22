@@ -70,7 +70,7 @@ internal sealed class ScriptResultsView : IDisposable
         _logger = logger;
         _joinableTaskFactory = joinableTaskFactory;
         _folder = Path.Combine(ScriptResultsWindows.DataFolder, "webview", Guid.NewGuid().ToString("N"));
-        _host.Content = Text("Loading script results…");
+        _host.Content = Message("Loading script results…");
     }
 
     public FrameworkElement Element => _host;
@@ -95,7 +95,7 @@ internal sealed class ScriptResultsView : IDisposable
         if (runtime.Status != RuntimeStatus.Ready)
         {
             _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results can't be shown for {_resource}: {runtime.Message}");
-            _host.Content = Text(runtime.Message);
+            _host.Content = Message(runtime.Message);
             return;
         }
 
@@ -109,7 +109,7 @@ internal sealed class ScriptResultsView : IDisposable
             if (first != start)
             {
                 _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results: the browser control didn't start within {StartLimit.TotalSeconds:0} s for {_resource}.");
-                _host.Content = Text(WebViewRuntime.TimedOut(StartLimit));
+                _host.Content = Message(WebViewRuntime.TimedOut(StartLimit));
                 DisposeWhenStarted(start, browser);
                 return;
             }
@@ -124,7 +124,7 @@ internal sealed class ScriptResultsView : IDisposable
             or NotImplementedException or InvalidCastException)
         {
             _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"Script results can't be shown: the browser control didn't start for {_resource}.", ex);
-            _host.Content = Text(WebViewRuntime.Failed(ex.Message));
+            _host.Content = Message(WebViewRuntime.Failed(ex.Message));
             browser.Dispose();
             return;
         }
@@ -465,12 +465,19 @@ internal sealed class ScriptResultsView : IDisposable
 
     private static string Hex(System.Drawing.Color color) => $"#{color.R:x2}{color.G:x2}{color.B:x2}";
 
-    private static TextBlock Text(string text) => new()
+    // A tool window doesn't colour its content: without these a TextBlock is black on a dark theme.
+    internal static TextBlock Message(string text)
     {
-        Text = text,
-        TextWrapping = TextWrapping.Wrap,
-        Margin = new Thickness(12),
-    };
+        var message = new TextBlock
+        {
+            Text = text,
+            TextWrapping = TextWrapping.Wrap,
+            Padding = new Thickness(12),
+        };
+        message.SetResourceReference(TextBlock.ForegroundProperty, EnvironmentColors.ToolWindowTextBrushKey);
+        message.SetResourceReference(TextBlock.BackgroundProperty, EnvironmentColors.ToolWindowBackgroundBrushKey);
+        return message;
+    }
 
     private void DeleteFolder(string folder)
     {
