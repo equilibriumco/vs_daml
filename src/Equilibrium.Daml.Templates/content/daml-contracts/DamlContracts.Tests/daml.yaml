@@ -1,4 +1,4 @@
-sdk-version: DAML_SDK_VERSION
+sdk-version: EQDAML_SDK_VERSION
 name: daml-contracts-tests
 source: daml
 version: 0.1.0

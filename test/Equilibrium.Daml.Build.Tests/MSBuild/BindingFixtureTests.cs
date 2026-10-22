@@ -10,7 +10,7 @@ using Xunit;
 namespace Equilibrium.Daml.Build.Tests.MSBuild;
 
 // The checked-in generator output the binding index is tested against, held to what the pinned
-// generator writes today. With DAML_UPDATE_BINDING_FIXTURES=1 it is rewritten instead.
+// generator writes today. With EQDAML_UPDATE_BINDING_FIXTURES=1 it is rewritten instead.
 public sealed class BindingFixtureTests : IDisposable
 {
     private readonly MSBuildSandbox _sandbox = new();
@@ -65,7 +65,7 @@ public sealed class BindingFixtureTests : IDisposable
         }
         var generated = CSharpFiles(generation);
         var expected = Path.Combine(fixture, "csharp");
-        if (Environment.GetEnvironmentVariable("DAML_UPDATE_BINDING_FIXTURES") == "1")
+        if (Environment.GetEnvironmentVariable("EQDAML_UPDATE_BINDING_FIXTURES") == "1")
         {
             if (Directory.Exists(expected))
             {

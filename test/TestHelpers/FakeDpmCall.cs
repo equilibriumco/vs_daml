@@ -20,7 +20,7 @@ public sealed class FakeDpmCall
     /// <summary>Working directory of the process.</summary>
     public string WorkingDirectory { get; }
 
-    /// <summary>The DPM_*, DAML_* and JAVA_HOME variables the process saw, keys upper-cased.</summary>
+    /// <summary>The DPM_*, DAML_*, EQDAML_* and JAVA_HOME variables the process saw, keys upper-cased.</summary>
     public IReadOnlyDictionary<string, string> Environment { get; }
 
     /// <summary>The fake's process id, to check it is gone after it was stopped.</summary>

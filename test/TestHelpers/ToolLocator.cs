@@ -82,10 +82,10 @@ public static class ToolLocator
     }
 
     // Match the build scripts: an MSBuild-only installation cannot resolve .NET SDK projects.
-    // DAML_TEST_MSBUILD names a host directly.
+    // EQDAML_TEST_MSBUILD names a host directly.
     private static string? FindVisualStudioMSBuild()
     {
-        if (Environment.GetEnvironmentVariable("DAML_TEST_MSBUILD") is { Length: > 0 } chosen)
+        if (Environment.GetEnvironmentVariable("EQDAML_TEST_MSBUILD") is { Length: > 0 } chosen)
         {
             return File.Exists(chosen) ? chosen : null;
         }

@@ -103,7 +103,7 @@ if (-not $NoRun) {
     </PropertyGroup>
     <MSBuild Projects="`$(MeasuredProject)" Targets="CompileDesignTime"
              Properties="DesignTimeBuild=true;BuildingInsideVisualStudio=true;SkipCompilerExecution=true;ProvideCommandLineArgs=true;MeasureRun=%(MeasuredRun.Identity)" />
-    <Message Importance="high" Text="DAML-DTB-RUN %(MeasuredRun.Identity) `$([MSBuild]::Subtract(`$([System.DateTime]::UtcNow.Ticks), `$(_Started)))" />
+    <Message Importance="high" Text="EQDAML-DTB-RUN %(MeasuredRun.Identity) `$([MSBuild]::Subtract(`$([System.DateTime]::UtcNow.Ticks), `$(_Started)))" />
   </Target>
 </Project>
 "@

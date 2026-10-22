@@ -13,7 +13,7 @@
     PR for pull requests): every category of the gate runs, missing tools, a required project
     that executes no tests on one of its frameworks, any skip, any failure, a pending category
     that suddenly has tests, and coverage below the gate's thresholds all make the script exit
-    non-zero. Test code sees DAML_REQUIRED_TOOLS=1 and must fail instead of skipping when a
+    non-zero. Test code sees EQDAML_REQUIRED_TOOLS=1 and must fail instead of skipping when a
     tool is missing.
 
 .EXAMPLE
@@ -82,7 +82,7 @@ $pending = if ($RequiredTools) { $gate.Pending } else { @{} }
 $problems = [System.Collections.Generic.List[string]]::new()
 
 if ($RequiredTools) {
-    $env:DAML_REQUIRED_TOOLS = '1'
+    $env:EQDAML_REQUIRED_TOOLS = '1'
     foreach ($tool in $gate.Tools) {
         $path = Find-Tool $tool
         if ($path) { Write-Host "Tool ${tool}: $path" }
@@ -90,7 +90,7 @@ if ($RequiredTools) {
     }
 }
 else {
-    Remove-Item Env:DAML_REQUIRED_TOOLS -ErrorAction SilentlyContinue
+    Remove-Item Env:EQDAML_REQUIRED_TOOLS -ErrorAction SilentlyContinue
 }
 
 $testProjects = @{}

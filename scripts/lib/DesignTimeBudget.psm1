@@ -2,7 +2,7 @@
 <#
     The design-time build overhead of Equilibrium.Daml.Build.CSharp and its budget. A driver project runs the
     design-time build of a C# project several times in one MSBuild process and prints one line per
-    run: DAML-DTB-RUN <run> <ticks>. The first run pays for loading and JIT-compiling everything once
+    run: EQDAML-DTB-RUN <run> <ticks>. The first run pays for loading and JIT-compiling everything once
     (the cold run); the rest are what Visual Studio sees for every design-time build after that
     (the warm runs). The budget applies to the warm overhead; the cold one is reported.
 #>
@@ -25,13 +25,13 @@ function Read-DesignTimeRuns {
 
     $runs = @{}
     foreach ($line in $Lines) {
-        if ($line -match 'DAML-DTB-RUN (\d+) (\d+)') {
+        if ($line -match 'EQDAML-DTB-RUN (\d+) (\d+)') {
             $run = [int] $Matches[1]
             if ($runs.ContainsKey($run)) { throw "The design-time driver reported run $run twice." }
             $runs[$run] = [double] $Matches[2] / 10000
         }
     }
-    if ($runs.Count -eq 0) { throw 'The output has no design-time runs (DAML-DTB-RUN lines).' }
+    if ($runs.Count -eq 0) { throw 'The output has no design-time runs (EQDAML-DTB-RUN lines).' }
     return , @($runs.Keys | Sort-Object | ForEach-Object { $runs[$_] })
 }
 

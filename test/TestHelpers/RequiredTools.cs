@@ -5,14 +5,14 @@ namespace Equilibrium.Daml.TestHelpers;
 
 /// <summary>
 /// Gate for tests that need an external tool. Locally a missing tool skips the test; in gate
-/// runs (<c>DAML_REQUIRED_TOOLS=1</c>, set by <c>scripts/test.ps1 -RequiredTools</c>) it fails it,
+/// runs (<c>EQDAML_REQUIRED_TOOLS=1</c>, set by <c>scripts/test.ps1 -RequiredTools</c>) it fails it,
 /// so a machine without the toolchain can't produce a green result by skipping everything.
 /// </summary>
 /// <remarks>Tests that call this must be <c>[SkippableFact]</c>/<c>[SkippableTheory]</c>.</remarks>
 public static class RequiredTools
 {
     /// <summary>Environment variable that switches missing tools from "skip" to "fail".</summary>
-    public const string EnvironmentVariable = "DAML_REQUIRED_TOOLS";
+    public const string EnvironmentVariable = "EQDAML_REQUIRED_TOOLS";
 
     /// <summary>Whether this run is a gate run.</summary>
     public static bool IsRequiredMode => Environment.GetEnvironmentVariable(EnvironmentVariable) == "1";

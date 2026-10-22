@@ -17,10 +17,10 @@ Describe 'Read-DesignTimeRuns' {
     It 'reads the ticks of every run from the driver lines, in run order' {
         $lines = @(
             'Build started.',
-            '  DAML-DTB-RUN 1 4300000',
-            '  DAML-DTB-RUN 0 6970000',
+            '  EQDAML-DTB-RUN 1 4300000',
+            '  EQDAML-DTB-RUN 0 6970000',
             'warning: something else',
-            '  DAML-DTB-RUN 2 523456'
+            '  EQDAML-DTB-RUN 2 523456'
         )
 
         $runs = Read-DesignTimeRuns $lines
@@ -33,7 +33,7 @@ Describe 'Read-DesignTimeRuns' {
 
     It 'refuses output without runs or with a run twice' {
         Get-ThrownMessage { Read-DesignTimeRuns @('Build succeeded.') } | Should Match 'no design-time runs'
-        Get-ThrownMessage { Read-DesignTimeRuns @('DAML-DTB-RUN 0 10', 'DAML-DTB-RUN 0 20') } | Should Match 'run 0 twice'
+        Get-ThrownMessage { Read-DesignTimeRuns @('EQDAML-DTB-RUN 0 10', 'EQDAML-DTB-RUN 0 20') } | Should Match 'run 0 twice'
     }
 }
 

@@ -105,6 +105,7 @@ internal static class Program
             .Select(e => (Key: (string)e.Key, Value: (string?)e.Value ?? ""))
             .Where(e => e.Key.StartsWith("DPM_", StringComparison.OrdinalIgnoreCase)
                      || e.Key.StartsWith("DAML_", StringComparison.OrdinalIgnoreCase)
+                     || e.Key.StartsWith("EQDAML_", StringComparison.OrdinalIgnoreCase)
                      || e.Key.Equals("JAVA_HOME", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(e => e.Key.ToUpperInvariant(), e => e.Value);
 

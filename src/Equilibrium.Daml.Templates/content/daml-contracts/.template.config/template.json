@@ -29,20 +29,20 @@
       "type": "parameter",
       "datatype": "text",
       "defaultValue": "3.6.0",
-      "replaces": "DAML_SDK_VERSION",
+      "replaces": "EQDAML_SDK_VERSION",
       "description": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>."
     },
     "EqDamlPackagesVersion": {
       "type": "generated",
       "generator": "constant",
       "parameters": { "value": "@PackageVersion@" },
-      "replaces": "DAML_PACKAGES_VERSION"
+      "replaces": "EQDAML_PACKAGES_VERSION"
     },
     "EqDamlPackageIdPrefix": {
       "type": "generated",
       "generator": "constant",
       "parameters": { "value": "@PackageIdPrefix@" },
-      "replaces": "DAML_PACKAGE_PREFIX"
+      "replaces": "EQDAML_PACKAGE_PREFIX"
     }
   },
   "forms": {

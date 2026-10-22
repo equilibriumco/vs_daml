@@ -73,16 +73,16 @@ public class TemplateContentTests
         var folder = Path.Combine(Content, template);
         var config = File.ReadAllText(Path.Combine(folder, ".template.config", "template.json"));
 
-        config.ShouldMatch(@"""value"":\s*""@PackageVersion@""\s*},\s*""replaces"":\s*""DAML_PACKAGES_VERSION""");
-        config.ShouldMatch(@"""value"":\s*""@PackageIdPrefix@""\s*},\s*""replaces"":\s*""DAML_PACKAGE_PREFIX""");
+        config.ShouldMatch(@"""value"":\s*""@PackageVersion@""\s*},\s*""replaces"":\s*""EQDAML_PACKAGES_VERSION""");
+        config.ShouldMatch(@"""value"":\s*""@PackageIdPrefix@""\s*},\s*""replaces"":\s*""EQDAML_PACKAGE_PREFIX""");
         foreach (var project in Directory.GetFiles(folder, "*.msbuildproj", SearchOption.AllDirectories))
         {
-            XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe("DAML_PACKAGE_PREFIX.Sdk/DAML_PACKAGES_VERSION", project);
+            XDocument.Load(project).Root!.Attribute("Sdk")!.Value.ShouldBe("EQDAML_PACKAGE_PREFIX.Sdk/EQDAML_PACKAGES_VERSION", project);
         }
         foreach (var project in Directory.GetFiles(folder, "*.csproj", SearchOption.AllDirectories))
         {
             var reference = XDocument.Load(project).Descendants("PackageReference").Single(r => ((string)r.Attribute("Include")!).EndsWith(".Build.CSharp", StringComparison.Ordinal));
-            ((string)reference.Attribute("Include")!, (string)reference.Attribute("Version")!).ShouldBe(("DAML_PACKAGE_PREFIX.Build.CSharp", "DAML_PACKAGES_VERSION"), project);
+            ((string)reference.Attribute("Include")!, (string)reference.Attribute("Version")!).ShouldBe(("EQDAML_PACKAGE_PREFIX.Build.CSharp", "EQDAML_PACKAGES_VERSION"), project);
         }
     }
 }

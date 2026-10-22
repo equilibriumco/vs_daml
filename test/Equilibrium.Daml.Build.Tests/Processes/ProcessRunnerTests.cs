@@ -120,26 +120,26 @@ public sealed class ProcessRunnerTests : IDisposable
         var work = Directory.CreateDirectory(Path.Combine(_fake.RootDirectory, "work dir")).FullName;
         // Inheritance can only be shown with a variable of this process; these two names belong
         // to this test alone, and no other test asserts on their absence.
-        Environment.SetEnvironmentVariable("DAML_INHERITED_BY_TEST", "kept");
+        Environment.SetEnvironmentVariable("EQDAML_INHERITED_BY_TEST", "kept");
         Environment.SetEnvironmentVariable("DPM_REMOVED_BY_TEST", "gone");
         try
         {
             var spec = Spec(_fake.ExecutablePath, "x") with { WorkingDirectory = work };
             var environment = spec.Environment.ToDictionary(p => p.Key, p => p.Value);
-            environment["DAML_SET_BY_TEST"] = "set";
+            environment["EQDAML_SET_BY_TEST"] = "set";
             environment["DPM_REMOVED_BY_TEST"] = null;
 
             await _runner.RunAsync(spec with { Environment = environment }, CancellationToken.None);
 
             var call = _fake.ReadCalls().Single();
             call.WorkingDirectory.ShouldBe(work);
-            call.Environment["DAML_SET_BY_TEST"].ShouldBe("set");
-            call.Environment["DAML_INHERITED_BY_TEST"].ShouldBe("kept");
+            call.Environment["EQDAML_SET_BY_TEST"].ShouldBe("set");
+            call.Environment["EQDAML_INHERITED_BY_TEST"].ShouldBe("kept");
             call.Environment.Keys.ShouldNotContain("DPM_REMOVED_BY_TEST");
         }
         finally
         {
-            Environment.SetEnvironmentVariable("DAML_INHERITED_BY_TEST", null);
+            Environment.SetEnvironmentVariable("EQDAML_INHERITED_BY_TEST", null);
             Environment.SetEnvironmentVariable("DPM_REMOVED_BY_TEST", null);
         }
     }

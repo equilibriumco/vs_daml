@@ -20,7 +20,7 @@
   <!-- The build turns the Daml package into C# in this project's obj folder (namespace DamlApp.Contracts
        plus the Daml module) and compiles it with the rest; the generated code needs both runtime packages. -->
   <ItemGroup>
-    <PackageReference Include="DAML_PACKAGE_PREFIX.Build.CSharp" Version="DAML_PACKAGES_VERSION" PrivateAssets="all" />
+    <PackageReference Include="EQDAML_PACKAGE_PREFIX.Build.CSharp" Version="EQDAML_PACKAGES_VERSION" PrivateAssets="all" />
     <PackageReference Include="Daml.Runtime" Version="0.6.0" />
     <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
     <EqDamlReference Include="..\DamlApp.Contracts\DamlApp.Contracts.msbuildproj" Namespace="DamlApp.Contracts" />
