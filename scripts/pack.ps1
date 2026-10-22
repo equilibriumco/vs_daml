@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Release build plus packaging: the VSIX and every packable project's NuGet package
-    end up in artifacts/packages.
+    end up in artifacts/packages, a CycloneDX SBOM of each in artifacts/sbom.
 
 .DESCRIPTION
     Projects are not packable unless they opt in with IsPackable=true, so this only
@@ -52,6 +52,9 @@ Write-Host "VSIX check passed: $($vsix[0].Name) $version (VS 2026 [18.0,), amd64
 $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
+
+& (Join-Path $PSScriptRoot 'sbom.ps1') -Packages $out -Output (Join-Path $root 'artifacts\sbom')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 # Local packs reuse build number 0, and NuGet never looks again at a version it has extracted:
 # an older copy in the machine's package folder wins over these packages in every restore that

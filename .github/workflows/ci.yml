@@ -39,7 +39,8 @@ jobs:
           Select-BuildVsInstance | Format-List DisplayName, Version, MSBuildVersion, SdkVersion
 
       # Release build plus packaging; pack.ps1 also rejects a VSIX with the wrong targets or
-      # with assemblies Visual Studio provides itself.
+      # with assemblies Visual Studio provides itself, and writes a CycloneDX SBOM per artifact,
+      # failing when one isn't covered by NOTICE or a vendored file doesn't match its PIN.
       - name: Build and pack
         run: ./scripts/pack.ps1
 
@@ -56,11 +57,14 @@ jobs:
       - name: Tests (PR gate)
         run: ./scripts/test.ps1 -Category All -Milestone PR -RequiredTools -Configuration Release -NoBuild
 
-      - name: Upload VSIX and packages
+      # Two paths: the artifact holds packages/ and sbom/ folders.
+      - name: Upload VSIX, packages and SBOMs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-${{ github.run_number }}
-          path: artifacts/packages
+          path: |
+            artifacts/packages
+            artifacts/sbom
           if-no-files-found: error
           retention-days: 30
 
