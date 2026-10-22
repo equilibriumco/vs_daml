@@ -60,6 +60,25 @@ public class LanguageServerCommandBuilderTests
         arguments.Skip(arguments.Count - 4).ShouldBe(["--studio-auto-run-all-scripts=yes", "--jobs=4", "-W", "foo"]);
     }
 
+    // damlc ide still accepts --telemetry, --optOutTelemetry and --telemetry-ignored without
+    // listing them; leaving them out keeps its usage reporting off.
+    [Fact, Trait("Category", "Unit")]
+    public void No_telemetry_switch_is_ever_added_by_the_extension()
+    {
+        var commands =
+            from mode in new[] { ServerMode.Ide, ServerMode.MultiIde }
+            from level in new[] { ServerLogLevel.Debug, ServerLogLevel.Info, ServerLogLevel.Warning, ServerLogLevel.Error }
+            from autorun in new[] { false, true }
+            from kind in new[] { AssistantKind.Dpm, AssistantKind.DamlAssistant }
+            select LanguageServerCommandBuilder.Build(Sdk(kind), Workspace(mode), new LanguageServerOptions { LogLevel = level, AutorunAllTests = autorun });
+
+        foreach (var command in commands)
+        {
+            command.Arguments.ShouldAllBe(argument => argument.IndexOf("telemetry", StringComparison.OrdinalIgnoreCase) < 0);
+            command.Environment.ShouldBeEmpty();
+        }
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void The_server_runs_through_the_chosen_tool_in_the_server_working_folder_with_the_inherited_environment()
     {
