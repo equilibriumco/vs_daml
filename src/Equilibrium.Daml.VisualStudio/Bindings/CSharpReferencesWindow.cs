@@ -12,7 +12,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Equilibrium.Daml.VisualStudio.Bindings;
 
-/// <summary>Brings up "Daml: C# References" with the uses of one declaration.</summary>
+/// <summary>Brings up "EQ Daml: C# References" with the uses of one declaration.</summary>
 [Export]
 [PartCreationPolicy(CreationPolicy.Shared)]
 internal sealed class CSharpReferencesWindow

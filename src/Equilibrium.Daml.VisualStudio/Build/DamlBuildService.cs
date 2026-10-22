@@ -13,7 +13,7 @@ using Microsoft.VisualStudio.Threading;
 namespace Equilibrium.Daml.VisualStudio.Build;
 
 /// <summary>
-/// The one place Open Folder build actions run through: dpm output goes to the "Daml Build"
+/// The one place Open Folder build actions run through: dpm output goes to the "EQ Daml Tools: Build"
 /// pane, and the diagnostics go back to the caller for Visual Studio's build reporting.
 /// Closing the folder or solution cancels what's running.
 /// </summary>

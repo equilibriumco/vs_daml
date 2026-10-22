@@ -45,7 +45,7 @@ public class OutputWindowLoggerTests
         await logger.DrainAsync();
 
         var pane = _outputWindow.Panes.Single();
-        pane.Title.ShouldBe("Daml");
+        pane.Title.ShouldBe("EQ Daml Tools");
         LinesOf(pane).Select(l => l.Substring(l.IndexOf("info", StringComparison.Ordinal)).TrimEnd()).ShouldBe(new[] { "info line 1", "info line 2", "info line 3" });
     }
 
@@ -59,8 +59,8 @@ public class OutputWindowLoggerTests
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "retrying");
         await logger.DrainAsync();
 
-        _outputWindow.Panes.Select(p => p.Title).OrderBy(t => t).ShouldBe(new[] { "Daml", "Daml Build" });
-        LinesOf(_outputWindow.Panes.Single(p => p.Title == "Daml Build")).Length.ShouldBe(2);
+        _outputWindow.Panes.Select(p => p.Title).OrderBy(t => t).ShouldBe(new[] { "EQ Daml Tools", "EQ Daml Tools: Build" });
+        LinesOf(_outputWindow.Panes.Single(p => p.Title == "EQ Daml Tools: Build")).Length.ShouldBe(2);
     }
 
     [Fact, Trait("Category", "Editor")]
@@ -84,7 +84,7 @@ public class OutputWindowLoggerTests
         await logger.DrainAsync();
 
         var text = string.Concat(_outputWindow.Panes.Single().Lines);
-        _outputWindow.Panes.Single().Title.ShouldBe("Daml Language Server");
+        _outputWindow.Panes.Single().Title.ShouldBe("EQ Daml Tools: Language Server");
         text.ShouldContain("fail server crashed");
         text.ShouldContain("System.InvalidOperationException: exit code 3");
     }
@@ -149,8 +149,8 @@ public class OutputWindowLoggerTests
         }
         await logger.DrainAsync();
 
-        LinesOf(_outputWindow.Panes.Single(p => p.Title == "Daml Build")).Select(Message).ShouldBe(new[] { "b1", "b2", "b3" });
-        LinesOf(_outputWindow.Panes.Single(p => p.Title == "Daml")).Select(Message).ShouldBe(new[] { "e1", "e2" });
+        LinesOf(_outputWindow.Panes.Single(p => p.Title == "EQ Daml Tools: Build")).Select(Message).ShouldBe(new[] { "b1", "b2", "b3" });
+        LinesOf(_outputWindow.Panes.Single(p => p.Title == "EQ Daml Tools")).Select(Message).ShouldBe(new[] { "e1", "e2" });
     }
 
     [Fact, Trait("Category", "Editor")]

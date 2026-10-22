@@ -34,9 +34,9 @@ public sealed record DiagnosticReportInput
 /// </summary>
 public static class DiagnosticReport
 {
-    /// <summary><c>%LOCALAPPDATA%\DamlVisualStudio\diagnostics</c>, beside the log files.</summary>
+    /// <summary><c>%LOCALAPPDATA%\EquilibriumDamlTools\diagnostics</c>, beside the log files.</summary>
     public static string DefaultFolder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio", "diagnostics");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools", "diagnostics");
 
     /// <summary>The report's text.</summary>
     public static string Create(DiagnosticReportInput input, DiagnosticRedactor redactor, TimeProvider time)

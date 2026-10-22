@@ -22,6 +22,6 @@ internal static class PackageGuids
     // The script results tool window type; each results resource gets its own instance of it.
     public const string ScriptResultsWindowString = "2c1e6e0b-7d43-4a7b-9b1e-5f2a8c6d4e91";
 
-    // The "Daml: C# References" tool window; one instance, filled again by each lens click.
+    // The "EQ Daml: C# References" tool window; one instance, filled again by each lens click.
     public const string CSharpReferencesWindowString = "9171ec86-4323-4292-ba3a-bded468b24f5";
 }

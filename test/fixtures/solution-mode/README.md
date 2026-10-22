@@ -18,5 +18,5 @@ versions out, so the projects build like a user's.
    Studio.
 
 `app/multi-package.yaml`, which the offer creates, is ignored by git; delete it to see the offer again. "Don't ask again"
-writes `app\.vs\DamlVisualStudio\multi-package-offer.declined`; delete that to be asked again. `.daml`, `obj` and `bin`
+writes `app\.vs\EquilibriumDamlTools\multi-package-offer.declined`; delete that to be asked again. `.daml`, `obj` and `bin`
 are build output.

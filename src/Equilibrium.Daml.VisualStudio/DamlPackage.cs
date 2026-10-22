@@ -33,7 +33,7 @@ namespace Equilibrium.Daml.VisualStudio;
 [ProvideToolWindow(typeof(ScriptResults.ScriptResultsToolWindow), MultiInstances = true, Transient = true, Style = VsDockStyle.Tabbed, Window = OutputWindowGuid)]
 // The C# references of a Daml declaration, one window that each lens click fills again.
 [ProvideToolWindow(typeof(Bindings.CSharpReferencesToolWindow), Transient = true, Style = VsDockStyle.Tabbed, Window = OutputWindowGuid)]
-[ProvideOptionPage(typeof(Options.DamlOptionPages.General), "Daml", "General", 0, 0, true, SupportsProfiles = true)]
+[ProvideOptionPage(typeof(Options.DamlOptionPages.General), "EQ Daml Tools", "General", 0, 0, true, SupportsProfiles = true)]
 [ProvideAutoLoad(PackageGuids.DamlActiveString, PackageAutoLoadFlags.BackgroundLoad)]
 [ProvideUIContextRule(
     PackageGuids.DamlActiveString,

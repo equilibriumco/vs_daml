@@ -317,7 +317,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     // cache and the locks in a LOCALAPPDATA of their own, away from the machine's.
     private (string App, Dictionary<string, string> Environment, Dictionary<string, string> Properties) FakeCodegen(int generatorDelay = 0)
     {
-        var cache = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"));
+        var cache = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"EquilibriumDamlTools\codegen"));
         new GeneratorCache(cache.Root, cache.Pin).MarkReady();
         var generator = new FakeDpmCommand { DelayMilliseconds = generatorDelay };
         generator.Args.AddRange(["codegen-cs", "--dar", "*", "--out", "*"]);

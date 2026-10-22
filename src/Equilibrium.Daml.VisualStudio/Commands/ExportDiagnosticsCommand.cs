@@ -50,13 +50,13 @@ internal sealed class ExportDiagnosticsCommand : BaseCommand<ExportDiagnosticsCo
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, "Couldn't write the Daml diagnostic report.", ex);
-            await VS.StatusBar.ShowMessageAsync("Daml: couldn't write the diagnostic report; the Daml pane of the Output window says why.");
+            await VS.StatusBar.ShowMessageAsync("EQ Daml: couldn't write the diagnostic report; the EQ Daml Tools pane of the Output window says why.");
             return;
         }
 
         logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Diagnostic report written to {path}.");
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         await VS.Documents.OpenAsync(path);
-        await VS.StatusBar.ShowMessageAsync("Daml diagnostic report created. Read it before you share it.");
+        await VS.StatusBar.ShowMessageAsync("EQ Daml: diagnostic report created. Read it before you share it.");
     }
 }

@@ -51,7 +51,7 @@ public sealed class RollingLogFileTests : IDisposable
 
     [Fact, Trait("Category", "Unit")]
     public void By_default_the_files_live_with_the_extensions_other_local_data() =>
-        RollingLogFile.DefaultFolder.ShouldBe(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio", "logs"));
+        RollingLogFile.DefaultFolder.ShouldBe(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools", "logs"));
 
     [Fact, Trait("Category", "Unit")]
     public void Nothing_is_created_before_the_first_entry()

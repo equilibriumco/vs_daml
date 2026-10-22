@@ -120,7 +120,7 @@ internal sealed class ShowScriptResultsAtCaretCommand : BaseCommand<ShowScriptRe
             var logger = await VS.GetMefServiceAsync<IDamlLogger>();
             var where = caret is { } at ? $"line {at.GetContainingLine().LineNumber + 1} of {view!.FilePath}" : "no Daml editor";
             logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Show Script Results at Caret: no script at the caret ({where}).");
-            await VS.StatusBar.ShowMessageAsync("Daml: no script at the caret. Script results appear above scripts once the language server is ready.");
+            await VS.StatusBar.ShowMessageAsync("EQ Daml: no script at the caret. Script results appear above scripts once the language server is ready.");
             return;
         }
         var sources = await VS.GetMefServiceAsync<DamlLensSources>();

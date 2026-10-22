@@ -132,7 +132,7 @@ public class ScaleTests
             }
             await Task.Delay(100);
         }
-        Assert.Fail($"No error for {file} reached the Error List within {Patience.TotalSeconds:0} s.{Environment.NewLine}{Ide.PaneText("Daml Language Server", 6000)}");
+        Assert.Fail($"No error for {file} reached the Error List within {Patience.TotalSeconds:0} s.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools: Language Server", 6000)}");
         return clock.Elapsed;
     }
 
@@ -160,7 +160,7 @@ public class ScaleTests
             }
             await Task.Delay(50);
         }
-        Assert.Fail($"The C# references row of Asset1 in {file} never counted; last seen: '{seen}'.{Environment.NewLine}{Ide.PaneText("Daml", 6000)}");
+        Assert.Fail($"The C# references row of Asset1 in {file} never counted; last seen: '{seen}'.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 6000)}");
         return clock.Elapsed;
     }
 
@@ -187,7 +187,7 @@ public class ScaleTests
             }
         }
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        Assert.Fail($"Background sync didn't generate Extra1 into {generated} within {Patience.TotalSeconds:0} s.{Environment.NewLine}{Ide.PaneText("Daml", 6000)}");
+        Assert.Fail($"Background sync didn't generate Extra1 into {generated} within {Patience.TotalSeconds:0} s.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 6000)}");
         return clock.Elapsed;
     }
 }

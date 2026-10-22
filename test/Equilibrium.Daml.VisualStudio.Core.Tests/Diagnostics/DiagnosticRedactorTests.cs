@@ -11,7 +11,7 @@ public class DiagnosticRedactorTests
     internal static readonly DiagnosticRedactor Redactor = new(
         [
             new RedactedFolder(@"C:\Users\jdoe-private\AppData\Roaming\dpm", "${DPM}", KeepRest: true),
-            new RedactedFolder(@"C:\Users\jdoe-private\AppData\Local\DamlVisualStudio", "${EXTENSIONDATA}", KeepRest: true),
+            new RedactedFolder(@"C:\Users\jdoe-private\AppData\Local\EquilibriumDamlTools", "${EXTENSIONDATA}", KeepRest: true),
             new RedactedFolder(@"C:\Users\jdoe-private\AppData\Local\Temp", "${TEMP}", KeepRest: false),
             new RedactedFolder(@"C:\Users\jdoe-private\AppData\Local", "${LOCALAPPDATA}", KeepRest: false),
             new RedactedFolder(@"C:\Users\jdoe-private", "${HOME}", KeepRest: false),
@@ -25,7 +25,7 @@ public class DiagnosticRedactorTests
     [InlineData(@"open file:///c%3A/users/JDOE-PRIVATE/source/repos/AcmeMergerSecret/daml/Main.daml", @"open file:///${WORKSPACE}/.../Main.daml")]
     [InlineData(@"folder C:\Users\jdoe-private\source\repos\AcmeMergerSecret", @"folder ${WORKSPACE}")]
     [InlineData(@"tool C:\Users\jdoe-private\AppData\Roaming\dpm\cache\components\damlc\3.6.2\damlc.exe", @"tool ${DPM}\cache\components\damlc\3.6.2\damlc.exe")]
-    [InlineData(@"cache C:\Users\jdoe-private\AppData\Local\DamlVisualStudio\codegen\sha256-0f", @"cache ${EXTENSIONDATA}\codegen\sha256-0f")]
+    [InlineData(@"cache C:\Users\jdoe-private\AppData\Local\EquilibriumDamlTools\codegen\sha256-0f", @"cache ${EXTENSIONDATA}\codegen\sha256-0f")]
     [InlineData(@"copy C:\Users\jdoe-private\AppData\Local\Temp\daml-copy-8812\Main.daml", @"copy ${TEMP}\...\Main.daml")]
     [InlineData(@"D:\clients\AcmeMergerSecret\daml\Payout.daml:3:1: error", @"<path>\...\Payout.daml:3:1: error")]
     [InlineData(@"""D:\clients\AcmeMergerSecret\ledger token.jwt""", @"""<path> token.jwt""")]
@@ -157,7 +157,7 @@ public class DiagnosticRedactorTests
     [Fact, Trait("Category", "Unit")]
     public void Ordinary_log_lines_stay_as_they_are()
     {
-        const string Line = "2026-10-22 07:50:15.000 fail [LanguageServer] EQD0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.";
+        const string Line = "2026-10-22 07:50:15.000 fail [LanguageServer] EQD0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > EQ Daml Tools.";
 
         Redactor.Redact(Line).ShouldBe(Line);
     }

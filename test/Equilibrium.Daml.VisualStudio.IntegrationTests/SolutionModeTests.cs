@@ -70,6 +70,6 @@ public class SolutionModeTests
                 return;
             }
         }
-        Assert.Fail($"Go To Definition on {word} in {Path.GetFileName(file)} didn't open {target}; the active document is '{landed}'.{Environment.NewLine}{Ide.PaneText("Daml Language Server", 12000)}");
+        Assert.Fail($"Go To Definition on {word} in {Path.GetFileName(file)} didn't open {target}; the active document is '{landed}'.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools: Language Server", 12000)}");
     }
 }

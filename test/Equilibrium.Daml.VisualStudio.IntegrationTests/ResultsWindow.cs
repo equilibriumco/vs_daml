@@ -217,7 +217,7 @@ internal static class ResultsWindow
     {
         using var search = new ManagementObjectSearcher("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name = 'msedgewebview2.exe'");
         return search.Get().Cast<ManagementObject>()
-            .Count(p => p["CommandLine"] is string line && line.IndexOf(@"DamlVisualStudio\WebView2", StringComparison.OrdinalIgnoreCase) >= 0);
+            .Count(p => p["CommandLine"] is string line && line.IndexOf(@"EquilibriumDamlTools\WebView2", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     public static long DevenvPrivateBytes()

@@ -299,7 +299,7 @@ public class ScriptResultsTests
 
             // The page's own switch, as its button would call it.
             await ResultsWindow.EvalAsync(browser, "toggle_view()");
-            var saved = Path.Combine(folder, ".vs", "DamlVisualStudio", "view-state.json");
+            var saved = Path.Combine(folder, ".vs", "EquilibriumDamlTools", "view-state.json");
             var deadline = DateTime.UtcNow + Patience;
             while (DateTime.UtcNow < deadline && !(File.Exists(saved) && File.ReadAllText(saved).Contains("transaction")))
             {
@@ -467,7 +467,7 @@ public class ScriptResultsTests
                 .Distinct());
         return $"Status bar: '{Ide.Dte().StatusBar.Text}'. Rows on lines (0-based): {rows}. "
             + $"Caret on line {(view is null ? -1 : view.Caret.Position.BufferPosition.GetContainingLine().LineNumber)}.{Environment.NewLine}"
-            + $"Daml pane:{Environment.NewLine}{Ide.PaneText("Daml", 3000)}{Environment.NewLine}"
+            + $"EQ Daml Tools pane:{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 3000)}{Environment.NewLine}"
             + $"Extensions pane:{Environment.NewLine}{Ide.PaneText("Extensions", 3000)}";
     }
 

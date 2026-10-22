@@ -12,7 +12,7 @@ using Task = System.Threading.Tasks.Task;
 namespace Equilibrium.Daml.VisualStudio.ScriptResults;
 
 /// <summary>
-/// The saved views of the current workspace's results windows, in <c>.vs\DamlVisualStudio\view-state.json</c>
+/// The saved views of the current workspace's results windows, in <c>.vs\EquilibriumDamlTools\view-state.json</c>
 /// under the open folder or solution. Read on first use, written shortly after a change, both
 /// off the UI thread. Without a workspace views are kept for the session only.
 /// </summary>
@@ -33,7 +33,7 @@ internal sealed class ViewStateStore : IDisposable
     /// <summary>The saved view of <paramref name="resource"/> in <paramref name="workspace"/>, or the page's default.</summary>
     public async Task<ScriptResultsViewState> GetAsync(string? workspace, string resource)
     {
-        var file = workspace is null ? null : Path.Combine(workspace, ".vs", "DamlVisualStudio", "view-state.json");
+        var file = workspace is null ? null : Path.Combine(workspace, ".vs", "EquilibriumDamlTools", "view-state.json");
         bool load;
         lock (_gate)
         {

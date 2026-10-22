@@ -14,7 +14,7 @@ public sealed class CompilerCache : IDisposable
     private readonly FileStream? _lease;
 
     /// <summary>Uses a bounded cache pool; overflow commands get temporary caches without waiting.</summary>
-    public CompilerCache() : this(Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio", "compiler-cache")) { }
+    public CompilerCache() : this(Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools", "compiler-cache")) { }
 
     internal CompilerCache(string root)
     {

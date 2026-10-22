@@ -41,7 +41,7 @@ public sealed class AssistantLocator
             var path = ConfiguredPath(kind, configuredPath!);
             return _fileSystem.FileExists(path)
                 ? new AssistantLocation(kind, path)
-                : throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml doesn't exist: {configuredPath}");
+                : throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > EQ Daml Tools doesn't exist: {configuredPath}");
         }
 
         var found = kind == AssistantKind.Dpm
@@ -61,7 +61,7 @@ public sealed class AssistantLocator
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > Daml isn't a full path to a file: {configured}");
+            throw new SdkResolutionException($"The {ToolName(kind)} path set in Tools > Options > EQ Daml Tools isn't a full path to a file: {configured}");
         }
     }
 

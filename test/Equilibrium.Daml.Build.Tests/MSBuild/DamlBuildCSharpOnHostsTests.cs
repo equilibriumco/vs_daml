@@ -76,7 +76,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     {
         if (_pin is null)
         {
-            var cache = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"));
+            var cache = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"EquilibriumDamlTools\codegen"));
             new GeneratorCache(cache.Root, cache.Pin).MarkReady();
             _pin = cache.Pin;
             _sandbox.UseSdkFeed();
@@ -488,7 +488,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         Uses("Finance");
         var first = Build(MSBuildHost.Dotnet);
         var old = Directory.GetDirectories(GeneratedRoot).ShouldHaveSingleItem();
-        var next = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"DamlVisualStudio\codegen"), variant: "next release");
+        var next = SyntheticGeneratorCache.Create(Path.Combine(_localAppData, @"EquilibriumDamlTools\codegen"), variant: "next release");
         new GeneratorCache(next.Root, next.Pin).MarkReady();
 
         var second = Build(MSBuildHost.Dotnet, properties: ("EqDamlCodegenComponent", next.Pin.Reference));
@@ -698,7 +698,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         Scenario(generator);
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
         Uses("Finance");
-        var root = Path.Combine(_localAppData, @"DamlVisualStudio\codegen");
+        var root = Path.Combine(_localAppData, @"EquilibriumDamlTools\codegen");
         var other = SyntheticGeneratorCache.Create(root, variant: "next release");
         new GeneratorCache(other.Root, other.Pin).MarkReady();
         _sandbox.Write(@"Other\Other.csproj", File.ReadAllText(Path.Combine(AppFolder, "App.csproj")));

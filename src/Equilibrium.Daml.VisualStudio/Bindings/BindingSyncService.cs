@@ -24,7 +24,7 @@ namespace Equilibrium.Daml.VisualStudio.Bindings;
 /// Background sync of bindings, when the user turned it on: a saved Daml file or manifest makes the
 /// C# projects generating from its package (or from packages built on it) stale, and they are
 /// refreshed a moment later, one at a time. Visual Studio builds pause refreshes, which resume to verify pending projects. Progress shows in
-/// the Task Status Center, the outcome on the status bar and in the Daml Build pane, errors in the
+/// the Task Status Center, the outcome on the status bar and in the EQ Daml Tools: Build pane, errors in the
 /// Error List. The policy lives in <see cref="BindingSyncScheduler"/> and <see cref="BindingSyncPlanner"/>;
 /// this only connects them to Visual Studio.
 /// </summary>
@@ -127,24 +127,24 @@ internal sealed class BindingSyncService : IDisposable
         {
             case BindingSyncState.Updating:
                 ShowProgress(status.Target, name);
-                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: updating the C# bindings of {name}…")).FileAndForget("daml/bindingSync/status");
+                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"EQ Daml: updating the C# bindings of {name}…")).FileAndForget("daml/bindingSync/status");
                 break;
             case BindingSyncState.Ready:
                 EndProgress(status.Target);
                 // Published outside Visual Studio, like a build, so the index reads it whole.
                 _bindings.ReadAgain();
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"The Daml bindings of {name} are up to date{(status.Message is { } how ? ": " + how : ".")}");
-                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the C# bindings of {name} are up to date")).FileAndForget("daml/bindingSync/status");
+                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"EQ Daml: the C# bindings of {name} are up to date")).FileAndForget("daml/bindingSync/status");
                 break;
             case BindingSyncState.Failed:
                 EndProgress(status.Target);
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, $"The Daml bindings of {name} couldn't be updated and stay as they were: {status.Message}");
-                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the C# bindings of {name} are out of date ({status.Message})")).FileAndForget("daml/bindingSync/status");
+                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"EQ Daml: the C# bindings of {name} are out of date ({status.Message})")).FileAndForget("daml/bindingSync/status");
                 break;
             case BindingSyncState.Cancelled:
                 EndProgress(status.Target);
                 _logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"The update of the Daml bindings of {name} was cancelled; they stay as they were until the next Daml change or build.");
-                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"Daml: the update of the C# bindings of {name} was cancelled")).FileAndForget("daml/bindingSync/status");
+                _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync($"EQ Daml: the update of the C# bindings of {name} was cancelled")).FileAndForget("daml/bindingSync/status");
                 break;
             default:
                 // Stale again while refreshing: the running entry ends, a new one starts with the next run.

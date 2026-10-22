@@ -109,7 +109,7 @@ public class BuildTests
             await Task.Delay(1000);
         }
 
-        Assert.True(found, $"No EQD0001 build error for {expected}:5:9 reached the Error List. {Ide.PaneText("Daml Build", 12000)}");
+        Assert.True(found, $"No EQD0001 build error for {expected}:5:9 reached the Error List. {Ide.PaneText("EQ Daml Tools: Build", 12000)}");
     }
 
     private static async Task WaitForIndexAsync(TimeSpan timeout)

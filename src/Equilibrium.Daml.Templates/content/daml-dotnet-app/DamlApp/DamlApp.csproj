@@ -9,7 +9,7 @@
 <!--#if (AllowToolInstall) -->
 
   <!-- The C# generator is downloaded once per machine and generator version, digest-checked, into
-       %LOCALAPPDATA%\DamlVisualStudio\codegen. This lets the build do that on its first run; without it
+       %LOCALAPPDATA%\EquilibriumDamlTools\codegen. This lets the build do that on its first run; without it
        a machine that hasn't got the generator stops with EQD0101. An offline build (EqDamlOffline=true)
        still downloads nothing. -->
   <PropertyGroup>

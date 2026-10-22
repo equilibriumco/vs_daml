@@ -34,7 +34,7 @@ internal sealed class LanguageServerNotifier
 
     /// <summary>A session is starting; like any status bar text, the next message replaces it.</summary>
     public void ShowStarting() =>
-        _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync("Daml: starting…")).FileAndForget("daml/languageClient/starting");
+        _joinableTaskFactory.RunAsync(() => VS.StatusBar.ShowMessageAsync("EQ Daml: starting…")).FileAndForget("daml/languageClient/starting");
 
     /// <summary>Publishes readiness as a UI context (commands and tests wait on it) and in the status bar.</summary>
     public void OnReadinessChanged(object? sender, EventArgs e) =>
@@ -46,7 +46,7 @@ internal sealed class LanguageServerNotifier
             UIContext.FromUIContextGuid(PackageGuids.LanguageServerReady).IsActive = ready;
             if (ready)
             {
-                await VS.StatusBar.ShowMessageAsync("Daml: ready");
+                await VS.StatusBar.ShowMessageAsync("EQ Daml: ready");
             }
         }).FileAndForget("daml/languageClient/readiness");
 

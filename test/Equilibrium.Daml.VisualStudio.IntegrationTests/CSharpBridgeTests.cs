@@ -54,7 +54,7 @@ public class CSharpBridgeTests
                 }
             }
 
-            Assert.True(string.Equals(path, main, StringComparison.OrdinalIgnoreCase), $"Go to Daml Definition didn't open {main}; the active document is '{path}'.{Environment.NewLine}{Ide.PaneText("Daml", 4000)}");
+            Assert.True(string.Equals(path, main, StringComparison.OrdinalIgnoreCase), $"Go to Daml Definition didn't open {main}; the active document is '{path}'.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 4000)}");
             Assert.StartsWith("template Asset", line.Trim(), StringComparison.Ordinal);
         }
         finally
@@ -78,11 +78,11 @@ public class CSharpBridgeTests
             var counted = await WaitForRowTextAsync(view, t => Regex.IsMatch(t, @"^C#: [1-9]\d* references?$"));
             var count = int.Parse(Regex.Match(counted.Text, @"\d+").Value, System.Globalization.CultureInfo.InvariantCulture);
             counted.Link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
-            var caption = await Ide.WaitForToolWindowAsync(c => c.StartsWith("Daml: C# References — Main:Asset", StringComparison.Ordinal) && c.EndsWith($"({count})", StringComparison.Ordinal), Patience);
-            Assert.True(caption is not null, $"No 'Daml: C# References — Main:Asset ({count})' window opened.{Environment.NewLine}{Ide.PaneText("Daml", 4000)}");
+            var caption = await Ide.WaitForToolWindowAsync(c => c.StartsWith("EQ Daml: C# References — Main:Asset", StringComparison.Ordinal) && c.EndsWith($"({count})", StringComparison.Ordinal), Patience);
+            Assert.True(caption is not null, $"No 'Daml: C# References — Main:Asset ({count})' window opened.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 4000)}");
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            var rows = Ide.TableRows("DamlCSharpReferences", StandardTableKeyNames.DocumentName, StandardTableKeyNames.Text);
+            var rows = Ide.TableRows("EqDamlCSharpReferences", StandardTableKeyNames.DocumentName, StandardTableKeyNames.Text);
             Assert.Equal(count, rows.Count);
             Assert.Contains(rows, r => r[StandardTableKeyNames.DocumentName] is string document && document.EndsWith(@"\Shop\Program.cs", StringComparison.OrdinalIgnoreCase)
                 && r[StandardTableKeyNames.Text] is string code && code.Contains("Asset"));
@@ -140,7 +140,7 @@ public class CSharpBridgeTests
             }
             await Task.Delay(500);
         }
-        Assert.Fail($"The C# references row of template Asset never showed the expected text; last seen: '{seen}'.{Environment.NewLine}{Ide.PaneText("Daml", 4000)}");
+        Assert.Fail($"The C# references row of template Asset never showed the expected text; last seen: '{seen}'.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 4000)}");
         return default;
     }
 }

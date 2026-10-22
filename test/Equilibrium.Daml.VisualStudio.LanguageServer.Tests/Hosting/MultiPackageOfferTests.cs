@@ -63,7 +63,7 @@ public sealed class MultiPackageOfferTests : IDisposable
     {
         _offer.Dismiss(_solution);
 
-        File.Exists(Path.Combine(_solution, ".vs", "DamlVisualStudio", MultiPackageOffer.DismissalFileName)).ShouldBeTrue();
+        File.Exists(Path.Combine(_solution, ".vs", "EquilibriumDamlTools", MultiPackageOffer.DismissalFileName)).ShouldBeTrue();
         new MultiPackageOffer(new PhysicalFileSystem(), new YamlManifestReader(new PhysicalFileSystem())).ToShow(_solution, _manifests).ShouldBeNull();
     }
 

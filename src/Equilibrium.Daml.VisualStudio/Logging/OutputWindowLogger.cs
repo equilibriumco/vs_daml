@@ -212,9 +212,9 @@ internal sealed class OutputWindowLogger : IDamlLogger
 
     private static (Guid Guid, string Title) PaneFor(DamlLogCategory category) => category switch
     {
-        DamlLogCategory.LanguageServer => (PackageGuids.LanguageServerPane, "Daml Language Server"),
-        DamlLogCategory.Build => (PackageGuids.BuildPane, "Daml Build"),
-        _ => (PackageGuids.ExtensionPane, "Daml"),
+        DamlLogCategory.LanguageServer => (PackageGuids.LanguageServerPane, "EQ Daml Tools: Language Server"),
+        DamlLogCategory.Build => (PackageGuids.BuildPane, "EQ Daml Tools: Build"),
+        _ => (PackageGuids.ExtensionPane, "EQ Daml Tools"),
     };
 
     private static int CurrentProcessId()

@@ -37,7 +37,7 @@ public sealed class CodegenOrchestrator : ICodegenOrchestrator
 
     /// <summary>
     /// The orchestrator a build on this machine uses: real processes in kill-on-close jobs, the
-    /// generators' private homes and the locks under <c>%LOCALAPPDATA%\DamlVisualStudio</c>.
+    /// generators' private homes and the locks under <c>%LOCALAPPDATA%\EquilibriumDamlTools</c>.
     /// </summary>
     /// <param name="environment">Environment variables by name.</param>
     /// <exception cref="InvalidOperationException"><c>LOCALAPPDATA</c> isn't set.</exception>

@@ -52,7 +52,7 @@ public sealed class GeneratorCache
         }
     }
 
-    /// <summary><c>%LOCALAPPDATA%\DamlVisualStudio\codegen</c>.</summary>
+    /// <summary><c>%LOCALAPPDATA%\EquilibriumDamlTools\codegen</c>.</summary>
     public static string DefaultRoot(Func<string, string?> environment)
     {
         if (environment is null)
@@ -62,7 +62,7 @@ public sealed class GeneratorCache
         var localAppData = environment("LOCALAPPDATA");
         return string.IsNullOrEmpty(localAppData)
             ? throw new InvalidOperationException("LOCALAPPDATA isn't set, so there is nowhere to keep the code generator.")
-            : Path.Combine(localAppData!, "DamlVisualStudio", "codegen");
+            : Path.Combine(localAppData!, "EquilibriumDamlTools", "codegen");
     }
 
     /// <summary>Records that the cache was found complete for this pin.</summary>

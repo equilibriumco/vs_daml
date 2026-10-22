@@ -34,9 +34,9 @@ public sealed class RollingLogFile
         _limits = limits ?? LogFileLimits.Default;
     }
 
-    /// <summary><c>%LOCALAPPDATA%\DamlVisualStudio\logs</c>, beside the extension's other caches.</summary>
+    /// <summary><c>%LOCALAPPDATA%\EquilibriumDamlTools\logs</c>, beside the extension's other caches.</summary>
     public static string DefaultFolder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio", "logs");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools", "logs");
 
     /// <summary>The folder the files go to.</summary>
     public string Folder { get; }

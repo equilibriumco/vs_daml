@@ -64,7 +64,7 @@ internal sealed class RestartLanguageServerCommand : BaseCommand<RestartLanguage
             await VS.StatusBar.ShowMessageAsync("Restarting the Daml language server…");
             if (await Task.WhenAny(ready.Task, Task.Delay(Patience)) == ready.Task)
             {
-                await VS.StatusBar.ShowMessageAsync("Daml language server restarted.");
+                await VS.StatusBar.ShowMessageAsync("EQ Daml: language server restarted.");
             }
             else
             {
@@ -79,7 +79,7 @@ internal sealed class RestartLanguageServerCommand : BaseCommand<RestartLanguage
     }
 }
 
-/// <summary>Opens the Output window on the Daml Language Server pane.</summary>
+/// <summary>Opens the Output window on the EQ Daml Tools: Language Server pane.</summary>
 [Command(DamlMenuIds.CommandSetString, DamlMenuIds.ShowLanguageServerLog)]
 internal sealed class ShowLanguageServerLogCommand : BaseCommand<ShowLanguageServerLogCommand>
 {
@@ -115,7 +115,7 @@ internal sealed class TestCurrentPackageCommand : BaseCommand<TestCurrentPackage
 
 /// <summary>
 /// Runs dpm for the package the active Daml file belongs to, through the same service as the
-/// Open Folder actions. Its output goes to the Daml Build pane, followed by one line per
+/// Open Folder actions. Its output goes to the EQ Daml Tools: Build pane, followed by one line per
 /// diagnostic that the Output window can jump from.
 /// </summary>
 internal static class CurrentPackage
@@ -130,7 +130,7 @@ internal static class CurrentPackage
         var action = DamlBuildActions.ForPackageOf(new WorkspaceLocator(files, new YamlManifestReader(files)), view?.FilePath, kind);
         if (action is null)
         {
-            await VS.StatusBar.ShowMessageAsync($"Daml: open a .daml file of a package (with a daml.yaml above it) to {kind.ToString().ToLowerInvariant()} it.");
+            await VS.StatusBar.ShowMessageAsync($"EQ Daml: open a .daml file of a package (with a daml.yaml above it) to {kind.ToString().ToLowerInvariant()} it.");
             return;
         }
 
@@ -143,7 +143,7 @@ internal static class CurrentPackage
         }
         var package = Path.GetFileName(action.WorkingDirectory);
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, $"{action.DisplayName} Current Package chosen from the Daml menu for {view!.FilePath}.");
-        await VS.StatusBar.ShowMessageAsync($"Daml: {action.DisplayName} {package}… (choose the command again to cancel)");
+        await VS.StatusBar.ShowMessageAsync($"EQ Daml: {action.DisplayName} {package}… (choose the command again to cancel)");
 
         await TaskScheduler.Default;
         using var cancellation = new CancellationTokenSource();
@@ -155,11 +155,11 @@ internal static class CurrentPackage
             {
                 output?.WritePlainLine(DamlLogCategory.Build, diagnostic.ToOutputLine());
             }
-            await VS.StatusBar.ShowMessageAsync($"Daml: {action.DisplayName} {package} {(run.Succeeded ? "succeeded" : "failed")}.");
+            await VS.StatusBar.ShowMessageAsync($"EQ Daml: {action.DisplayName} {package} {(run.Succeeded ? "succeeded" : "failed")}.");
         }
         catch (OperationCanceledException)
         {
-            await VS.StatusBar.ShowMessageAsync($"Daml: {action.DisplayName} {package} cancelled.");
+            await VS.StatusBar.ShowMessageAsync($"EQ Daml: {action.DisplayName} {package} cancelled.");
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {

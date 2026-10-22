@@ -163,7 +163,7 @@ public class SdkResolverTests
 
         error.Code.ShouldBe("EQD0101");
         error.Message.ShouldContain("dpm");
-        error.Message.ShouldContain("Tools > Options > Daml");
+        error.Message.ShouldContain("Tools > Options > EQ Daml Tools");
         _runner.Calls.ShouldBeEmpty();
     }
 

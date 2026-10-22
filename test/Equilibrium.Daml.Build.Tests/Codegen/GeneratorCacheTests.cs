@@ -36,7 +36,7 @@ public sealed class GeneratorCacheTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public void The_default_root_is_under_local_app_data() =>
         GeneratorCache.DefaultRoot(name => name == "LOCALAPPDATA" ? @"C:\Users\ann\AppData\Local" : null)
-            .ShouldBe(@"C:\Users\ann\AppData\Local\DamlVisualStudio\codegen");
+            .ShouldBe(@"C:\Users\ann\AppData\Local\EquilibriumDamlTools\codegen");
 
     [Fact, Trait("Category", "Unit")]
     public void Nothing_downloaded_yet_is_missing()

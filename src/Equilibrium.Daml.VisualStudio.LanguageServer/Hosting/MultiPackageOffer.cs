@@ -16,7 +16,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Hosting;
 /// </summary>
 public sealed class MultiPackageOffer
 {
-    /// <summary>The file under <c>.vs\DamlVisualStudio</c> that says the user declined the offer for the solution.</summary>
+    /// <summary>The file under <c>.vs\EquilibriumDamlTools</c> that says the user declined the offer for the solution.</summary>
     public const string DismissalFileName = "multi-package-offer.declined";
 
     private readonly IDamlFileSystem _fileSystem;
@@ -110,5 +110,5 @@ public sealed class MultiPackageOffer
     }
 
     private static string DismissalPath(string solutionDirectory) =>
-        Path.Combine(DamlPath.Normalize(solutionDirectory), ".vs", "DamlVisualStudio", DismissalFileName);
+        Path.Combine(DamlPath.Normalize(solutionDirectory), ".vs", "EquilibriumDamlTools", DismissalFileName);
 }

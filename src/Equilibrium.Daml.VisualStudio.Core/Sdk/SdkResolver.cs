@@ -90,12 +90,12 @@ public sealed class SdkResolver
             if (damlAssistant is null)
             {
                 throw new SdkResolutionException(
-                    $"The workspace uses SDK {contextSdk}, which predates dpm (SDK 3.4) and needs the daml assistant. Install it, or set its path in Tools > Options > Daml.");
+                    $"The workspace uses SDK {contextSdk}, which predates dpm (SDK 3.4) and needs the daml assistant. Install it, or set its path in Tools > Options > EQ Daml Tools.");
             }
             if (predatesDpm == false)
             {
                 throw new SdkResolutionException(
-                    $"The workspace uses SDK {contextSdk}, which is run by dpm, and dpm wasn't found on PATH or in its home directories. Install dpm, or set its path in Tools > Options > Daml.");
+                    $"The workspace uses SDK {contextSdk}, which is run by dpm, and dpm wasn't found on PATH or in its home directories. Install dpm, or set its path in Tools > Options > EQ Daml Tools.");
             }
             assistant = damlAssistant;
             assistantSdk = await TryReadAsync(_damlAssistant, damlAssistant, workingDirectory, notes, cancellationToken).ConfigureAwait(false);
@@ -104,7 +104,7 @@ public sealed class SdkResolver
         {
             assistant = dpm ?? throw new SdkResolutionException(
                 "Neither dpm nor the daml assistant was found on PATH or in their home directories. " +
-                "Install dpm (Digital Asset's package manager), or set its path in Tools > Options > Daml.");
+                "Install dpm (the Daml package manager), or set its path in Tools > Options > EQ Daml Tools.");
         }
 
         var capabilities = await TryProbeAsync(assistant, workingDirectory, notes, cancellationToken).ConfigureAwait(false);

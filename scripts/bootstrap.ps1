@@ -11,7 +11,7 @@
     JDK, VS test hosts).
 
     -Install downloads each pinned dpm-sdk archive (cached under
-    %LOCALAPPDATA%\DamlVisualStudio\downloads), refuses it unless the SHA-256 matches
+    %LOCALAPPDATA%\EquilibriumDamlTools\downloads), refuses it unless the SHA-256 matches
     tools.psd1, and runs the archive's own "dpm bootstrap". Visual Studio and the JDK are
     never installed by this script. PATH and user environment variables are left alone;
     the script prints what to add.
@@ -91,7 +91,7 @@ function Get-InstalledDamlSdks([string] $Dpm) {
 }
 
 function Install-DamlSdks {
-    $stateDir = Join-Path $env:LOCALAPPDATA 'DamlVisualStudio'
+    $stateDir = Join-Path $env:LOCALAPPDATA 'EquilibriumDamlTools'
     $cache = Join-Path $stateDir 'downloads'
     # dpm's docs warn against extracting into a temp directory the user may not own.
     $work = Join-Path $stateDir 'dpm-bootstrap'

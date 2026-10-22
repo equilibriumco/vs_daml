@@ -106,7 +106,7 @@ public class LanguageServerTests
                 }
             }
 
-            Assert.True(opened, $"Go To Definition on Asset.View didn't open {target}; the active document is {Ide.Dte().ActiveDocument?.FullName}.{Environment.NewLine}{Ide.PaneText("Daml Language Server", 12000)}");
+            Assert.True(opened, $"Go To Definition on Asset.View didn't open {target}; the active document is {Ide.Dte().ActiveDocument?.FullName}.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools: Language Server", 12000)}");
         }
         finally
         {

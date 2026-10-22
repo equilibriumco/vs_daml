@@ -93,7 +93,7 @@ public sealed class FileLockTests : IDisposable
     {
         var root = LockNames.Root(name => name == "LOCALAPPDATA" ? @"C:\Users\ann\AppData\Local" : null);
 
-        root.ShouldBe(@"C:\Users\ann\AppData\Local\DamlVisualStudio\locks");
+        root.ShouldBe(@"C:\Users\ann\AppData\Local\EquilibriumDamlTools\locks");
         LockNames.Generator(root, "9f04").ShouldBe(root + @"\codegen-9f04.lock");
         LockNames.Output(root, @"C:\work\App\Generated\Daml").ShouldBe(LockNames.Output(root, @"c:\WORK\app\generated\daml\"));
         LockNames.Output(root, @"C:\work\App\Generated\Daml").ShouldNotBe(LockNames.Output(root, @"C:\work\App2\Generated\Daml"));

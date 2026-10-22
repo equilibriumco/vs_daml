@@ -256,7 +256,7 @@ internal static class Ide
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         }
         Assert.True(context.IsActive == ready, (ready ? "The Daml language server never became ready." : "The Daml language server never stopped serving.")
-            + Environment.NewLine + "Daml Language Server pane (end):" + Environment.NewLine + PaneText("Daml Language Server", 12000));
+            + Environment.NewLine + "EQ Daml Tools: Language Server pane (end):" + Environment.NewLine + PaneText("EQ Daml Tools: Language Server", 12000));
     }
 
     private static readonly string[] LineBreaks = ["\r\n", "\n"];
@@ -653,7 +653,7 @@ internal static class Ide
     }
 
     /// <summary>
-    /// Sets an option of Tools > Options > Daml > General for this session, as the page would, through
+    /// Sets an option of Tools > Options > EQ Daml Tools > General for this session, as the page would, through
     /// the page's automation object; <paramref name="name"/> is the option's property. Returns the
     /// value it had, to put back afterwards.
     /// </summary>

@@ -111,7 +111,7 @@ public class AssistantLocatorTests
     {
         var ex = Should.Throw<SdkResolutionException>(() => Locator().Find(AssistantKind.Dpm, configured));
 
-        ex.Message.ShouldContain("Tools > Options > Daml");
+        ex.Message.ShouldContain("Tools > Options > EQ Daml Tools");
     }
 
     [Fact, Trait("Category", "Unit")]

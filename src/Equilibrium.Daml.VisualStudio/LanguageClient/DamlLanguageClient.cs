@@ -108,8 +108,8 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
     public event AsyncEventHandler<EventArgs>? StopAsync;
 
     // VS names an Output pane after the client, so it must not clash with our panes ("Daml",
-    // "Daml Language Server", "Daml Build").
-    public string Name => "Daml Language Client";
+    // "EQ Daml Tools: Language Server", "EQ Daml Tools: Build").
+    public string Name => "EQ Daml Tools: Language Client";
 
     public IEnumerable<string> ConfigurationSections { get; } = ["daml"];
 
@@ -159,7 +159,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, $"The Daml language server failed to start: {reason}", initializationState.InitializationException);
         return Task.FromResult<InitializationFailureContext?>(new InitializationFailureContext
         {
-            FailureMessage = $"The Daml language server failed to start: {reason}. See the Daml Language Server pane of the Output window.",
+            FailureMessage = $"The Daml language server failed to start: {reason}. See the EQ Daml Tools: Language Server pane of the Output window.",
         });
     }
 

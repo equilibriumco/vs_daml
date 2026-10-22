@@ -35,12 +35,12 @@ different build of the same version, delete its folder there with Visual Studio 
 ## Editor
 
 Open a folder that contains `daml.yaml` or `multi-package.yaml` (File > Open > Folder), or a solution
-with Daml projects, then open a `.daml` file. The status bar shows *Daml: starting…* and then
-*Daml: ready*.
+with Daml projects, then open a `.daml` file. The status bar shows *EQ Daml: starting…* and then
+*EQ Daml: ready*.
 
 - **Language server** (`damlc`): errors and warnings as you type, hover, completion, Go To Definition
   and Peek, including other packages of a `multi-package.yaml` workspace and library sources. Library
-  sources open as read-only copies from `%LOCALAPPDATA%\DamlVisualStudio\library`.
+  sources open as read-only copies from `%LOCALAPPDATA%\EquilibriumDamlTools\library`.
 - **Colors** come from the extension's own lexer. Entries are under Tools > Options > Environment >
   Fonts and Colors, named `Daml - …`, and follow the light, dark, blue and high-contrast themes.
 - **Folding**: templates, interfaces, choices, data types, classes, instances, top-level functions,
@@ -52,12 +52,12 @@ with Daml projects, then open a `.daml` file. The status bar shows *Daml: starti
 - **Editing**: `--` comments (Ctrl+K,C / Ctrl+K,U); `(`, `[`, `{` and `"` close automatically;
   brace matching and highlighting of the name under the caret (by spelling, not by scope).
 - **Script results**: a *▶ Script results* row appears between a script's signature and its
-  definition. Click it, press Ctrl+. on the line, or use Extensions > Daml > Show Script Results at
+  definition. Click it, press Ctrl+. on the line, or use Extensions > EQ Daml Tools > Show Script Results at
   Caret. The window shows the contract table or the transaction view, follows the theme, works from
   the keyboard, and keeps the chosen view per script. It needs the Microsoft Edge WebView2 Runtime,
   which ships with Windows 11.
 - **Open Folder build**: right-click `daml.yaml` > Build, Test or Clean; `multi-package.yaml` >
-  Build All or Clean All. Output goes to the *Daml Build* pane, errors to the Error List.
+  Build All or Clean All. Output goes to the *EQ Daml Tools: Build* pane, errors to the Error List.
 - **Extensions > Daml**: Restart Language Server, Show Language Server Log, Export Diagnostics,
   Build Current Package, Test Current Package, Show Script Results at Caret, Open Daml Documentation.
 
@@ -125,7 +125,7 @@ in the same directory* to get the same layout as `dotnet new`.
 - C# is generated for the DAR's own package only. Dependencies need their own references or NuGet
   packages.
 - **Generator**: `dpm-codegen-cs` 0.6.0, pinned by digest and cached in
-  `%LOCALAPPDATA%\DamlVisualStudio\codegen`. A build downloads it (about 180 MB) only when
+  `%LOCALAPPDATA%\EquilibriumDamlTools\codegen`. A build downloads it (about 180 MB) only when
   `DamlAllowToolInstall` is true; otherwise a missing generator fails with `EQD0101`. Run
   `dotnet build -p:DamlAllowToolInstall=true` once per machine. Apps created from the template allow
   the download by default.
@@ -186,14 +186,14 @@ Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Ot
 
 ## Settings
 
-Tools > Options > Daml > General.
+Tools > Options > EQ Daml Tools > General.
 
 | Setting | Default | Description |
 |---|---|---|
 | dpm path | empty | Path to `dpm.exe`/`dpm.cmd`. |
 | Daml assistant path | empty | Path to `daml`, for SDKs older than 3.4. |
 | Use multi-package server | on | One `damlc multi-ide` server for the workspace. Off: `damlc ide` for the active file's package. |
-| Log level | Info | Server log detail in the *Daml Language Server* pane. |
+| Log level | Info | Server log detail in the *EQ Daml Tools: Language Server* pane. |
 | Extra arguments | empty | Additional `damlc` arguments. |
 | Run all scripts on open | off | Passes `--studio-auto-run-all-scripts=yes`. |
 | Restart an unresponsive server | on | Restarts the server if it does not answer within two minutes. |
@@ -211,7 +211,7 @@ language server opened no remote TCP connections in our measurements. `damlc ide
 ## Files on your machine
 
 Settings live in Visual Studio's settings store and survive updates and uninstall. Extension data is
-in `%LOCALAPPDATA%\DamlVisualStudio`, shared by all Visual Studio instances and command-line builds:
+in `%LOCALAPPDATA%\EquilibriumDamlTools`, shared by all Visual Studio instances and command-line builds:
 
 | Folder | Contents | Safe to delete |
 |---|---|---|
@@ -229,13 +229,13 @@ installed SDKs, project build output or the NuGet cache.
 
 ## Troubleshooting
 
-**Logs.** View > Output, panes *Daml Language Server* (server start, command line, server log),
-*Daml Build* and *Daml*. The same entries go to `%LOCALAPPDATA%\DamlVisualStudio\logs`, one file per
+**Logs.** View > Output, panes *EQ Daml Tools: Language Server* (server start, command line, server log),
+*EQ Daml Tools: Build* and *EQ Daml Tools*. The same entries go to `%LOCALAPPDATA%\EquilibriumDamlTools\logs`, one file per
 session, rotated at 10 MB, five files kept, files older than seven days deleted. Logs can contain file
 paths and compiler messages that quote your code.
 
-**Diagnostic report.** Extensions > Daml > Export Diagnostics writes a report with versions,
-settings and recent logs to `%LOCALAPPDATA%\DamlVisualStudio\diagnostics` and opens it. Paths, user
+**Diagnostic report.** Extensions > EQ Daml Tools > Export Diagnostics writes a report with versions,
+settings and recent logs to `%LOCALAPPDATA%\EquilibriumDamlTools\diagnostics` and opens it. Paths, user
 and machine names, quoted code, script results and credentials are masked. Review it before you
 share it. Visual Studio's own protocol log in `%TEMP%\VisualStudio\LSP` is not included and contains
 full file contents.
@@ -244,7 +244,7 @@ full file contents.
 |---|---|
 | Bar: "No daml.yaml found …" | The folder has no `daml.yaml` or `multi-package.yaml` above the file. Open the package or workspace folder. |
 | Bar with `EQD0101` | dpm or the pinned SDK is missing. Install it or set the dpm path in Options. |
-| Bar: "… keeps crashing and was stopped." | More than five crashes in three minutes. Check the *Daml Language Server* pane, fix the cause, click **Restart**. |
+| Bar: "… keeps crashing and was stopped." | More than five crashes in three minutes. Check the *EQ Daml Tools: Language Server* pane, fix the cause, click **Restart**. |
 | Bar: "… stopped responding and was restarted." | No answer for two minutes. Report it if it repeats. |
 | Colors but no errors or hover | The file is outside the open workspace. |
 | CS0246 on generated types although the build succeeds | Visual Studio evaluated the project before the first generation. The extension re-evaluates after the next build; if it persists, reload the project. |
@@ -277,5 +277,5 @@ full file contents.
 ## Support
 
 Report problems in [GitHub Issues](https://github.com/equilibriumco/vs_daml/issues). Include the
-Visual Studio version, the Daml SDK version and a diagnostic report (Extensions > Daml > Export
+Visual Studio version, the Daml SDK version and a diagnostic report (Extensions > EQ Daml Tools > Export
 Diagnostics), reviewed before you attach it.

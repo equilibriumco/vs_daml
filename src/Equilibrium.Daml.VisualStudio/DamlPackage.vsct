@@ -11,7 +11,7 @@
         <CommandFlag>DynamicVisibility</CommandFlag>
         <CommandFlag>DefaultInvisible</CommandFlag>
         <Strings>
-          <ButtonText>Daml</ButtonText>
+          <ButtonText>EQ Daml Tools</ButtonText>
         </Strings>
       </Menu>
     </Menus>

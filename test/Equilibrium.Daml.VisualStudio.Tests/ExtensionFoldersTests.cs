@@ -13,7 +13,7 @@ public class ExtensionFoldersTests
     [Fact, Trait("Category", "Editor")]
     public void The_extension_keeps_its_data_in_one_folder()
     {
-        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio");
+        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools");
 
         ExtensionFolders.Data.ShouldBe(data);
         ExtensionFolders.LibraryCopies.ShouldBe(Path.Combine(data, "library"));

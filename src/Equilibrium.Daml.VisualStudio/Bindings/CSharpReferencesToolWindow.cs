@@ -13,14 +13,14 @@ using Microsoft.VisualStudio.Shell.TableManager;
 namespace Equilibrium.Daml.VisualStudio.Bindings;
 
 /// <summary>
-/// "Daml: C# References": the C# uses of one Daml declaration, in Visual Studio's own table control
+/// "EQ Daml: C# References": the C# uses of one Daml declaration, in Visual Studio's own table control
 /// (project, file, line, code), double-click to go there. Each lens click fills it again.
 /// </summary>
 [Guid(PackageGuids.CSharpReferencesWindowString)]
 public sealed class CSharpReferencesToolWindow : ToolWindowPane
 {
     /// <summary>The table manager this window's table, and its navigation, belong to.</summary>
-    public const string ManagerIdentifier = "DamlCSharpReferences";
+    public const string ManagerIdentifier = "EqDamlCSharpReferences";
 
     // Visual Studio frames the pane's content when it creates the window; the table comes later.
     private readonly ContentControl _host = new();
@@ -31,7 +31,7 @@ public sealed class CSharpReferencesToolWindow : ToolWindowPane
     public CSharpReferencesToolWindow()
         : base(null)
     {
-        Caption = "Daml: C# References";
+        Caption = "EQ Daml: C# References";
         Content = _host;
     }
 
@@ -59,7 +59,7 @@ public sealed class CSharpReferencesToolWindow : ToolWindowPane
                 StandardTableColumnDefinitions.Text);
             _host.Content = _control.Control;
         }
-        Caption = $"Daml: C# References — {declaration} ({references.Count})";
+        Caption = $"EQ Daml: C# References — {declaration} ({references.Count})";
         _table?.Replace(references);
     }
 

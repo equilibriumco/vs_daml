@@ -47,7 +47,7 @@ public static class DpmLocation
             var found = FindDefault(workingDirectory ?? projectDirectory, environment, files);
             if (found is null)
             {
-                Missing(errors, $"dpm wasn't found on PATH or in the DPM home directories (DPM_HOME, %APPDATA%\\.dpm, %APPDATA%\\dpm). Install dpm (Digital Asset's package manager), or set {name} to it.");
+                Missing(errors, $"dpm wasn't found on PATH or in the DPM home directories (DPM_HOME, %APPDATA%\\.dpm, %APPDATA%\\dpm). Install dpm (the Daml package manager), or set {name} to it.");
             }
             return found;
         }

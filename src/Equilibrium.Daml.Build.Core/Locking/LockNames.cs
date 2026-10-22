@@ -10,7 +10,7 @@ namespace Equilibrium.Daml.Build.Core.Locking;
 /// </summary>
 public static class LockNames
 {
-    /// <summary><c>%LOCALAPPDATA%\DamlVisualStudio\locks</c>.</summary>
+    /// <summary><c>%LOCALAPPDATA%\EquilibriumDamlTools\locks</c>.</summary>
     public static string Root(Func<string, string?> environment)
     {
         if (environment is null)
@@ -20,7 +20,7 @@ public static class LockNames
         var localAppData = environment("LOCALAPPDATA");
         return string.IsNullOrEmpty(localAppData)
             ? throw new InvalidOperationException("LOCALAPPDATA isn't set, so there is nowhere to keep the build's locks.")
-            : Path.Combine(localAppData!, "DamlVisualStudio", "locks");
+            : Path.Combine(localAppData!, "EquilibriumDamlTools", "locks");
     }
 
     /// <summary>The lock on the private cache of the generator with <paramref name="digest"/>.</summary>

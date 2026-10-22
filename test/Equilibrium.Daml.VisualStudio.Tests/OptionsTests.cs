@@ -96,7 +96,7 @@ public class OptionsTests
         page.GetCustomAttribute<GuidAttribute>()!.Value.ShouldBe("5d3a6f0e-8b2c-4e71-9a64-2f1c7b0d9e53");
     }
 
-    // The page is registered with automation, so DTE.Properties("Daml", "General") hands the
+    // The page is registered with automation, so DTE.Properties("EQ Daml Tools", "General") hands the
     // page's settings out through IDispatch.
     [Fact, Trait("Category", "Editor")]
     public void The_settings_the_page_automates_can_be_handed_to_com()

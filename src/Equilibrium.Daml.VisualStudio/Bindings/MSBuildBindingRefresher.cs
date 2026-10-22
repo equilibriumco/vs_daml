@@ -34,7 +34,7 @@ internal sealed class MSBuildBindingRefresher : IBindingRefresher
     private readonly SolutionProjectConfigurations _solution;
     private readonly Action<BindingRefreshTarget, int> _filesRemoved;
 
-    /// <param name="logger">The Daml Build pane.</param>
+    /// <param name="logger">The EQ Daml Tools: Build pane.</param>
     /// <param name="runner">Starts MSBuild.</param>
     /// <param name="errors">The Error List.</param>
     /// <param name="solution">The solution's projects and configurations.</param>

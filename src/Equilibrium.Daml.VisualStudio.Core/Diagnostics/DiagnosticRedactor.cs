@@ -90,7 +90,7 @@ public sealed class DiagnosticRedactor
         var folders = new List<RedactedFolder>
         {
             new(Path.Combine(roaming, "dpm"), "${DPM}", KeepRest: true),
-            new(Path.Combine(local, "DamlVisualStudio"), "${EXTENSIONDATA}", KeepRest: true),
+            new(Path.Combine(local, "EquilibriumDamlTools"), "${EXTENSIONDATA}", KeepRest: true),
             new(Path.GetTempPath(), "${TEMP}", KeepRest: false),
             new(local, "${LOCALAPPDATA}", KeepRest: false),
             new(roaming, "${APPDATA}", KeepRest: false),

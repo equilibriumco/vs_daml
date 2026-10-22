@@ -9,7 +9,7 @@ namespace Equilibrium.Daml.VisualStudio.Options;
 
 /// <summary>
 /// Tools &gt; Options &gt; Daml &gt; General, stored in the VS settings store. The page hands it out
-/// as its automation object, for DTE.Properties("Daml", "General"); COM only sees it through
+/// as its automation object, for DTE.Properties("EQ Daml Tools", "General"); COM only sees it through
 /// <see cref="IDamlGeneralOptions"/>, as a class with a generic base gets no class interface.
 /// </summary>
 [ComVisible(true)]
@@ -44,7 +44,7 @@ public sealed class DamlOptions : BaseOptionModel<DamlOptions>, IDamlGeneralOpti
     /// <inheritdoc />
     [Category(Server)]
     [DisplayName("Log level")]
-    [Description("How much the language server writes to the Daml Language Server pane of the Output window.")]
+    [Description("How much the language server writes to the EQ Daml Tools: Language Server pane of the Output window.")]
     [DefaultValue(ServerLogLevel.Info)]
     public ServerLogLevel LogLevel { get; set; } = ServerLogLevel.Info;
 

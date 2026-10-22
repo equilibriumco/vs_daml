@@ -214,7 +214,7 @@ public sealed class DamlTemplatesTests : IDisposable
 
         build.ExitCode.ShouldBe(0, build.Log);
         build.Log.ShouldContain("Generated C# for");
-        Directory.EnumerateFiles(Path.Combine(localAppData, "DamlVisualStudio", "codegen"), "*", SearchOption.AllDirectories).ShouldNotBeEmpty();
+        Directory.EnumerateFiles(Path.Combine(localAppData, "EquilibriumDamlTools", "codegen"), "*", SearchOption.AllDirectories).ShouldNotBeEmpty();
         _output.WriteLine($"First build with the download: {build.Elapsed.TotalSeconds:F1} s.");
     }
 }
