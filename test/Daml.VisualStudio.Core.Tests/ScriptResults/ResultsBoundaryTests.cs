@@ -43,11 +43,11 @@ public class ResultsBoundaryTests
     [Fact, Trait("Category", "Unit")]
     public void Links_open_only_files_under_the_given_roots()
     {
-        var sources = new AllowedSources([@"C:\work\app", @"C:\Users\me\AppData\Local\Daml\VisualStudio\library"]);
+        var sources = new AllowedSources([@"C:\work\app", @"C:\Users\me\AppData\Local\DamlVisualStudio\library"]);
 
         sources.Contains(@"C:\work\app\daml\Main.daml").ShouldBeTrue();
         sources.Contains(@"c:\WORK\APP\daml\Main.daml").ShouldBeTrue();
-        sources.Contains(@"C:\Users\me\AppData\Local\Daml\VisualStudio\library\ab12\DA\List.daml").ShouldBeTrue();
+        sources.Contains(@"C:\Users\me\AppData\Local\DamlVisualStudio\library\ab12\DA\List.daml").ShouldBeTrue();
         sources.Contains(@"C:\work\app-other\daml\Main.daml").ShouldBeFalse();
         sources.Contains(@"C:\work\Main.daml").ShouldBeFalse();
         sources.Contains(@"D:\work\app\daml\Main.daml").ShouldBeFalse();

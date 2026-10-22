@@ -53,6 +53,26 @@ public class OptionsTests
         PageProperties().Length.ShouldBe(8, "a new setting has to be added to ToSettings too");
     }
 
+    // Settings live in Visual Studio's settings store under the class's full name, one value per
+    // property name. Renaming either after a release silently drops what users had set when they update.
+    [Fact, Trait("Category", "Editor")]
+    public void Settings_are_stored_where_earlier_versions_left_them()
+    {
+        typeof(DamlOptions).FullName.ShouldBe("Daml.VisualStudio.Options.DamlOptions");
+        PageProperties().Where(p => p.GetCustomAttributes().Any(a => a.GetType().Name == "OverrideCollectionNameAttribute")).ShouldBeEmpty();
+        PageProperties().Select(p => $"{p.Name}:{p.PropertyType.Name}").OrderBy(n => n, StringComparer.Ordinal).ShouldBe(
+        [
+            "AutorunAllTests:Boolean",
+            "DamlAssistantPath:String",
+            "DpmPath:String",
+            "ExtraArguments:String",
+            "KeepAliveEnabled:Boolean",
+            "LiveBindingSync:Boolean",
+            "LogLevel:ServerLogLevel",
+            "UseMultiIde:Boolean",
+        ]);
+    }
+
     // The property grid shows a value in bold when it differs from [DefaultValue], and the
     // settings store only writes non-default values, so the attribute must match the initializer.
     [Fact, Trait("Category", "Editor")]

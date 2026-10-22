@@ -11,7 +11,7 @@ namespace Daml.VisualStudio.LanguageServer.Tests.Protocol;
 
 public class LongPathRedirectorTests
 {
-    private const string Root = @"C:\Users\me\AppData\Local\Daml\VisualStudio\library";
+    private const string Root = @"C:\Users\me\AppData\Local\DamlVisualStudio\library";
 
     // Like the paths damlc gives for library sources: well over the 260 characters Visual Studio opens.
     private static readonly string LongPath = @"C:\work\pkg\.daml\package-database\2.3\daml-script-stable-Daml-Script-Internal-Questions-PartyManagement-Stable-PartyIdHint-1.0.0-"

@@ -49,8 +49,7 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     }
 
     /// <summary>Where the extension keeps its browser profile and the windows' page folders.</summary>
-    public static string DataFolder { get; } =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DamlVisualStudio");
+    public static string DataFolder => ExtensionFolders.Data;
 
     /// <summary>The page script, stylesheet and shim shipped with the extension.</summary>
     public static string AssetsFolder { get; } =
@@ -245,7 +244,7 @@ internal sealed class ScriptResultsWindows : IVirtualResourceWindows, IDisposabl
     // sources that Go To Definition uses; nothing else on the disk.
     private static AllowedSources SourcesFor(string? workspace)
     {
-        var libraryCopies = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Daml", "VisualStudio", "library");
+        var libraryCopies = ExtensionFolders.LibraryCopies;
         return new AllowedSources(workspace is null ? [libraryCopies] : [workspace, libraryCopies]);
     }
     private sealed class FrameEvents(Action closed) : IVsWindowFrameNotify3

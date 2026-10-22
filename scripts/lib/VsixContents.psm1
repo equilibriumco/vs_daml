@@ -1,5 +1,9 @@
 # Validates package contents and reads assembly identities in a private temporary folder.
 Set-StrictMode -Version Latest
+
+# The Identity Id every release so far has carried. Never change it once a version is out.
+$ShippedId = 'Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e'
+
 function Read-ZipText($Zip, [string] $Name) {
     $entry = $Zip.GetEntry($Name)
     if (-not $entry) { return $null }
@@ -59,10 +63,14 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion) {
         }
     }
 
+    $identity = $manifest.SelectSingleNode("//*[local-name()='Identity']")
+    # Visual Studio updates an installed extension only from a VSIX with the same Id; a new Id
+    # would install beside the old one, which keeps the users' settings.
+    $id = if ($identity) { $identity.GetAttribute('Id') } else { '(none)' }
+    if ($id -ne $ShippedId) { $problems.Add("the manifest has Id $id; releases so far shipped as $ShippedId") }
     # The manifest is written from the project's version, and a build that kept an older one
     # would ship it under the old number.
     if ($ExpectedVersion) {
-        $identity = $manifest.SelectSingleNode("//*[local-name()='Identity']")
         $version = if ($identity) { $identity.GetAttribute('Version') } else { '(none)' }
         if ($version -ne $ExpectedVersion) { $problems.Add("the manifest says version $version, the build $ExpectedVersion") }
     }
