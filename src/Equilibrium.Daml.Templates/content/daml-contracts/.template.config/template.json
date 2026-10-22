@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/template",
   "author": "Equilibrium",
-  "classifications": [ "Canton", "Windows", "Library" ],
+  "classifications": [ "Daml", "Windows", "Library" ],
   "identity": "Equilibrium.Daml.Templates.Contracts",
   "name": "Daml Contracts Project",
   "description": "A Daml package with a template and a package of Daml Script tests for it, each an MSBuild project built with dpm through Equilibrium.Daml.Sdk.",

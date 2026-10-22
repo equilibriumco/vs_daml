@@ -13,7 +13,8 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <!-- Nothing for lib\: the tasks are loaded by MSBuild, never referenced. -->
     <NoWarn>$(NoWarn);NU5100;NU5128</NoWarn>
-    <Description>Generates C# from the DARs a project references (Daml projects in the solution or DAR files) with the pinned dpm-codegen-cs, and compiles it with the project in the same build.</Description>
+    <Description>Generates C# from the DARs a project references (Daml projects in the solution or DAR files) with the pinned dpm-codegen-cs, and compiles it with the project in the same build. Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
+    <PackageTags>daml;msbuild;codegen;csharp;equilibrium</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

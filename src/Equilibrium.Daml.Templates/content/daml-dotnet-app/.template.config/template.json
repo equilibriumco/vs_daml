@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/template",
   "author": "Equilibrium",
-  "classifications": [ "Canton", "Windows", "Console" ],
+  "classifications": [ "Daml", "Windows", "Console" ],
   "identity": "Equilibrium.Daml.Templates.DotnetApp",
   "name": "Daml and .NET App",
   "description": "A solution with a Daml package, its Daml Script tests and a C# console app that uses the C# generated from the package in the same build (Equilibrium.Daml.Sdk and Equilibrium.Daml.Build.CSharp).",
