@@ -26,7 +26,7 @@ namespace Daml.VisualStudio.Logging;
 [Export(typeof(IDamlLogger))]
 internal sealed class OutputWindowLogger : IDamlLogger
 {
-    private const string ActivityLogSource = "Daml for Visual Studio";
+    private const string ActivityLogSource = ProductInfo.Name;
 
     // Flushes are tracked so pending output can be awaited (tests, shutdown) instead of guessed at.
     private readonly JoinableTaskCollection _flushes;

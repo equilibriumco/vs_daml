@@ -55,7 +55,7 @@ public static class DiagnosticReport
         }
 
         var report = new StringBuilder();
-        report.Append("Daml for Visual Studio diagnostics\r\n");
+        report.Append("EQ Daml Tools for Visual Studio diagnostics\r\n");
         report.Append("Created: ").Append(time.GetLocalNow().ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)).Append("\r\n");
         report.Append("Paths, user and machine names, source code, script results and secrets were masked where recognised.\r\n");
         report.Append("Read it before you share it, and remove anything you don't want to share.\r\n\r\n");

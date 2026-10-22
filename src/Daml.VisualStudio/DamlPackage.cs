@@ -24,6 +24,7 @@ namespace Daml.VisualStudio;
 /// a .daml file in the active editor, or a Daml file selected in Solution Explorer.
 /// </summary>
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
+[InstalledProductRegistration(ProductInfo.Name, ProductInfo.Description, ProductInfo.Version)]
 [Guid(PackageGuids.PackageString)]
 [ProvideBindingPath]
 [ProvideMenuResource("Menus.ctmenu", 1)]

@@ -42,7 +42,7 @@ public class VersionOutputTests
         Should.Throw<FormatException>(() => DpmSdkResolver.ParseActiveVersion(json));
 
     // `daml version` output is not captured here (no daml assistant on the dev machine); the lines
-    // follow the labels the official VS Code extension matches on.
+    // follow the labels the upstream VS Code extension matches on.
     [Fact, Trait("Category", "Unit")]
     public void The_daml_assistant_version_prefers_the_env_var_then_the_project_then_the_default()
     {

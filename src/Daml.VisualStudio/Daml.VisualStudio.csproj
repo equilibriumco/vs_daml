@@ -108,6 +108,20 @@
   <!-- Feeds Identity/@Version in the manifest: the numeric four-part FileVersion. -->
   <Target Name="GetVsixVersion" Outputs="$(FileVersion)" />
 
+  <!-- The product registration needs the version as a compile-time constant; it comes from the
+       same VersionPrefix as everything else. -->
+  <Target Name="WriteProductVersion" BeforeTargets="CoreCompile">
+    <PropertyGroup>
+      <_ProductVersionFile>$(IntermediateOutputPath)ProductInfo.Version.g.cs</_ProductVersionFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_ProductVersionFile)" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="namespace $(RootNamespace)%3B;internal static partial class ProductInfo { public const string Version = &quot;$(VersionPrefix)&quot;%3B }" />
+    <ItemGroup>
+      <Compile Include="$(_ProductVersionFile)" />
+      <FileWrites Include="$(_ProductVersionFile)" />
+    </ItemGroup>
+  </Target>
+
   <!-- The SDK rewrites the manifest only when source.extension.vsixmanifest changes, so after a
        version change it would keep shipping the old one; one written for another version goes. -->
   <Target Name="ForgetManifestOfAnotherVersion" BeforeTargets="DetokenizeVsixManifestFile" Condition="Exists('$(IntermediateVsixManifest)')">

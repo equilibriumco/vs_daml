@@ -173,7 +173,7 @@ Describe 'SBOM coverage of an artifact' {
 Describe 'NOTICE against the SBOM' {
     BeforeEach {
         $script:notice = @'
-Daml for Visual Studio
+EQ Daml Tools for Visual Studio
 
 ==============================================================================
 Redistributed

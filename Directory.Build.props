@@ -35,7 +35,7 @@
   <PropertyGroup>
     <Company>Equilibrium</Company>
     <Authors>Equilibrium</Authors>
-    <Product>Daml for Visual Studio</Product>
+    <Product>EQ Daml Tools for Visual Studio</Product>
     <Copyright>Copyright 2026 Equilibrium</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <NeutralLanguage>en</NeutralLanguage>

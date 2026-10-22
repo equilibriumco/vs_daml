@@ -1,7 +1,12 @@
-Daml for Visual Studio
+EQ Daml Tools for Visual Studio
 Copyright 2026 Equilibrium
 
 This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+EQ Daml Tools for Visual Studio is an independent project by Equilibrium and
+is not affiliated with, sponsored by, or endorsed by Digital Asset. Daml and
+Canton are trademarks of Digital Asset (Switzerland) GmbH. Visual Studio is a
+trademark of Microsoft Corporation.
 
 Third-party components are listed below together with their licenses. The
 first part lists what the Visual Studio extension (VSIX) and the NuGet packages

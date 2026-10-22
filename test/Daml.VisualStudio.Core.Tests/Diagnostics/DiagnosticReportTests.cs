@@ -82,7 +82,7 @@ public sealed class DiagnosticReportTests : IDisposable
     {
         var report = Report(Input());
 
-        report.ShouldStartWith("Daml for Visual Studio diagnostics");
+        report.ShouldStartWith("EQ Daml Tools for Visual Studio diagnostics");
         report.ShouldContain("Read it before you share it");
         report.ShouldContain("Extension: 0.3.0");
         report.ShouldContain("Visual Studio: 18.0.11205.157");
@@ -191,7 +191,7 @@ public sealed class DiagnosticReportTests : IDisposable
         var path = DiagnosticReport.Write(folder, Input(), DiagnosticRedactorTests.Redactor, _time);
 
         path.ShouldBe(Path.Combine(folder, "daml-diagnostics-20261022-075500.txt"));
-        File.ReadAllText(path, Encoding.UTF8).ShouldStartWith("Daml for Visual Studio diagnostics");
+        File.ReadAllText(path, Encoding.UTF8).ShouldStartWith("EQ Daml Tools for Visual Studio diagnostics");
     }
 
     [Fact, Trait("Category", "Unit")]

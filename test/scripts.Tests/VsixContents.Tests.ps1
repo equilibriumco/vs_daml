@@ -1,7 +1,7 @@
 Add-Type -AssemblyName System.IO.Compression
 Import-Module (Join-Path $PSScriptRoot '..\..\scripts\lib\VsixContents.psm1') -Force
 
-function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e') {
+function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Equilibrium.DamlTools') {
     $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
     try {
         $manifest = $zip.CreateEntry('extension.vsixmanifest')
@@ -36,10 +36,10 @@ Describe 'Release VSIX contents' {
     # Visual Studio only updates an installed extension from a VSIX with the same Id; another Id
     # installs a second extension next to the first and leaves its settings behind.
     It 'rejects a VSIX whose identity is not the one already shipped' {
-        New-TestVsix $script:vsix -Id 'Daml.VisualStudio'
+        New-TestVsix $script:vsix -Id 'Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e'
         $problems = @(Test-Vsix $script:vsix)
         $problems.Count | Should Be 1
-        $problems[0] | Should Match 'Id Daml\.VisualStudio.*e536ad39'
+        $problems[0] | Should Match 'Id Daml\.VisualStudio.*Equilibrium\.DamlTools'
     }
 
     It 'rejects a VSIX without the license and the third-party notices' {

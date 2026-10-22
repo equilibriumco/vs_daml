@@ -2,12 +2,15 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
     <!-- The Id is the extension's identity in the Marketplace and in every user's install;
-         never change it after the first public release. Version comes from the project. -->
-    <Identity Id="Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e" Version="|%CurrentProject%;GetVsixVersion|" Language="en-US" Publisher="Equilibrium" />
-    <DisplayName>Daml for Visual Studio</DisplayName>
-    <Description xml:space="preserve">Daml language support for Visual Studio: native editing features, diagnostics, navigation and Open Folder builds through the Daml SDK.</Description>
+         never change it after the first public release. Version comes from the project.
+         Naming: Equilibrium leads, Daml describes the language (see TRADEMARK.md). -->
+    <Identity Id="Equilibrium.DamlTools" Version="|%CurrentProject%;GetVsixVersion|" Language="en-US" Publisher="Equilibrium" />
+    <DisplayName>EQ Daml Tools for Visual Studio</DisplayName>
+    <Description xml:space="preserve">Daml language support, project system and C# integration for Visual Studio. Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
     <License>LICENSE</License>
-    <Tags>Daml, Canton, smart contracts, LSP</Tags>
+    <!-- No Icon or PreviewImage yet: an icon of our own design is still to be made. Never reuse
+         Daml, Canton or Digital Asset artwork. -->
+    <Tags>Daml, smart contracts, LSP, Equilibrium</Tags>
     <Preview>true</Preview>
   </Metadata>
   <Installation>

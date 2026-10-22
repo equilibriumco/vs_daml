@@ -2,7 +2,7 @@
 Set-StrictMode -Version Latest
 
 # The Identity Id every release so far has carried. Never change it once a version is out.
-$ShippedId = 'Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e'
+$ShippedId = 'Equilibrium.DamlTools'
 
 function Read-ZipText($Zip, [string] $Name) {
     $entry = $Zip.GetEntry($Name)
