@@ -61,13 +61,18 @@ internal static class Ide
             }
             Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(target, relative))!);
             File.Copy(file, Path.Combine(target, relative));
-            if (sdkVersion is not null && Path.GetFileName(file) is "daml.yaml" or "multi-package.yaml")
-            {
-                var manifest = Path.Combine(target, relative);
-                File.WriteAllText(manifest, System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(manifest), @"(?m)^sdk-version:\s*\S+", "sdk-version: " + sdkVersion));
-            }
+            PinSdk(Path.Combine(target, relative), sdkVersion);
         }
         return target;
+    }
+
+    // Puts another SDK version into a copied manifest; other files, and a null version, are left as they are.
+    private static void PinSdk(string file, string? sdkVersion)
+    {
+        if (sdkVersion is not null && Path.GetFileName(file) is "daml.yaml" or "multi-package.yaml")
+        {
+            File.WriteAllText(file, System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(file), @"(?m)^sdk-version:\s*\S+", "sdk-version: " + sdkVersion));
+        }
     }
 
     /// <summary>A copy of a file under <c>test/fixtures</c> in a fresh temp folder, so edits never touch the repository.</summary>
@@ -351,8 +356,9 @@ internal static class Ide
     /// <summary>
     /// A copy of a folder under <c>test/fixtures</c> in a fresh temp folder, without what a build or
     /// Visual Studio left in it there and without its own nuget.config, restoring this build's packages.
+    /// A <paramref name="sdkVersion"/> replaces the SDK its Daml manifests pin.
     /// </summary>
-    public static string CopyFixtureFolder(string relativePath)
+    public static string CopyFixtureFolder(string relativePath, string? sdkVersion = null)
     {
         var source = Path.Combine(RepoRoot(), "test", "fixtures", relativePath);
         var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
@@ -366,6 +372,7 @@ internal static class Ide
             }
             Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(root, relative))!);
             File.Copy(file, Path.Combine(root, relative));
+            PinSdk(Path.Combine(root, relative), sdkVersion);
         }
         UseThisBuildsPackages(root);
         return root;

@@ -16,9 +16,15 @@ public class SolutionModeTests
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 15 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public async Task Go_To_Definition_crosses_the_packages_of_the_solution_once_they_are_listed_together()
+    public Task Go_To_Definition_crosses_the_packages_of_the_solution_once_they_are_listed_together() => CrossPackagesAsync(sdkVersion: null);
+
+    // The same on the older supported SDK: building, the DARs and the server all come from it.
+    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 15 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
+    public Task On_sdk_3_5_Go_To_Definition_crosses_the_packages_of_the_solution_too() => CrossPackagesAsync(sdkVersion: "3.5.2");
+
+    private static async Task CrossPackagesAsync(string? sdkVersion)
     {
-        var root = Ide.CopyFixtureFolder("solution-mode");
+        var root = Ide.CopyFixtureFolder("solution-mode", sdkVersion);
         var app = Path.Combine(root, "app");
         await Ide.OpenSolutionAsync(Path.Combine(app, "SolutionMode.slnx"));
         try
