@@ -81,7 +81,7 @@ public class DiagnosticRedactorTests
     public void Compiler_code_is_masked_inside_timestamped_and_flattened_lines(string code)
     {
         const string Prefix = "2026-10-22 07:50:15.000 info [Build] ";
-        const string Diagnostic = "daml/Main.daml(12,3): error DAML0001: Type mismatch ";
+        const string Diagnostic = "daml/Main.daml(12,3): error EQD0001: Type mismatch ";
         foreach (var prefix in new[] { "", Prefix, Diagnostic, Prefix + Diagnostic })
         {
             var redacted = Redactor.Redact(prefix + code);
@@ -157,7 +157,7 @@ public class DiagnosticRedactorTests
     [Fact, Trait("Category", "Unit")]
     public void Ordinary_log_lines_stay_as_they_are()
     {
-        const string Line = "2026-10-22 07:50:15.000 fail [LanguageServer] DAML0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.";
+        const string Line = "2026-10-22 07:50:15.000 fail [LanguageServer] EQD0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.";
 
         Redactor.Redact(Line).ShouldBe(Line);
     }

@@ -185,12 +185,12 @@ public class BuildIntegrationTests
         progress.Messages.Count.ShouldBe(2);
         var error = progress.Messages[0];
         error.Type.ShouldBe(BuildMessage.TaskType.Error);
-        error.Code.ShouldBe("DAML0001");
+        error.Code.ShouldBe("EQD0001");
         error.File.ShouldBe(@"C:\repo\app\daml\TypeError.daml");
         (error.LineNumber, error.ColumnNumber).ShouldBe((5, 9)); // damlc's 5:9
         error.TaskText.ShouldBe("Couldn't match expected type");
         progress.Messages[1].Type.ShouldBe(BuildMessage.TaskType.Warning);
-        progress.Messages[1].Code.ShouldBe("DAML0002");
+        progress.Messages[1].Code.ShouldBe("EQD0002");
     }
 
     // Visual Studio writes every message's LogMessage into its Build pane and crashes the whole
@@ -202,7 +202,7 @@ public class BuildIntegrationTests
             new BuildDiagnostic(@"C:\repo\app\daml\TypeError.daml", 4, 8, 4, 19, DamlDiagnosticSeverity.Error, "Couldn't match\n  expected type", "typecheck"),
             @"C:\repo\app\daml.yaml");
 
-        message.LogMessage.ShouldBe("C:\\repo\\app\\daml\\TypeError.daml(5,9): error DAML0001: Couldn't match\n  expected type\n");
+        message.LogMessage.ShouldBe("C:\\repo\\app\\daml\\TypeError.daml(5,9): error EQD0001: Couldn't match\n  expected type\n");
         message.ProjectFile.ShouldBe(@"C:\repo\app\daml.yaml");
     }
 

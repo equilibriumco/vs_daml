@@ -48,18 +48,18 @@ public class BindingRefreshCommandTests
     {
         const string Output = """
               Contracts -> C:\sln\Contracts\.daml\dist\contracts-0.1.0.dar
-            C:\sln\Contracts\daml\Asset.daml(5,9,5,20): error DAML0001: Couldn't match expected type 'Int' with actual type 'Text' [C:\sln\Contracts\Contracts.msbuildproj]
-            C:\sln\App\App.csproj : error DAML0104: dpm codegen-cs failed for ..\Contracts\Contracts.msbuildproj (exit code 1): [C:\sln\App\App.csproj]
-            C:\sln\App\App.csproj : warning DAML0111: a generated file's path is 270 characters long [C:\sln\App\App.csproj]
-            C:\sln\Contracts\daml\Asset.daml(5,9,5,20): error DAML0001: Couldn't match expected type 'Int' with actual type 'Text' [C:\sln\Contracts\Contracts.msbuildproj]
+            C:\sln\Contracts\daml\Asset.daml(5,9,5,20): error EQD0001: Couldn't match expected type 'Int' with actual type 'Text' [C:\sln\Contracts\Contracts.msbuildproj]
+            C:\sln\App\App.csproj : error EQD0104: dpm codegen-cs failed for ..\Contracts\Contracts.msbuildproj (exit code 1): [C:\sln\App\App.csproj]
+            C:\sln\App\App.csproj : warning EQD0111: a generated file's path is 270 characters long [C:\sln\App\App.csproj]
+            C:\sln\Contracts\daml\Asset.daml(5,9,5,20): error EQD0001: Couldn't match expected type 'Int' with actual type 'Text' [C:\sln\Contracts\Contracts.msbuildproj]
             """;
 
         var diagnostics = MSBuildOutput.Diagnostics(Output);
 
         diagnostics.ShouldBe([
-            new MSBuildDiagnostic(@"C:\sln\Contracts\daml\Asset.daml", 5, 9, true, "DAML0001", "Couldn't match expected type 'Int' with actual type 'Text'"),
-            new MSBuildDiagnostic(@"C:\sln\App\App.csproj", 0, 0, true, "DAML0104", @"dpm codegen-cs failed for ..\Contracts\Contracts.msbuildproj (exit code 1):"),
-            new MSBuildDiagnostic(@"C:\sln\App\App.csproj", 0, 0, false, "DAML0111", "a generated file's path is 270 characters long"),
+            new MSBuildDiagnostic(@"C:\sln\Contracts\daml\Asset.daml", 5, 9, true, "EQD0001", "Couldn't match expected type 'Int' with actual type 'Text'"),
+            new MSBuildDiagnostic(@"C:\sln\App\App.csproj", 0, 0, true, "EQD0104", @"dpm codegen-cs failed for ..\Contracts\Contracts.msbuildproj (exit code 1):"),
+            new MSBuildDiagnostic(@"C:\sln\App\App.csproj", 0, 0, false, "EQD0111", "a generated file's path is 270 characters long"),
         ]);
     }
 }

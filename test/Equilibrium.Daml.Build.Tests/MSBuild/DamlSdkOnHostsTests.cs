@@ -100,7 +100,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         var run = Build(host, DamlProject());
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain($@"{Package}\daml\TypeError.daml(5,9,5,20): typecheck error DAML0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
+        run.Log.ShouldContain($@"{Package}\daml\TypeError.daml(5,9,5,20): typecheck error EQD0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
         run.Log.ShouldNotContain("MSB6006");
     }
 
@@ -206,7 +206,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
         off.ExitCode.ShouldBe(0, off.Log);
         unusable.ExitCode.ShouldBe(1, unusable.Log);
-        unusable.Log.ShouldContain("error DAML0100: EqDamlBuildEnabled is 'sometimes'");
+        unusable.Log.ShouldContain("error EQD0100: EqDamlBuildEnabled is 'sometimes'");
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
@@ -277,7 +277,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
 
         run.ExitCode.ShouldBe(1, run.Log);
         run.Log.ShouldContain($@"{Package}\daml\Main.daml(47,");
-        run.Log.ShouldContain("Script error DAML0001");
+        run.Log.ShouldContain("Script error EQD0001");
         _dpm.ReadCalls().Where(c => c.Args.Count == 1).Select(c => c.Args[0]).Where(v => v != "--version").ShouldBe(["build", "test"]);
     }
 

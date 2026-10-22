@@ -109,7 +109,7 @@ public sealed class DamlTemplatesTests : IDisposable
     }
 
     // The app allows downloads, and an offline build, however late it says so (here after the
-    // project's own properties), still downloads nothing: a missing generator is DAML0107, never a
+    // project's own properties), still downloads nothing: a missing generator is EQD0107, never a
     // clash of the two settings.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
@@ -137,8 +137,8 @@ public sealed class DamlTemplatesTests : IDisposable
         });
 
         run.ExitCode.ShouldNotBe(0, run.Log);
-        run.Log.ShouldContain("DAML0107");
-        run.Log.ShouldNotContain("DAML0100");
+        run.Log.ShouldContain("EQD0107");
+        run.Log.ShouldNotContain("EQD0100");
         _dpm.ReadCalls().ShouldNotContain(c => c.Args.Contains("install") || c.Args.Contains("codegen-cs"));
     }
 
@@ -187,7 +187,7 @@ public sealed class DamlTemplatesTests : IDisposable
         File.WriteAllText(script, File.ReadAllText(script).Replace("found.owner === bob", "found.owner === alice"));
         var failing = _sandbox.Build(host, hostPath, Tests, properties: properties, target: "EqDamlTest");
         failing.ExitCode.ShouldNotBe(0, failing.Log);
-        failing.Log.ShouldContain("Script error DAML0001");
+        failing.Log.ShouldContain("Script error EQD0001");
         _output.WriteLine($"{host}: build {build.Elapsed.TotalSeconds:F1} s, tests {passing.Elapsed.TotalSeconds:F1} s.");
     }
 

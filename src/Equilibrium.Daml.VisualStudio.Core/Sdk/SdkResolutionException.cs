@@ -9,7 +9,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Sdk;
 public sealed class SdkResolutionException : Exception
 {
     /// <summary>Code for a missing dpm, daml assistant or SDK.</summary>
-    public const string MissingToolCode = "DAML0101";
+    public const string MissingToolCode = "EQD0101";
 
     /// <summary>Creates the exception with <see cref="MissingToolCode"/>.</summary>
     public SdkResolutionException(string message)
@@ -21,6 +21,6 @@ public sealed class SdkResolutionException : Exception
     public SdkResolutionException(string code, string message)
         : base(message) => Code = code;
 
-    /// <summary>Diagnostic code, e.g. DAML0101.</summary>
+    /// <summary>Diagnostic code, e.g. EQD0101.</summary>
     public string Code { get; }
 }

@@ -13,7 +13,7 @@ namespace Equilibrium.Daml.Build.Tasks;
 /// <summary>
 /// Reads a package's <c>daml.yaml</c> for the build: what the package is called, where its
 /// sources are, what it depends on and where its DAR goes. It only reads files, so design-time
-/// builds may run it. Every problem is a DAML0100 error at its place in the manifest.
+/// builds may run it. Every problem is a EQD0100 error at its place in the manifest.
 /// </summary>
 public sealed class ReadDamlManifest : Task
 {

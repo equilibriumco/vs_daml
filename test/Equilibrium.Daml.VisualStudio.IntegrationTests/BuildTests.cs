@@ -58,7 +58,7 @@ public class BuildTests
             var progress = new RecordingProgress();
             using var timeout = new CancellationTokenSource(BuildTimeout);
             Assert.False(await build.ExecuteBuildAsync(progress, timeout.Token));
-            Assert.Contains(progress.Messages, message => message.Code == "DAML0001"
+            Assert.Contains(progress.Messages, message => message.Code == "EQD0001"
                 && string.Equals(message.File, Path.Combine(folder, "daml", "TypeError.daml"), StringComparison.OrdinalIgnoreCase)
                 && message.LineNumber == 5 && message.ColumnNumber == 9);
         }
@@ -100,7 +100,7 @@ public class BuildTests
             await errorList.TableControl.ForceUpdateAsync();
             // Build errors reach the Error List through Visual Studio's build messages, under our codes.
             found = errorList.TableControl.Entries.Any(entry =>
-                entry.TryGetValue(StandardTableKeyNames.ErrorCode, out var code) && Equals(code, "DAML0001")
+                entry.TryGetValue(StandardTableKeyNames.ErrorCode, out var code) && Equals(code, "EQD0001")
                 && entry.TryGetValue(StandardTableKeyNames.DocumentName, out var document) && document is string path
                 && string.Equals(path, expected, StringComparison.OrdinalIgnoreCase)
                 && entry.TryGetValue(StandardTableKeyNames.Line, out var line) && Equals(line, 4)
@@ -109,7 +109,7 @@ public class BuildTests
             await Task.Delay(1000);
         }
 
-        Assert.True(found, $"No DAML0001 build error for {expected}:5:9 reached the Error List. {Ide.PaneText("Daml Build", 12000)}");
+        Assert.True(found, $"No EQD0001 build error for {expected}:5:9 reached the Error List. {Ide.PaneText("Daml Build", 12000)}");
     }
 
     private static async Task WaitForIndexAsync(TimeSpan timeout)

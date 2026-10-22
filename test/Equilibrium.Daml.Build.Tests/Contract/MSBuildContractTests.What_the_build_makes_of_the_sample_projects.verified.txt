@@ -12,12 +12,12 @@ timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Source root=(none) java=(PATH)
 generator: (none)
 generation: EqDamlDar C:\work\vendor\ledger.dar namespace=Ledger -> ledger-fd911920cdeef811
-error DAML0100: EqDamlLockTimeoutSeconds is '0', but it has to be a whole number of seconds from 1 up.
-error DAML0106: EqDamlCodegenComponent is 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest', but the generator has to be pinned by its digest: oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>.
-error DAML0100: EqDamlGeneratedDir is '.', which holds the project folder C:\work\App. Generated code needs a folder of its own.
-error DAML0100: EqDamlReference ..\vendor\finance-1.0.0.dar is a DAR. Reference DAR files with EqDamlDar instead.
-error DAML0100: Namespace 'My Contracts' on ..\Contracts\Contracts.msbuildproj isn't a C# namespace: use names made of letters, digits and underscores, joined by dots.
-error DAML0108: ..\VENDOR\Ledger.dar is referenced again with Namespace 'Ledger' after ..\vendor\ledger.dar, so both would generate into ledger-fd911920cdeef811. Remove one of them.
+error EQD0100: EqDamlLockTimeoutSeconds is '0', but it has to be a whole number of seconds from 1 up.
+error EQD0106: EqDamlCodegenComponent is 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest', but the generator has to be pinned by its digest: oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>.
+error EQD0100: EqDamlGeneratedDir is '.', which holds the project folder C:\work\App. Generated code needs a folder of its own.
+error EQD0100: EqDamlReference ..\vendor\finance-1.0.0.dar is a DAR. Reference DAR files with EqDamlDar instead.
+error EQD0100: Namespace 'My Contracts' on ..\Contracts\Contracts.msbuildproj isn't a C# namespace: use names made of letters, digits and underscores, joined by dots.
+error EQD0108: ..\VENDOR\Ledger.dar is referenced again with Namespace 'Ledger' after ..\vendor\ledger.dar, so both would generate into ledger-fd911920cdeef811. Remove one of them.
 
 == same-package-two-folders.csproj
 tools: dpm=(look for it) offline=False install=False skip-preflight=False

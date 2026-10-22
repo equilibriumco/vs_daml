@@ -47,9 +47,9 @@ public class DpmOutputReportTests
 
         outcome.Messages.Select(m => (m.Severity, m.Code, m.Subcategory, m.File, m.Line, m.Column, m.EndLine, m.EndColumn)).ShouldBe(
         [
-            (DamlDiagnosticSeverity.Error, "DAML0001", "parser", Root + @"\daml\SyntaxError.daml", 6, 1, 6, 1),
-            (DamlDiagnosticSeverity.Error, "DAML0001", "typecheck", Root + @"\daml\TypeError.daml", 5, 9, 5, 20),
-            (DamlDiagnosticSeverity.Error, "DAML0001", "not found", Root + @"\daml\UnknownImport.daml", 4, 8, 4, 23),
+            (DamlDiagnosticSeverity.Error, "EQD0001", "parser", Root + @"\daml\SyntaxError.daml", 6, 1, 6, 1),
+            (DamlDiagnosticSeverity.Error, "EQD0001", "typecheck", Root + @"\daml\TypeError.daml", 5, 9, 5, 20),
+            (DamlDiagnosticSeverity.Error, "EQD0001", "not found", Root + @"\daml\UnknownImport.daml", 4, 8, 4, 23),
         ]);
         outcome.Messages[1].Text.ShouldBe(
             "• Couldn't match expected type ‘Int’ with actual type ‘Text’ • In the expression: \"forty-two\" In an equation for ‘total’: total = \"forty-two\"");
@@ -62,7 +62,7 @@ public class DpmOutputReportTests
         var outcome = Report(Captured("build-single-package.stderr.txt"), exitCode: 0, root: @"C:\work\single-package");
 
         var warning = outcome.Messages.ShouldHaveSingleItem();
-        (warning.Severity, warning.Code, warning.File, warning.Line).ShouldBe((DamlDiagnosticSeverity.Warning, "DAML0002", @"C:\work\single-package\daml", 1));
+        (warning.Severity, warning.Code, warning.File, warning.Line).ShouldBe((DamlDiagnosticSeverity.Warning, "EQD0002", @"C:\work\single-package\daml", 1));
         warning.Text.ShouldStartWith("warning while type checking package: This package defines templates or interfaces");
         outcome.CreatedDar.ShouldBe(@"C:\work\single-package\.daml\dist\single-package-0.0.1.dar");
     }
@@ -74,7 +74,7 @@ public class DpmOutputReportTests
             root: @"C:\work\test-fail", kind: DpmCommandKind.Test);
 
         var error = outcome.Messages.ShouldHaveSingleItem();
-        (error.Code, error.Subcategory, error.File, error.Line, error.Column).ShouldBe(("DAML0001", "Script", @"C:\work\test-fail\daml\Main.daml", 47, 1));
+        (error.Code, error.Subcategory, error.File, error.Line, error.Column).ShouldBe(("EQD0001", "Script", @"C:\work\test-fail\daml\Main.daml", 47, 1));
         error.Text.ShouldStartWith("Script execution failed: Failed with status: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: the total is wrong");
     }
 
@@ -86,7 +86,7 @@ public class DpmOutputReportTests
     {
         var error = Report(SdkMissing, exitCode: 1).Messages.ShouldHaveSingleItem();
 
-        (error.Code, error.File, error.Line).ShouldBe(("DAML0101", Manifest, 0));
+        (error.Code, error.File, error.Line).ShouldBe(("EQD0101", Manifest, 0));
         error.Text.ShouldBe(SdkMissing + " Install it with that command, or set EqDamlAllowToolInstall to true to let the build install it.");
     }
 
@@ -95,7 +95,7 @@ public class DpmOutputReportTests
     {
         var error = Report(SdkMissing, exitCode: 1, Offline).Messages.ShouldHaveSingleItem();
 
-        error.Code.ShouldBe("DAML0107");
+        error.Code.ShouldBe("EQD0107");
         error.Text.ShouldBe(SdkMissing + " EqDamlOffline is true, so the build installs nothing; install it beforehand with that command.");
     }
 
@@ -106,7 +106,7 @@ public class DpmOutputReportTests
 
         var error = Report(Line, exitCode: 1, Online with { AllowToolInstall = true }).Messages.ShouldHaveSingleItem();
 
-        (error.Code, error.Text).ShouldBe(("DAML0101", Line));
+        (error.Code, error.Text).ShouldBe(("EQD0101", Line));
     }
 
     // Without anything recognisable, the end of the output is all there is to go on.
@@ -117,11 +117,11 @@ public class DpmOutputReportTests
 
         var error = Report(output, exitCode: 3).Messages.ShouldHaveSingleItem();
 
-        (error.Code, error.File).ShouldBe(("DAML0001", Manifest));
+        (error.Code, error.File).ShouldBe(("EQD0001", Manifest));
         error.Text.ShouldBe("dpm build failed with exit code 3:\n" + string.Join("\n", Enumerable.Range(6, 10).Select(i => $"line {i}")));
     }
 
     [Fact, Trait("Category", "Unit")]
     public void A_failure_already_explained_by_diagnostics_adds_nothing() =>
-        Report(Captured("test-broken.stderr.txt"), exitCode: 1, kind: DpmCommandKind.Test).Messages.ShouldAllBe(m => m.Code == "DAML0001" && m.Subcategory != null);
+        Report(Captured("test-broken.stderr.txt"), exitCode: 1, kind: DpmCommandKind.Test).Messages.ShouldAllBe(m => m.Code == "EQD0001" && m.Subcategory != null);
 }

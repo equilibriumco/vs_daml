@@ -474,7 +474,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         var run = Build(MSBuildHost.MSBuildExe);
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain("error DAML0108");
+        run.Log.ShouldContain("error EQD0108");
         GeneratorRuns().ShouldBe(0);
     }
 
@@ -593,7 +593,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     }
 
     // A file of the user's own among the generated ones survives everything the build does there. A build
-    // that would generate into its folder stops with DAML0108 naming it; removing the generated code
+    // that would generate into its folder stops with EQD0108 naming it; removing the generated code
     // keeps it and says so.
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Source_mode_never_deletes_a_file_of_the_users_own()
@@ -610,7 +610,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         const string Kept = @"but kept what the generator didn't write there: Finance\Asset\Asset.Mine.cs";
         var steps = new List<(string Name, MSBuildRun Run, int ExitCode, string Says)>();
 
-        steps.Add(("rebuild", Build(MSBuildHost.Dotnet, "Rebuild"), 1, "error DAML0108"));
+        steps.Add(("rebuild", Build(MSBuildHost.Dotnet, "Rebuild"), 1, "error EQD0108"));
         Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
         steps.Add(("new DAR", Build(MSBuildHost.Dotnet), 1, Stopped));
         App("", "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>");
@@ -727,7 +727,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         var run = Build(MSBuildHost.Dotnet);
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain("error DAML0202");
+        run.Log.ShouldContain("error EQD0202");
     }
 
     // Design-time builds run nothing: before the first build they say so, after it they give the
@@ -779,7 +779,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         var second = Build(MSBuildHost.Dotnet, "Build;ShowCompiled");
 
         first.ExitCode.ShouldBe(0, first.Log);
-        first.Log.ShouldContain("warning DAML0111");
+        first.Log.ShouldContain("warning EQD0111");
         Lines(first.Log, "Compiled: ").Max(f => f.Length).ShouldBeGreaterThan(259);
         File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
         second.ExitCode.ShouldBe(0, second.Log);

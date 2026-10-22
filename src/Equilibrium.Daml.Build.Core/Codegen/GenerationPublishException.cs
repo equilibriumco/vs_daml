@@ -6,7 +6,7 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 public sealed class GenerationPublishException : Exception
 {
     /// <summary>Creates the exception.</summary>
-    /// <param name="code">DAML0104 when the previous generation is in place, DAML0109 when it is kept for the next build to restore.</param>
+    /// <param name="code">EQD0104 when the previous generation is in place, EQD0109 when it is kept for the next build to restore.</param>
     /// <param name="message">What happened, for people.</param>
     /// <param name="inner">The failure behind it.</param>
     public GenerationPublishException(string code, string message, Exception inner)

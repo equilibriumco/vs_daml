@@ -13,8 +13,8 @@ public class BuildDiagnosticOutputTests
     {
         var diagnostic = new BuildDiagnostic(@"C:\repo\daml\TypeError.daml", 4, 8, 4, 19, DamlDiagnosticSeverity.Error, "Couldn't match expected type ‘Int’ with actual type ‘Text’", "typecheck");
 
-        diagnostic.Code.ShouldBe("DAML0001");
-        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\daml\TypeError.daml(5,9): error DAML0001: Couldn't match expected type ‘Int’ with actual type ‘Text’");
+        diagnostic.Code.ShouldBe("EQD0001");
+        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\daml\TypeError.daml(5,9): error EQD0001: Couldn't match expected type ‘Int’ with actual type ‘Text’");
     }
 
     // damlc repeats the place in front of the text; the line already starts with it.
@@ -27,7 +27,7 @@ public class BuildDiagnosticOutputTests
     {
         var diagnostic = new BuildDiagnostic(@"C:\repo\daml\X.daml", 0, 0, 0, 1, DamlDiagnosticSeverity.Error, message, null);
 
-        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\daml\X.daml(1,1): error DAML0001: " + expected);
+        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\daml\X.daml(1,1): error EQD0001: " + expected);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -35,7 +35,7 @@ public class BuildDiagnosticOutputTests
     {
         var diagnostic = new BuildDiagnostic(@"C:\repo\Main.daml", 0, 0, 0, 1, DamlDiagnosticSeverity.Warning, "Unused import\n    • In module Main\r\n  ", null);
 
-        diagnostic.Code.ShouldBe("DAML0002");
-        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\Main.daml(1,1): warning DAML0002: Unused import • In module Main");
+        diagnostic.Code.ShouldBe("EQD0002");
+        diagnostic.ToOutputLine().ShouldBe(@"C:\repo\Main.daml(1,1): warning EQD0002: Unused import • In module Main");
     }
 }

@@ -120,7 +120,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         report.ShouldNotContain("forty-two");
         report.ShouldNotContain("total =");
         report.ShouldContain("TypeError.daml");
-        report.ShouldContain(flattened ? "(5,9): error DAML0001:" : "TypeError.daml:5:9: error:");
+        report.ShouldContain(flattened ? "(5,9): error EQD0001:" : "TypeError.daml:5:9: error:");
         report.ShouldContain("Couldn't match expected type ‘Int’ with actual type ‘Text’");
         report.ShouldContain("In the expression: <redacted code>");
         report.ShouldContain("info [Build]");
@@ -142,7 +142,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         var run = await Coordinator(() => null).RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
 
         run.ShouldBe(DamlBuildRun.NotStarted);
-        _logger.Entries.ShouldContain(l => l.Level == DamlLogLevel.Error && l.Message.Contains("DAML0101") && l.Message.Contains("dpm"));
+        _logger.Entries.ShouldContain(l => l.Level == DamlLogLevel.Error && l.Message.Contains("EQD0101") && l.Message.Contains("dpm"));
         _fake.ReadCalls().ShouldBeEmpty();
     }
 

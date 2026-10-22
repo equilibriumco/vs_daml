@@ -6,7 +6,7 @@
 2026-10-22 07:50:14.100 info [LanguageServer] DAR \\fileserver\AcmeMergerSecret\dars\merger-terms.dar is not readable
 2026-10-22 07:50:14.200 info [Extension] Results cache in C:\Users\jdoe-private\AppData\Local\DamlVisualStudio\codegen\sha256-0f1e2d
 2026-10-22 07:50:14.300 info [Extension] Scratch copy in C:\Users\jdoe-private\AppData\Local\Temp\daml-copy-8812\Main.daml
-2026-10-22 07:50:15.000 fail [LanguageServer] DAML0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.
+2026-10-22 07:50:15.000 fail [LanguageServer] EQD0101: dpm is not installed. Install it, or set the dpm path in Tools > Options > Daml.
 2026-10-22 07:50:16.000 info [Build] daml/TypeError.daml:5:9: error:
     • Couldn't match expected type ‘Int’ with actual type ‘Text’
     • In the expression: "forty-two-secret-literal"

@@ -243,9 +243,9 @@ public sealed class DpmToolTaskTests : IDisposable
 
         _engine.Errors.Select(e => (e.Code, e.Subcategory, e.File, e.LineNumber, e.ColumnNumber, e.EndLineNumber, e.EndColumnNumber)).ShouldBe(
         [
-            ("DAML0001", "parser", Path.Combine(Package, @"daml\SyntaxError.daml"), 6, 1, 6, 1),
-            ("DAML0001", "typecheck", Path.Combine(Package, @"daml\TypeError.daml"), 5, 9, 5, 20),
-            ("DAML0001", "not found", Path.Combine(Package, @"daml\UnknownImport.daml"), 4, 8, 4, 23),
+            ("EQD0001", "parser", Path.Combine(Package, @"daml\SyntaxError.daml"), 6, 1, 6, 1),
+            ("EQD0001", "typecheck", Path.Combine(Package, @"daml\TypeError.daml"), 5, 9, 5, 20),
+            ("EQD0001", "not found", Path.Combine(Package, @"daml\UnknownImport.daml"), 4, 8, 4, 23),
         ]);
         _engine.Errors[1].Message!.ShouldContain("Couldn't match expected type ‘Int’ with actual type ‘Text’");
         task.CreatedDar.ShouldBeNull();
@@ -359,7 +359,7 @@ public sealed class DpmToolTaskTests : IDisposable
         task.Execute().ShouldBeFalse();
 
         var error = _engine.Errors.ShouldHaveSingleItem();
-        (error.Code, error.Subcategory, error.File, error.LineNumber).ShouldBe(("DAML0001", "Script", Path.Combine(Package, @"daml\Main.daml"), 47));
+        (error.Code, error.Subcategory, error.File, error.LineNumber).ShouldBe(("EQD0001", "Script", Path.Combine(Package, @"daml\Main.daml"), 47));
         ToolCalls().ShouldHaveSingleItem().Args.ShouldBe(["test"]);
     }
 

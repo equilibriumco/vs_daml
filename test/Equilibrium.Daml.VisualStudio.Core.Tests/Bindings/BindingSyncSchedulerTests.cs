@@ -148,11 +148,11 @@ public sealed class BindingSyncSchedulerTests : IDisposable
     {
         _scheduler.Request([App]);
         await QuietAsync();
-        _refresher.Complete(App, new BindingRefreshResult(false, "Main.daml(3,1): error DAML0001: parse error"));
+        _refresher.Complete(App, new BindingRefreshResult(false, "Main.daml(3,1): error EQD0001: parse error"));
         await FakeRefresher.SettleAsync();
 
         var failed = _statuses.Last();
-        (failed.State, failed.Message).ShouldBe((BindingSyncState.Failed, "Main.daml(3,1): error DAML0001: parse error"));
+        (failed.State, failed.Message).ShouldBe((BindingSyncState.Failed, "Main.daml(3,1): error EQD0001: parse error"));
         _scheduler.Request([App]);
         await QuietAsync();
         _refresher.Started.ShouldBe([App, App]);

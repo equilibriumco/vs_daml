@@ -38,7 +38,7 @@ public abstract class OrchestratorTask : Task, ICancelableTask
     }
 
     /// <summary>
-    /// Runs <paramref name="work"/> and logs its messages; null, with DAML0110 logged, when the
+    /// Runs <paramref name="work"/> and logs its messages; null, with EQD0110 logged, when the
     /// build was cancelled.
     /// </summary>
     private protected CodegenResult? Run(string projectPath, string whenCancelled, Func<ICodegenOrchestrator, CancellationToken, Threading.Task<CodegenResult>> work)

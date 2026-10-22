@@ -199,7 +199,7 @@ public sealed class GenerationPublisher
     /// Publishes <paramref name="staging"/> as <paramref name="folderName"/>. Call <see cref="Recover"/> first.
     /// </summary>
     /// <exception cref="GenerationPublishException">
-    /// The publish didn't happen. With DAML0104 the previous generation is in place; with DAML0109
+    /// The publish didn't happen. With EQD0104 the previous generation is in place; with EQD0109
     /// it couldn't be put back and stays in the backup, which the next <see cref="Recover"/> restores.
     /// </exception>
     public void Publish(string folderName, string staging)

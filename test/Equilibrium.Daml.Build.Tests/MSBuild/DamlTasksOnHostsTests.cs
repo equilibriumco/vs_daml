@@ -129,9 +129,9 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var run = BuildWithFake(host, Package("broken"));
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain($@"{package}\daml\SyntaxError.daml(6,1,6,1): parser error DAML0001: parse error (possibly incorrect indentation or mismatched brackets)");
-        run.Log.ShouldContain($@"{package}\daml\TypeError.daml(5,9,5,20): typecheck error DAML0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
-        run.Log.ShouldContain($@"{package}\daml\UnknownImport.daml(4,8,4,23): not found error DAML0001: Could not find module ‘DA.DoesNotExist’");
+        run.Log.ShouldContain($@"{package}\daml\SyntaxError.daml(6,1,6,1): parser error EQD0001: parse error (possibly incorrect indentation or mismatched brackets)");
+        run.Log.ShouldContain($@"{package}\daml\TypeError.daml(5,9,5,20): typecheck error EQD0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
+        run.Log.ShouldContain($@"{package}\daml\UnknownImport.daml(4,8,4,23): not found error EQD0001: Could not find module ‘DA.DoesNotExist’");
         run.Log.ShouldNotContain("MSB6006");
     }
 
@@ -145,7 +145,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var run = BuildWithFake(host, Package("contracts", "version: 1.2.0\nsource: daml\n"));
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain("error DAML0100: daml.yaml has no 'name'; dpm needs one to build the package.");
+        run.Log.ShouldContain("error EQD0100: daml.yaml has no 'name'; dpm needs one to build the package.");
         _dpm.ReadCalls().ShouldBeEmpty();
     }
 
@@ -159,7 +159,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var run = BuildWithFake(host, Package("contracts"), ("EqDamlProcessTimeoutSeconds", "2"));
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain("error DAML0110: dpm build didn't finish within 2 s");
+        run.Log.ShouldContain("error EQD0110: dpm build didn't finish within 2 s");
         run.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(60));
         var build = Calls("build").ShouldHaveSingleItem();
         SpinWaitUntilGone(build.ProcessId);
@@ -205,7 +205,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
 
         run.ExitCode.ShouldBe(0, run.Log);
         File.Exists(Path.Combine(_sandbox.Root, package, @".daml\dist\single-package-0.0.1.dar")).ShouldBeTrue(run.Log);
-        run.Log.ShouldContain("warning DAML0002: warning while type checking package");
+        run.Log.ShouldContain("warning EQD0002: warning while type checking package");
     }
 
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true")]
@@ -220,7 +220,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var run = _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm });
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain($@"{Path.Combine(_sandbox.Root, package)}\daml\TypeError.daml(5,9,5,20): typecheck error DAML0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
+        run.Log.ShouldContain($@"{Path.Combine(_sandbox.Root, package)}\daml\TypeError.daml(5,9,5,20): typecheck error EQD0001: • Couldn't match expected type ‘Int’ with actual type ‘Text’");
         run.Log.ShouldNotContain("MSB6006");
     }
 
@@ -261,7 +261,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var run = BuildWithFake(host, app, ("DamlDarFile", Path.Combine(_sandbox.Root, @"vendor\finance-1.0.0.dar")));
 
         run.ExitCode.ShouldBe(1, run.Log);
-        run.Log.ShouldContain("error DAML0201");
+        run.Log.ShouldContain("error EQD0201");
         run.Log.ShouldNotContain("MSB4018");
         Calls("codegen-cs").ShouldBeEmpty();
     }

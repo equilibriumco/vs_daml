@@ -189,14 +189,14 @@ public class OutputWindowLoggerTests
         var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, createPaneAsync: null);
 
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "Build started");
-        logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error DAML0001: boom");
+        logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error EQD0001: boom");
         logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, "Build failed");
         await logger.DrainAsync();
 
         var lines = LinesOf(_outputWindow.Panes.Single());
         lines.Length.ShouldBe(3);
         lines[0].ShouldEndWith("info Build started");
-        lines[1].ShouldBe(@"C:\repo\Main.daml(5,9): error DAML0001: boom");
+        lines[1].ShouldBe(@"C:\repo\Main.daml(5,9): error EQD0001: boom");
         lines[2].ShouldEndWith("warn Build failed");
     }
 
@@ -211,14 +211,14 @@ public class OutputWindowLoggerTests
 
             logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Warning, "fetch https://alice:secret@registry/a");
             logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Debug, "below the minimum level");
-            logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error DAML0001: boom");
+            logger.WritePlainLine(DamlLogCategory.Build, @"C:\repo\Main.daml(5,9): error EQD0001: boom");
             await logger.DrainFilesAsync();
             await logger.DrainAsync();
 
             logger.LogFolder.ShouldBe(folder);
             var text = File.ReadAllText(RollingLogFile.Files(folder).Single().FullName);
             text.ShouldContain("warn [LanguageServer] fetch https://***@registry/a");
-            text.ShouldContain(@"info [Build] C:\repo\Main.daml(5,9): error DAML0001: boom");
+            text.ShouldContain(@"info [Build] C:\repo\Main.daml(5,9): error EQD0001: boom");
             text.ShouldNotContain("secret");
             text.ShouldNotContain("below the minimum level");
         }

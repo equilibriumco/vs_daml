@@ -76,7 +76,7 @@ public static class BindingRefreshCommand
 /// <param name="Line">The line; 0 when none is given.</param>
 /// <param name="Column">The column; 0 when none is given.</param>
 /// <param name="IsError">An error rather than a warning.</param>
-/// <param name="Code">Its code, such as DAML0001.</param>
+/// <param name="Code">Its code, such as EQD0001.</param>
 /// <param name="Message">What it says.</param>
 public sealed record MSBuildDiagnostic(string File, int Line, int Column, bool IsError, string Code, string Message);
 

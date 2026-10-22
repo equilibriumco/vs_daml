@@ -68,7 +68,7 @@ public sealed class DiagnosticReportTests : IDisposable
         }
         foreach (var kept in new[]
         {
-            "Daml extension loaded (version 0.3.0)", "fail [LanguageServer] DAML0101", "daml/TypeError.daml:5:9: error:",
+            "Daml extension loaded (version 0.3.0)", "fail [LanguageServer] EQD0101", "daml/TypeError.daml:5:9: error:",
             @"${DPM}\cache\components\damlc\3.6.2\damlc-dist-dpm\damlc.exe", "Payout.daml", "merger-terms.dar",
             "Failed with status: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed", "stopped (exit code 1)",
         })

@@ -14,23 +14,23 @@
   CSharpProject EqDamlJavaHome = '$(JAVA_HOME)' (a JDK folder)
 
 Diagnostic codes
-  DAML0001 CompileError
-  DAML0002 CompileWarning
-  DAML0100 InvalidConfiguration
-  DAML0101 MissingTool
-  DAML0102 MissingJava
-  DAML0103 DpmTooOld
-  DAML0104 CodegenFailed
-  DAML0105 LockTimeout
-  DAML0106 GeneratorPinConflict
-  DAML0107 MissingToolOffline
-  DAML0108 OutputConflict
-  DAML0109 RollbackFailed
-  DAML0110 CancelledOrTimedOut
-  DAML0111 LongGeneratedPath
-  DAML0201 RuntimeMismatch
-  DAML0202 TypeCollision
-  DAML0203 NavigationUnavailable
+  EQD0001 CompileError
+  EQD0002 CompileWarning
+  EQD0100 InvalidConfiguration
+  EQD0101 MissingTool
+  EQD0102 MissingJava
+  EQD0103 DpmTooOld
+  EQD0104 CodegenFailed
+  EQD0105 LockTimeout
+  EQD0106 GeneratorPinConflict
+  EQD0107 MissingToolOffline
+  EQD0108 OutputConflict
+  EQD0109 RollbackFailed
+  EQD0110 CancelledOrTimedOut
+  EQD0111 LongGeneratedPath
+  EQD0201 RuntimeMismatch
+  EQD0202 TypeCollision
+  EQD0203 NavigationUnavailable
 
 Equilibrium.Daml.Sdk targets
   CoreBuildDependsOn += EqDamlBuild

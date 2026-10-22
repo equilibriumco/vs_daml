@@ -22,7 +22,7 @@ public static class JavaLocation
     /// <param name="javaHome"><c>EqDamlJavaHome</c>.</param>
     /// <param name="environment">Environment variables by name.</param>
     /// <param name="files">The file system to look in.</param>
-    /// <param name="errors">Gets a DAML0102 error when there is no java to use.</param>
+    /// <param name="errors">Gets a EQD0102 error when there is no java to use.</param>
     /// <returns>The full path of java.exe, or null with an error added.</returns>
     public static string? Find(string? javaHome, Func<string, string?> environment, IDamlFileSystem files, ICollection<ConfigurationError> errors)
     {

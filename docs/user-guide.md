@@ -95,14 +95,14 @@ these projects and a `.slnx`. In Visual Studio's New Project dialog, check *Plac
 in the same directory* to get the same layout as `dotnet new`.
 
 - **Build** runs `dpm build` only when an input changed: `daml.yaml`, the set and content of source
-  files, dependency DARs/DALFs, or the effective DPM configuration. Errors use codes `DAML0001`
-  (error) and `DAML0002` (warning).
+  files, dependency DARs/DALFs, or the effective DPM configuration. Errors use codes `EQD0001`
+  (error) and `EQD0002` (warning).
 - **Clean** deletes the DAR and its build record.
 - **Test**: `dotnet build -t:DamlTest` runs every script with `dpm test`.
 - **Order**: a project that needs another package's DAR references it with
   `<ProjectReference … ReferenceOutputAssembly="false" />`.
 - Concurrent builds of one package run `dpm` one at a time; a build waiting longer than
-  `DamlLockTimeoutSeconds` fails with `DAML0105`.
+  `DamlLockTimeoutSeconds` fails with `EQD0105`.
 - Works in Visual Studio, `MSBuild.exe` of Visual Studio 2026 and `dotnet build`.
 
 ## C# from Daml (`Daml.Build.CSharp`)
@@ -121,12 +121,12 @@ in the same directory* to get the same layout as `dotnet new`.
   `ProjectReference` works too, with the namespace in `DamlNamespace` metadata. `DamlDar` points at a
   DAR outside the solution.
 - `Namespace` is optional and prefixes the generated namespaces. Two references that generate the
-  same types fail with `DAML0202`.
+  same types fail with `EQD0202`.
 - C# is generated for the DAR's own package only. Dependencies need their own references or NuGet
   packages.
 - **Generator**: `dpm-codegen-cs` 0.6.0, pinned by digest and cached in
   `%LOCALAPPDATA%\DamlVisualStudio\codegen`. A build downloads it (about 180 MB) only when
-  `DamlAllowToolInstall` is true; otherwise a missing generator fails with `DAML0101`. Run
+  `DamlAllowToolInstall` is true; otherwise a missing generator fails with `EQD0101`. Run
   `dotnet build -p:DamlAllowToolInstall=true` once per machine. Apps created from the template allow
   the download by default.
 - **Output**: `Intermediate` (default) writes to `obj`; `Source` writes to `Generated\Daml` for
@@ -134,7 +134,7 @@ in the same directory* to get the same layout as `dotnet new`.
 - Unchanged inputs skip the generator. A new generation replaces the old one only when it is
   complete; a failed or canceled run keeps the previous code, and the next build finishes or undoes
   an interrupted one. Clean removes only files the generator wrote; your own files
-  in that folder are kept and reported (`DAML0108`).
+  in that folder are kept and reported (`EQD0108`).
 - **In Visual Studio**, IntelliSense picks up new types after each build without a project reload.
   Design-time builds never run tools.
 - **Navigation**: in C#, *Go to Daml Definition* (context menu) opens the Daml declaration of a
@@ -147,42 +147,42 @@ in the same directory* to get the same layout as `dotnet new`.
 | Property | Applies to | Default | Description |
 |---|---|---|---|
 | `DamlDpmPath` | both | empty | dpm to run. Empty: `PATH`, `%DPM_HOME%\bin`, `%APPDATA%\.dpm\bin`, `%APPDATA%\dpm\bin`. |
-| `DamlOffline` | both | false | Never download or install; missing tools fail with `DAML0107`. Overrides `DamlAllowToolInstall`. |
+| `DamlOffline` | both | false | Never download or install; missing tools fail with `EQD0107`. Overrides `DamlAllowToolInstall`. |
 | `DamlAllowToolInstall` | both | false | Allow installing a missing SDK or downloading the generator. |
 | `DamlSkipPreflight` | both | false | Skip dpm/JDK version checks (with a warning). |
-| `DamlProcessTimeoutSeconds` | both | 1800 | Time limit for one dpm run; 0 disables it (`DAML0110`). |
-| `DamlLockTimeoutSeconds` | both | 600 | Wait limit for another build of the same package or generation (`DAML0105`). |
+| `DamlProcessTimeoutSeconds` | both | 1800 | Time limit for one dpm run; 0 disables it (`EQD0110`). |
+| `DamlLockTimeoutSeconds` | both | 600 | Wait limit for another build of the same package or generation (`EQD0105`). |
 | `DamlManifestPath` | Daml | `daml.yaml` next to the project | Package manifest. |
 | `DamlBuildEnabled` | Daml | true | false skips `dpm build` and uses the existing DAR. |
 | `DamlCodegenEnabled` | C# | true | false disables generation. |
-| `DamlCodegenComponent` | C# | pinned generator | Another generator as `oci://<registry>/<repo>:<tag>@sha256:<digest>`; untested ones raise `DAML0106`. |
+| `DamlCodegenComponent` | C# | pinned generator | Another generator as `oci://<registry>/<repo>:<tag>@sha256:<digest>`; untested ones raise `EQD0106`. |
 | `DamlGeneratedOutputMode` | C# | `Intermediate` | `Intermediate` or `Source`. |
 | `DamlGeneratedDir` | C# | `obj\…\Daml\` or `Generated\Daml\` | Output folder; must be a folder of its own. |
 | `DamlJavaHome` | C# | `$(JAVA_HOME)` | JDK for the generator. |
 
 Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Other values raise
-`DAML0100`.
+`EQD0100`.
 
 ### Diagnostic codes
 
 | Code | Meaning | Fix |
 |---|---|---|
-| `DAML0001` / `DAML0002` | Daml compiler error / warning. | Fix the Daml at the reported location. |
-| `DAML0100` | Invalid property, item, path or `daml.yaml` field. | See the message. |
-| `DAML0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.6.0`), set `DamlDpmPath`, or set `DamlAllowToolInstall`. |
-| `DAML0102` | No JDK 17+ for the generator. | Install a JDK or set `DamlJavaHome`. |
-| `DAML0103` | dpm older than 1.0.22. | Update dpm. |
-| `DAML0104` | Generation failed. | See the message; for a locked file, build again. |
-| `DAML0105` | Lock wait exceeded `DamlLockTimeoutSeconds`. | Wait, or raise the limit. |
-| `DAML0106` | Generator not pinned, not tested, or its cache is damaged. | Use the default generator; delete its folder under `codegen`. |
-| `DAML0107` | Offline build needs a missing tool. | Build once online with `DamlAllowToolInstall`. |
-| `DAML0108` | Generated code would overwrite or delete files it does not own. | See the files named in the message. |
-| `DAML0109` | A failed generation could not restore the previous code. | Build again. |
-| `DAML0110` | dpm or the generator was canceled or timed out. | Build again, or raise the limit. |
-| `DAML0111` | Warning: generated path exceeds 260 characters. | Shorten `DamlGeneratedDir` or enable Windows long paths. |
-| `DAML0201` | Runtime packages missing or incompatible, or target framework below `net10.0`. | Reference both runtime packages at 0.6.0; target `net10.0`. |
-| `DAML0202` | Two references generate the same types. | Give one a `Namespace`. |
-| `DAML0203` | C#/Daml navigation not possible: sources ambiguous or changed since the build. | Build. |
+| `EQD0001` / `EQD0002` | Daml compiler error / warning. | Fix the Daml at the reported location. |
+| `EQD0100` | Invalid property, item, path or `daml.yaml` field. | See the message. |
+| `EQD0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.6.0`), set `DamlDpmPath`, or set `DamlAllowToolInstall`. |
+| `EQD0102` | No JDK 17+ for the generator. | Install a JDK or set `DamlJavaHome`. |
+| `EQD0103` | dpm older than 1.0.22. | Update dpm. |
+| `EQD0104` | Generation failed. | See the message; for a locked file, build again. |
+| `EQD0105` | Lock wait exceeded `DamlLockTimeoutSeconds`. | Wait, or raise the limit. |
+| `EQD0106` | Generator not pinned, not tested, or its cache is damaged. | Use the default generator; delete its folder under `codegen`. |
+| `EQD0107` | Offline build needs a missing tool. | Build once online with `DamlAllowToolInstall`. |
+| `EQD0108` | Generated code would overwrite or delete files it does not own. | See the files named in the message. |
+| `EQD0109` | A failed generation could not restore the previous code. | Build again. |
+| `EQD0110` | dpm or the generator was canceled or timed out. | Build again, or raise the limit. |
+| `EQD0111` | Warning: generated path exceeds 260 characters. | Shorten `DamlGeneratedDir` or enable Windows long paths. |
+| `EQD0201` | Runtime packages missing or incompatible, or target framework below `net10.0`. | Reference both runtime packages at 0.6.0; target `net10.0`. |
+| `EQD0202` | Two references generate the same types. | Give one a `Namespace`. |
+| `EQD0203` | C#/Daml navigation not possible: sources ambiguous or changed since the build. | Build. |
 
 ## Settings
 
@@ -243,7 +243,7 @@ full file contents.
 | Symptom | Cause and fix |
 |---|---|
 | Bar: "No daml.yaml found …" | The folder has no `daml.yaml` or `multi-package.yaml` above the file. Open the package or workspace folder. |
-| Bar with `DAML0101` | dpm or the pinned SDK is missing. Install it or set the dpm path in Options. |
+| Bar with `EQD0101` | dpm or the pinned SDK is missing. Install it or set the dpm path in Options. |
 | Bar: "… keeps crashing and was stopped." | More than five crashes in three minutes. Check the *Daml Language Server* pane, fix the cause, click **Restart**. |
 | Bar: "… stopped responding and was restarted." | No answer for two minutes. Report it if it repeats. |
 | Colors but no errors or hover | The file is outside the open workspace. |
@@ -255,7 +255,7 @@ full file contents.
 - Visual Studio 2026 on x64 only; no ARM64. IDE features are tested on Visual Studio 2026 18.12.
 - After you delete a generated file in `obj` by hand, the next Rebuild restores it, but IntelliSense
   may need a second Rebuild.
-- Generated paths longer than 260 characters (deep `Namespace` values) build with warning `DAML0111`,
+- Generated paths longer than 260 characters (deep `Namespace` values) build with warning `EQD0111`,
   but IntelliSense reports missing types unless Windows long paths are enabled.
 - The first generating build on a machine downloads the generator (about 180 MB) and needs
   `DamlAllowToolInstall` unless the project came from the app template.

@@ -25,17 +25,17 @@ public sealed record BuildDiagnostic(
     private static readonly Regex RepeatedPlace = new(@"^\s*\S.*?:\d+:\d+:\s*(error|warning):\s*", RegexOptions.IgnoreCase);
 
     /// <summary>Code shown for build errors.</summary>
-    public const string ErrorCode = "DAML0001";
+    public const string ErrorCode = "EQD0001";
 
     /// <summary>Code shown for build warnings.</summary>
-    public const string WarningCode = "DAML0002";
+    public const string WarningCode = "EQD0002";
 
     /// <summary><see cref="ErrorCode"/> or <see cref="WarningCode"/>.</summary>
     public string Code => Severity == DamlDiagnosticSeverity.Error ? ErrorCode : WarningCode;
 
     /// <summary>
     /// One line in the form Visual Studio's Output window jumps from on double-click:
-    /// <c>path(line,column): error DAML0001: message</c>, 1-based, the message on a single line.
+    /// <c>path(line,column): error EQD0001: message</c>, 1-based, the message on a single line.
     /// </summary>
     public string ToOutputLine()
     {

@@ -149,7 +149,7 @@ public class SdkResolverTests
 
         var error = await Should.ThrowAsync<SdkResolutionException>(() => ResolveAsync(Ide(@"C:\repo\old")));
 
-        error.Code.ShouldBe("DAML0101");
+        error.Code.ShouldBe("EQD0101");
         error.Message.ShouldContain("3.3.0");
         error.Message.ShouldContain("daml assistant");
     }
@@ -161,7 +161,7 @@ public class SdkResolverTests
 
         var error = await Should.ThrowAsync<SdkResolutionException>(() => ResolveAsync(Ide(@"C:\repo\app")));
 
-        error.Code.ShouldBe("DAML0101");
+        error.Code.ShouldBe("EQD0101");
         error.Message.ShouldContain("dpm");
         error.Message.ShouldContain("Tools > Options > Daml");
         _runner.Calls.ShouldBeEmpty();
@@ -175,7 +175,7 @@ public class SdkResolverTests
 
         var error = await Should.ThrowAsync<SdkResolutionException>(() => ResolveAsync(Ide(@"C:\repo\app")));
 
-        error.Code.ShouldBe("DAML0101");
+        error.Code.ShouldBe("EQD0101");
         error.Message.ShouldContain("3.6.0");
         error.Message.ShouldContain("dpm");
     }

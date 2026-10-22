@@ -20,7 +20,7 @@ public static class DpmLocation
     /// <param name="projectDirectory">The full path of the project's folder.</param>
     /// <param name="environment">Environment variables by name.</param>
     /// <param name="files">The file system to look in.</param>
-    /// <param name="errors">Gets a DAML0101 error when dpm can't be found.</param>
+    /// <param name="errors">Gets a EQD0101 error when dpm can't be found.</param>
     /// <param name="workingDirectory">The child's working directory for relative DPM_HOME; defaults to the project directory.</param>
     /// <returns>The path, or null with an error added.</returns>
     public static string? Find(

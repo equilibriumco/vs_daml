@@ -109,7 +109,7 @@ public class MSBuildContractTests
         var codes = Codes().Select(c => c.Code).ToList();
 
         codes.ShouldBeUnique();
-        codes.ShouldAllBe(c => Regex.IsMatch(c, "^DAML[0-9]{4}$"));
+        codes.ShouldAllBe(c => Regex.IsMatch(c, "^EQD[0-9]{4}$"));
     }
 
     private static IEnumerable<(string Code, string Name)> Codes() =>

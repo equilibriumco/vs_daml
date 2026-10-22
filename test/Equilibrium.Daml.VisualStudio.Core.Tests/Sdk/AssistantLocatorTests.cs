@@ -83,7 +83,7 @@ public class AssistantLocatorTests
 
         var error = Should.Throw<SdkResolutionException>(() => Locator().Find(AssistantKind.Dpm, @"D:\gone\dpm.exe"));
 
-        error.Code.ShouldBe("DAML0101");
+        error.Code.ShouldBe("EQD0101");
         error.Message.ShouldContain(@"D:\gone\dpm.exe");
     }
 
