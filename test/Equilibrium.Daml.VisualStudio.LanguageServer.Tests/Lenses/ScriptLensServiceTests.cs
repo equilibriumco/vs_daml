@@ -71,6 +71,7 @@ public sealed class ScriptLensServiceTests : IDisposable
     {
         _service.OnDocumentActivity(Main);
         _time.Advance(TimeSpan.FromMilliseconds(499));
+        await GraceAsync();
         _requests.ShouldBeEmpty();
 
         _time.Advance(TimeSpan.FromMilliseconds(1));
@@ -99,7 +100,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         _time.Advance(TimeSpan.FromMilliseconds(500));
 
         await NextRequestAsync();
-        await Task.Delay(50);
+        await GraceAsync();
         lock (_requests)
         {
             _requests.ShouldHaveSingleItem().Uri.ShouldEndWith(".Daml");
@@ -117,7 +118,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         _time.Advance(TimeSpan.FromMilliseconds(500));
 
         await NextRequestAsync();
-        await Task.Delay(50);
+        await GraceAsync();
         _requests.Count.ShouldBe(1);
     }
 
@@ -194,7 +195,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         _channel.Attach(next, sessionId: 2);
         request.Reply.TrySetResult(Answer);
 
-        await Task.Delay(50);
+        await GraceAsync();
         _service.GetLenses(Main).ShouldBeEmpty();
     }
 
@@ -219,7 +220,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         _service.OnDocumentActivity(Main);
         _time.Advance(TimeSpan.FromSeconds(1));
 
-        await Task.Delay(50);
+        await GraceAsync();
         _requests.ShouldBeEmpty();
         _changes.ShouldBeEmpty();
     }
@@ -233,7 +234,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         _time.Advance(TimeSpan.FromMilliseconds(500));
         (await NextRequestAsync(1)).Reply.SetResult(Answer.DeepClone());
 
-        await Task.Delay(50);
+        await GraceAsync();
         _changes.Count.ShouldBe(1);
     }
 
@@ -249,7 +250,7 @@ public sealed class ScriptLensServiceTests : IDisposable
         request.Token.IsCancellationRequested.ShouldBeTrue();
         _service.OnDocumentActivity(Main);
         _time.Advance(TimeSpan.FromSeconds(1));
-        await Task.Delay(50);
+        await GraceAsync();
         _requests.Count.ShouldBe(1);
         _changes.ShouldBeEmpty();
     }
@@ -279,15 +280,11 @@ public sealed class ScriptLensServiceTests : IDisposable
         }
     }
 
-    private static async Task SettledAsync(Func<bool> condition)
-    {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
-        while (!condition())
-        {
-            DateTime.UtcNow.ShouldBeLessThan(deadline, "the service never got there");
-            await Task.Delay(10);
-        }
-    }
+    private static Task SettledAsync(Func<bool> condition) => Wait.UntilAsync(condition, "the lens service to get there");
+
+    // Gives what should not happen the chance to happen anyway. Only a broken service can be caught
+    // out by it; a slow machine can't make a correct one fail.
+    private static Task GraceAsync() => Task.Delay(100);
 
     private sealed class Request(string uri, CancellationToken token)
     {

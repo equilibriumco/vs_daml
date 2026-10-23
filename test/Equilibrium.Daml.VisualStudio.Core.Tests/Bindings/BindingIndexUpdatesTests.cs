@@ -43,14 +43,11 @@ public sealed class BindingIndexUpdatesTests : IDisposable
         return done.Task;
     }
 
-    private static async Task Until(Func<bool> condition)
-    {
-        for (var i = 0; i < 500 && !condition(); i++)
-        {
-            await Task.Delay(10);
-        }
-        condition().ShouldBeTrue();
-    }
+    private static Task Until(Func<bool> condition) => Wait.UntilAsync(condition, "the updates to catch up");
+
+    // Gives a read that should not start the chance to start anyway. Only broken updates can be
+    // caught out by it; a slow machine can't make correct ones fail.
+    private static Task GraceAsync() => Task.Delay(50);
 
     private int Applied { get { lock (_applied) { return _applied.Count; } } }
 
@@ -65,7 +62,7 @@ public sealed class BindingIndexUpdatesTests : IDisposable
     {
         _updates.Request(IndexChanges.Document("app", @"C:\work\A.cs"));
         _time.Advance(TimeSpan.FromMilliseconds(999));
-        await Task.Delay(50);
+        await GraceAsync();
         Applied.ShouldBe(0);
 
         _time.Advance(TimeSpan.FromMilliseconds(1));
@@ -86,7 +83,7 @@ public sealed class BindingIndexUpdatesTests : IDisposable
         _time.Advance(TimeSpan.FromMilliseconds(600));
         _updates.Request(IndexChanges.Document("app", @"C:\work\B.cs"));
         _time.Advance(TimeSpan.FromMilliseconds(600));
-        await Task.Delay(50);
+        await GraceAsync();
         Applied.ShouldBe(0);
 
         _time.Advance(TimeSpan.FromMilliseconds(400));
@@ -146,7 +143,7 @@ public sealed class BindingIndexUpdatesTests : IDisposable
         _updates.Dispose();
         _updates.Request(IndexChanges.Everything);
         _time.Advance(Debounce);
-        await Task.Delay(50);
+        await GraceAsync();
 
         Last.Token.IsCancellationRequested.ShouldBeTrue();
         Applied.ShouldBe(1);

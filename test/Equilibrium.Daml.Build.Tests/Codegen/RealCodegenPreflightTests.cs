@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -96,11 +95,32 @@ public sealed class RealCodegenPreflightTests : IDisposable
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
-        var clock = Stopwatch.StartNew();
+        var runner = new RecordingRunner(new ProcessRunner());
+        var preflight = new CodegenPreflight(runner, new PhysicalFileSystem(), Environment.GetEnvironmentVariable, Path.Combine(_root, "empty-codegen"), Locks);
 
-        var plan = await Preflight(Path.Combine(_root, "empty-codegen")).PlanAsync(Request(dpm, java, offline: true, install: false), CancellationToken.None);
+        var plan = await preflight.PlanAsync(Request(dpm, java, offline: true, install: false), CancellationToken.None);
 
         plan.Problems.ShouldHaveSingleItem().Code.ShouldBe(DamlDiagnosticCodes.MissingToolOffline);
-        clock.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(30));
+        // At once: offline, nothing is downloaded or installed, nor even tried.
+        runner.Calls.ShouldNotContain(spec => spec.Arguments.Contains("install"), string.Join("; ", runner.Calls.Select(c => string.Join(" ", c.Arguments))));
+    }
+
+    private sealed class RecordingRunner(IProcessRunner inner) : IProcessRunner
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<ProcessSpec> _calls = new();
+
+        public ProcessSpec[] Calls => [.. _calls];
+
+        public Task<ProcessResult> RunAsync(ProcessSpec spec, CancellationToken cancellationToken)
+        {
+            _calls.Enqueue(spec);
+            return inner.RunAsync(spec, cancellationToken);
+        }
+
+        public IRunningProcess Start(ProcessSpec spec)
+        {
+            _calls.Enqueue(spec);
+            return inner.Start(spec);
+        }
     }
 }

@@ -75,9 +75,7 @@ public class LanguageServerTests
             {
                 view.Caret.MoveTo(new SnapshotPoint(line.Snapshot, line.Start + line.GetText().IndexOf("View", StringComparison.Ordinal) + 1));
                 Ide.GoToDefinition(view);
-                await Task.Delay(2000);
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-                opened = string.Equals(Ide.Dte().ActiveDocument?.FullName, target, StringComparison.OrdinalIgnoreCase);
+                opened = await Ide.OpensAsync(target, TimeSpan.FromSeconds(2));
                 if (!opened)
                 {
                     Ide.OpenFile(Path.Combine(folder, "main", "daml", "Main.daml"));

@@ -164,8 +164,9 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         File.WriteAllText(gate, "@echo off\r\nping -n 120 127.0.0.1 >nul\r\n", Encoding.ASCII);
         var coordinator = new DamlBuildCoordinator(new DpmRunner(new ProcessRunner()), () => gate, _logger);
 
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         var run = coordinator.RunAsync(new DamlBuildAction(DpmCommandKind.Build, _package, false), CancellationToken.None);
-        await Task.Delay(500);
+        await Wait.UntilAsync(() => _logger.Entries.Any(l => l.Message.Contains("started")), "the run to start");
         coordinator.CancelAll();
 
         // The run belongs to this test; nothing here is tied to a UI context.
@@ -173,7 +174,7 @@ public sealed class DamlBuildCoordinatorTests : IDisposable
         await Should.ThrowAsync<OperationCanceledException>(() => run);
 #pragma warning restore VSTHRD003
         _logger.Entries.ShouldContain(l => l.Message.Contains("cancelled"));
+        // The tool sleeps two minutes: only stopping it ends the run this soon.
+        clock.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(60));
     }
-
-
 }

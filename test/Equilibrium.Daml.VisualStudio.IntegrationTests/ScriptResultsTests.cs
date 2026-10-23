@@ -212,7 +212,8 @@ public class ScriptResultsTests
                 await ShowResultsOfAsync(view, "s1");
                 await BrowserAsync("Script: s1", view);
             }
-            await Task.Delay(TimeSpan.FromSeconds(5));
+            // Closed windows' browser processes exit on their own time; wait for them to go.
+            await Ide.UntilAsync(() => Task.FromResult(ResultsWindow.BrowserProcesses() <= withOne + 1), TimeSpan.FromSeconds(30));
             var afterCycles = ResultsWindow.BrowserProcesses();
             var growth = (ResultsWindow.DevenvPrivateBytes() - memoryBefore) / (1024 * 1024);
             _output.WriteLine($"browser processes: ten windows {withTen}, one window {withOne}, after 20 cycles {afterCycles}; devenv private bytes +{growth} MB");
@@ -353,7 +354,9 @@ public class ScriptResultsTests
             await ResultsWindow.EvalAsync(browser, "window.__fetch = 'pending'; fetch('https://example.com/', { mode: 'no-cors' }).then(r => window.__fetch = 'status ' + r.status, () => window.__fetch = 'refused');");
             Assert.Equal("null", (string?)await ResultsWindow.EvalAsync(browser, "String(window.open('https://example.com/'))"));
             await ResultsWindow.EvalAsync(browser, "location.href = 'https://example.com/'");
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            await Ide.UntilAsync(async () => (string?)await ResultsWindow.EvalAsync(browser, "window.__fetch") != "pending", TimeSpan.FromSeconds(30));
+            // A navigation that got through would take a moment longer than the refused fetch.
+            await Task.Delay(TimeSpan.FromSeconds(1));
 
             Assert.Equal("refused", (string?)await ResultsWindow.EvalAsync(browser, "window.__fetch"));
             Assert.Equal(page, (string?)await ResultsWindow.EvalAsync(browser, "location.href"));

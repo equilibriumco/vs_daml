@@ -170,7 +170,9 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         restore.ExitCode.ShouldBe(0, restore.Log);
         runs.ShouldAllBe(r => r.ExitCode == 0, string.Join("\n----\n", runs.Select(r => r.Log)));
         Calls("build").Count.ShouldBe(1);
-        runs.Count(r => r.Log.Contains("by another build while this one waited")).ShouldBe(1);
+        // The other one either waited for the lock or, starting later, found the DAR already made;
+        // which of the two is down to how the hosts were scheduled, and both run no dpm.
+        runs.Count(r => r.Log.Contains("by another build while this one waited") || r.Log.Contains("is up to date: nothing it is built from has changed")).ShouldBe(1);
     }
 
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]

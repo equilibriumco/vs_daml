@@ -294,7 +294,10 @@ public sealed class ClientRestartSequenceTests : IDisposable
 
         _host.OnDirectoryRemoved(removed);
         _time.Advance(TimeSpan.FromSeconds(1));
+        // A restart asked for by mistake would run the sequence again; give it the chance to.
+        await Task.Delay(100);
 
+        _steps.ShouldBe(["discover", "start"]);
         _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
     }
 

@@ -62,13 +62,11 @@ public class SolutionModeTests
             var line = view.TextBuffer.CurrentSnapshot.Lines.First(l => l.GetText().Contains(context));
             view.Caret.MoveTo(new SnapshotPoint(line.Snapshot, line.Start + line.GetText().IndexOf(context, StringComparison.Ordinal) + context.IndexOf(word, StringComparison.Ordinal) + 1));
             Ide.GoToDefinition(view);
-            await Task.Delay(2000);
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            landed = Ide.Dte().ActiveDocument?.FullName ?? "";
-            if (string.Equals(landed, target, StringComparison.OrdinalIgnoreCase))
+            if (await Ide.OpensAsync(target, TimeSpan.FromSeconds(2)))
             {
                 return;
             }
+            landed = Ide.Dte().ActiveDocument?.FullName ?? "";
         }
         Assert.Fail($"Go To Definition on {word} in {Path.GetFileName(file)} didn't open {target}; the active document is '{landed}'.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools: Language Server", 12000)}");
     }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Equilibrium.Daml.Build.Core.Codegen;
+using Equilibrium.Daml.TestHelpers;
 using Shouldly;
 using Xunit;
 
@@ -127,16 +128,17 @@ public sealed class GeneratedPropsTests : IDisposable
     }
 
     // MSBuild reads an import without letting anyone replace it; that only holds the new list up.
-    // The reader lets go from a thread of its own: a thread-pool timer can fire late under the
-    // parallel test load, past the writer's retry budget.
+    // The reader lets go once the writer has staged the new list and is trying to put it in place,
+    // so how late the release comes doesn't depend on how busy the machine is.
     [Fact, Trait("Category", "Unit")]
     public void A_reader_holding_the_old_list_only_delays_the_new_one()
     {
         GeneratedProps.Write(Props, Files, visible: false);
         var reader = new FileStream(Props, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var staged = Path.GetFileName(Props) + ".*.tmp";
         var release = new System.Threading.Thread(() =>
         {
-            System.Threading.Thread.Sleep(150);
+            System.Threading.SpinWait.SpinUntil(() => Directory.GetFiles(Path.GetDirectoryName(Props)!, staged).Length > 0, Wait.Deadline);
             reader.Dispose();
         })
         { IsBackground = true };

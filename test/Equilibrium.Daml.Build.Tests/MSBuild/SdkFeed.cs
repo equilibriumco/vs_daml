@@ -91,7 +91,7 @@ internal static class SdkFeed
         var project = Path.Combine(Repository.Root, relativeProject);
         var startInfo = new ProcessStartInfo(RequiredTools.Require(ExternalTool.Dotnet))
         {
-            Arguments = $"pack \"{project}\" --no-build -c {Configuration} -o \"{folder}\" -p:PackageVersion={version} \"-p:NuspecOutputPath={Path.Combine(folder, "nuspec")}\" -nologo",
+            Arguments = $"pack \"{project}\" --no-build -c {Configuration} -o \"{folder}\" -p:PackageVersion={version} \"-p:NuspecOutputPath={Path.Combine(folder, "nuspec")}\" \"-p:_EqDamlStampedTemplates={Path.Combine(folder, "templates")}\" -nologo",
             WorkingDirectory = Repository.Root,
             UseShellExecute = false,
             RedirectStandardOutput = true,

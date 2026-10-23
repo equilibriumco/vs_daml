@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Bindings;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Lenses;
 using Shouldly;
@@ -43,22 +44,12 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
 
     private void Show(int first, int last, int version = 1) => _segments.Shown(Uri, first, last, version, () => Text);
 
-    private static async Task SettleAsync()
-    {
-        for (var i = 0; i < 10; i++)
-        {
-            await Task.Delay(5);
-        }
-    }
+    // Gives a count that should not start the chance to start anyway. Only broken segments can be
+    // caught out by it; a slow machine can't make correct ones fail.
+    private static Task SettleAsync() => Task.Delay(100);
 
-    // Counts start and end on the thread pool; waits for what a test expects, a few seconds at most.
-    private static async Task UntilAsync(Func<bool> condition)
-    {
-        for (var i = 0; i < 400 && !condition(); i++)
-        {
-            await Task.Delay(5);
-        }
-    }
+    // Counts start and end on the thread pool; waits for what a test expects.
+    private static Task UntilAsync(Func<bool> condition) => Wait.UntilAsync(condition, "the counts to get there");
 
     [Fact, Trait("Category", "Unit")]
     public void A_file_whose_package_generates_no_CSharp_has_no_segments()

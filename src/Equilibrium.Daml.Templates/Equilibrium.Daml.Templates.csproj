@@ -29,11 +29,15 @@
     <None Include="content\**" Exclude="@(_EqDamlTemplateConfig)" Pack="true" PackagePath="content\" />
   </ItemGroup>
 
-  <!-- Each template.json goes into the package with @PackageVersion@ and @PackageIdPrefix@ replaced. -->
+  <!-- Each template.json goes into the package with @PackageVersion@ and @PackageIdPrefix@ replaced.
+       Two packs at once (another version, say) each give _EqDamlStampedTemplates a folder of their own. -->
   <Target Name="EqDamlStampTemplates" BeforeTargets="_GetPackageFiles">
+    <PropertyGroup>
+      <_EqDamlStampedTemplates Condition="'$(_EqDamlStampedTemplates)' == ''">$(IntermediateOutputPath)templates\</_EqDamlStampedTemplates>
+    </PropertyGroup>
     <ItemGroup>
       <_EqDamlTemplateConfig>
-        <Stamped>$(IntermediateOutputPath)templates\%(RecursiveDir)template.json</Stamped>
+        <Stamped>$([MSBuild]::EnsureTrailingSlash('$(_EqDamlStampedTemplates)'))%(RecursiveDir)template.json</Stamped>
         <Text>$([System.IO.File]::ReadAllText('%(FullPath)').Replace('@PackageVersion@', '$(PackageVersion)').Replace('@PackageIdPrefix@', '$(PackageIdPrefix)'))</Text>
       </_EqDamlTemplateConfig>
     </ItemGroup>

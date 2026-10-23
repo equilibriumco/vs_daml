@@ -69,6 +69,10 @@ public sealed class LanguageServerSupervisorTests : IDisposable
 
     private Task<LanguageServerSession?> StartAsync(CancellationToken cancellationToken = default) => _supervisor.StartAsync(cancellationToken);
 
+    // Gives what should not happen the chance to happen anyway. Only a broken supervisor can be
+    // caught out by it; a slow machine can't make a correct one fail.
+    private static Task GraceAsync() => Task.Delay(100);
+
     // Exits are noticed on a thread-pool continuation; wait for the state they lead to.
     private async Task CrashAsync(int processIndex, LanguageServerState expected = LanguageServerState.Crashed)
     {
@@ -127,6 +131,7 @@ public sealed class LanguageServerSupervisorTests : IDisposable
 
         _supervisor.State.ShouldBe(LanguageServerState.Restarting);
         _time.Advance(TimeSpan.FromMilliseconds(999));
+        await GraceAsync();
         restart.IsCompleted.ShouldBeFalse();
         _time.Advance(TimeSpan.FromMilliseconds(1));
         (await restart).ShouldNotBeNull().Id.ShouldBe(2);
@@ -159,7 +164,7 @@ public sealed class LanguageServerSupervisorTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public async Task Too_many_crashes_open_the_circuit_and_starts_return_null()
     {
-        var supervisor = new LanguageServerSupervisor(_runner, _ => Task.FromResult(Command), NullDamlLogger.Instance, _time,
+        using var supervisor = new LanguageServerSupervisor(_runner, _ => Task.FromResult(Command), NullDamlLogger.Instance, _time,
             new RestartPolicy([TimeSpan.Zero], maxCrashes: 2, window: TimeSpan.FromMinutes(3)));
         var faulted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         supervisor.StateChanged += (_, e) =>
@@ -174,7 +179,8 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         {
             (await supervisor.StartAsync(CancellationToken.None)).ShouldNotBeNull();
             _runner.Started[i].Exit(1);
-            await Task.Delay(50);
+            // Noticed before the next start, or that start would replace a crash nobody saw.
+            await Wait.UntilAsync(() => supervisor.State is LanguageServerState.Crashed or LanguageServerState.Faulted, $"crash {i + 1} to be noticed");
         }
         (await Task.WhenAny(faulted.Task, Task.Delay(Generous))).ShouldBe(faulted.Task);
 
@@ -186,16 +192,13 @@ public sealed class LanguageServerSupervisorTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public async Task Resetting_the_circuit_asks_for_a_restart_that_starts_at_once()
     {
-        var supervisor = new LanguageServerSupervisor(_runner, _ => Task.FromResult(Command), NullDamlLogger.Instance, _time,
+        using var supervisor = new LanguageServerSupervisor(_runner, _ => Task.FromResult(Command), NullDamlLogger.Instance, _time,
             new RestartPolicy([TimeSpan.FromSeconds(30)], maxCrashes: 0, window: TimeSpan.FromMinutes(3)));
         var reasons = new List<IReadOnlyList<string>>();
         supervisor.RestartRequested += (_, e) => reasons.Add(e.Reasons);
         await supervisor.StartAsync(CancellationToken.None);
         _runner.Started[0].Exit(1);
-        while (supervisor.State != LanguageServerState.Faulted)
-        {
-            await Task.Delay(10);
-        }
+        await Wait.UntilAsync(() => supervisor.State == LanguageServerState.Faulted, "the circuit to open");
 
         supervisor.ResetCircuit();
 
@@ -434,7 +437,7 @@ public sealed class LanguageServerSupervisorTests : IDisposable
         _runner.Started[0].Exit(1);
 
         (await Task.WhenAny(faulted.Task, Task.Delay(Generous))).ShouldBe(faulted.Task);
-        await Task.Delay(100);
+        await GraceAsync();
         Volatile.Read(ref requests).ShouldBe(0);
         supervisor.Dispose();
     }

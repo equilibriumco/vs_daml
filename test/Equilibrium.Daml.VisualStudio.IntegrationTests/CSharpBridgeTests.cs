@@ -45,8 +45,7 @@ public class CSharpBridgeTests
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 Ide.ExecuteDamlCommand(view, GoToDamlDefinition);
-                await Task.Delay(1000);
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                await Ide.OpensAsync(main, TimeSpan.FromSeconds(1));
                 (path, line) = Ide.ActiveDocumentAndLine();
                 if (string.Equals(path, main, StringComparison.OrdinalIgnoreCase))
                 {

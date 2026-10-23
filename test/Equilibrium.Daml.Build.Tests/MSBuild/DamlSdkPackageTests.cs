@@ -59,7 +59,7 @@ public sealed class DamlSdkPackageTests : IDisposable
     private async Task<(string[] Entries, XElement Metadata)> PackAsync(string project, string id)
     {
         var pack = await new ProcessRunner().RunAsync(
-            new ProcessSpec(RequiredTools.Require(ExternalTool.Dotnet), ["pack", Path.Combine(Repository.Root, project), "--no-build", "-c", Configuration, "-o", _output, $"-p:NuspecOutputPath={Path.Combine(_output, "nuspec")}", "-nologo"])
+            new ProcessSpec(RequiredTools.Require(ExternalTool.Dotnet), ["pack", Path.Combine(Repository.Root, project), "--no-build", "-c", Configuration, "-o", _output, $"-p:NuspecOutputPath={Path.Combine(_output, "nuspec")}", $"-p:_EqDamlStampedTemplates={Path.Combine(_output, "templates")}", "-nologo"])
             {
                 WorkingDirectory = Repository.Root,
                 Timeout = TimeSpan.FromMinutes(5),

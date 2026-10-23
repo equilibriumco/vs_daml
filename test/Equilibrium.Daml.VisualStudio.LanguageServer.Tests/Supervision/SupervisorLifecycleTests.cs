@@ -108,6 +108,8 @@ public sealed class SupervisorLifecycleTests
 
         supervisor.MarkReady(session.Id);
         _time.Advance(TimeSpan.FromMinutes(5));
+        // The watchdog resumes on the thread pool: give a kill that shouldn't come the chance to.
+        await Task.Delay(100);
 
         runner.Started[0].Killed.ShouldBeFalse();
         supervisor.State.ShouldBe(LanguageServerState.Ready);

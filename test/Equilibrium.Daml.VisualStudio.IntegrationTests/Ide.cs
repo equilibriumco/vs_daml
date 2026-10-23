@@ -259,6 +259,36 @@ internal static class Ide
             + Environment.NewLine + "EQ Daml Tools: Language Server pane (end):" + Environment.NewLine + PaneText("EQ Daml Tools: Language Server", 12000));
     }
 
+    /// <summary>
+    /// Checks <paramref name="condition"/> on the UI thread every so often until it holds or
+    /// <paramref name="within"/> has passed; whether it held.
+    /// </summary>
+    public static async Task<bool> UntilAsync(Func<Task<bool>> condition, TimeSpan within)
+    {
+        var deadline = DateTime.UtcNow + within;
+        while (true)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            if (await condition())
+            {
+                return true;
+            }
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+            await Task.Delay(200);
+        }
+    }
+
+    /// <summary>Whether the active document becomes <paramref name="path"/> within <paramref name="within"/>.</summary>
+    public static Task<bool> OpensAsync(string path, TimeSpan within) =>
+        UntilAsync(async () =>
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            return string.Equals(Dte().ActiveDocument?.FullName, path, StringComparison.OrdinalIgnoreCase);
+        }, within);
+
     private static readonly string[] LineBreaks = ["\r\n", "\n"];
 
     /// <summary>The last <paramref name="maxLength"/> characters of an Output pane's log entries, for failure messages.</summary>
@@ -475,18 +505,27 @@ internal static class Ide
     public static async Task<int> BuildSolutionAsync(TimeSpan timeout)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var build = Dte().Solution.SolutionBuild;
-        build.Build(WaitForBuildToFinish: false);
-        var deadline = DateTime.UtcNow + timeout;
-        // The state goes to "in progress" a moment after the call; done before that is the previous build.
-        await Task.Delay(1000);
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        while (build.BuildState != vsBuildState.vsBuildStateDone && DateTime.UtcNow < deadline)
+        var dte = Dte();
+        var build = dte.Solution.SolutionBuild;
+        // Visual Studio's own event, not the build state: a state read right after the call may
+        // still be the previous build's "done", and a quick build may come and go between reads.
+        // The events object is kept in a local, or it and its handler can be collected.
+        var events = dte.Events.BuildEvents;
+        var finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _dispBuildEvents_OnBuildDoneEventHandler done = (_, _) => finished.TrySetResult(true);
+        events.OnBuildDone += done;
+        try
         {
-            await Task.Delay(500);
+            build.Build(WaitForBuildToFinish: false);
+            var first = await Task.WhenAny(finished.Task, Task.Delay(timeout));
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            Assert.True(first == finished.Task, "Build Solution didn't finish." + Environment.NewLine + BuildOutput());
         }
-        Assert.True(build.BuildState == vsBuildState.vsBuildStateDone, "Build Solution didn't finish." + Environment.NewLine + BuildOutput());
+        finally
+        {
+            events.OnBuildDone -= done;
+        }
+        GC.KeepAlive(events);
         return build.LastBuildInfo;
     }
 
