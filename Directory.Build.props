@@ -3,7 +3,7 @@
 
   <PropertyGroup>
     <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
-    <!-- src | test | spikes; drives which analyzers and packaging rules apply. -->
+    <!-- src | test; drives which analyzers and packaging rules apply. -->
     <RepoArea>$([MSBuild]::MakeRelative('$(RepoRoot)', '$(MSBuildProjectDirectory)').Split('\')[0])</RepoArea>
   </PropertyGroup>
 
