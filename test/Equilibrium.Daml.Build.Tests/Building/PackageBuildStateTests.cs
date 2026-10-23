@@ -45,7 +45,7 @@ public sealed class PackageBuildStateTests : IDisposable
         var package = DamlPackageBuild.Read(new YamlManifestReader(files), files, Manifest).Value!;
         var dependencies = package.DataDependencies.Select(d => d.DarPath!).ToArray();
         dependencies.ShouldBe([Path.Combine(_root, @"vendor\producer.dalf")]);
-        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, dependencies);
+        PackageBuildState State() => PackageBuildState.Compute(Manifest, Source, dependencies, NoEnvironment, null);
         State().Record(StatePath, DarPath);
         State().IsRecordedIn(StatePath, DarPath).ShouldBeTrue();
         Write(@"vendor\producer.dalf", "changed DALF");
@@ -140,7 +140,10 @@ public sealed class PackageBuildStateTests : IDisposable
         File.WriteAllText(path, content);
     }
 
-    private PackageBuildState Compute(string? source = null) => PackageBuildState.Compute(Manifest, source ?? Source, Dependencies);
+    // No DPM_* variables and no dpm on PATH, whatever this machine has: the state depends on both.
+    private static string? NoEnvironment(string name) => null;
+
+    private PackageBuildState Compute(string? source = null) => PackageBuildState.Compute(Manifest, source ?? Source, Dependencies, NoEnvironment, null);
 
     // The DAR is current once a build recorded the state it was built from.
     private PackageBuildState Built()
@@ -169,7 +172,7 @@ public sealed class PackageBuildStateTests : IDisposable
     {
         var before = Compute();
 
-        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath).ShouldBeTrue();
+        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath, environment: NoEnvironment).ShouldBeTrue();
 
         Compute().IsRecordedIn(StatePath, DarPath).ShouldBeTrue();
     }
@@ -181,7 +184,7 @@ public sealed class PackageBuildStateTests : IDisposable
         var before = Compute();
         Write(@"daml\Main.daml", "module Main where\nx = 1\n");
 
-        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath).ShouldBeFalse();
+        before.RecordIfUnchanged(Manifest, Source, Dependencies, StatePath, DarPath, environment: NoEnvironment).ShouldBeFalse();
 
         File.Exists(StatePath).ShouldBeFalse();
     }
@@ -248,13 +251,13 @@ public sealed class PackageBuildStateTests : IDisposable
         Write("multi-package.yaml", "sdk-version: 3.5.2\npackages: [nested]");
         Write(@"nested\daml.yaml", "name: nested\nversion: 1.0.0\nsource: ../daml\n");
         var manifest = Path.Combine(_root, @"nested\daml.yaml");
-        var before = PackageBuildState.Compute(manifest, Source, Dependencies);
+        var before = PackageBuildState.Compute(manifest, Source, Dependencies, NoEnvironment, null);
 
         Write(@"nested\multi-package.yaml", "sdk-version: 3.6.0\npackages: [.]");
-        PackageBuildState.Compute(manifest, Source, Dependencies).Fingerprint.ShouldNotBe(before.Fingerprint);
+        PackageBuildState.Compute(manifest, Source, Dependencies, NoEnvironment, null).Fingerprint.ShouldNotBe(before.Fingerprint);
 
         File.Delete(Path.Combine(_root, @"nested\multi-package.yaml"));
-        PackageBuildState.Compute(manifest, Source, Dependencies).ShouldBe(before);
+        PackageBuildState.Compute(manifest, Source, Dependencies, NoEnvironment, null).ShouldBe(before);
     }
 
     [Theory, Trait("Category", "Unit")]
@@ -298,12 +301,12 @@ public sealed class PackageBuildStateTests : IDisposable
     public void Build_output_under_the_source_folder_is_no_source()
     {
         PackageBuildState.SourceFiles(_root).ShouldBe([Path.Combine(_root, @"daml\Asset\Asset.daml"), Path.Combine(_root, @"daml\Main.daml")]);
-        var built = PackageBuildState.Compute(Manifest, _root, Dependencies);
+        var built = PackageBuildState.Compute(Manifest, _root, Dependencies, NoEnvironment, null);
         Write(@".daml\package-database\3.6.0\daml-stdlib\DA\List.daml", "module DA.List where\n");
         Write(@"obj\Generated.daml", "module Generated where\n");
         Write(@"bin\Copied.daml", "module Copied where\n");
 
-        PackageBuildState.Compute(Manifest, _root, Dependencies).ShouldBe(built);
+        PackageBuildState.Compute(Manifest, _root, Dependencies, NoEnvironment, null).ShouldBe(built);
     }
 
     // damlc follows the imports of a single source file, which come from its folder.

@@ -20,6 +20,7 @@ namespace Equilibrium.Daml.Build.Tests.Processes;
 // dpm.cmd that the dpm installer puts on PATH. Every process is created inside a kill-on-close
 // Job Object, so nothing it starts can outlive it: closing the job (Dispose, or the owning
 // process dying) ends the whole tree.
+[Collection(ProcessEnvironment.Name)]
 public sealed class ProcessRunnerTests : IDisposable
 {
     private static readonly TimeSpan Generous = TimeSpan.FromSeconds(60);
@@ -118,8 +119,8 @@ public sealed class ProcessRunnerTests : IDisposable
     public async Task Working_directory_and_environment_are_applied()
     {
         var work = Directory.CreateDirectory(Path.Combine(_fake.RootDirectory, "work dir")).FullName;
-        // Inheritance can only be shown with a variable of this process; these two names belong
-        // to this test alone, and no other test asserts on their absence.
+        // Inheritance can only be shown with a variable of this process; the class runs on its own,
+        // so no process another test starts sees these.
         Environment.SetEnvironmentVariable("EQDAML_INHERITED_BY_TEST", "kept");
         Environment.SetEnvironmentVariable("DPM_REMOVED_BY_TEST", "gone");
         try

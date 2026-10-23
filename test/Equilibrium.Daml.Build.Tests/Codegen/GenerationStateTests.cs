@@ -83,8 +83,9 @@ public sealed class GenerationStateTests : IDisposable
 
     // Before a build holds the output lock, a clean of another build can remove the folder between
     // the existence check and the read of its files. A folder that is a junction to a removed target
-    // fails the same way, and does so every time.
-    [Fact, Trait("Category", "Unit")]
+    // fails the same way, and does so every time. Making the junction takes cmd.exe, so this is a
+    // Process test.
+    [Fact, Trait("Category", "Process")]
     public void A_folder_removed_while_it_is_read_counts_as_stale()
     {
         var target = Path.Combine(Path.GetDirectoryName(_folder)!, "target");
@@ -115,8 +116,9 @@ public sealed class GenerationStateTests : IDisposable
             UseShellExecute = false,
             RedirectStandardOutput = true,
         })!;
-        mklink.WaitForExit();
-        mklink.ExitCode.ShouldBe(0, mklink.StandardOutput.ReadToEnd());
+        var output = mklink.StandardOutput.ReadToEnd();
+        mklink.WaitForExit(30_000).ShouldBeTrue("mklink didn't finish");
+        mklink.ExitCode.ShouldBe(0, output);
     }
 
     [Fact, Trait("Category", "Unit")]

@@ -63,9 +63,21 @@ internal static class Program
         var outIndex = Array.IndexOf(args, "--out");
         foreach (var (relativePath, content) in command.WriteFiles)
         {
-            var target = relativePath.StartsWith(OutToken, StringComparison.Ordinal) && outIndex >= 0 && outIndex + 1 < args.Length
-                ? Path.GetFullPath(relativePath.Substring(OutToken.Length), args[outIndex + 1])
-                : Path.GetFullPath(relativePath, Environment.CurrentDirectory);
+            string target;
+            if (relativePath.StartsWith(OutToken, StringComparison.Ordinal))
+            {
+                // A scenario that writes to {out} for a command without --out is the test's mistake.
+                if (outIndex < 0 || outIndex + 1 >= args.Length)
+                {
+                    Console.Error.WriteLine($"fake dpm: '{relativePath}' needs --out, and this command has none: {string.Join(" ", args)}");
+                    return ScenarioErrorExitCode;
+                }
+                target = Path.GetFullPath(relativePath.Substring(OutToken.Length), args[outIndex + 1]);
+            }
+            else
+            {
+                target = Path.GetFullPath(relativePath, Environment.CurrentDirectory);
+            }
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             if (content.StartsWith(Base64Prefix, StringComparison.Ordinal))
             {

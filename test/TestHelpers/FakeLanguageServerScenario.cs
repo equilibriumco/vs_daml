@@ -41,12 +41,10 @@ public sealed class FakeLanguageServerScenario
     /// <summary>What <c>${ROOT}</c> in the transcript stands for on replay, as a path with forward slashes.</summary>
     public string? ReplayRoot { get; set; }
 
-    /// <summary>The capabilities damlc announced when the fixture was recorded; empty when the fixture is missing.</summary>
-    public static JObject RecordedCapabilities(string name)
-    {
-        var path = Path.Combine(Repository.Root, "test", "fixtures", "lsp-capabilities", name + ".json");
-        return File.Exists(path) ? JObject.Parse(File.ReadAllText(path)) : new JObject();
-    }
+    /// <summary>The capabilities damlc announced when the fixture was recorded.</summary>
+    /// <exception cref="FileNotFoundException">There is no such fixture: an empty answer would quietly turn every feature off.</exception>
+    public static JObject RecordedCapabilities(string name) =>
+        JObject.Parse(File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "lsp-capabilities", name + ".json")));
 
     /// <summary>Full path of a recorded transcript, by SDK version and name.</summary>
     public static string Transcript(string sdkVersion, string name) =>

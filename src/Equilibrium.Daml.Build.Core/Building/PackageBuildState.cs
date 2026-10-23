@@ -177,12 +177,14 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
     /// <summary>
     /// Records that the DAR at <paramref name="darPath"/> was just built from this state, unless the
     /// package's inputs aren't this state any more: changed while dpm built, the DAR may hold some of
-    /// the old ones, and only a fresh build can tell.
+    /// the old ones, and only a fresh build can tell. The inputs are read with <c>environment</c>, which
+    /// has to be the one this state was computed with; this process's by default.
     /// </summary>
     /// <returns>Whether it was recorded.</returns>
-    public bool RecordIfUnchanged(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars, string statePath, string darPath, string? dpmPath = null)
+    public bool RecordIfUnchanged(string manifestPath, string sourcePath, IEnumerable<string> dependencyDars, string statePath, string darPath, string? dpmPath = null,
+        Func<string, string?>? environment = null)
     {
-        if (Compute(manifestPath, sourcePath, dependencyDars, Environment.GetEnvironmentVariable, dpmPath).Fingerprint != Fingerprint)
+        if (Compute(manifestPath, sourcePath, dependencyDars, environment ?? Environment.GetEnvironmentVariable, dpmPath).Fingerprint != Fingerprint)
         {
             return false;
         }

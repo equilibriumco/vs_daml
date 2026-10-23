@@ -30,7 +30,7 @@ public class LanguageServerRecoveryTests
 
             await Ide.WaitForServerAsync(ready: false, TimeSpan.FromSeconds(30));
             await Ide.WaitForServerAsync(ready: true, ServerStart);
-            Assert.True(await ErrorListHasAsync("TypeError.daml", TimeSpan.FromSeconds(60)), "The error for TypeError.daml didn't come back after the restart.");
+            Assert.True(await ErrorListHasAsync(Path.Combine(folder, "daml", "TypeError.daml"), TimeSpan.FromSeconds(60)), "The error for TypeError.daml didn't come back after the restart.");
         }
         finally
         {
@@ -80,7 +80,7 @@ public class LanguageServerRecoveryTests
         {
             Ide.OpenFile(Path.Combine(folder, "daml", "TypeError.daml"));
             await Ide.WaitForServerAsync(ready: true, ServerStart);
-            Assert.True(await ErrorListHasAsync("TypeError.daml", TimeSpan.FromSeconds(60)), "No error for TypeError.daml on SDK 3.5.2.");
+            Assert.True(await ErrorListHasAsync(Path.Combine(folder, "daml", "TypeError.daml"), TimeSpan.FromSeconds(60)), "No error for TypeError.daml on SDK 3.5.2.");
 
             // A Daml file with no daml.yaml above it once took multi-ide down entirely.
             Ide.OpenFile(Path.Combine(Ide.RepoRoot(), "test", "fixtures", "lexer", "keywords.daml"));
@@ -97,7 +97,8 @@ public class LanguageServerRecoveryTests
         }
     }
 
-    private static async Task<bool> ErrorListHasAsync(string fileName, TimeSpan timeout)
+    // An entry for this test's own copy of the file: other tests open other copies of the same sample.
+    private static async Task<bool> ErrorListHasAsync(string file, TimeSpan timeout)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var errorList = ServiceProvider.GlobalProvider.GetService(typeof(SVsErrorList)) as IErrorList ?? throw new InvalidOperationException("The Error List is not available.");
@@ -108,7 +109,7 @@ public class LanguageServerRecoveryTests
             if (errorList.TableControl.Entries.Any(e =>
                 e.TryGetValue(StandardTableKeyNames.DocumentName, out var document)
                 && document is string path
-                && path.EndsWith(fileName, StringComparison.OrdinalIgnoreCase)))
+                && string.Equals(Path.GetFullPath(path), Path.GetFullPath(file), StringComparison.OrdinalIgnoreCase)))
             {
                 return true;
             }

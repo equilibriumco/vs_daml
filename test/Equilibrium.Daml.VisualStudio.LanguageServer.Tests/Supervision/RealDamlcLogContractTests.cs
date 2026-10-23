@@ -7,6 +7,7 @@ using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Supervision;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 using Shouldly;
 using Xunit;
 
@@ -20,7 +21,8 @@ public class RealDamlcLogContractTests
     public async Task Damlc_log_entries_reach_the_logger_whole_and_without_their_own_timestamps()
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
-        var command = new ProcessSpec(dpm, ["damlc", "multi-ide", "--log-level=INFO"]) { WorkingDirectory = Repository.Sample("single-package") };
+        using var sample = SampleCopy.Create("single-package");
+        var command = new ProcessSpec(dpm, ["damlc", "multi-ide", "--log-level=INFO"]) { WorkingDirectory = sample.Root };
         var logger = new RecordingLogger();
         using var supervisor = new LanguageServerSupervisor(new ProcessRunner(), _ => Task.FromResult(command), logger, TimeProvider.System);
 

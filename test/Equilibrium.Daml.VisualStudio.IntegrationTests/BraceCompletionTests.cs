@@ -20,22 +20,29 @@ public class BraceCompletionTests
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var (_, view) = Ide.OpenScratch(Text);
 
-        foreach (var (open, close) in new[] { ('(', ')'), ('[', ']'), ('{', '}'), ('"', '"') })
+        try
         {
-            var end = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(Line).End;
-            view.Caret.MoveTo(end);
+            foreach (var (open, close) in new[] { ('(', ')'), ('[', ']'), ('{', '}'), ('"', '"') })
+            {
+                var end = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(Line).End;
+                view.Caret.MoveTo(end);
 
-            Ide.TypeChar(view, open);
+                Ide.TypeChar(view, open);
 
-            Assert.Equal($"answer = 42{open}{close}", LineText(view));
-            Assert.Equal(end.Position + 1, view.Caret.Position.BufferPosition.Position);
+                Assert.Equal($"answer = 42{open}{close}", LineText(view));
+                Assert.Equal(end.Position + 1, view.Caret.Position.BufferPosition.Position);
 
-            Ide.TypeChar(view, close);
+                Ide.TypeChar(view, close);
 
-            Assert.Equal($"answer = 42{open}{close}", LineText(view));
-            Assert.Equal(end.Position + 2, view.Caret.Position.BufferPosition.Position);
+                Assert.Equal($"answer = 42{open}{close}", LineText(view));
+                Assert.Equal(end.Position + 2, view.Caret.Position.BufferPosition.Position);
 
-            view.TextBuffer.Delete(new Span(end.Position, 2));
+                view.TextBuffer.Delete(new Span(end.Position, 2));
+            }
+        }
+        finally
+        {
+            Ide.CloseAllDocuments();
         }
     }
 
@@ -47,11 +54,18 @@ public class BraceCompletionTests
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var (_, view) = Ide.OpenScratch(Text);
         await Ide.WaitForLanguageConfigurationAsync(view);
-        view.Caret.MoveTo(view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(Line).End);
+        try
+        {
+            view.Caret.MoveTo(view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(Line).End);
 
-        Ide.TypeChar(view, '\'');
+            Ide.TypeChar(view, '\'');
 
-        Assert.Equal("answer = 42'", LineText(view));
+            Assert.Equal("answer = 42'", LineText(view));
+        }
+        finally
+        {
+            Ide.CloseAllDocuments();
+        }
     }
 
     private static string LineText(ITextView view) =>

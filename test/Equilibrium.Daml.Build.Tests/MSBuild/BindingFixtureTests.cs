@@ -22,6 +22,7 @@ public sealed class BindingFixtureTests : IDisposable
     [InlineData("names", "Names")]
     public void The_fixture_is_what_the_pinned_generator_writes(string fixtureName, string prefix)
     {
+        using var alone = DpmHome.Exclusive();
         var fixture = Path.Combine(Repository.Root, @"test\fixtures\bindings", fixtureName);
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);

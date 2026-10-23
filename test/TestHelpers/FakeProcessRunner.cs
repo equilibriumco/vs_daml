@@ -20,13 +20,25 @@ public sealed class FakeProcessRunner : IProcessRunner
     private readonly List<FakeRunningProcess> _started = new();
     private Exception? _startFailure;
 
-    /// <summary>Everything run so far, oldest first.</summary>
-    public IReadOnlyList<ProcessSpec> Calls => _calls;
+    /// <summary>Everything run or started so far, oldest first; a copy, safe to read while calls come in.</summary>
+    public IReadOnlyList<ProcessSpec> Calls
+    {
+        get
+        {
+            lock (_calls)
+            {
+                return [.. _calls];
+            }
+        }
+    }
 
     /// <summary>Answers <paramref name="fileName"/> with exactly <paramref name="arguments"/> by <paramref name="result"/>.</summary>
     public FakeProcessRunner On(string fileName, string[] arguments, ProcessResult result)
     {
-        _script.Add((fileName, arguments, _ => Task.FromResult(result)));
+        lock (_calls)
+        {
+            _script.Add((fileName, arguments, _ => Task.FromResult(result)));
+        }
         return this;
     }
 
@@ -37,7 +49,10 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <summary>Makes the call fail with <paramref name="exception"/>, as a timeout or a missing program would.</summary>
     public FakeProcessRunner On(string fileName, string[] arguments, Exception exception)
     {
-        _script.Add((fileName, arguments, _ => Task.FromException<ProcessResult>(exception)));
+        lock (_calls)
+        {
+            _script.Add((fileName, arguments, _ => Task.FromException<ProcessResult>(exception)));
+        }
         return this;
     }
 
@@ -47,7 +62,10 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// </summary>
     public FakeProcessRunner On(string fileName, string[] arguments, Func<ProcessSpec, Task<ProcessResult>> run)
     {
-        _script.Add((fileName, arguments, run));
+        lock (_calls)
+        {
+            _script.Add((fileName, arguments, run));
+        }
         return this;
     }
 
@@ -68,8 +86,17 @@ public sealed class FakeProcessRunner : IProcessRunner
         return entry.Answer(spec);
     }
 
-    /// <summary>Processes handed out by <see cref="Start"/>, oldest first.</summary>
-    public IReadOnlyList<FakeRunningProcess> Started => _started;
+    /// <summary>Processes handed out by <see cref="Start"/>, oldest first; a copy.</summary>
+    public IReadOnlyList<FakeRunningProcess> Started
+    {
+        get
+        {
+            lock (_calls)
+            {
+                return [.. _started];
+            }
+        }
+    }
 
     /// <summary>Makes the next <see cref="Start"/> calls throw <paramref name="exception"/> until cleared with <c>null</c>.</summary>
     public void FailStarts(Exception? exception) => _startFailure = exception;
@@ -77,13 +104,16 @@ public sealed class FakeProcessRunner : IProcessRunner
     /// <inheritdoc />
     public IRunningProcess Start(ProcessSpec spec)
     {
-        _calls.Add(spec);
-        if (_startFailure is not null)
+        lock (_calls)
         {
-            throw _startFailure;
+            _calls.Add(spec);
+            if (_startFailure is not null)
+            {
+                throw _startFailure;
+            }
+            var process = new FakeRunningProcess(spec);
+            _started.Add(process);
+            return process;
         }
-        var process = new FakeRunningProcess(spec);
-        _started.Add(process);
-        return process;
     }
 }

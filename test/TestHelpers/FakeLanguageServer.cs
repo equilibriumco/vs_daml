@@ -73,17 +73,23 @@ public sealed class FakeLanguageServer : IDisposable
         {
             return Array.Empty<string>();
         }
-        // The server may be appending right now: share the file and skip a line it hasn't finished.
+        // The server may be appending right now: share the file and skip the last line if it hasn't
+        // finished it. Any other line that doesn't read is a broken log, not one still being written.
         using var stream = new FileStream(_callsPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var reader = new StreamReader(stream);
-        var methods = new List<string>();
+        var lines = new List<string>();
         while (reader.ReadLine() is { } line)
+        {
+            lines.Add(line);
+        }
+        var methods = new List<string>();
+        for (var i = 0; i < lines.Count; i++)
         {
             try
             {
-                methods.Add((string)JObject.Parse(line)["method"]!);
+                methods.Add((string)JObject.Parse(lines[i])["method"]!);
             }
-            catch (JsonReaderException)
+            catch (JsonReaderException) when (i == lines.Count - 1)
             {
             }
         }

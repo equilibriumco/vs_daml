@@ -6,6 +6,7 @@ using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using StreamJsonRpc;
@@ -23,7 +24,8 @@ public class RealDamlcAdapterContractTests
     public async Task Damlc_answers_a_VS_shaped_initialize_sent_through_the_adapter(string mode)
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
-        var spec = new ProcessSpec(dpm, ["damlc", mode]) { WorkingDirectory = Repository.Sample("single-package") };
+        using var sample = SampleCopy.Create("single-package");
+        var spec = new ProcessSpec(dpm, ["damlc", mode]) { WorkingDirectory = sample.Root };
         using var process = new ProcessRunner().Start(spec);
         // damlc logs to stderr; left unread, the pipe fills up and the server stalls.
         var stderr = process.StandardError.CopyToAsync(Stream.Null);

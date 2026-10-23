@@ -70,18 +70,28 @@ public sealed class FileLockTests : IDisposable
     public async Task A_holder_that_dies_lets_go()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Lock)!);
-        var script = $"$f = [IO.File]::Open('{Lock}', 'OpenOrCreate', 'ReadWrite', 'None'); 'held'; Start-Sleep -Seconds 60";
+        // A quote in the temp path is doubled, as PowerShell's single-quoted strings need.
+        var script = $"$f = [IO.File]::Open('{Lock.Replace("'", "''")}', 'OpenOrCreate', 'ReadWrite', 'None'); 'held'; Start-Sleep -Seconds 60";
         using var holder = Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -NonInteractive -Command \"{script}\"")
         {
             UseShellExecute = false,
             RedirectStandardOutput = true,
             CreateNoWindow = true,
         })!;
-        (await holder.StandardOutput.ReadLineAsync()).ShouldBe("held");
-        await Should.ThrowAsync<TimeoutException>(() => FileLock.AcquireAsync(Lock, TimeSpan.FromMilliseconds(300), CancellationToken.None));
-
-        holder.Kill();
-        holder.WaitForExit();
+        try
+        {
+            (await holder.StandardOutput.ReadLineAsync()).ShouldBe("held");
+            await Should.ThrowAsync<TimeoutException>(() => FileLock.AcquireAsync(Lock, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        }
+        finally
+        {
+            // Also when an assertion failed: the holder would keep the lock, and the folder, for a minute.
+            if (!holder.HasExited)
+            {
+                holder.Kill();
+            }
+            holder.WaitForExit();
+        }
 
         using var taken = await FileLock.AcquireAsync(Lock, TimeSpan.FromSeconds(5), CancellationToken.None);
     }

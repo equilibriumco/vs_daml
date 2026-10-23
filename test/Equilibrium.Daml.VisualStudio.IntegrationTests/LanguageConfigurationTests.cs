@@ -27,20 +27,27 @@ public class LanguageConfigurationTests
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var (textView, view) = Ide.OpenScratch(Text);
-        var snapshot = view.TextBuffer.CurrentSnapshot;
-        var selected = new SnapshotSpan(snapshot.GetLineFromLineNumber(2).Start, snapshot.GetLineFromLineNumber(3).End);
-        view.Selection.Select(selected, isReversed: false);
+        try
+        {
+            var snapshot = view.TextBuffer.CurrentSnapshot;
+            var selected = new SnapshotSpan(snapshot.GetLineFromLineNumber(2).Start, snapshot.GetLineFromLineNumber(3).End);
+            view.Selection.Select(selected, isReversed: false);
 
-        Exec(textView, VSConstants.VSStd2KCmdID.COMMENT_BLOCK);
+            Exec(textView, VSConstants.VSStd2KCmdID.COMMENT_BLOCK);
 
-        var after = view.TextBuffer.CurrentSnapshot;
-        Assert.StartsWith("--", after.GetLineFromLineNumber(2).GetText().TrimStart());
-        Assert.StartsWith("--", after.GetLineFromLineNumber(3).GetText().TrimStart());
-        Assert.Equal("module Scratch where", after.GetLineFromLineNumber(0).GetText());
+            var after = view.TextBuffer.CurrentSnapshot;
+            Assert.StartsWith("--", after.GetLineFromLineNumber(2).GetText().TrimStart());
+            Assert.StartsWith("--", after.GetLineFromLineNumber(3).GetText().TrimStart());
+            Assert.Equal("module Scratch where", after.GetLineFromLineNumber(0).GetText());
 
-        Exec(textView, VSConstants.VSStd2KCmdID.UNCOMMENT_BLOCK);
+            Exec(textView, VSConstants.VSStd2KCmdID.UNCOMMENT_BLOCK);
 
-        Assert.Equal(Text, view.TextBuffer.CurrentSnapshot.GetText().Replace("\r\n", "\n"));
+            Assert.Equal(Text, view.TextBuffer.CurrentSnapshot.GetText().Replace("\r\n", "\n"));
+        }
+        finally
+        {
+            Ide.CloseAllDocuments();
+        }
     }
 
     // Auto-closing is the editor's own brace completion, not the language configuration:
@@ -52,12 +59,19 @@ public class LanguageConfigurationTests
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var (textView, view) = Ide.OpenScratch(Text);
         await Ide.WaitForLanguageConfigurationAsync(view);
-        var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2);
-        view.Caret.MoveTo(line.Start + "answer".Length);
+        try
+        {
+            var line = view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2);
+            view.Caret.MoveTo(line.Start + "answer".Length);
 
-        Ide.TypeChar(view, '\'');
+            Ide.TypeChar(view, '\'');
 
-        Assert.Equal("answer' : Int", view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2).GetText());
+            Assert.Equal("answer' : Int", view.TextBuffer.CurrentSnapshot.GetLineFromLineNumber(2).GetText());
+        }
+        finally
+        {
+            Ide.CloseAllDocuments();
+        }
     }
 
     private static void Exec(IVsTextView textView, VSConstants.VSStd2KCmdID command)

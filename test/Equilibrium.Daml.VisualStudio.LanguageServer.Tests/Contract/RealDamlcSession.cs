@@ -89,7 +89,7 @@ internal sealed class RealDamlcSession : IAsyncDisposable
             transcript.Outgoing(new ClientToServerStream(process.StandardInput, settings, tracker, NullDamlLogger.Instance, documents)),
             transcript.Incoming(new ServerToClientStream(process.StandardOutput, settings, tracker, NullDamlLogger.Instance, documents)),
             new JsonMessageFormatter()));
-        var session = new RealDamlcSession(process, rpc, sdk, workspace, transcript, scenario, sample.SdkVersion);
+        var session = new RealDamlcSession(process, rpc, sdk, workspace, transcript, scenario, sample.SdkVersion ?? throw new InvalidOperationException("A contract session runs on a copy pinned to its SDK."));
         rpc.AddLocalRpcMethod("textDocument/publishDiagnostics", new Action<JToken>(session.OnDiagnostics));
         rpc.AddLocalRpcMethod("window/workDoneProgress/create", new Func<JToken, object?>(_ => null));
         rpc.AddLocalRpcMethod("client/registerCapability", new Func<JToken, object?>(_ => null));

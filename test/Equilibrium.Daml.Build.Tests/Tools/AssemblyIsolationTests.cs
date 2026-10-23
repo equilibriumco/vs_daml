@@ -12,7 +12,8 @@ namespace Equilibrium.Daml.Build.Tests.Tools;
 
 public class AssemblyIsolationTests
 {
-    [Theory, Trait("Category", "Unit")]
+    // CodeDom compiles with csc.exe, a process of its own, so this is a Process test.
+    [Theory, Trait("Category", "Process")]
     [InlineData(true)]
     [InlineData(false)]
     public void A_legacy_SDK_copy_cannot_satisfy_the_extensions_Core_reference(bool legacyFirst)

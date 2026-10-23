@@ -31,6 +31,33 @@ internal static class Ide
     public const int RestartLanguageServerCommand = 0x0200;
     private static readonly Guid LanguageServerReady = new("6cc58c93-db1a-42f9-999d-5f010a023df2");
 
+    // What the tests copy and create lives under one folder. Visual Studio can hold files of this
+    // run until it closes, so each run removes what earlier runs left there rather than its own.
+    private static readonly string TempRoot = PrepareTempRoot();
+
+    private static string PrepareTempRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "daml-ide");
+        if (Directory.Exists(root))
+        {
+            foreach (var earlier in Directory.GetDirectories(root).Where(d => Directory.GetCreationTimeUtc(d) < DateTime.UtcNow.AddHours(-1)))
+            {
+                try
+                {
+                    Directory.Delete(earlier, recursive: true);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Still held by a Visual Studio that hasn't closed; the next run gets it.
+                }
+            }
+        }
+        return root;
+    }
+
+    /// <summary>A new, empty folder of this run's own, for a copy of a sample, a fixture or a solution.</summary>
+    public static string NewTempFolder() => Path.Combine(TempRoot, Guid.NewGuid().ToString("N").Substring(0, 8));
+
     public static string RepoRoot()
     {
         var dir = new DirectoryInfo(Path.GetDirectoryName(typeof(Ide).Assembly.Location)!);
@@ -48,7 +75,7 @@ internal static class Ide
     public static string CopySample(string name, string? sdkVersion = null)
     {
         var source = Path.Combine(RepoRoot(), "samples", name);
-        var target = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8), name);
+        var target = Path.Combine(NewTempFolder(), name);
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = file.Substring(source.Length + 1);
@@ -79,7 +106,7 @@ internal static class Ide
     public static string CopyFixture(string relativePath)
     {
         var source = Path.Combine(RepoRoot(), "test", "fixtures", relativePath);
-        var target = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8), Path.GetFileName(source));
+        var target = Path.Combine(NewTempFolder(), Path.GetFileName(source));
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         File.Copy(source, target);
         return target;
@@ -190,7 +217,7 @@ internal static class Ide
     public static (IVsTextView TextView, IWpfTextView View) OpenScratch(string text)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        var folder = Path.Combine(Path.GetTempPath(), "daml-vs-tests", Guid.NewGuid().ToString("N"));
+        var folder = NewTempFolder();
         Directory.CreateDirectory(folder);
         var file = Path.Combine(folder, "Scratch.daml");
         File.WriteAllText(file, text);
@@ -359,7 +386,11 @@ internal static class Ide
         var output = process.StandardOutput.ReadToEndAsync();
         var errors = process.StandardError.ReadToEndAsync();
         var streams = Task.WhenAll(output, errors);
-        Assert.True(await Task.WhenAny(streams, Task.Delay(TimeSpan.FromMinutes(5))) == streams, "dpm " + string.Join(" ", arguments) + " didn't finish.");
+        if (await Task.WhenAny(streams, Task.Delay(TimeSpan.FromMinutes(5))) != streams)
+        {
+            KillTree(process);
+            Assert.Fail("dpm " + string.Join(" ", arguments) + " didn't finish.");
+        }
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"dpm {string.Join(" ", arguments)} failed: {await output}{await errors}");
     }
@@ -375,7 +406,7 @@ internal static class Ide
         var packages = Path.Combine(RepoRoot(), "artifacts", "packages");
         var templates = Directory.Exists(packages) ? Directory.GetFiles(packages, "*.Templates.*.nupkg").FirstOrDefault() : null;
         Assert.True(templates is not null, $"No templates package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
-        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        var root = Path.Combine(NewTempFolder());
         UseThisBuildsPackages(root);
         var hive = Path.Combine(root, "hive");
         await RunAsync(root, "dotnet", "new", "install", templates!, "--debug:custom-hive", hive);
@@ -391,7 +422,7 @@ internal static class Ide
     public static string CopyFixtureFolder(string relativePath, string? sdkVersion = null)
     {
         var source = Path.Combine(RepoRoot(), "test", "fixtures", relativePath);
-        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        var root = Path.Combine(NewTempFolder());
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = file.Substring(source.Length + 1);
@@ -420,7 +451,7 @@ internal static class Ide
         Assert.True(name is { Success: true }, $"No Equilibrium.Daml.Sdk package in {packages}; run pwsh scripts/pack.ps1 before the IDE tests.");
         var app = System.Xml.Linq.XDocument.Load(Path.Combine(RepoRoot(), @"src\Equilibrium.Daml.Templates\content\daml-dotnet-app\DamlApp\DamlApp.csproj"));
         var runtime = (string)app.Descendants("PackageReference").First(r => (string?)r.Attribute("Include") == "Daml.Runtime").Attribute("Version")!;
-        var root = Path.Combine(Path.GetTempPath(), "daml-ide-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+        var root = Path.Combine(NewTempFolder());
         UseThisBuildsPackages(root);
         var fixture = Path.Combine(root, "Scale");
         await RunAsync(root, "pwsh", "-NoProfile", "-File", Path.Combine(RepoRoot(), @"scripts\new-scale-fixture.ps1"), "-Path", fixture,
@@ -722,6 +753,14 @@ internal static class Ide
     }
 
     /// <summary>Runs a program to the end and returns what it printed; a non-zero exit code fails the test.</summary>
+    // A tool that hangs takes its children with it, or they outlive the test in this session.
+    // .NET Framework's Kill stops only the process itself.
+    private static void KillTree(System.Diagnostics.Process process)
+    {
+        using var taskkill = System.Diagnostics.Process.Start(new ProcessStartInfo("taskkill.exe", $"/T /F /PID {process.Id}") { UseShellExecute = false, CreateNoWindow = true })!;
+        taskkill.WaitForExit(30_000);
+    }
+
     public static async Task<string> RunAsync(string workingDirectory, string fileName, params string[] arguments)
     {
         var start = new ProcessStartInfo(fileName, string.Join(" ", arguments.Select(a => a.IndexOf(' ') >= 0 ? "\"" + a + "\"" : a)))
@@ -739,7 +778,11 @@ internal static class Ide
         var errors = process.StandardError.ReadToEndAsync();
         var streams = Task.WhenAll(output, errors);
         var command = fileName + " " + string.Join(" ", arguments);
-        Assert.True(await Task.WhenAny(streams, Task.Delay(TimeSpan.FromMinutes(2))) == streams, command + " didn't finish.");
+        if (await Task.WhenAny(streams, Task.Delay(TimeSpan.FromMinutes(2))) != streams)
+        {
+            KillTree(process);
+            Assert.Fail(command + " didn't finish.");
+        }
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"{command} failed with exit code {process.ExitCode}: {await output}{await errors}");
         return await output;

@@ -365,6 +365,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet)]
     public void A_real_DAR_turns_into_its_bindings_on_each_host_and_the_next_build_runs_nothing(MSBuildHost host)
     {
+        using var alone = DpmHome.Exclusive();
         var hostPath = HostPath(host);
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);

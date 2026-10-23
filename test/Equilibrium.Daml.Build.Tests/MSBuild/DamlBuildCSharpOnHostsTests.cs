@@ -869,6 +869,8 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
     public void A_real_build_and_clean_leave_the_dpm_home_as_they_found_it()
     {
+        // Nothing else may install into the home while this compares it before and after.
+        using var alone = DpmHome.Exclusive();
         var hostPath = HostPath(MSBuildHost.Dotnet);
         var properties = RealProjects();
         var home = Path.GetDirectoryName(Path.GetDirectoryName(properties["EqDamlDpmPath"]))!;

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -52,13 +53,21 @@ public class LspTranscriptRecorderTests
         var recorder = new LspTranscriptRecorder(new TranscriptRedactor([(@"C:\work\app", "${ROOT}")]));
         var frame = Frame("""{"method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///C:/work/app/Main.daml","text":"module Main"}}}""");
         recorder.Outgoing(new MemoryStream()).Write(frame, 0, frame.Length);
-        var path = Path.Combine(Path.GetTempPath(), "daml-transcript-test", "t.jsonl");
+        // A folder of this run's own: the test runs once per target framework, and both may run at once.
+        var folder = Path.Combine(Path.GetTempPath(), "daml-transcript-test-" + Guid.NewGuid().ToString("N"));
+        var path = Path.Combine(folder, "t.jsonl");
+        try
+        {
+            recorder.Save(path);
 
-        recorder.Save(path);
-
-        var saved = File.ReadAllText(path);
-        saved.ShouldContain("file:///${ROOT}/Main.daml");
-        saved.ShouldNotContain("module Main");
-        saved.Split('\n').Count(l => l.Length > 0).ShouldBe(1);
+            var saved = File.ReadAllText(path);
+            saved.ShouldContain("file:///${ROOT}/Main.daml");
+            saved.ShouldNotContain("module Main");
+            saved.Split('\n').Count(l => l.Length > 0).ShouldBe(1);
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
     }
 }

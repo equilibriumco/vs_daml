@@ -8,6 +8,7 @@ using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using StreamJsonRpc;
@@ -31,7 +32,8 @@ public class RealDamlcReopenContractTests
     [InlineData("ide")]
     public async Task A_reopened_file_gets_its_diagnostics_back_and_is_still_served(string mode)
     {
-        var package = Repository.Sample("broken");
+        using var sample = SampleCopy.Create("broken");
+        var package = sample.Root;
         var file = Path.Combine(package, "daml", "TypeError.daml");
         var uri = new Uri(file).AbsoluteUri;
         await using var session = await StartAsync(mode, package, uri);
@@ -65,7 +67,8 @@ public class RealDamlcReopenContractTests
     [InlineData("ide")]
     public async Task Reopening_with_shorter_fixed_text_clears_errors_and_returns_hover_ranges_in_the_new_text(string mode)
     {
-        var package = Repository.Sample("broken");
+        using var sample = SampleCopy.Create("broken");
+        var package = sample.Root;
         var file = Path.Combine(package, "daml", "TypeError.daml");
         var uri = new Uri(file).AbsoluteUri;
         await using var session = await StartAsync(mode, package, uri);
@@ -101,7 +104,8 @@ public class RealDamlcReopenContractTests
     [InlineData("ide", false)]
     public async Task Opening_another_file_leaves_the_error_in_place(string mode, bool closeFirst)
     {
-        var package = Repository.Sample("broken");
+        using var sample = SampleCopy.Create("broken");
+        var package = sample.Root;
         string UriOf(string name) => new Uri(Path.Combine(package, "daml", name)).AbsoluteUri;
         var typeError = UriOf("TypeError.daml");
         await using var session = await StartAsync(mode, package, typeError);

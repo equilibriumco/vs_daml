@@ -9,7 +9,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 // into the repository and the same sources run on every SDK of the matrix.
 internal sealed class SampleCopy : IDisposable
 {
-    private SampleCopy(string root, string sdkVersion)
+    private SampleCopy(string root, string? sdkVersion)
     {
         Root = root;
         SdkVersion = sdkVersion;
@@ -17,13 +17,22 @@ internal sealed class SampleCopy : IDisposable
 
     public string Root { get; }
 
-    public string SdkVersion { get; }
+    /// <summary>The SDK the copy is pinned to; null when it keeps the sample's own.</summary>
+    public string? SdkVersion { get; }
 
     public static SampleCopy Create(string sample, string sdkVersion)
     {
         var root = Path.Combine(Path.GetTempPath(), "daml-contract", $"{sample}-{sdkVersion}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
         Copy(Repository.Sample(sample), root, sdkVersion);
         return new SampleCopy(root, sdkVersion);
+    }
+
+    // A copy that keeps the SDK the sample names.
+    public static SampleCopy Create(string sample)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "daml-contract", $"{sample}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
+        Copy(Repository.Sample(sample), root, sdkVersion: null);
+        return new SampleCopy(root, sdkVersion: null);
     }
 
     public string File(string relativePath) => Path.Combine(Root, relativePath);
@@ -43,14 +52,14 @@ internal sealed class SampleCopy : IDisposable
         }
     }
 
-    private static void Copy(string from, string to, string sdkVersion)
+    private static void Copy(string from, string to, string? sdkVersion)
     {
         Directory.CreateDirectory(to);
         foreach (var file in Directory.GetFiles(from))
         {
             var target = Path.Combine(to, Path.GetFileName(file));
             var name = Path.GetFileName(file);
-            if (name.Equals("daml.yaml", StringComparison.OrdinalIgnoreCase) || name.Equals("multi-package.yaml", StringComparison.OrdinalIgnoreCase))
+            if (sdkVersion is not null && (name.Equals("daml.yaml", StringComparison.OrdinalIgnoreCase) || name.Equals("multi-package.yaml", StringComparison.OrdinalIgnoreCase)))
             {
                 var text = System.IO.File.ReadAllText(file);
                 System.IO.File.WriteAllText(target, Regex.Replace(text, @"(?m)^sdk-version:\s*\S+", "sdk-version: " + sdkVersion));

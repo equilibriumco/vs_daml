@@ -21,12 +21,19 @@ public sealed class MixedDotnetSampleTests : IDisposable
 {
     private static readonly string Sample = Repository.Sample("mixed-dotnet");
 
-    private readonly MSBuildSandbox _sandbox = new(shortRoot: true);
+    // Made by the first test that needs it: the package-reading test needs no built tasks.
+    private readonly Lazy<MSBuildSandbox> _sandbox = new(() => new MSBuildSandbox(shortRoot: true));
     private readonly ITestOutputHelper _output;
 
     public MixedDotnetSampleTests(ITestOutputHelper output) => _output = output;
 
-    public void Dispose() => _sandbox.Dispose();
+    public void Dispose()
+    {
+        if (_sandbox.IsValueCreated)
+        {
+            _sandbox.Value.Dispose();
+        }
+    }
 
     private static string HostPath(MSBuildHost host) =>
         RequiredTools.Require(host == MSBuildHost.MSBuildExe ? ExternalTool.MSBuild : ExternalTool.Dotnet);
@@ -72,22 +79,22 @@ public sealed class MixedDotnetSampleTests : IDisposable
             {
                 continue;
             }
-            var target = Path.Combine(_sandbox.Root, "mixed-dotnet", relative);
+            var target = Path.Combine(_sandbox.Value.Root, "mixed-dotnet", relative);
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
         }
-        foreach (var project in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.*proj", SearchOption.AllDirectories))
+        foreach (var project in Directory.GetFiles(Path.Combine(_sandbox.Value.Root, "mixed-dotnet"), "*.*proj", SearchOption.AllDirectories))
         {
             var text = File.ReadAllText(project);
             text = Regex.Replace(text, @"Equilibrium\.Daml\.Sdk/[^""]+", $"Equilibrium.Daml.Sdk/{SdkFeed.Version}");
             text = Regex.Replace(text, @"Include=""Equilibrium\.Daml\.Build\.CSharp"" Version=""[^""]+""", $"Include=\"Equilibrium.Daml.Build.CSharp\" Version=\"{SdkFeed.Version}\"");
             File.WriteAllText(project, text);
         }
-        foreach (var manifest in Directory.GetFiles(Path.Combine(_sandbox.Root, "mixed-dotnet"), "*.yaml", SearchOption.AllDirectories))
+        foreach (var manifest in Directory.GetFiles(Path.Combine(_sandbox.Value.Root, "mixed-dotnet"), "*.yaml", SearchOption.AllDirectories))
         {
             File.WriteAllText(manifest, Regex.Replace(File.ReadAllText(manifest), @"^sdk-version: .*$", $"sdk-version: {sdk}", RegexOptions.Multiline));
         }
-        _sandbox.UseSdkFeed();
+        _sandbox.Value.UseSdkFeed();
     }
 
     // dpm builds the contracts against the Splice DARs and then their tests, the pinned generator turns the
@@ -100,6 +107,7 @@ public sealed class MixedDotnetSampleTests : IDisposable
     [InlineData(MSBuildHost.Dotnet, "3.5.2")]
     public async Task The_sample_solution_builds_runs_and_passes_its_Daml_tests(MSBuildHost host, string sdk)
     {
+        using var alone = await DpmHome.ExclusiveAsync();
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
         var dotnet = RequiredTools.Require(ExternalTool.Dotnet);
@@ -113,17 +121,17 @@ public sealed class MixedDotnetSampleTests : IDisposable
             ["EqDamlAllowToolInstall"] = "true",
         };
 
-        var build = _sandbox.Build(host, hostPath, @"mixed-dotnet\MixedDotnet.slnx", properties: properties);
+        var build = _sandbox.Value.Build(host, hostPath, @"mixed-dotnet\MixedDotnet.slnx", properties: properties);
         build.ExitCode.ShouldBe(0, build.Log);
         build.Log.ShouldContain("Generated C# for");
-        DarProvenance.Read(Path.Combine(_sandbox.Root, @"mixed-dotnet\daml\.daml\dist\mixed-dotnet-contracts-0.1.0.dar")).SdkVersion.ShouldBe(sdk);
+        DarProvenance.Read(Path.Combine(_sandbox.Value.Root, @"mixed-dotnet\daml\.daml\dist\mixed-dotnet-contracts-0.1.0.dar")).SdkVersion.ShouldBe(sdk);
         var app = await new ProcessRunner().RunAsync(
-            new ProcessSpec(dotnet, [Path.Combine(_sandbox.Root, @"mixed-dotnet\App\bin\Debug\net10.0\App.dll")]) { Timeout = TimeSpan.FromMinutes(1) },
+            new ProcessSpec(dotnet, [Path.Combine(_sandbox.Value.Root, @"mixed-dotnet\App\bin\Debug\net10.0\App.dll")]) { Timeout = TimeSpan.FromMinutes(1) },
             CancellationToken.None);
         app.ExitCode.ShouldBe(0, app.Stdout + app.Stderr);
         app.Stdout.Trim().ShouldBe("Gold from Daml package mixed-dotnet-contracts 0.1.0");
 
-        var tests = _sandbox.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "EqDamlTest");
+        var tests = _sandbox.Value.Build(host, hostPath, @"mixed-dotnet\daml\test\Contracts.Tests.msbuildproj", properties: properties, target: "EqDamlTest");
         tests.ExitCode.ShouldBe(0, tests.Log);
         _output.WriteLine($"{host}, SDK {sdk}: build {build.Elapsed.TotalSeconds:F1} s, tests {tests.Elapsed.TotalSeconds:F1} s.");
     }
