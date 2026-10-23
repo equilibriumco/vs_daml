@@ -61,6 +61,12 @@ pwsh scripts/run-exp.ps1 -Path samples\single-package
 `Contract`, `MSBuild -Backend Real` and `Integration` tests need dpm and a JDK; `Integration` also
 needs an unlocked interactive session.
 
+**Releasing.** The *Release* workflow runs by hand with a build number. From a branch it builds,
+tests and keeps the files as an artifact. From a tag `v<version>` (for example `v0.9.0-beta.3` with
+build number 3) it also drafts a GitHub pre-release, then pushes to the Visual Studio Marketplace and
+nuget.org once the `release` environment is approved. It needs the secrets `VS_MARKETPLACE_PAT` and
+`NUGET_API_KEY` in that environment. Publish the draft release after the pushes.
+
 | Folder | Contents |
 |---|---|
 | `src/` | Extension (`Equilibrium.Daml.VisualStudio`), host-independent libraries, MSBuild tasks and packages |
