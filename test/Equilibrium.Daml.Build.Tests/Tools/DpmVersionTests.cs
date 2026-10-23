@@ -30,7 +30,7 @@ public class DpmVersionTests
         DpmVersion.Problem(Version.Parse(version), []).ShouldBeNull();
 
     [Fact, Trait("Category", "Unit")]
-    public void An_older_dpm_is_DAML0103_with_a_way_out()
+    public void An_older_dpm_is_EQD0103_with_a_way_out()
     {
         var problem = DpmVersion.Problem(new Version(1, 0, 10), []).ShouldNotBeNull();
 

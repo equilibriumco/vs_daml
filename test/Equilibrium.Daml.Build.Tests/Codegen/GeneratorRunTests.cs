@@ -72,8 +72,8 @@ public sealed class GeneratorRunTests : IDisposable
 
     private static readonly Dictionary<string, string> AssetFiles = new()
     {
-        [@"Contracts\S09\Asset\Asset.cs"] = "public sealed partial record Asset",
-        [@"Contracts\S09\Asset\Asset.Give.cs"] = "partial record Asset",
+        [@"Contracts\Kinds\Asset\Asset.cs"] = "public sealed partial record Asset",
+        [@"Contracts\Kinds\Asset\Asset.Give.cs"] = "partial record Asset",
     };
 
     [Fact, Trait("Category", "Unit")]
@@ -101,8 +101,8 @@ public sealed class GeneratorRunTests : IDisposable
         manifest.Source.ShouldBe(Sources);
         manifest.Files.ShouldBe(
         [
-            new GenerationManifestFile(@"Contracts\S09\Asset\Asset.cs", Hashing.Sha256Text("public sealed partial record Asset")),
-            new GenerationManifestFile(@"Contracts\S09\Asset\Asset.Give.cs", Hashing.Sha256Text("partial record Asset")),
+            new GenerationManifestFile(@"Contracts\Kinds\Asset\Asset.cs", Hashing.Sha256Text("public sealed partial record Asset")),
+            new GenerationManifestFile(@"Contracts\Kinds\Asset\Asset.Give.cs", Hashing.Sha256Text("partial record Asset")),
         ]);
     }
 
@@ -155,7 +155,7 @@ public sealed class GeneratorRunTests : IDisposable
 
     // JDK 26 and SLF4J print warnings even on success; only the real lines explain a failure.
     [Fact, Trait("Category", "Unit")]
-    public async Task A_failing_generator_is_DAML0104_with_its_own_words_and_no_secrets()
+    public async Task A_failing_generator_is_EQD0104_with_its_own_words_and_no_secrets()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         Generates(staging, new Dictionary<string, string>(), exitCode: 1, stderr:
@@ -174,7 +174,7 @@ public sealed class GeneratorRunTests : IDisposable
 
     // Said before the generator starts, rather than in its own words after it fails.
     [Fact, Trait("Category", "Unit")]
-    public async Task A_DAR_that_isnt_one_is_DAML0104_and_nothing_runs()
+    public async Task A_DAR_that_isnt_one_is_EQD0104_and_nothing_runs()
     {
         File.WriteAllText(Dar, "not a DAR");
 
@@ -186,7 +186,7 @@ public sealed class GeneratorRunTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_generator_that_writes_no_csharp_is_DAML0104()
+    public async Task A_generator_that_writes_no_csharp_is_EQD0104()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         Generates(staging, new Dictionary<string, string> { ["notes.txt"] = "nothing" });
@@ -198,7 +198,7 @@ public sealed class GeneratorRunTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_generator_past_the_time_limit_is_DAML0110()
+    public async Task A_generator_past_the_time_limit_is_EQD0110()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), new TimeoutException("ran past its limit"));
@@ -228,7 +228,7 @@ public sealed class GeneratorRunTests : IDisposable
 
     // A file the generator wrote but something holds can't be hashed; that is a diagnostic, not a crash.
     [Fact, Trait("Category", "Unit")]
-    public async Task Output_that_cant_be_read_back_is_DAML0104()
+    public async Task Output_that_cant_be_read_back_is_EQD0104()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         FileStream? held = null;

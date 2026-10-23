@@ -196,7 +196,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]
-    public void DamlBuildEnabled_off_runs_no_dpm_and_a_value_it_cant_use_is_DAML0100(MSBuildHost host)
+    public void EqDamlBuildEnabled_off_runs_no_dpm_and_a_value_it_cant_use_is_EQD0100(MSBuildHost host)
     {
         Scenario(CreatesTheDar());
         var project = DamlProject();
@@ -266,7 +266,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]
-    public void DamlTest_builds_first_and_reports_a_failing_script_where_it_is(MSBuildHost host)
+    public void EqDamlTest_builds_first_and_reports_a_failing_script_where_it_is(MSBuildHost host)
     {
         var test = BuildCommand(File.ReadAllText(Path.Combine(Repository.Root, @"test\fixtures\build-output\test-failing-script.stderr.txt")), exitCode: 1);
         test.Args[0] = "test";
@@ -360,7 +360,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe)]
     [InlineData(MSBuildHost.Dotnet)]
-    public void A_referencing_project_gets_the_built_DAR_from_GetDamlDar(MSBuildHost host)
+    public void A_referencing_project_gets_the_built_DAR_from_EqDamlGetDar(MSBuildHost host)
     {
         Scenario(CreatesTheDar());
         DamlProject();

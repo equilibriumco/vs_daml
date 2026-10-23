@@ -26,7 +26,7 @@ public class JavaTests
         JavaVersion.Parse(output.Split('\n')).ShouldBeNull();
 
     [Fact, Trait("Category", "Unit")]
-    public void JDK_17_and_later_pass_and_older_ones_are_DAML0102()
+    public void JDK_17_and_later_pass_and_older_ones_are_EQD0102()
     {
         JavaVersion.Problem(17, @"C:\jdk\bin\java.exe", []).ShouldBeNull();
         JavaVersion.Problem(26, @"C:\jdk\bin\java.exe", []).ShouldBeNull();
@@ -81,7 +81,7 @@ public class JavaTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void No_java_anywhere_is_DAML0102_saying_what_to_do()
+    public void No_java_anywhere_is_EQD0102_saying_what_to_do()
     {
         Find("").ShouldBeNull();
 

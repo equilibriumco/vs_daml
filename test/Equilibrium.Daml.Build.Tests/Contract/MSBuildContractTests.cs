@@ -104,7 +104,7 @@ public class MSBuildContractTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Every_code_is_DAML_and_four_digits_and_used_once()
+    public void Every_code_is_EQD_and_four_digits_and_used_once()
     {
         var codes = Codes().Select(c => c.Code).ToList();
 

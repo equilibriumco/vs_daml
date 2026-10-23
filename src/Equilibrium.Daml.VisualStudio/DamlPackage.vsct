@@ -5,7 +5,7 @@
 
   <Commands package="guidDamlPackage">
     <Menus>
-      <!-- Extensions > Daml, shown while Daml content is active (see VisibilityConstraints). -->
+      <!-- Extensions > EQ Daml Tools, shown while Daml content is active (see VisibilityConstraints). -->
       <Menu guid="guidDamlCommandSet" id="DamlMenu" priority="0x0100" type="Menu">
         <Parent guid="VSMainMenu" id="Extensions.DefaultGroup" />
         <CommandFlag>DynamicVisibility</CommandFlag>

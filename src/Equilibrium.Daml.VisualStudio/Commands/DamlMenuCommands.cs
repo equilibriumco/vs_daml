@@ -19,7 +19,7 @@ using Task = System.Threading.Tasks.Task;
 
 namespace Equilibrium.Daml.VisualStudio.Commands;
 
-// Command ids of the Extensions > Daml menu; they must match DamlPackage.vsct.
+// Command ids of the Extensions > EQ Daml Tools menu; they must match DamlPackage.vsct.
 internal static class DamlMenuIds
 {
     public const string CommandSetString = BuildIds.CommandSetString;

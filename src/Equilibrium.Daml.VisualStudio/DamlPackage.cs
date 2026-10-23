@@ -61,7 +61,7 @@ public sealed class DamlPackage : ToolkitPackage
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
         logger.Log(DamlLogCategory.Extension, DamlLogLevel.Information, $"Daml extension loaded (version {version})");
 
-        // The Extensions > Daml menu.
+        // The Extensions > EQ Daml Tools menu.
         await this.RegisterCommandsAsync();
 
         // Background sync of bindings listens from here on; it acts only when the option is on.

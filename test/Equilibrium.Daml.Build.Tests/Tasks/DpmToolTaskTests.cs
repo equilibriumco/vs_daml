@@ -200,7 +200,7 @@ public sealed class DpmToolTaskTests : IDisposable
 
     // dpm builds the package in place; two builds of it at once would write one .daml folder.
     [Fact, Trait("Category", "Process")]
-    public void Dpm_waits_for_another_build_of_the_package_and_gives_up_with_DAML0105()
+    public void Dpm_waits_for_another_build_of_the_package_and_gives_up_with_EQD0105()
     {
         var task = Build(Command("build", "Created .daml\\dist\\contracts-1.2.0.dar\n"));
         task.LockTimeoutSeconds = "1";
@@ -263,7 +263,7 @@ public sealed class DpmToolTaskTests : IDisposable
     }
 
     [Fact, Trait("Category", "Process")]
-    public void Offline_dpm_is_told_not_to_install_and_a_missing_SDK_is_DAML0107()
+    public void Offline_dpm_is_told_not_to_install_and_a_missing_SDK_is_EQD0107()
     {
         var task = Build(Command("build", "SDK_NOT_INSTALLED: target dpm-sdk version not installed. You can install the needed sdk via 'dpm install 3.4.0'\n", exitCode: 1));
         task.Offline = "true";

@@ -41,7 +41,7 @@ public class DpmOutputReportTests
         File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "build-output", name));
 
     [Fact, Trait("Category", "Unit")]
-    public void Compile_errors_are_DAML0001_at_their_file_and_range()
+    public void Compile_errors_are_EQD0001_at_their_file_and_range()
     {
         var outcome = Report(Captured("build-broken.stderr.txt"), exitCode: 1);
 
@@ -82,7 +82,7 @@ public class DpmOutputReportTests
         "SDK_NOT_INSTALLED: target dpm-sdk version not installed. You can install the needed sdk (for \"C:\\\\work\\\\broken\\\\daml.yaml\") via 'dpm install 3.4.0'";
 
     [Fact, Trait("Category", "Unit")]
-    public void A_missing_SDK_is_DAML0101_with_the_way_to_get_it()
+    public void A_missing_SDK_is_EQD0101_with_the_way_to_get_it()
     {
         var error = Report(SdkMissing, exitCode: 1).Messages.ShouldHaveSingleItem();
 
@@ -91,7 +91,7 @@ public class DpmOutputReportTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Offline_a_missing_SDK_is_DAML0107()
+    public void Offline_a_missing_SDK_is_EQD0107()
     {
         var error = Report(SdkMissing, exitCode: 1, Offline).Messages.ShouldHaveSingleItem();
 
@@ -100,7 +100,7 @@ public class DpmOutputReportTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void A_failed_install_is_DAML0101_with_dpms_reason()
+    public void A_failed_install_is_EQD0101_with_dpms_reason()
     {
         const string Line = "error while auto-installing sdk version \"3.4.0\": Get \"https://europe-docker.pkg.dev/v2/x\": proxyconnect tcp: dial tcp 127.0.0.1:9: connectex: refused.";
 

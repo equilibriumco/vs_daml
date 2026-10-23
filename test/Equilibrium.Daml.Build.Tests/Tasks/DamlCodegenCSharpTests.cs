@@ -230,7 +230,7 @@ public class DamlCodegenCSharpTests
     // A file another process holds, a DAR being written for one, is an error of the build like any
     // other, never a task that fell over.
     [Fact, Trait("Category", "Unit")]
-    public void A_file_the_generation_couldnt_read_or_write_is_DAML0104_naming_it()
+    public void A_file_the_generation_couldnt_read_or_write_is_EQD0104_naming_it()
     {
         var task = Task(Contracts());
         _orchestrator.OnRun = () => throw new IOException(@"The process cannot access the file 'C:\x\contracts.dar' because it is being used by another process.");
@@ -245,7 +245,7 @@ public class DamlCodegenCSharpTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Cancelling_the_task_cancels_the_orchestrators_work_and_fails_with_DAML0110()
+    public void Cancelling_the_task_cancels_the_orchestrators_work_and_fails_with_EQD0110()
     {
         var task = Task(Contracts());
         _orchestrator.OnRun = () => task.Cancel();

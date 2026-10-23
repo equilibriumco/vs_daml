@@ -54,7 +54,7 @@ public static class LanguageServerCommandBuilder
         }
         arguments.AddRange(SplitArguments(options.ExtraArguments));
 
-        // No telemetry flags: damlc 3.5/3.6 has none. The environment is inherited untouched;
+        // No telemetry flags: damlc 3.5/3.6 lists none, and we pass none of the hidden ones. The environment is inherited untouched;
         // in particular DPM_AUTO_INSTALL is left to the user, since SDK installs are reported
         // through the server's own progress messages.
         return new ProcessSpec(sdk.Assistant.Path, arguments) { WorkingDirectory = workspace.ServerWorkingDirectory };

@@ -151,7 +151,7 @@ public sealed class CodegenPreflightTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_DAR_that_isnt_there_is_DAML0104()
+    public async Task A_DAR_that_isnt_there_is_EQD0104()
     {
         File.Delete(Dar);
 
@@ -163,7 +163,7 @@ public sealed class CodegenPreflightTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_folder_with_files_the_generator_didnt_write_is_DAML0108()
+    public async Task A_folder_with_files_the_generator_didnt_write_is_EQD0108()
     {
         var folder = Path.Combine(Root, "Contracts-0123456789abcdef");
         Directory.CreateDirectory(folder);

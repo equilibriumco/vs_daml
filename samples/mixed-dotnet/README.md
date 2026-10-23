@@ -9,7 +9,7 @@ and a C# console app that uses the C# the build generates from the contracts thr
 | `MixedDotnet.slnx` | the solution |
 | `daml/Contracts.msbuildproj` | the contracts package (`daml/daml.yaml`), with the Splice token standard DARs in `daml/dars` as data-dependencies |
 | `daml/test/Contracts.Tests.msbuildproj` | its Daml Script tests (`daml/test/daml.yaml`), built after the contracts |
-| `App/App.csproj` | the C# app: `DamlReference` to the contracts, `Daml.Runtime`, `Daml.Ledger.Abstractions` and the `Splice.Api.Token.*` packages the generated code implements |
+| `App/App.csproj` | the C# app: `EqDamlReference` to the contracts, `Daml.Runtime`, `Daml.Ledger.Abstractions` and the `Splice.Api.Token.*` packages the generated code implements |
 | `multi-package.yaml` | both Daml packages, for the language server and `dpm build --all` |
 
 The `Directory.*` files are empty on purpose: they keep the repository's own build settings and

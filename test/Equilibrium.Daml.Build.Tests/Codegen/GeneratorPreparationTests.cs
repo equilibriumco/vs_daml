@@ -112,7 +112,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Without_leave_to_install_a_missing_generator_is_DAML0101_with_the_way_out()
+    public async Task Without_leave_to_install_a_missing_generator_is_EQD0101_with_the_way_out()
     {
         var problem = (await Prepare(Options(install: false))).ShouldNotBeNull();
 
@@ -124,7 +124,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Offline_a_missing_generator_is_DAML0107()
+    public async Task Offline_a_missing_generator_is_EQD0107()
     {
         var problem = (await Prepare(Options(install: false, offline: true))).ShouldNotBeNull();
 
@@ -163,7 +163,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_failed_download_is_DAML0101_with_dpms_reason_and_no_secrets()
+    public async Task A_failed_download_is_EQD0101_with_dpms_reason_and_no_secrets()
     {
         _runner.On(Dpm, Install, new ProcessResult(1, "Installing components...\n",
             "Error: error handling component \"ghcr.io/peacefulstudio/dpm-codegen-cs\": proxyconnect tcp: http://ann:s3cret@proxy.example:8080 refused\n"));
@@ -177,7 +177,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_download_that_still_doesnt_match_the_pin_is_DAML0106()
+    public async Task A_download_that_still_doesnt_match_the_pin_is_EQD0106()
     {
         InstallSucceeds();
         _runner.On(Dpm, Install, spec =>
@@ -195,7 +195,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_pin_without_a_windows_build_is_DAML0106_and_nothing_is_downloaded()
+    public async Task A_pin_without_a_windows_build_is_EQD0106_and_nothing_is_downloaded()
     {
         var unsupported = SyntheticGeneratorCache.Create(Path.Combine(_root, "unsupported"), windows: false);
         var cache = new GeneratorCache(Path.Combine(_root, "codegen"), unsupported.Pin);
@@ -209,7 +209,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Another_build_holding_the_cache_too_long_is_DAML0105()
+    public async Task Another_build_holding_the_cache_too_long_is_EQD0105()
     {
         using var other = await FileLock.AcquireAsync(LockNames.Generator(Locks, _download.Pin.Digest), TimeSpan.FromSeconds(5), CancellationToken.None);
 
@@ -232,7 +232,7 @@ public sealed class GeneratorPreparationTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_download_past_the_time_limit_is_DAML0110()
+    public async Task A_download_past_the_time_limit_is_EQD0110()
     {
         _runner.On(Dpm, Install, new TimeoutException("dpm.cmd ran past its limit."));
 

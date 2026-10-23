@@ -714,7 +714,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     }
 
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
-    public void Two_DARs_generating_the_same_types_fail_with_DAML0202()
+    public void Two_DARs_generating_the_same_types_fail_with_EQD0202()
     {
         App("""
             <EqDamlDar Include="..\vendor\finance-1.0.0.dar" />
@@ -767,7 +767,7 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
     // Long namespaces make long paths. The compiler of the .NET SDK reads them whatever Windows'
     // long path setting is, so they stay a warning. The 32-bit MSBuild.exe can't reach them at all.
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
-    public void Generated_files_past_260_characters_compile_with_a_DAML0111_warning()
+    public void Generated_files_past_260_characters_compile_with_a_EQD0111_warning()
     {
         var @namespace = "Finance." + string.Join(".", Enumerable.Repeat("Settlement", 13));
         App($"""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="{@namespace}" />""");

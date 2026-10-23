@@ -30,7 +30,7 @@ public class RuntimeCompatibilityTests
     [InlineData("net8.0")]
     [InlineData("netstandard2.0")]
     [InlineData("netcoreapp3.1")]
-    public void An_older_target_framework_is_DAML0201(string targetFramework)
+    public void An_older_target_framework_is_EQD0201(string targetFramework)
     {
         var problem = RuntimeCompatibility.Problems(targetFramework, "0.6.0").ShouldHaveSingleItem();
 

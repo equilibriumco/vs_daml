@@ -92,7 +92,7 @@ public sealed class RealCodegenPreflightTests : IDisposable
     }
 
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
-    public async Task Offline_without_the_generator_is_DAML0107_at_once()
+    public async Task Offline_without_the_generator_is_EQD0107_at_once()
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);

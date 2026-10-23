@@ -22,8 +22,8 @@ using Xunit;
 
 namespace Equilibrium.Daml.VisualStudio.IntegrationTests;
 
-// What the IDE tests do to Visual Studio, in one place. Only Visual Studio's own APIs: the tests
-// don't reference the extension, so they see it the way a user does.
+// What the IDE tests do to Visual Studio, in one place. Visual Studio's own APIs, so the tests see
+// the extension the way a user does; only setting an option reaches into it (SetDamlOptionAsync).
 internal static class Ide
 {
     // Must match the extension's command set and its "language server ready" UI context.
@@ -653,13 +653,12 @@ internal static class Ide
     }
 
     /// <summary>
-    /// Sets an option of Tools > Options > EQ Daml Tools > General for this session, as the page would, through
-    /// the page's automation object; <paramref name="name"/> is the option's property. Returns the
-    /// value it had, to put back afterwards.
+    /// Sets an option of Tools > Options > EQ Daml Tools > General; <paramref name="name"/> is the
+    /// option's property. Returns the value it had, to put back afterwards.
     /// </summary>
-    // Through the extension's own options model, saved to the settings store, which is what the
-    // extension reads: a value set through DTE.Properties only changes the page's object in
-    // memory and is never seen by the product. Returns the value before.
+    // The one place the tests reach into the extension, by reflection: a value set through
+    // DTE.Properties only changes the page's object in memory and is never seen by the product,
+    // so this goes through the extension's own options model and saves to the settings store.
     public static async Task<object?> SetDamlOptionAsync(string name, object value)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

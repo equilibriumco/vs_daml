@@ -45,7 +45,7 @@ public class GenerationReferencesTests
     // Adding a reference in Visual Studio writes a ProjectReference; listing the same project as
     // a DamlReference as well is one reference, and the DamlReference says how.
     [Fact, Trait("Category", "Unit")]
-    public void A_project_listed_both_ways_is_one_reference_described_by_its_DamlReference()
+    public void A_project_listed_both_ways_is_one_reference_described_by_its_EqDamlReference()
     {
         var (references, errors) = Resolve(
             Plain(@"..\Contracts\Contracts.msbuildproj", "Ignored"),
@@ -58,7 +58,7 @@ public class GenerationReferencesTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void A_plain_project_reference_generates_with_its_DamlNamespace() =>
+    public void A_plain_project_reference_generates_with_its_EqDamlNamespace() =>
         Resolve(Plain(@"..\Contracts\Contracts.msbuildproj", "Gen")).References.ShouldHaveSingleItem().Namespace.ShouldBe("Gen");
 
     [Fact, Trait("Category", "Unit")]
@@ -85,7 +85,7 @@ public class GenerationReferencesTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void A_DamlReference_to_a_dar_points_to_DamlDar()
+    public void A_EqDamlReference_to_a_dar_points_to_EqDamlDar()
     {
         var (references, errors) = Resolve(Daml(@"C:\vendor\finance.dar"));
 
@@ -96,7 +96,7 @@ public class GenerationReferencesTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void A_DamlDar_has_to_be_a_dar()
+    public void A_EqDamlDar_has_to_be_a_dar()
     {
         var (references, errors) = Resolve(Dar(@"..\Contracts\Contracts.msbuildproj"));
 

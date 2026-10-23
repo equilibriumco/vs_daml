@@ -79,7 +79,7 @@ public class CSharpBridgeTests
             var count = int.Parse(Regex.Match(counted.Text, @"\d+").Value, System.Globalization.CultureInfo.InvariantCulture);
             counted.Link.RaiseEvent(new RoutedEventArgs(Hyperlink.ClickEvent));
             var caption = await Ide.WaitForToolWindowAsync(c => c.StartsWith("EQ Daml: C# References — Main:Asset", StringComparison.Ordinal) && c.EndsWith($"({count})", StringComparison.Ordinal), Patience);
-            Assert.True(caption is not null, $"No 'Daml: C# References — Main:Asset ({count})' window opened.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 4000)}");
+            Assert.True(caption is not null, $"No 'EQ Daml: C# References — Main:Asset ({count})' window opened.{Environment.NewLine}{Ide.PaneText("EQ Daml Tools", 4000)}");
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             var rows = Ide.TableRows("EqDamlCSharpReferences", StandardTableKeyNames.DocumentName, StandardTableKeyNames.Text);

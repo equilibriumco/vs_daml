@@ -83,7 +83,7 @@ public sealed class DamlBuildStateTasksTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Switched_off_nothing_is_built_and_a_value_it_cant_use_is_DAML0100()
+    public void Switched_off_nothing_is_built_and_a_value_it_cant_use_is_EQD0100()
     {
         var off = Compute("no");
         off.Execute().ShouldBeTrue();

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Equilibrium.Daml.Build.Core and the tasks on a fake build engine; the MSBuild-level tests (fake and
-       real dpm) join later. -->
+  <!-- Equilibrium.Daml.Build.Core, the tasks on a fake build engine, and the packages on MSBuild.exe and
+       dotnet build with a fake or the real dpm. -->
   <PropertyGroup>
     <TargetFrameworks>net48;net10.0</TargetFrameworks>
   </PropertyGroup>

@@ -155,7 +155,7 @@ public class SdkResolverTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task No_tools_at_all_is_DAML0101_with_instructions()
+    public async Task No_tools_at_all_is_EQD0101_with_instructions()
     {
         Package(@"C:\repo\app", "3.6.0");
 

@@ -31,7 +31,7 @@ public class PackageOptionsTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Anything_else_is_DAML0100_and_the_build_stays_on()
+    public void Anything_else_is_EQD0100_and_the_build_stays_on()
     {
         var (options, errors) = Read("sometimes");
 

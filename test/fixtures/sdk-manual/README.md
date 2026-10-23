@@ -2,8 +2,7 @@
 
 A solution with a Daml project on `Equilibrium.Daml.Sdk` (`Contracts`), a C# project that only asks it for its DAR (`App`) and a C#
 project that gets C# generated from it through `Equilibrium.Daml.Build.CSharp` (`Client`), to check in Visual Studio 2026 what the
-automated tests can't: how the projects load and look, and what the IDE does with them. The steps and their expected
-results are the M3-T04 and M3-T05 checklists in `docs/progress.md`.
+automated tests can't: how the projects load and look, and what the IDE does with them.
 
 The `Directory.*` files here are empty on purpose: they keep the repository's own build settings and central package
 versions out, so the solution builds like a user's.

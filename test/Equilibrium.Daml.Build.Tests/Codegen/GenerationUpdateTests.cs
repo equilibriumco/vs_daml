@@ -122,7 +122,7 @@ public sealed class GenerationUpdateTests : IDisposable
 
     // Our own steps take any length; the warning is for the compiler and the editor, which may not.
     [Fact, Trait("Category", "Unit")]
-    public async Task Files_past_the_path_limit_are_compiled_with_a_DAML0111_warning()
+    public async Task Files_past_the_path_limit_are_compiled_with_a_EQD0111_warning()
     {
         _generator.Writes(new() { [DeepPath.Relative] = "class Registration { }", ["Asset.cs"] = "class Asset { }" });
 
@@ -166,7 +166,7 @@ public sealed class GenerationUpdateTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_root_locked_past_the_time_limit_is_DAML0105_and_nothing_runs()
+    public async Task A_root_locked_past_the_time_limit_is_EQD0105_and_nothing_runs()
     {
         using var other = await FileLock.AcquireAsync(OutputLock, TimeSpan.FromSeconds(5), CancellationToken.None);
 
@@ -247,7 +247,7 @@ public sealed class GenerationUpdateTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task An_unfinished_publish_that_cant_be_recovered_is_DAML0109_and_nothing_is_generated()
+    public async Task An_unfinished_publish_that_cant_be_recovered_is_EQD0109_and_nothing_is_generated()
     {
         var staging = KilledWithTheOldGenerationAside();
         using (new FileStream(Path.Combine(staging, "Asset.cs"), FileMode.Create, FileAccess.Write, FileShare.None))
@@ -266,7 +266,7 @@ public sealed class GenerationUpdateTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Files_that_appeared_after_the_preflight_are_DAML0108_and_are_kept()
+    public async Task Files_that_appeared_after_the_preflight_are_EQD0108_and_are_kept()
     {
         Published(Folder);
         File.WriteAllText(Path.Combine(Folder, "Mine.cs"), "class Mine { }");
@@ -371,7 +371,7 @@ public sealed class GenerationUpdateTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task Clean_of_a_root_another_build_holds_too_long_is_DAML0105()
+    public async Task Clean_of_a_root_another_build_holds_too_long_is_EQD0105()
     {
         Published(Folder);
         using var other = await FileLock.AcquireAsync(OutputLock, TimeSpan.FromSeconds(5), CancellationToken.None);

@@ -94,7 +94,7 @@ public sealed class DamlPackageOutputTasksTests : IDisposable
 
     // Every configuration builds the package in its one .daml folder; clean waits for them like they wait for each other.
     [Fact, Trait("Category", "Unit")]
-    public void Clean_of_a_package_another_build_holds_too_long_is_DAML0105_and_removes_nothing()
+    public void Clean_of_a_package_another_build_holds_too_long_is_EQD0105_and_removes_nothing()
     {
         Built();
         using var held = FileLock.Acquire(LockNames.Package(LockNames.Root(Environment.GetEnvironmentVariable), _root), TimeSpan.FromSeconds(5), CancellationToken.None);

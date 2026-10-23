@@ -4,7 +4,6 @@
 `Contracts.Tests` in the solution folder, and `Lib` outside it (`shared/Lib`). `Contracts` uses a type from `Lib`, the
 tests use both (data-dependencies on their DARs). It is for what the automated tests can't show: which packages the
 server serves, the info bar that offers a `multi-package.yaml`, and Go To Definition across packages before and after.
-The steps and their expected results are the M3-T07 checklist in `docs/progress.md`.
 
 The `Directory.*` files here are empty on purpose: they keep the repository's own build settings and central package
 versions out, so the projects build like a user's.

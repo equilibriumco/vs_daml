@@ -320,7 +320,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
 
     // Two generations writing the same file would give the compiler every type twice (CS0101).
     [Fact, Trait("Category", "Unit")]
-    public async Task Two_generations_writing_the_same_files_are_DAML0202_naming_both()
+    public async Task Two_generations_writing_the_same_files_are_EQD0202_naming_both()
     {
         var finance = Reference("Finance", "fedcba9876543210");
         Generates(Contracts, @"Contracts\Asset\Asset.cs", @"Contracts\Asset\Asset.Give.cs", @"Contracts\Own.cs");

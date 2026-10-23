@@ -42,7 +42,7 @@ public sealed class GenerationStateTests : IDisposable
         manifest.Write(Path.Combine(_folder, GenerationManifest.FileName));
     }
 
-    private static readonly (string, string)[] Asset = [(@"S09\Asset\Asset.cs", "partial record Asset"), (@"S09\Asset\Asset.Give.cs", "partial record Asset { }")];
+    private static readonly (string, string)[] Asset = [(@"Kinds\Asset\Asset.cs", "partial record Asset"), (@"Kinds\Asset\Asset.Give.cs", "partial record Asset { }")];
 
     private GenerationState Evaluate(string fingerprint = Fingerprint, string owner = Project) => GenerationState.Evaluate(_folder, fingerprint, owner);
 
@@ -54,7 +54,7 @@ public sealed class GenerationStateTests : IDisposable
         var state = Evaluate();
 
         state.Status.ShouldBe(GenerationStatus.Current);
-        state.Files.ShouldBe([Path.Combine(_folder, @"S09\Asset\Asset.cs"), Path.Combine(_folder, @"S09\Asset\Asset.Give.cs")]);
+        state.Files.ShouldBe([Path.Combine(_folder, @"Kinds\Asset\Asset.cs"), Path.Combine(_folder, @"Kinds\Asset\Asset.Give.cs")]);
     }
 
     [Fact, Trait("Category", "Unit")]
@@ -123,9 +123,9 @@ public sealed class GenerationStateTests : IDisposable
     public void A_deleted_file_makes_it_stale()
     {
         Published(Manifest(Asset), Asset);
-        File.Delete(Path.Combine(_folder, @"S09\Asset\Asset.Give.cs"));
+        File.Delete(Path.Combine(_folder, @"Kinds\Asset\Asset.Give.cs"));
 
-        Evaluate().Reason.ShouldBe(@"S09\Asset\Asset.Give.cs was deleted.");
+        Evaluate().Reason.ShouldBe(@"Kinds\Asset\Asset.Give.cs was deleted.");
     }
 
     // The generator owns what it wrote: an edit is overwritten by the next generation.
@@ -133,9 +133,9 @@ public sealed class GenerationStateTests : IDisposable
     public void An_edited_file_makes_it_stale()
     {
         Published(Manifest(Asset), Asset);
-        File.AppendAllText(Path.Combine(_folder, @"S09\Asset\Asset.cs"), " // mine");
+        File.AppendAllText(Path.Combine(_folder, @"Kinds\Asset\Asset.cs"), " // mine");
 
-        (Evaluate().Status, Evaluate().Reason).ShouldBe((GenerationStatus.Stale, @"S09\Asset\Asset.cs was changed since it was generated."));
+        (Evaluate().Status, Evaluate().Reason).ShouldBe((GenerationStatus.Stale, @"Kinds\Asset\Asset.cs was changed since it was generated."));
     }
 
     // A file the generator didn't write is never deleted with the generation; the build stops instead.
@@ -143,14 +143,14 @@ public sealed class GenerationStateTests : IDisposable
     public void A_file_the_generator_didnt_write_is_a_conflict()
     {
         Published(Manifest(Asset), Asset);
-        File.WriteAllText(Path.Combine(_folder, @"S09\Notes.cs"), "// mine");
+        File.WriteAllText(Path.Combine(_folder, @"Kinds\Notes.cs"), "// mine");
 
         var state = Evaluate();
 
         state.Status.ShouldBe(GenerationStatus.Conflict);
-        state.ForeignFiles.ShouldBe([@"S09\Notes.cs"]);
+        state.ForeignFiles.ShouldBe([@"Kinds\Notes.cs"]);
         state.Reason.ShouldBe(
-            $@"{_folder} has files the generator didn't write: S09\Notes.cs. The build never deletes them; move them out, or give EqDamlGeneratedDir a folder of its own.");
+            $@"{_folder} has files the generator didn't write: Kinds\Notes.cs. The build never deletes them; move them out, or give EqDamlGeneratedDir a folder of its own.");
     }
 
     [Fact, Trait("Category", "Unit")]

@@ -107,7 +107,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
 
     public event AsyncEventHandler<EventArgs>? StopAsync;
 
-    // VS names an Output pane after the client, so it must not clash with our panes ("Daml",
+    // VS names an Output pane after the client, so it must not clash with our panes ("EQ Daml Tools",
     // "EQ Daml Tools: Language Server", "EQ Daml Tools: Build").
     public string Name => "EQ Daml Tools: Language Client";
 

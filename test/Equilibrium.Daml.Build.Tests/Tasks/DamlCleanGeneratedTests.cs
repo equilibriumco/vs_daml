@@ -68,7 +68,7 @@ public class DamlCleanGeneratedTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void A_cancelled_clean_is_DAML0110()
+    public void A_cancelled_clean_is_EQD0110()
     {
         var task = Task();
         _orchestrator.OnRun = () => task.Cancel();
