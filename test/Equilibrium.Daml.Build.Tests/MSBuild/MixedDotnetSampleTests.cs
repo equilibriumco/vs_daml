@@ -36,8 +36,8 @@ public sealed class MixedDotnetSampleTests : IDisposable
     {
         var properties = XDocument.Load(Path.Combine(Repository.Root, "Directory.Build.props")).Descendants();
         var prefix = properties.Single(p => p.Name.LocalName == "VersionPrefix").Value;
-        var prerelease = properties.Single(p => p.Name.LocalName == "EqDamlPrerelease").Value == "true";
-        return prerelease ? prefix + "-preview.0" : prefix;
+        var label = properties.Single(p => p.Name.LocalName == "EqDamlPrereleaseLabel").Value;
+        return label.Length > 0 ? $"{prefix}-{label}.0" : prefix;
     }
 
     private static string PackageVersion(XDocument project, string package) =>

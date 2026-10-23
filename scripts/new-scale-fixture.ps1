@@ -11,7 +11,7 @@
     output is the same for the same parameters; the folder must not exist yet.
 
 .EXAMPLE
-    pwsh scripts/new-scale-fixture.ps1 -Path $env:TEMP\scale -SdkPackageVersion 0.3.0-preview.0 -RuntimeVersion 0.6.0
+    pwsh scripts/new-scale-fixture.ps1 -Path $env:TEMP\scale -SdkPackageVersion 0.9.0-beta.0 -RuntimeVersion 0.6.0
 #>
 [CmdletBinding()]
 param(

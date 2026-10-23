@@ -18,9 +18,9 @@ central package versions out, so the solution builds like a user's.
 ## Build
 
 1. `pwsh scripts/pack.ps1` from the repository root leaves `Equilibrium.Daml.Sdk` and `Equilibrium.Daml.Build.CSharp`
-   (`0.3.0-preview.0`) in `artifacts/packages`, where `nuget.config` here looks for them; everything
+   (`0.9.0-beta.0`) in `artifacts/packages`, where `nuget.config` here looks for them; everything
    else comes from nuget.org. NuGet keeps the first copy of a version it saw, so after a new pack
-   delete `equilibrium.daml.sdk\0.3.0-preview.0` and `equilibrium.daml.build.csharp\0.3.0-preview.0` under
+   delete `equilibrium.daml.sdk\0.9.0-beta.0` and `equilibrium.daml.build.csharp\0.9.0-beta.0` under
    `%USERPROFILE%\.nuget\packages`; `pack.ps1` warns and names the folders when they hold another copy.
 2. dpm with SDK 3.6.0 installed, and a JDK 17 or later in `JAVA_HOME` for the C# generator.
 3. Build, run, test:

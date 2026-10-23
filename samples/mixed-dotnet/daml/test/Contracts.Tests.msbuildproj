@@ -1,6 +1,6 @@
 <!-- The Daml Script tests of the contracts. Build runs no tests; the EqDamlTest target
      (dotnet build -t:EqDamlTest) runs every script with dpm test. -->
-<Project Sdk="Equilibrium.Daml.Sdk/0.3.0-preview.0">
+<Project Sdk="Equilibrium.Daml.Sdk/0.9.0-beta.0">
 
   <!-- The tests use the contracts' DAR (data-dependencies in daml.yaml), so that project builds first. -->
   <ItemGroup>

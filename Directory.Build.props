@@ -52,17 +52,17 @@
   </PropertyGroup>
 
   <!-- One version for everything. The VSIX manifest only accepts numeric versions, so the
-       build number goes into the fourth part there and into the prerelease label on NuGet:
-         VSIX / FileVersion   0.3.0.42
-         NuGet                0.3.0-preview.42
-       Local builds use build number 0; CI passes its run number. Drop EqDamlPrerelease for a
-       stable release. -->
+       build number goes into the fourth part there and after the prerelease label on NuGet:
+         VSIX / FileVersion   0.9.0.3
+         NuGet                0.9.0-beta.3
+       Local builds use build number 0; CI passes its run number. An empty label makes a stable
+       release. -->
   <PropertyGroup>
-    <VersionPrefix>0.3.0</VersionPrefix>
-    <EqDamlPrerelease>true</EqDamlPrerelease>
+    <VersionPrefix>0.9.0</VersionPrefix>
+    <EqDamlPrereleaseLabel>beta</EqDamlPrereleaseLabel>
     <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == '' and '$(GITHUB_RUN_NUMBER)' != ''">$(GITHUB_RUN_NUMBER)</EqDamlBuildNumber>
     <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == ''">0</EqDamlBuildNumber>
-    <VersionSuffix Condition="'$(EqDamlPrerelease)' == 'true'">preview.$(EqDamlBuildNumber)</VersionSuffix>
+    <VersionSuffix Condition="'$(EqDamlPrereleaseLabel)' != ''">$(EqDamlPrereleaseLabel).$(EqDamlBuildNumber)</VersionSuffix>
     <FileVersion>$(VersionPrefix).$(EqDamlBuildNumber)</FileVersion>
     <!-- Kept at major.minor so assemblies loaded into devenv don't change identity on every build. -->
     <AssemblyVersion>$(VersionPrefix.Split('.')[0]).$(VersionPrefix.Split('.')[1]).0.0</AssemblyVersion>
