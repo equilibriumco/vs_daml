@@ -2,9 +2,9 @@ name: Release
 
 # Started by hand only. Builds the VSIX and the three NuGet packages with the given build number,
 # runs the PR gate on them and keeps them as an artifact. Started from a tag v<version>, it also
-# drafts a GitHub pre-release with those files, and then pushes them to the Visual Studio
-# Marketplace and nuget.org, each push waiting for a person to approve the release environment.
-# A person reviews and publishes the draft.
+# drafts a GitHub pre-release with those files. Publishing is done by a person: the draft on
+# GitHub, the VSIX on the Visual Studio Marketplace and the packages on nuget.org, from exactly
+# these files.
 on:
   workflow_dispatch:
     inputs:
@@ -124,56 +124,3 @@ jobs:
             --title "EQ Daml Tools $VERSION" --notes-file "$RUNNER_TEMP/notes.md" \
             "$RUNNER_TEMP"/release/packages/* "$RUNNER_TEMP"/release/sbom/*
 
-  marketplace:
-    needs: [build, draft]
-    runs-on: windows-2025-vs2026
-    timeout-minutes: 20
-    environment: release
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      DOTNET_NOLOGO: 'true'
-      DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          global-json-file: global.json
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.build.outputs.version }}
-          path: ${{ runner.temp }}/release
-
-      # Unsigned until 1.0: signing goes here, before the upload, once there is a certificate.
-      - name: Publish to the Visual Studio Marketplace
-        env:
-          VS_MARKETPLACE_PAT: ${{ secrets.VS_MARKETPLACE_PAT }}
-        run: ./scripts/publish-marketplace.ps1 -Vsix "$env:RUNNER_TEMP/release/packages/Equilibrium.Daml.VisualStudio.vsix"
-
-  nuget:
-    needs: [build, draft]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: release
-
-    steps:
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
-        with:
-          dotnet-version: '10.0.x'
-
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: release-${{ needs.build.outputs.version }}
-          path: ${{ runner.temp }}/release
-
-      - name: Push to nuget.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-        run: |
-          for package in "$RUNNER_TEMP"/release/packages/*.nupkg; do
-            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-          done

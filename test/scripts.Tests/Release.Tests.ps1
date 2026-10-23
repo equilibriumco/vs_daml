@@ -62,25 +62,3 @@ Describe 'Release tag' {
     }
 }
 
-Describe 'VsixPublisher' {
-    BeforeEach { $script:packages = Join-Path ([IO.Path]::GetTempPath()) ('eqdaml-nuget-' + [guid]::NewGuid().ToString('N')) }
-    AfterEach { if (Test-Path -LiteralPath $script:packages) { Remove-Item -LiteralPath $script:packages -Recurse -Force } }
-
-    It 'is found in the pinned VSSDK build tools package, wherever the package keeps it' {
-        $bin = Join-Path $script:packages 'microsoft.vssdk.buildtools\17.14.2142\tools\vssdk\bin\lib'
-        New-Item -ItemType Directory -Force $bin | Out-Null
-        Set-Content (Join-Path $bin 'VsixPublisher.exe') 'x'
-        Find-VsixPublisher -PackagesRoot $script:packages -Version '17.14.2142' | Should Be (Join-Path $bin 'VsixPublisher.exe')
-    }
-
-    It 'is not taken from another version of the package' {
-        $bin = Join-Path $script:packages 'microsoft.vssdk.buildtools\17.11.414\tools\vssdk\bin'
-        New-Item -ItemType Directory -Force $bin | Out-Null
-        Set-Content (Join-Path $bin 'VsixPublisher.exe') 'x'
-        Find-VsixPublisher -PackagesRoot $script:packages -Version '17.14.2142' | Should BeNullOrEmpty
-    }
-
-    It 'takes the pinned version from central package management' {
-        Get-PinnedPackageVersion -PackagesProps (Join-Path $PSScriptRoot '..\..\Directory.Packages.props') -Id 'Microsoft.VSSDK.BuildTools' | Should Match '^\d+\.\d+\.\d+$'
-    }
-}

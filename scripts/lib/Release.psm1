@@ -1,5 +1,5 @@
-# What the release workflow checks before it drafts a release or publishes: one version across the
-# VSIX and the packages, a tag that names it, and the Marketplace upload tool of the pinned VSSDK.
+# What the release workflow checks before it drafts a release: one version across the VSIX and the
+# packages, and a tag that names it.
 Set-StrictMode -Version Latest
 
 $script:packages = @('Equilibrium.Daml.Sdk', 'Equilibrium.Daml.Build.CSharp', 'Equilibrium.Daml.Templates')
@@ -54,28 +54,5 @@ function Test-ReleaseTag([string] $RefType, [string] $RefName, [string] $Version
     }
 }
 
-<#
-.SYNOPSIS
-    The version central package management pins for a package.
-#>
-function Get-PinnedPackageVersion([string] $PackagesProps, [string] $Id) {
-    $props = [xml](Get-Content -LiteralPath $PackagesProps -Raw)
-    $entry = @($props.SelectNodes('//PackageVersion') | Where-Object { $_.GetAttribute('Include') -eq $Id })
-    if ($entry.Count -ne 1) { throw "$PackagesProps pins $Id $($entry.Count) times." }
-    $entry[0].GetAttribute('Version')
-}
-
-<#
-.SYNOPSIS
-    VsixPublisher.exe from the given version of Microsoft.VSSDK.BuildTools in a NuGet package
-    folder, or nothing when that version isn't there.
-#>
-function Find-VsixPublisher([string] $PackagesRoot, [string] $Version) {
-    $bin = Join-Path $PackagesRoot "microsoft.vssdk.buildtools\$Version\tools\vssdk\bin"
-    if (-not (Test-Path -LiteralPath $bin)) { return }
-    @(Get-ChildItem -LiteralPath $bin -Recurse -Filter 'VsixPublisher.exe' | Sort-Object { $_.FullName.Length }) |
-        Select-Object -First 1 | ForEach-Object FullName
-}
-
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-Export-ModuleMember -Function Get-ReleaseVersion, Test-ReleaseTag, Get-PinnedPackageVersion, Find-VsixPublisher
+Export-ModuleMember -Function Get-ReleaseVersion, Test-ReleaseTag
