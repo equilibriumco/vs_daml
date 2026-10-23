@@ -72,7 +72,7 @@ public class ResultsNavigationTests
         var decision = ResultsNavigation.Classify(uri, userInitiated: true);
 
         decision.Kind.ShouldBe(NavigationKind.External);
-        decision.External!.AbsoluteUri.ShouldStartWith(uri.Substring(0, 10));
+        decision.External.ShouldBe(new System.Uri(uri));
     }
 
     [Fact, Trait("Category", "Unit")]

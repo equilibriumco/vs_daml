@@ -66,12 +66,15 @@ public sealed class GeneratedPropsTests : IDisposable
     public void The_same_list_again_leaves_the_file_alone()
     {
         GeneratedProps.Write(Props, Files, visible: false);
-        var written = File.GetLastWriteTimeUtc(Props);
+        // A time no write could leave, so an untouched file shows whatever the clock's resolution.
+        var written = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(Props, written);
 
         GeneratedProps.Write(Props, Files, visible: false).ShouldBeFalse();
-        GeneratedProps.Write(Props, Files.Take(1), visible: false).ShouldBeTrue();
+        File.GetLastWriteTimeUtc(Props).ShouldBe(written);
 
-        File.GetLastWriteTimeUtc(Props).ShouldBeGreaterThanOrEqualTo(written);
+        GeneratedProps.Write(Props, Files.Take(1), visible: false).ShouldBeTrue();
+        File.GetLastWriteTimeUtc(Props).ShouldBeGreaterThan(written);
         XDocument.Load(Props).Root!.Descendants("Compile").ShouldHaveSingleItem();
     }
 

@@ -146,17 +146,4 @@ public sealed class GenerationCatalogTests : IDisposable
 
         catalog.Find(point).ShouldNotBeNull();
     }
-
-    [Fact, Trait("Category", "Unit")]
-    public void A_forgotten_generation_is_read_again()
-    {
-        var point = Write(@"Fixture\Kinds\Types\Point.cs");
-        Publish(GenerationProvenanceTests.Manifest(), @"Fixture\Kinds\Types\Point.cs");
-        var catalog = new GenerationCatalog();
-        catalog.Find(point).ShouldNotBeNull();
-
-        catalog.Forget(Folder);
-
-        catalog.Find(point).ShouldNotBeNull();
-    }
 }

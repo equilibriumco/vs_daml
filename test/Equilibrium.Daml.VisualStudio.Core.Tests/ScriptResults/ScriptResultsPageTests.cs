@@ -55,12 +55,11 @@ public class ScriptResultsPageTests
     {
         var page = ScriptResultsPage.Compose(Fixture());
 
-        page.ShouldContain("default-src 'none'");
-        page.ShouldContain("connect-src 'none'");
-        page.ShouldContain("frame-src 'none'");
-        page.ShouldContain("form-action 'none'");
-        page.ShouldContain("base-uri 'none'");
-        page.ShouldContain("script-src https://daml-webview.invalid/ 'unsafe-inline'");
+        // The whole policy, so widening any one source shows up here.
+        page.ShouldContain(
+            "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; " +
+            "script-src https://daml-webview.invalid/ 'unsafe-inline'; style-src https://daml-webview.invalid/ 'unsafe-inline'; " +
+            "img-src https://daml-webview.invalid/ data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">");
     }
 
     [Fact, Trait("Category", "Unit")]

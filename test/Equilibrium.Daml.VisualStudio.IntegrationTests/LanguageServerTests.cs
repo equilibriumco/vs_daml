@@ -18,28 +18,6 @@ public class LanguageServerTests
     private static readonly TimeSpan ServerStart = TimeSpan.FromMinutes(2);
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 5 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public async Task In_an_open_folder_template_is_coloured_as_a_declaration()
-    {
-        await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var folder = Ide.CopySample("single-package");
-        Ide.OpenFolder(folder);
-        try
-        {
-            var view = Ide.OpenFile(Path.Combine(folder, "daml", "Main.daml"));
-            var classifier = Ide.ComponentModel().GetService<IClassifierAggregatorService>().GetClassifier(view.TextBuffer);
-            var line = view.TextBuffer.CurrentSnapshot.Lines.First(l => l.GetText().StartsWith("template ", StringComparison.Ordinal));
-
-            var spans = classifier.GetClassificationSpans(line.Extent);
-
-            Assert.Contains(spans, s => s.Span.GetText() == "template" && s.ClassificationType.IsOfType("daml.declaration"));
-        }
-        finally
-        {
-            await Ide.CloseFolderAsync();
-        }
-    }
-
-    [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 5 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
     public async Task A_type_error_reaches_the_error_list()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

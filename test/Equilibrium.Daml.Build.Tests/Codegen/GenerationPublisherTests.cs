@@ -395,7 +395,8 @@ public sealed class GenerationPublisherTests : IDisposable
         File.Exists(Path.Combine(Active, GenerationManifest.FileName)).ShouldBeTrue();
     }
 
-    // Only files inside the folder can be the generation's, whatever its manifest says.
+    // Only files inside the folder can be the generation's, whatever its manifest says: a manifest
+    // naming paths outside isn't trusted at all, so nothing is deleted, there or here.
     [Fact, Trait("Category", "Unit")]
     public void A_manifest_entry_pointing_outside_the_folder_deletes_nothing_there()
     {

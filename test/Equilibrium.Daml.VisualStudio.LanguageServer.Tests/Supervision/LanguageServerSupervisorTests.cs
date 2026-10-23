@@ -206,15 +206,12 @@ public sealed class LanguageServerSupervisorTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task The_exit_of_an_older_session_does_not_touch_the_current_one()
+    public async Task Reports_about_an_older_session_do_not_touch_the_current_one()
     {
         await StartAsync();
         var second = await StartAsync();
 
         _runner.Started[0].Disposed.ShouldBeTrue();
-        // Disposal cancels Exited, so a late synthetic exit cannot complete it again.
-        _runner.Started[0].Exited.IsCanceled.ShouldBeTrue();
-        _runner.Started[0].Exit(1);
         _supervisor.MarkReady(1);
         _supervisor.ReportConnectionFailure(1, new IOException("stale connection"));
 

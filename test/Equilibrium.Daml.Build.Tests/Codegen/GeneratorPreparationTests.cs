@@ -179,7 +179,6 @@ public sealed class GeneratorPreparationTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public async Task A_download_that_still_doesnt_match_the_pin_is_EQD0106()
     {
-        InstallSucceeds();
         _runner.On(Dpm, Install, spec =>
         {
             _download.CopyHomeTo(spec.Environment["DPM_HOME"]!);

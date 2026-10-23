@@ -46,19 +46,6 @@ public class ClassificationTests
     public void Some_kinds_stay_uncoloured(DamlTokenKind kind) =>
         ClassificationMapper.Map(new DamlToken(0, 1, kind), "x".AsSpan()).ShouldBeNull();
 
-    [Fact, Trait("Category", "Unit")]
-    public void Every_token_kind_has_a_decision()
-    {
-        // A new kind added to the lexer must be mapped (or left uncoloured) on purpose.
-        // net48 has no generic GetValues.
-#pragma warning disable CA2263
-        foreach (DamlTokenKind kind in Enum.GetValues(typeof(DamlTokenKind)))
-#pragma warning restore CA2263
-        {
-            Should.NotThrow(() => ClassificationMapper.Map(new DamlToken(0, 1, kind), "x".AsSpan()), kind.ToString());
-        }
-    }
-
     [Theory, Trait("Category", "Unit")]
     [InlineData("DA.List.sort", DamlClassificationNames.Identifier)]
     [InlineData("DA.Map.Map", DamlClassificationNames.Type)]

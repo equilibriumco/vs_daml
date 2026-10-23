@@ -29,7 +29,7 @@ public class ScriptResultsTests
     public ScriptResultsTests(ITestOutputHelper output) => _output = output;
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 6 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public async Task The_script_gets_a_results_row_that_opens_the_results_window()
+    public async Task The_script_gets_a_results_row_and_its_results_open_at_the_caret()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         ResultsWindow.CloseAll();
@@ -348,7 +348,9 @@ public class ScriptResultsTests
             await ResultsWindow.WaitForTextAsync(browser, t => t.Contains("TV"));
             var page = (string?)await ResultsWindow.EvalAsync(browser, "location.href");
 
-            await ResultsWindow.EvalAsync(browser, "window.__fetch = 'pending'; fetch('https://example.com/').then(r => window.__fetch = 'status ' + r.status, () => window.__fetch = 'refused');");
+            // no-cors: on a connected machine a request that is let through resolves (opaque), so
+            // 'refused' comes from the page's policy or our filter, not from CORS.
+            await ResultsWindow.EvalAsync(browser, "window.__fetch = 'pending'; fetch('https://example.com/', { mode: 'no-cors' }).then(r => window.__fetch = 'status ' + r.status, () => window.__fetch = 'refused');");
             Assert.Equal("null", (string?)await ResultsWindow.EvalAsync(browser, "String(window.open('https://example.com/'))"));
             await ResultsWindow.EvalAsync(browser, "location.href = 'https://example.com/'");
             await Task.Delay(TimeSpan.FromSeconds(3));

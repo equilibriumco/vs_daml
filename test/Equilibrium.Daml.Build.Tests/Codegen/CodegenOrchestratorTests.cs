@@ -146,7 +146,16 @@ public sealed class CodegenOrchestratorTests : IDisposable
         result.Files.ShouldBeEmpty();
         File.Exists(Path.Combine(folder, @"Contracts\Asset.cs")).ShouldBeTrue();
         GeneratorCalls.Count().ShouldBe(calls);
-        result.Messages.ShouldNotBeEmpty();
+        if (designTime)
+        {
+            // Design time only reports; the build that follows says what is wrong.
+            result.Messages.ShouldNotBeEmpty();
+            result.Messages.ShouldAllBe(m => m.Severity == DamlDiagnosticSeverity.Information);
+        }
+        else
+        {
+            result.Messages.ShouldContain(m => m.Severity == DamlDiagnosticSeverity.Error && m.Code == DamlDiagnosticCodes.OutputConflict);
+        }
     }
 
     [Fact, Trait("Category", "Unit")]

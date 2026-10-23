@@ -85,7 +85,9 @@ public class JavaTests
     {
         Find("").ShouldBeNull();
 
-        _errors.ShouldHaveSingleItem().Message.ShouldBe(
+        var error = _errors.ShouldHaveSingleItem();
+        error.Code.ShouldBe(DamlDiagnosticCodes.MissingJava);
+        error.Message.ShouldBe(
             "The C# code generator needs Java, and none was found: EqDamlJavaHome and JAVA_HOME are empty and no java.exe is on PATH. Install JDK 17 or later.");
     }
 }

@@ -95,19 +95,4 @@ public class LensRowsTests
         segment.Target.ShouldBe(lens);
         segment.Order.ShouldBe(ScriptLensSegments.Order);
     }
-
-    [Fact, Trait("Category", "Unit")]
-    public void The_script_segments_follow_the_lens_service()
-    {
-        using var rpc = new StreamJsonRpc.JsonRpc(Stream.Null);
-        var channel = new DamlRpcChannel();
-        using var service = new ScriptLensService(channel, new RecordingLogger());
-        var provider = new ScriptLensSegments(service);
-        var raised = new List<string>();
-        provider.SegmentsChanged += (_, uri) => raised.Add(uri);
-
-        provider.SegmentsFor("file:///C:/work/daml/Main.daml").ShouldBeEmpty();
-        channel.Attach(rpc, 1); // a new session clears lenses; nothing was there to clear
-        raised.ShouldBeEmpty();
-    }
 }

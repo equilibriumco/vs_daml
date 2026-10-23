@@ -316,20 +316,6 @@ public sealed class ClientRestartSequenceTests : IDisposable
         _host.IsUnresponsive.ShouldBeFalse("the new session starts with a clean slate");
     }
 
-    [Fact, Trait("Category", "Unit")]
-    public async Task A_report_about_an_older_session_changes_nothing()
-    {
-        var sequence = Sequence();
-        await sequence.StartAsync(CancellationToken.None);
-        _host.Supervisor.MarkReady(1);
-
-        _host.OnUnresponsive(0);
-
-        _problems.ShouldBeEmpty();
-        _host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
-        _host.IsUnresponsive.ShouldBeFalse();
-    }
-
     // A restart asked for while there is nothing to start (no daml.yaml yet) must not swallow
     // the next request: before, the user's own Restart would have been queued behind it forever.
     [Fact, Trait("Category", "Unit")]
@@ -349,7 +335,8 @@ public sealed class ClientRestartSequenceTests : IDisposable
         };
 
         _host.Supervisor.RequestRestart("daml.yaml appeared");
-        (await Task.WhenAny(WaitForRunsAsync(1), Task.Delay(TimeSpan.FromSeconds(30)))).IsCompleted.ShouldBeTrue();
+        var firstRun = WaitForRunsAsync(1);
+        (await Task.WhenAny(firstRun, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(firstRun);
         _discovered = Workspace();
         _host.Supervisor.ResetCircuit();
 

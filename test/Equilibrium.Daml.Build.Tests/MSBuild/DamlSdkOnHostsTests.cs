@@ -220,8 +220,15 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         var project = DamlProject();
         var cache = _sandbox.Write(@"contracts\.daml\package-database\3.6.0\cached.dalf", "kept");
 
+        var dar = $@"{Package}\.daml\dist\contracts-1.2.0.dar";
+        var record = $@"{Package}\obj\daml.build.state";
+
         var build = Build(host, project);
+        File.Exists(dar).ShouldBeTrue(build.Log);
+        File.Exists(record).ShouldBeTrue(build.Log);
         var clean = Build(host, project, target: "Clean");
+        File.Exists(dar).ShouldBeFalse(clean.Log);
+        File.Exists(record).ShouldBeFalse(clean.Log);
         var after = Build(host, project);
 
         (build.ExitCode, clean.ExitCode, after.ExitCode).ShouldBe((0, 0, 0), build.Log + clean.Log + after.Log);

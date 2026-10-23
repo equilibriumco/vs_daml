@@ -143,22 +143,6 @@ public class BuildTests
             + (contexts.Count == 0 ? "none" : string.Join(", ", contexts.SelectMany(g => g).Select(c => $"{c.DisplayName} ({c.ProviderType})")));
     }
 
-    // Every Build.* command Visual Studio would run right now: when none of the expected ones is
-    // offered, this says which are, which is the next thing to know.
-    private static string AvailableBuildCommands(DTE dte)
-    {
-        ThreadHelper.ThrowIfNotOnUIThread();
-        var names = new List<string>();
-        foreach (Command command in dte.Commands)
-        {
-            if (command.Name is { } name && name.StartsWith("Build.", StringComparison.Ordinal) && IsAvailable(dte, name))
-            {
-                names.Add(name);
-            }
-        }
-        return names.Count == 0 ? "none" : string.Join(", ", names);
-    }
-
     private static bool IsAvailable(DTE dte, string command)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
