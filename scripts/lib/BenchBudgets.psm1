@@ -26,6 +26,20 @@ function Get-BenchBudgets {
     }
 }
 
+function Get-UnbudgetedBenchmarks {
+    <#
+    .SYNOPSIS
+        Benchmarks that are measured but have no budget: lexing and the tree together is the sum of
+        two budgeted steps, and smart indent has no figure in the test strategy yet. Listed, so a
+        benchmark can't go unchecked by being forgotten.
+    #>
+    [CmdletBinding()]
+    [OutputType([string[]])]
+    param()
+
+    return @('LayoutBenchmarks.LexAndAnalyzeFile', 'LayoutBenchmarks.IndentInTheMiddle')
+}
+
 function Read-BenchResults {
     param([string] $ResultsPath, [switch] $ValidateHost, [string] $Framework)
     $values = @{}
@@ -91,4 +105,4 @@ function Test-BenchBudgets {
     }
 }
 
-Export-ModuleMember -Function Get-BenchBudgets, Test-BenchBudgets
+Export-ModuleMember -Function Get-BenchBudgets, Get-UnbudgetedBenchmarks, Test-BenchBudgets

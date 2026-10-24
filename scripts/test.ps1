@@ -119,49 +119,11 @@ function Get-TargetFrameworks([string] $ProjectPath) {
     $value.Split(';', [StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() }
 }
 
-# Raw coverlet reports of the project runs (under one framework folder) that executed tests.
-# A project with no tests in this category still emits a report in which its product
-# assemblies show 0%; those don't count.
-function Get-CoverageReports([string] $TfmDir) {
-    @(Get-ChildItem $TfmDir -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -ne 'coverage' -and (Get-TrxCounters $_.FullName).Executed -gt 0 } |
-        ForEach-Object { Get-ChildItem $_.FullName -Recurse -Filter 'coverage.cobertura.xml' })
-}
-
-# Line coverage per product assembly, merged across reports: a line counts as covered when any
-# run hit it. Computed from the raw reports because ReportGenerator drops assemblies that have
-# no coverable lines, and "no code" must stay distinguishable from "not measured".
-function Measure-AssemblyCoverage([System.IO.FileInfo[]] $Reports) {
-    $lines = @{}
-    foreach ($report in $Reports) {
-        $xml = [xml](Get-Content $report.FullName -Raw)
-        foreach ($package in $xml.SelectNodes('//packages/package')) {
-            $name = $package.GetAttribute('name')
-            if (-not $lines.ContainsKey($name)) { $lines[$name] = @{} }
-            foreach ($class in $package.SelectNodes('classes/class')) {
-                $file = $class.GetAttribute('filename')
-                foreach ($line in $class.SelectNodes('lines/line')) {
-                    $key = "$file|$($line.GetAttribute('number'))"
-                    $hit = [long]$line.GetAttribute('hits') -gt 0
-                    $lines[$name][$key] = $hit -or ($lines[$name].ContainsKey($key) -and $lines[$name][$key])
-                }
-            }
-        }
-    }
-    $result = @{}
-    foreach ($name in $lines.Keys) {
-        $valid = $lines[$name].Count
-        $covered = @($lines[$name].Values | Where-Object { $_ }).Count
-        $result[$name] = [pscustomobject]@{ Valid = $valid; Covered = $covered; Rate = if ($valid) { 100.0 * $covered / $valid } else { $null } }
-    }
-    $result
-}
-
 # Merges the reports of each framework into <category>/<tfm>/coverage (Cobertura + text summary
 # for people) and returns a short note for the summary table.
 function Merge-Coverage([string] $CategoryDir) {
     $notes = foreach ($tfmDir in Get-ChildItem $CategoryDir -Directory -ErrorAction SilentlyContinue) {
-        $reports = Get-CoverageReports $tfmDir.FullName
+        $reports = @(Get-RunCoverageReports -ResultsRoot (Split-Path $CategoryDir -Parent) -Categories @(Split-Path $CategoryDir -Leaf) -Framework $tfmDir.Name)
         if (-not $reports) { continue }
         $target = Join-Path $tfmDir.FullName 'coverage'
         & dotnet tool run reportgenerator "-reports:$($reports.FullName -join ';')" "-targetdir:$target" '-reporttypes:Cobertura;TextSummary' '-verbosity:Warning' | Out-Host
@@ -283,8 +245,8 @@ $summary = foreach ($cat in $categories) {
 
     if ($cat -notin $vstestCategories) {
         # Not a vstest run: Perf is BenchmarkDotNet (scripts/bench.ps1 -Check).
-        if ($isRequired) { $problems.Add("$cat is required but has no runner yet") }
-        [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'no runner yet' }
+        if ($isRequired) { $problems.Add("$cat is required, but test.ps1 doesn't run it; use scripts/bench.ps1 -Check") }
+        [pscustomobject]@{ Category = $cat; Status = 'N/A'; Note = 'run by scripts/bench.ps1 -Check' }
         continue
     }
     $projects = @($layout.Projects[$cat] | ForEach-Object { $testProjects[$_] })
@@ -323,26 +285,13 @@ $summary = foreach ($cat in $categories) {
     $coverageNote = if ($collectCoverage) { Merge-Coverage $outDir } else { '' }
 
     $c = Get-TrxCounters $outDir
-    $lost = ($runs | Measure-Object -Property Missing -Sum).Sum
-    if ($lost -gt 0) { $problems.Add("$cat lost the results of $lost test(s): the test host or Visual Studio stopped reporting") }
-    $status = if ($c.Failed -gt 0 -or $lost -gt 0 -or ($runs | Where-Object { $_.ExitCode -ne 0 })) { 'FAILED' }
-              elseif ($c.Executed -eq 0) { 'N/A' }
-              else { 'PASSED' }
-    if ($status -eq 'FAILED') { $problems.Add("$cat has failing tests") }
-    if ($isRequired) {
-        # Per project and framework, so tests vanishing from one of them can't hide behind the
-        # totals of the others.
-        foreach ($run in $runs) {
-            if ($run.Counters.Executed -eq 0) { $problems.Add("$cat is required but $($run.Project) executed 0 tests on $($run.Tfm)") }
-            if ($run.Counters.Skipped -gt 0) { $problems.Add("$cat is required but $($run.Project) skipped $($run.Counters.Skipped) test(s) on $($run.Tfm)") }
-        }
-    }
+    $lost = [int]($runs | Measure-Object -Property Missing -Sum).Sum
+    $verdict = Get-RunVerdict -Category $cat -Runs @($runs) -Totals $c -Lost $lost -Required $isRequired -Pending $(if ($pending.ContainsKey($cat)) { $pending[$cat] } else { $null })
+    $verdict.Problems | ForEach-Object { $problems.Add($_) }
+    $status = $verdict.Status
     $note = "executed $($c.Executed), passed $($c.Passed), failed $($c.Failed), skipped $($c.Skipped), trx $($c.Files)$coverageNote"
     if ($lost -gt 0) { $note += ", missing $lost" }
-    if ($pending.ContainsKey($cat)) {
-        if ($c.Executed -gt 0) { $problems.Add("$cat is pending in $Milestone but now has tests; move it to Required in test-gates.psd1") }
-        $note += "; pending: $($pending[$cat])"
-    }
+    if ($pending.ContainsKey($cat)) { $note += "; pending: $($pending[$cat])" }
 
     [pscustomobject]@{ Category = $cat; Status = $status; Note = $note }
 }
@@ -352,18 +301,9 @@ $summary | Format-Table -AutoSize -Wrap | Out-Host
 if ($RequiredTools -and $gate.Coverage.Count -gt 0) {
     $rows = foreach ($tfm in $gate.Coverage.Keys | Sort-Object) {
         $reports = @(Get-RunCoverageReports -ResultsRoot $resultsRoot -Categories @($categories | Where-Object { $_ -in $coverageCategories }) -Framework $tfm)
-        $measured = Measure-AssemblyCoverage $reports
-        foreach ($assembly in $gate.Coverage[$tfm].Keys | Sort-Object) {
-            $threshold = $gate.Coverage[$tfm][$assembly]
-            $m = $measured[$assembly]
-            $status = if (-not $m) { 'MISSING' } elseif ($m.Valid -eq 0) { 'NO CODE' } elseif ($m.Rate -ge $threshold) { 'OK' } else { 'LOW' }
-            if ($status -eq 'MISSING') { $problems.Add("coverage: $assembly is absent from the $tfm reports (no evidence)") }
-            if ($status -eq 'LOW') { $problems.Add(("coverage: {0} on {1} is {2:0.0}%, below {3}%" -f $assembly, $tfm, $m.Rate, $threshold)) }
-            [pscustomobject]@{
-                Assembly = $assembly; Tfm = $tfm; Status = $status; Threshold = "$threshold%"
-                Lines = if ($m) { "$($m.Covered)/$($m.Valid)" } else { '-' }
-                Rate = if ($m -and $m.Valid) { '{0:0.0}%' -f $m.Rate } else { '-' }
-            }
+        foreach ($row in Get-CoverageVerdict -Measured (Measure-AssemblyCoverage $reports) -Framework $tfm -Thresholds $gate.Coverage[$tfm]) {
+            if ($row.Problem) { $problems.Add($row.Problem) }
+            $row
         }
     }
     $rows | Format-Table Assembly, Tfm, Status, Lines, Rate, Threshold -AutoSize | Out-Host

@@ -1,20 +1,40 @@
 Add-Type -AssemblyName System.IO.Compression
 Import-Module (Join-Path $PSScriptRoot '..\..\scripts\lib\VsixContents.psm1') -Force
 
-function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Equilibrium.DamlTools') {
+# Files maps an entry name to a file whose bytes go in; Pkgdef is the pkgdef's text.
+function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Equilibrium.DamlTools',
+    [hashtable] $Files = @{}, [string] $Pkgdef = '', [string] $Range = '[18.0,)', [string[]] $Architectures = @('amd64')) {
     $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
     try {
+        $arch = ($Architectures | ForEach-Object { "<ProductArchitecture>$_</ProductArchitecture>" }) -join ''
         $manifest = $zip.CreateEntry('extension.vsixmanifest')
         $writer = [IO.StreamWriter]::new($manifest.Open())
-        try { $writer.Write('<PackageManifest><Metadata><Identity Id="' + $Id + '" Version="' + $Version + '" /></Metadata><Installation><InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,)"><ProductArchitecture>amd64</ProductArchitecture></InstallationTarget></Installation></PackageManifest>') }
+        try { $writer.Write('<PackageManifest><Metadata><Identity Id="' + $Id + '" Version="' + $Version + '" /></Metadata><Installation><InstallationTarget Id="Microsoft.VisualStudio.Community" Version="' + $Range + '">' + $arch + '</InstallationTarget></Installation></PackageManifest>') }
         finally { $writer.Dispose() }
-        $required = @('[Content_Types].xml', 'Equilibrium.Daml.VisualStudio.dll', 'Equilibrium.Daml.VisualStudio.Core.dll', 'Equilibrium.Daml.VisualStudio.LanguageServer.dll', 'Equilibrium.Daml.Build.Core.dll', 'Equilibrium.Daml.VisualStudio.pkgdef', 'LICENSE', 'NOTICE')
+        $required = @('[Content_Types].xml', 'Equilibrium.Daml.VisualStudio.dll', 'Equilibrium.Daml.VisualStudio.Core.dll', 'Equilibrium.Daml.VisualStudio.LanguageServer.dll', 'Equilibrium.Daml.Build.Core.dll', 'LICENSE', 'NOTICE')
         foreach ($name in @($required | Where-Object { $_ -notin $Without }) + $ExtraEntries) {
             $zip.CreateEntry($name) | Out-Null
+        }
+        if ('Equilibrium.Daml.VisualStudio.pkgdef' -notin $Without) {
+            $writer = [IO.StreamWriter]::new($zip.CreateEntry('Equilibrium.Daml.VisualStudio.pkgdef').Open())
+            try { $writer.Write($Pkgdef) } finally { $writer.Dispose() }
+        }
+        foreach ($name in $Files.Keys) {
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $Files[$name], $name) | Out-Null
         }
     }
     finally { $zip.Dispose() }
 }
+
+# A codeBase entry as the VSSDK writes it into the pkgdef.
+function CodeBase([string] $Name, [string] $Version) {
+    "[`$RootKey`$\RuntimeConfiguration\dependentAssembly\codeBase\{$([guid]::NewGuid())}]`n`"name`"=`"$Name`"`n`"version`"=`"$Version`"`n"
+}
+
+# Assemblies every PowerShell 7 ships, so the tests need nothing from the build: one stands for a
+# third-party assembly of ours, the other is one Visual Studio provides itself.
+$script:thirdParty = [System.Management.Automation.PSObject].Assembly
+$script:vsProvided = [System.Text.Json.JsonSerializer].Assembly
 
 Describe 'Release VSIX contents' {
     BeforeEach { $script:vsix = Join-Path ([IO.Path]::GetTempPath()) (([guid]::NewGuid().ToString('N')) + '.vsix') }
@@ -56,5 +76,44 @@ Describe 'Release VSIX contents' {
         $problems.Count | Should Be 2
         ($problems -join ';') | Should Match 'Core.pdb'
         ($problems -join ';') | Should Match 'Core.xml'
+    }
+
+    It 'rejects a third-party assembly the extension has not decided to ship' {
+        New-TestVsix $script:vsix -Files @{ 'System.Management.Automation.dll' = $script:thirdParty.Location } -Pkgdef (CodeBase 'System.Management.Automation' $script:thirdParty.GetName().Version)
+        $problems = @(Test-Vsix $script:vsix)
+        $problems.Count | Should Be 1
+        $problems[0] | Should Match "isn't one of the assemblies this extension ships"
+    }
+
+    # Found only by probing, it can lose to another extension's copy of another version.
+    It 'needs a codeBase entry with the exact version of each shipped assembly' {
+        $allowed = @('System.Management.Automation')
+        $file = @{ 'System.Management.Automation.dll' = $script:thirdParty.Location }
+        $version = $script:thirdParty.GetName().Version.ToString()
+
+        New-TestVsix $script:vsix -Files $file
+        (@(Test-Vsix $script:vsix -Allowed $allowed) -join ';') | Should Match 'no codeBase entry'
+        Remove-Item -LiteralPath $script:vsix
+
+        New-TestVsix $script:vsix -Files $file -Pkgdef (CodeBase 'System.Management.Automation' '1.0.0.0')
+        (@(Test-Vsix $script:vsix -Allowed $allowed) -join ';') | Should Match "is $([regex]::Escape($version)) but its codeBase entry says 1\.0\.0\.0"
+        Remove-Item -LiteralPath $script:vsix
+
+        New-TestVsix $script:vsix -Files $file -Pkgdef (CodeBase 'System.Management.Automation' $version)
+        @(Test-Vsix $script:vsix -Allowed $allowed).Count | Should Be 0
+    }
+
+    It 'rejects an assembly Visual Studio provides itself' {
+        New-TestVsix $script:vsix -Files @{ 'System.Text.Json.dll' = $script:vsProvided.Location } -Pkgdef (CodeBase 'System.Text.Json' $script:vsProvided.GetName().Version)
+        $problems = @(Test-Vsix $script:vsix -Allowed @('System.Text.Json'))
+        $problems.Count | Should Be 1
+        $problems[0] | Should Match 'ships VS-provided assembly System.Text.Json.dll'
+    }
+
+    It 'installs only into Visual Studio 2026 and later, on x64' {
+        New-TestVsix $script:vsix -Range '[17.0,)' -Architectures 'amd64', 'arm64'
+        $problems = @(Test-Vsix $script:vsix) -join ';'
+        $problems | Should Match 'range \[17\.0,\), expected \[18\.0,\)'
+        $problems | Should Match "architectures 'amd64, arm64', expected amd64 only"
     }
 }

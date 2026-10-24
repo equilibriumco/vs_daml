@@ -64,6 +64,11 @@ Describe 'Marketplace listing' {
         (Test-Folder $script:folder) -join "`n" | Should Match 'Daml for Visual Studio'
     }
 
+It 'rejects endorsement words and forbidden names in what the extension calls itself' {
+        New-Listing $script:folder -Description "The official Daml extension. $script:shortNotice"
+        (Test-Folder $script:folder) -join "`n" | Should Match 'description says .official.'
+    }
+
     It 'needs the short notice at the end of the extension description' {
         New-Listing $script:folder -Description 'Daml language support for Visual Studio.'
         (Test-Folder $script:folder) -join "`n" | Should Match 'short notice'

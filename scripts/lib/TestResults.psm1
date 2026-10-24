@@ -155,4 +155,107 @@ function Get-NodeTestCounters {
     }
 }
 
-Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters, Get-TreeSitterFuzzCounters, Get-NodeTestCounters
+<#
+.SYNOPSIS
+    The verdict on one category's runs: FAILED, N/A when nothing ran, or PASSED, and the problems
+    that make a gate run fail.
+
+.DESCRIPTION
+    Runs are one per test project and framework, each with Project, Tfm, ExitCode and Counters
+    (Executed, Skipped); Totals are the category's counters (Executed, Failed). A required
+    category has to execute tests in every run, without skips, so tests vanishing from one project
+    or framework can't hide behind the totals of the others. A pending category (Pending holds its
+    reason) that has tests now has to be moved to Required.
+#>
+function Get-RunVerdict {
+    param(
+        [Parameter(Mandatory)] [string] $Category,
+        [object[]] $Runs = @(),
+        [Parameter(Mandatory)] [object] $Totals,
+        [int] $Lost = 0,
+        [bool] $Required = $false,
+        [string] $Pending = $null
+    )
+    $problems = [System.Collections.Generic.List[string]]::new()
+    if ($Lost -gt 0) { $problems.Add("$Category lost the results of $Lost test(s): the test host or Visual Studio stopped reporting") }
+    $status = if ($Totals.Failed -gt 0 -or $Lost -gt 0 -or @($Runs | Where-Object { $_.ExitCode -ne 0 }).Count -gt 0) { 'FAILED' }
+              elseif ($Totals.Executed -eq 0) { 'N/A' }
+              else { 'PASSED' }
+    if ($status -eq 'FAILED') { $problems.Add("$Category has failing tests") }
+    if ($Required) {
+        foreach ($run in $Runs) {
+            if ($run.Counters.Executed -eq 0) { $problems.Add("$Category is required but $($run.Project) executed 0 tests on $($run.Tfm)") }
+            if ($run.Counters.Skipped -gt 0) { $problems.Add("$Category is required but $($run.Project) skipped $($run.Counters.Skipped) test(s) on $($run.Tfm)") }
+        }
+    }
+    if ($Pending -and $Totals.Executed -gt 0) { $problems.Add("$Category is pending but now has tests; move it to Required in test-gates.psd1") }
+    [pscustomobject]@{ Status = $status; Problems = $problems.ToArray() }
+}
+
+<#
+.SYNOPSIS
+    Line coverage per product assembly, merged across Cobertura reports: a line counts as covered
+    when any run hit it.
+
+.DESCRIPTION
+    Computed from the raw reports because ReportGenerator drops assemblies that have no coverable
+    lines, and "no code" must stay distinguishable from "not measured". Returns assembly name ->
+    Valid, Covered and Rate (null when there are no lines).
+#>
+function Measure-AssemblyCoverage([object[]] $Reports) {
+    $lines = @{}
+    foreach ($report in $Reports) {
+        $path = if ($report -is [System.IO.FileInfo]) { $report.FullName } else { [string]$report }
+        $xml = [xml](Get-Content -LiteralPath $path -Raw)
+        foreach ($package in $xml.SelectNodes('//packages/package')) {
+            $name = $package.GetAttribute('name')
+            if (-not $lines.ContainsKey($name)) { $lines[$name] = @{} }
+            foreach ($class in $package.SelectNodes('classes/class')) {
+                $file = $class.GetAttribute('filename')
+                foreach ($line in $class.SelectNodes('lines/line')) {
+                    $key = "$file|$($line.GetAttribute('number'))"
+                    $hit = [long]$line.GetAttribute('hits') -gt 0
+                    $lines[$name][$key] = $hit -or ($lines[$name].ContainsKey($key) -and $lines[$name][$key])
+                }
+            }
+        }
+    }
+    $result = @{}
+    foreach ($name in $lines.Keys) {
+        $valid = $lines[$name].Count
+        $covered = @($lines[$name].Values | Where-Object { $_ }).Count
+        $result[$name] = [pscustomobject]@{ Valid = $valid; Covered = $covered; Rate = if ($valid) { 100.0 * $covered / $valid } else { $null } }
+    }
+    $result
+}
+
+<#
+.SYNOPSIS
+    One row per assembly a gate sets a threshold for on Framework: OK, LOW, NO CODE (measured, but
+    no coverable lines) or MISSING (no evidence at all), with the problem a gate run fails on.
+#>
+function Get-CoverageVerdict {
+    param(
+        [Parameter(Mandatory)] [hashtable] $Measured,
+        [Parameter(Mandatory)] [string] $Framework,
+        [Parameter(Mandatory)] [hashtable] $Thresholds
+    )
+    foreach ($assembly in $Thresholds.Keys | Sort-Object) {
+        $threshold = $Thresholds[$assembly]
+        $m = $Measured[$assembly]
+        $status = if (-not $m) { 'MISSING' } elseif ($m.Valid -eq 0) { 'NO CODE' } elseif ($m.Rate -ge $threshold) { 'OK' } else { 'LOW' }
+        $problem = switch ($status) {
+            'MISSING' { "coverage: $assembly is absent from the $Framework reports (no evidence)" }
+            'LOW' { 'coverage: {0} on {1} is {2:0.0}%, below {3}%' -f $assembly, $Framework, $m.Rate, $threshold }
+            default { $null }
+        }
+        [pscustomobject]@{
+            Assembly = $assembly; Tfm = $Framework; Status = $status; Threshold = "$threshold%"
+            Lines = if ($m) { "$($m.Covered)/$($m.Valid)" } else { '-' }
+            Rate = if ($m -and $m.Valid) { '{0:0.0}%' -f $m.Rate } else { '-' }
+            Problem = $problem
+        }
+    }
+}
+
+Export-ModuleMember -Function Get-TrxCounters, Get-IdeTestShortfall, Get-RunCoverageReports, Get-TreeSitterTestCounters, Get-TreeSitterFuzzCounters, Get-NodeTestCounters, Get-RunVerdict, Measure-AssemblyCoverage, Get-CoverageVerdict

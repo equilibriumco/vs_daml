@@ -63,6 +63,12 @@ $vsix | Copy-Item -Destination $out
 
 Get-ChildItem $out | ForEach-Object { Write-Host "  $($_.Name)" }
 
+# All three packages and the VSIX, of one release: a package project that stopped packing, or
+# packed another version, fails here rather than in the release workflow.
+Import-Module (Join-Path $PSScriptRoot 'lib\Release.psm1') -Force
+$release = Get-ReleaseVersion $out
+Write-Host "Release $($release.NuGet) (VSIX $($release.Vsix))"
+
 & (Join-Path $PSScriptRoot 'sbom.ps1') -Packages $out -Output (Join-Path $root 'artifacts\sbom')
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 

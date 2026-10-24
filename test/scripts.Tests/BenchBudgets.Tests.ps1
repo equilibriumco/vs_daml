@@ -65,12 +65,20 @@ Describe 'Test-BenchBudgets' {
         @($checked | Where-Object Passed).Count | Should Be 0
     }
 
-    It 'has a budget for every benchmark the strategy names' {
-        $names = @((Get-BenchBudgets).Keys)
-        ($names -contains 'LexerBenchmarks.LexWholeFile') | Should Be $true
-        ($names -contains 'LexerBenchmarks.RelexAfterOneLineEdit') | Should Be $true
-        ($names -contains 'LayoutBenchmarks.AnalyzeLexedFile') | Should Be $true
-        ($names -contains 'BindingIndexBenchmarks.BuildWithColdCatalog') | Should Be $true
+    # From the benchmark sources, so a new benchmark needs a budget, or a stated reason for none.
+    It 'checks every benchmark there is, and budgets only benchmarks that exist' {
+        $benchmarks = foreach ($file in Get-ChildItem (Join-Path $here '..\Equilibrium.Daml.VisualStudio.Benchmarks') -Filter '*.cs') {
+            $source = Get-Content -LiteralPath $file.FullName -Raw
+            $class = [regex]::Match($source, '\bclass\s+(\w+)').Groups[1].Value
+            foreach ($method in [regex]::Matches($source, '\[Benchmark\]\s*public\s+[^(]+?\s(\w+)\(')) { "$class.$($method.Groups[1].Value)" }
+        }
+        $budgeted = @((Get-BenchBudgets).Keys)
+        $unbudgeted = @(Get-UnbudgetedBenchmarks)
+
+        @($benchmarks).Count | Should BeGreaterThan 0
+        @($benchmarks | Where-Object { $_ -notin $budgeted -and $_ -notin $unbudgeted }) -join ', ' | Should Be ''
+        @($budgeted + $unbudgeted | Where-Object { $_ -notin $benchmarks }) -join ', ' | Should Be ''
+        @($budgeted | Where-Object { $_ -in $unbudgeted }) -join ', ' | Should Be ''
         (Get-BenchBudgets)['BindingIndexBenchmarks.BuildWithColdCatalog'] | Should Be 300
     }
 

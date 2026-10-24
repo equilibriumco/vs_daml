@@ -61,6 +61,13 @@ function Test-MarketplaceListing {
     $vsix = [xml](Get-Content -LiteralPath $VsixManifest -Raw -Encoding UTF8)
     $description = Get-Flat ($vsix.SelectSingleNode("//*[local-name()='Metadata']/*[local-name()='Description']").InnerText)
     if (-not $description.EndsWith($script:shortNotice)) { $problems.Add('the extension description has to end with the short notice (TRADEMARK.md)') }
+    # What the Marketplace and Extensions > Manage Extensions show of the extension itself.
+    $displayName = Get-Flat ($vsix.SelectSingleNode("//*[local-name()='Metadata']/*[local-name()='DisplayName']").InnerText)
+    foreach ($part in @(@{ Name = 'display name'; Text = $displayName }, @{ Name = 'description'; Text = $description.Replace($script:shortNotice, '') })) {
+        foreach ($word in $script:forbidden | Where-Object { $part.Text -match ('(?i)\b' + [regex]::Escape($_) + '\b') }) {
+            $problems.Add("the extension $($part.Name) says '$word' outside the trademark notice")
+        }
+    }
 
     $problems
 }
