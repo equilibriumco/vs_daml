@@ -169,4 +169,34 @@ public class DiagnosticRedactorTests
 
         DiagnosticRedactor.ForCurrentUser([]).Redact($@"{home}\secret-project\x.daml").ShouldBe(@"${HOME}\...\x.daml");
     }
+
+    // What Export Diagnostics uses, with this machine's own folders and names: nothing is changed
+    // in the process's environment, which other tests share.
+    [Fact, Trait("Category", "Unit")]
+    public void This_users_folders_keep_the_layout_that_helps_and_lose_the_rest()
+    {
+        var local = System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData);
+        var roaming = System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData);
+        var temp = System.IO.Path.GetTempPath().TrimEnd('\\');
+        var redactor = DiagnosticRedactor.ForCurrentUser([@"Q:\clients\acme\app"]);
+
+        redactor.Redact($@"{local}\EquilibriumDamlTools\logs\daml-1.log").ShouldBe(@"${EXTENSIONDATA}\logs\daml-1.log");
+        redactor.Redact($@"{roaming}\dpm\cache\sdk\3.6.0\damlc.exe").ShouldBe(@"${DPM}\cache\sdk\3.6.0\damlc.exe");
+        redactor.Redact($@"{temp}\daml-build-123\Main.daml").ShouldBe(@"${TEMP}\...\Main.daml");
+        redactor.Redact($@"{local}\SomeOtherTool\cache.db").ShouldBe(@"${LOCALAPPDATA}\...\cache.db");
+        redactor.Redact($@"{roaming}\SomeOtherTool\settings.json").ShouldBe(@"${APPDATA}\...\settings.json");
+        // The workspace may live outside the profile; its own path is the user's business too.
+        redactor.Redact(@"Q:\clients\acme\app\daml\Main.daml").ShouldBe(@"${WORKSPACE}\...\Main.daml");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void This_users_and_this_machines_names_are_masked()
+    {
+        var user = System.Environment.UserName;
+        var machine = System.Environment.MachineName;
+        var redacted = DiagnosticRedactor.ForCurrentUser([]).Redact($"signed in as {user} on {machine}.");
+
+        // Names shorter than three letters stay: they would mask ordinary words.
+        redacted.ShouldBe($"signed in as {(user.Length >= 3 ? "<user>" : user)} on {(machine.Length >= 3 ? "<machine>" : machine)}.");
+    }
 }

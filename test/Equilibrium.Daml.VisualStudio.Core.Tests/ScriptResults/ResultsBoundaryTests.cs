@@ -56,6 +56,20 @@ public class ResultsBoundaryTests
         new AllowedSources([]).Contains(@"C:\work\app\daml\Main.daml").ShouldBeFalse();
     }
 
+    // M:Main.daml is a file in the current folder of drive M, wherever that is: it names no place
+    // on its own, so it is never under an allowed folder, even one it would land in.
+    [Fact, Trait("Category", "Unit")]
+    public void A_drive_relative_path_is_never_allowed()
+    {
+        var here = System.Environment.CurrentDirectory;
+        var drive = System.IO.Path.GetPathRoot(here)!.TrimEnd('\\');
+        var sources = new AllowedSources([here]);
+
+        sources.Contains(System.IO.Path.Combine(here, "Main.daml")).ShouldBeTrue();
+        sources.Contains(drive + "Main.daml").ShouldBeFalse();
+        new AllowedSources([drive + "work"]).Contains(System.IO.Path.Combine(here, "work", "Main.daml")).ShouldBeFalse();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_message_from_the_page_now_shown_counts()
     {

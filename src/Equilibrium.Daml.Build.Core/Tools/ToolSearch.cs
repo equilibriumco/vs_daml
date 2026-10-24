@@ -51,7 +51,8 @@ public static class ToolSearch
         {
             // PATH is user-edited; an entry that isn't a path must not stop the search.
             var folder = entry.Trim().Trim('"');
-            if (folder.Length > 0 && folder.IndexOfAny(Path.GetInvalidPathChars()) < 0 && Path.IsPathRooted(folder))
+            // A relative one would find whatever the current folder holds.
+            if (folder.IndexOfAny(Path.GetInvalidPathChars()) < 0 && DamlPath.IsFullPath(folder))
             {
                 yield return folder;
             }

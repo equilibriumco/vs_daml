@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Equilibrium.Daml.Build.Core.Codegen;
 using Shouldly;
 using Xunit;
@@ -114,6 +116,49 @@ public sealed class GeneratorCacheTests : IDisposable
 
         (state.Status, state.BlobsDamaged).ShouldBe((GeneratorCacheStatus.Damaged, true));
         state.Reason.ShouldBe($"The windows/amd64 manifest sha256:{synthetic.ManifestDigest} wasn't downloaded.");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_platform_manifest_that_doesnt_match_its_digest_damages_the_blobs()
+    {
+        var synthetic = SyntheticGeneratorCache.Create(_root);
+        File.AppendAllText(Path.Combine(synthetic.Blobs, synthetic.ManifestDigest), " ");
+
+        var state = Check(synthetic, hashFiles: false);
+
+        (state.Status, state.BlobsDamaged).ShouldBe((GeneratorCacheStatus.Damaged, true));
+        state.Reason.ShouldBe($"The windows/amd64 manifest sha256:{synthetic.ManifestDigest} doesn't match its digest.");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_platform_manifest_without_files_damages_the_blobs()
+    {
+        var synthetic = SyntheticGeneratorCache.Create(_root, contents: new Dictionary<string, string>());
+
+        var state = Check(synthetic, hashFiles: false);
+
+        (state.Status, state.BlobsDamaged).ShouldBe((GeneratorCacheStatus.Damaged, true));
+        state.Reason.ShouldBe($"The windows/amd64 manifest sha256:{synthetic.ManifestDigest} lists no files.");
+    }
+
+    // The manifest comes from a registry: a file it names outside the component would be read, and
+    // trusted as the generator, from wherever it points.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("../outside.cmd")]
+    [InlineData("bin/../../outside.cmd")]
+    [InlineData(@"bin\..\..\outside.cmd")]
+    [InlineData(@"C:\Windows\outside.cmd")]
+    [InlineData("/outside.cmd")]
+    public void A_manifest_naming_a_file_outside_the_component_damages_the_blobs(string name)
+    {
+        var contents = SyntheticGeneratorCache.Files.ToDictionary(f => f.Key, f => f.Value);
+        contents[name] = "@echo planted\r\n";
+        var synthetic = SyntheticGeneratorCache.Create(_root, contents: contents);
+
+        var state = Check(synthetic);
+
+        (state.Status, state.BlobsDamaged).ShouldBe((GeneratorCacheStatus.Damaged, true));
+        state.Reason.ShouldBe($"The windows/amd64 manifest names a file outside the component: {name}.");
     }
 
     // Nothing to repair: the pin itself has no build this machine can run.

@@ -48,15 +48,17 @@ internal sealed class SyntheticGeneratorCache
     /// <summary>
     /// Builds a complete cache under <paramref name="root"/>; <paramref name="windows"/> false
     /// leaves the Windows build out of the index, and another <paramref name="variant"/> makes
-    /// another component, so another pin.
+    /// another component, so another pin. <paramref name="contents"/> replaces the component's
+    /// files; one named outside the component is listed in the manifest but never written.
     /// </summary>
-    public static SyntheticGeneratorCache Create(string root, bool windows = true, string variant = "")
+    public static SyntheticGeneratorCache Create(string root, bool windows = true, string variant = "", IReadOnlyDictionary<string, string>? contents = null)
     {
-        var files = Files.ToDictionary(f => f.Key, f => f.Key == "component.yaml" ? f.Value + variant : f.Value);
+        var files = (contents ?? Files).ToDictionary(f => f.Key, f => f.Key == "component.yaml" ? f.Value + variant : f.Value);
         var layers = files.Select(f =>
         {
             var bytes = Encoding.UTF8.GetBytes(f.Value);
-            return $$$"""{"mediaType":"application/vnd.component.file","digest":"sha256:{{{Sha256(bytes)}}}","size":{{{bytes.Length}}},"annotations":{"org.opencontainers.image.title":"{{{f.Key}}}"}}""";
+            var title = f.Key.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return $$$"""{"mediaType":"application/vnd.component.file","digest":"sha256:{{{Sha256(bytes)}}}","size":{{{bytes.Length}}},"annotations":{"org.opencontainers.image.title":"{{{title}}}"}}""";
         });
         var manifest = Encoding.UTF8.GetBytes(
             $$"""{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","layers":[{{string.Join(",", layers)}}]}""");
@@ -83,7 +85,7 @@ internal sealed class SyntheticGeneratorCache
         Directory.CreateDirectory(cache.Blobs);
         File.WriteAllBytes(Path.Combine(cache.Blobs, pin.Digest), index);
         File.WriteAllBytes(Path.Combine(cache.Blobs, manifestDigest), manifest);
-        foreach (var file in files)
+        foreach (var file in files.Where(f => !Path.IsPathRooted(f.Key) && !f.Key.Split('/', '\\').Contains("..")))
         {
             var path = Path.Combine(cache.Component, file.Key.Replace('/', '\\'));
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);

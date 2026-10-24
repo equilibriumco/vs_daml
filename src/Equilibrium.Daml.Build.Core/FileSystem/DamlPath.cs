@@ -42,6 +42,16 @@ public static class DamlPath
     public static string Resolve(string baseDirectory, string path) =>
         Normalize(Path.Combine(baseDirectory, path.Replace('/', '\\')));
 
+    /// <summary>
+    /// True when <paramref name="path"/> names a place on its own: a drive with its root
+    /// (<c>C:\tools</c>) or a share (<c>\\server\share</c>). <c>C:tools</c> and <c>\tools</c> are
+    /// rooted but still depend on the current folder of a drive, so they aren't.
+    /// </summary>
+    public static bool IsFullPath(string? path) =>
+        path is { Length: >= 3 }
+        && (path.StartsWith(@"\\", StringComparison.Ordinal)
+            || (char.IsLetter(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/')));
+
     /// <summary>True when <paramref name="path"/> is a drive or share root, such as <c>C:\</c> or <c>\\server\share</c>.</summary>
     public static bool IsRoot(string path)
     {

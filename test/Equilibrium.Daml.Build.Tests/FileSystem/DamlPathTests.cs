@@ -50,4 +50,19 @@ public class DamlPathTests
     [InlineData(".")]
     public void Normalize_refuses_a_relative_path_rather_than_guessing_a_base(string input) =>
         Should.Throw<System.ArgumentException>(() => DamlPath.Normalize(input));
+
+    // Rooted isn't full: C:bin is relative to the current folder of drive C, \bin to the current drive.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\tools", true)]
+    [InlineData("C:/tools", true)]
+    [InlineData(@"\\server\share\tools", true)]
+    [InlineData(@"C:tools", false)]
+    [InlineData(@"\tools", false)]
+    [InlineData(@"tools", false)]
+    [InlineData(@".\tools", false)]
+    [InlineData("C:", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void Only_a_drive_with_its_root_or_a_share_makes_a_full_path(string? path, bool full) =>
+        DamlPath.IsFullPath(path).ShouldBe(full);
 }

@@ -46,28 +46,12 @@ public sealed class AllowedSources
         {
             throw new ArgumentNullException(nameof(roots));
         }
-        _roots = roots.Where(IsFullPath).Select(DamlPath.Normalize).ToList();
+        _roots = roots.Where(r => DamlPath.IsFullPath(r)).Select(DamlPath.Normalize).ToList();
     }
 
     /// <summary>True when <paramref name="file"/> is a full path under one of the roots.</summary>
     public bool Contains(string? file) =>
-        IsFullPath(file) && _roots.Any(root => DamlPath.IsSameOrUnder(file!, root));
-
-    private static bool IsFullPath(string? path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return false;
-        }
-        try
-        {
-            return Path.IsPathRooted(path) && (path!.StartsWith(@"\\", StringComparison.Ordinal) || (path.Length >= 3 && path[1] == ':'));
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-    }
+        DamlPath.IsFullPath(file) && _roots.Any(root => DamlPath.IsSameOrUnder(file!, root));
 }
 
 /// <summary>
