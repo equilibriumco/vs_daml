@@ -460,6 +460,70 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         GeneratorRuns().ShouldBe(1);
     }
 
+    // A folder of the user's choosing: the globs mustn't find it either, and clean empties it.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public void Source_mode_generates_into_the_chosen_folder_and_clean_empties_it()
+    {
+        App(
+            """<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""",
+            "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode><EqDamlGeneratedDir>Bindings</EqDamlGeneratedDir>");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var bindings = Path.Combine(AppFolder, "Bindings");
+
+        var first = Build(MSBuildHost.MSBuildExe, "Build;ShowCompiled");
+        var second = Build(MSBuildHost.MSBuildExe, "Build;ShowCompiled");
+        var listed = Listed();
+        var clean = Build(MSBuildHost.MSBuildExe, "Clean");
+
+        foreach (var run in new[] { first, second })
+        {
+            run.ExitCode.ShouldBe(0, run.Log);
+            run.Log.ShouldNotContain("CS2002");
+            var compiled = Lines(run.Log, "Compiled: ");
+            compiled.ShouldBeUnique();
+            compiled.Count(f => f.StartsWith(bindings + @"\", StringComparison.OrdinalIgnoreCase)).ShouldBe(2);
+        }
+        listed.Select(Path.GetFileName).ShouldBe(["Asset.cs", "Asset.Give.cs"], ignoreOrder: true);
+        listed.ShouldAllBe(f => f.StartsWith(bindings + @"\", StringComparison.OrdinalIgnoreCase));
+        Directory.Exists(Path.Combine(AppFolder, "Generated")).ShouldBeFalse();
+        GeneratorRuns().ShouldBe(1);
+        clean.ExitCode.ShouldBe(0, clean.Log);
+        listed.ShouldAllBe(f => !File.Exists(f));
+        File.Exists(Path.Combine(AppFolder, "Uses.cs")).ShouldBeTrue();
+    }
+
+    // Switched off, the build runs no generator and compiles none of the code an earlier build
+    // generated, and the list for IntelliSense is emptied.
+    [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    [InlineData(MSBuildHost.MSBuildExe)]
+    [InlineData(MSBuildHost.Dotnet)]
+    public void With_codegen_switched_off_no_generated_code_is_made_or_compiled(MSBuildHost host)
+    {
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        var first = Build(host);
+        var generated = Listed();
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.1");
+        (string, string) off = ("EqDamlCodegenEnabled", "false");
+
+        var second = Build(host, "Build;ShowCompiled", true, off);
+        var evaluated = Build(host, "ShowEvaluated", false, off, ("DesignTimeBuild", "true"));
+
+        first.ExitCode.ShouldBe(0, first.Log);
+        generated.ShouldNotBeEmpty();
+        second.ExitCode.ShouldBe(0, second.Log);
+        second.Log.ShouldNotContain("Generated C# for");
+        Lines(second.Log, "Compiled: ").ShouldNotContain(f => f.StartsWith(GeneratedRoot, StringComparison.OrdinalIgnoreCase));
+        File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
+        evaluated.ExitCode.ShouldBe(0, evaluated.Log);
+        Lines(evaluated.Log, "Evaluated: ").ShouldBeEmpty();
+        Listed().ShouldBeEmpty();
+        GeneratorRuns().ShouldBe(1);
+    }
+
     // One generated folder in the sources can't serve two target frameworks.
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Source_mode_with_two_target_frameworks_stops_before_the_generator()
