@@ -92,4 +92,25 @@ public sealed class LibraryCopierTests : IDisposable
         File.ReadAllText(target).ShouldBe("module Changed where\n");
     }
 
+    // Every Go To Definition into a library asks for its copy; an unchanged source leaves the copy
+    // as it is, even when its timestamp moved, as when a package is extracted again.
+    [Fact, Trait("Category", "Unit")]
+    public void An_unchanged_source_leaves_its_copy_alone()
+    {
+        var source = LongSource();
+        var target = Path.Combine(_root, "copies", "Library.daml");
+        var copier = new LibraryCopier();
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+        var untouched = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        // .NET Framework won't touch a read-only file's times; the copy is read-only on purpose.
+        File.SetAttributes(target, FileAttributes.Normal);
+        File.SetLastWriteTimeUtc(target, untouched);
+        File.SetAttributes(target, FileAttributes.ReadOnly);
+        File.SetLastWriteTimeUtc(@"\\?\" + source, DateTime.UtcNow.AddMinutes(1));
+
+        copier.CopyReadOnly(source, target).ShouldBeTrue();
+
+        File.GetLastWriteTimeUtc(target).ShouldBe(untouched);
+        File.ReadAllText(target).ShouldBe("module Library where\n");
+    }
 }

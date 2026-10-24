@@ -299,4 +299,53 @@ public class SdkResolverTests
         { new ProcessResult(0, "not json", ""), "not json" },
         { new TimeoutException("dpm.cmd didn't finish within 60 s"), "didn't finish" },
     };
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_configured_daml_assistant_is_used_instead_of_searching()
+    {
+        const string Pinned = @"D:\pinned\daml.cmd";
+        _files.AddFile(Daml, "").AddFile(Pinned, "");
+        Package(@"C:\repo\old", "3.3.0");
+        _runner.On(Pinned, DamlVersion, "SDK versions:\n  3.3.0  (project SDK version from daml.yaml)\n");
+        _runner.On(Pinned, DamlcHelp, DamlcProbeTests.TopHelp);
+        _runner.On(Pinned, MultiIdeHelp, DamlcProbeTests.MultiIdeHelp);
+
+        var sdk = await ResolveAsync(Ide(@"C:\repo\old"), new LanguageServerOptions { DamlAssistantPath = Pinned });
+
+        sdk.Assistant.ShouldBe(new AssistantLocation(AssistantKind.DamlAssistant, Pinned));
+        _runner.Calls.ShouldNotContain(c => c.FileName == Daml);
+    }
+
+    // When damlc doesn't answer the probe, the SDK version is all there is to go on: multi-ide
+    // arrived in 2.9.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("2.8.0", false)]
+    [InlineData("2.9.0", true)]
+    [InlineData("2.10.0", true)]
+    public async Task Without_an_answer_from_damlc_multi_ide_is_judged_by_the_sdk_version(string sdkVersion, bool multiIde)
+    {
+        _files.AddFile(Daml, "");
+        Package(@"C:\repo\old", sdkVersion);
+        _runner.On(Daml, DamlVersion, $"SDK versions:\n  {sdkVersion}  (project SDK version from daml.yaml)\n");
+        _runner.On(Daml, DamlcHelp, new InvalidOperationException("damlc didn't start"));
+
+        var sdk = await ResolveAsync(Ide(@"C:\repo\old"));
+
+        sdk.SupportsMultiIde.ShouldBe(multiIde);
+        sdk.CoordinatorVersion.ShouldBeNull();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_package_whose_daml_yaml_cant_be_read_is_noted_and_the_rest_resolves()
+    {
+        _files.AddFile(Dpm, "");
+        Package(@"C:\repo\app", "3.6.0");
+        _runner.On(Dpm, DpmVersions, ActiveJson("3.6.0"));
+        var workspace = Ide(@"C:\repo\app") with { Packages = [@"C:\repo\app", @"C:\repo\gone"] };
+
+        var sdk = await ResolveAsync(workspace);
+
+        sdk.Packages.ShouldHaveSingleItem().PackageRoot.ShouldBe(@"C:\repo\app");
+        sdk.Notes.ShouldContain(@"Can't read C:\repo\gone\daml.yaml; its SDK version is unknown.");
+    }
 }

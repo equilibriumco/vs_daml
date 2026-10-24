@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Text.RegularExpressions;
 
 namespace Equilibrium.Daml.VisualStudio.Core.ScriptResults;
 
@@ -43,6 +44,8 @@ public static class ScriptResultsPage
         "<script src=\"" + Origin + ShimName + "\"></script>" +
         "<link rel=\"stylesheet\" href=\"" + Origin + ThemeName + "\">";
 
+    private static readonly Regex HeadTag = new(@"<head(?=[\s>])[^>]*>", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     /// <summary>The server's results HTML, ready to load.</summary>
     public static string Compose(string html)
     {
@@ -53,8 +56,9 @@ public static class ScriptResultsPage
         var page = html
             .Replace("$webviewSrc", Origin + "webview.js")
             .Replace("$webviewCss", Origin + "webview.css");
-        var head = page.IndexOf("<head>", StringComparison.OrdinalIgnoreCase);
-        return head >= 0 ? page.Insert(head + "<head>".Length, Head) : Head + page;
+        // The opening tag, attributes and all; <header> is another element.
+        var head = HeadTag.Match(page);
+        return head.Success ? page.Insert(head.Index + head.Length, Head) : Head + page;
     }
 
     /// <summary>
@@ -70,7 +74,7 @@ public static class ScriptResultsPage
         }
         return Message(
             "These script results come from a Daml SDK whose results page this version of the extension doesn't know " +
-            $"(missing: {string.Join(", ", missing)}). Update the Daml extension, or use the SDK version the project was set up with.");
+            $"(missing: {string.Join(", ", missing)}). Update EQ Daml Tools, or use the SDK version the project was set up with.");
     }
 
     /// <summary>A page that only says <paramref name="text"/>, e.g. while results are on their way.</summary>

@@ -106,7 +106,7 @@ public sealed class MultiPackageOffer
         }
         var path = DismissalPath(solutionDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, "The Daml extension doesn't offer a multi-package.yaml for this solution any more. Delete this file to be asked again.\n");
+        File.WriteAllText(path, "EQ Daml Tools doesn't offer a multi-package.yaml for this solution any more. Delete this file to be asked again.\n");
     }
 
     private static string DismissalPath(string solutionDirectory) =>

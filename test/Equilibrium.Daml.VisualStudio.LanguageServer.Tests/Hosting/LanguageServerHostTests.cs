@@ -12,6 +12,7 @@ using Equilibrium.Daml.VisualStudio.Core.Project;
 using Equilibrium.Daml.VisualStudio.Core.Sdk;
 using Equilibrium.Daml.VisualStudio.Core.Server;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Hosting;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Supervision;
 using Microsoft.Extensions.Time.Testing;
 using Newtonsoft.Json.Linq;
@@ -72,6 +73,36 @@ public sealed class LanguageServerHostTests
         problem.Kind.ShouldBe(LanguageServerProblemKind.ToolMissing);
         problem.Message.ShouldContain("dpm");
     }
+
+    // A server that writes something that isn't LSP framing, or a frame past the limit, is broken
+    // as surely as one that exited: the session ends and counts as a crash, so it is restarted.
+    // net48 has no Memory overloads of the stream methods.
+#pragma warning disable CA1835
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_frame_the_server_cant_be_trusted_with_ends_the_session_as_a_crash()
+    {
+        var files = new InMemoryFileSystem();
+        files.AddFile(@"C:\repo\daml.yaml", "sdk-version: 3.6.0\nname: app\nversion: 1.0.0\nsource: daml\n");
+        files.AddFile(@"C:\dpm\dpm.exe", "");
+        var runner = new FakeProcessRunner();
+        runner.On(@"C:\dpm\dpm.exe", ["versions", "-o", "json"], """[{"version":"3.6.0","installed":true,"active":true}]""");
+        runner.On(@"C:\dpm\dpm.exe", ["damlc", "--help"], new ProcessResult(1, "", "no help today"));
+        using var host = Host(runner, files, _ => null, policy: new RestartPolicy([TimeSpan.FromMinutes(1)], maxCrashes: 5, window: TimeSpan.FromMinutes(3)));
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions { DpmPath = @"C:\dpm\dpm.exe" });
+        var connection = (await host.ActivateAsync(CancellationToken.None)).ShouldNotBeNull();
+        var output = runner.Started[0].StandardOutput;
+        var oversized = System.Text.Encoding.ASCII.GetBytes("Content-Length: 999999999\r\n\r\n");
+        await output.WriteAsync(oversized, 0, oversized.Length);
+        output.Position = 0;
+
+        // The framing error itself, or the end of the stream it caused, depending on which side of
+        // the adapter sees it first: Visual Studio's side of the connection fails either way.
+        await Should.ThrowAsync<System.IO.IOException>(() => connection.FromServer.ReadAsync(new byte[16], 0, 16));
+
+        await Wait.UntilAsync(() => host.Supervisor.State == LanguageServerState.Crashed, "the session to end as a crash");
+        runner.Started[0].Disposed.ShouldBeTrue();
+    }
+#pragma warning restore CA1835
 
     [Fact, Trait("Category", "Unit")]
     public async Task An_open_circuit_returns_no_connection_and_offers_a_restart()

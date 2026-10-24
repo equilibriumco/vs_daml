@@ -62,6 +62,25 @@ public class ScriptResultsPageTests
             "img-src https://daml-webview.invalid/ data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'\">");
     }
 
+    // Anything before the doctype would switch the page to quirks mode, whatever else the head has.
+    [Fact, Trait("Category", "Unit")]
+    public void A_head_with_attributes_gets_the_policy_inside_it()
+    {
+        var page = ScriptResultsPage.Compose("<!DOCTYPE HTML><html lang=\"en\"><head lang=\"en\"><title>x</title></head><body></body></html>");
+
+        page.ShouldStartWith("<!DOCTYPE HTML><html lang=\"en\"><head lang=\"en\"><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\"");
+        page.ShouldContain("<title>x</title></head><body></body></html>");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_header_element_isnt_taken_for_the_head()
+    {
+        var page = ScriptResultsPage.Compose("<!DOCTYPE HTML><html><body><header>h</header></body></html>");
+
+        page.ShouldStartWith("<meta charset=\"utf-8\">");
+        page.ShouldContain("<header>h</header>");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_page_without_a_head_still_gets_the_policy_before_anything_else()
     {

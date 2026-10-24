@@ -177,13 +177,42 @@ public class LspStreamAdapterTests
         ready.ShouldBeTrue();
     }
 
+    // The host learns of it through onFailure and restarts the server; the write alone would only
+    // fail Visual Studio's side of the connection.
     [Fact, Trait("Category", "Unit")]
-    public async Task An_oversized_frame_from_the_client_is_refused()
+    public async Task An_oversized_frame_from_the_client_is_refused_and_reported()
     {
-        using var toServer = new ClientToServerStream(new MemoryStream(), Settings, new InitializeTracker(), NullDamlLogger.Instance);
+        Exception? reported = null;
+        using var toServer = new ClientToServerStream(new MemoryStream(), Settings, new InitializeTracker(), NullDamlLogger.Instance, onFailure: e => reported = e);
         var header = Encoding.ASCII.GetBytes("Content-Length: 100000\r\n\r\n");
 
-        await Should.ThrowAsync<LspFramingException>(() => toServer.WriteAsync(header, 0, header.Length));
+        var error = await Should.ThrowAsync<LspFramingException>(() => toServer.WriteAsync(header, 0, header.Length));
+
+        reported.ShouldBeSameAs(error);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_header_from_the_client_without_an_end_is_refused_at_its_limit()
+    {
+        Exception? reported = null;
+        using var toServer = new ClientToServerStream(new MemoryStream(), Settings, new InitializeTracker(), NullDamlLogger.Instance, onFailure: e => reported = e);
+        var header = Encoding.ASCII.GetBytes("X-Padding: " + new string('x', Settings.MaxHeaderBytes) + "\r\n");
+
+        var error = await Should.ThrowAsync<LspFramingException>(() => toServer.WriteAsync(header, 0, header.Length));
+
+        error.Message.ShouldContain($"longer than {Settings.MaxHeaderBytes} bytes");
+        reported.ShouldBeSameAs(error);
+    }
+
+    // What production runs with: one message up to 32 MB, as a large workspace's symbols can be,
+    // and no more than 256 messages or 64 MB waiting for Visual Studio.
+    [Fact, Trait("Category", "Unit")]
+    public void The_default_limits_are_the_documented_ones()
+    {
+        var defaults = new LspAdapterSettings();
+
+        (defaults.MaxFrameBytes, defaults.MaxQueuedFrames, defaults.MaxQueuedBytes, defaults.MaxHeaderBytes)
+            .ShouldBe((32 * 1024 * 1024, 256, 64 * 1024 * 1024, 8 * 1024));
     }
 
     // Visual Studio counts a server as started once it has sent initialized; one that dies between
