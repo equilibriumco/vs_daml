@@ -60,6 +60,14 @@ public class TranscriptRedactorTests
         redacted.ShouldContain("<redacted secret>");
     }
 
+    // A process id differs on every run; kept, every recording would differ from the last.
+    [Fact, Trait("Category", "Unit")]
+    public void The_client_process_id_is_zeroed()
+    {
+        Redacted("""{"method":"initialize","params":{"processId":36580,"rootUri":"x"}}""")
+            .ShouldBe("""{"method":"initialize","params":{"processId":0,"rootUri":"x"}}""");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Ordinary_messages_stay_as_they_are()
     {

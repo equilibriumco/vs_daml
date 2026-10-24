@@ -134,13 +134,11 @@ enclosing `declarations` nodes from the middle and declares them identical.
 (the fuzzer and `daml_ts.dll`); the native smoke test replays the sequence and checks that the
 `#endif` line is in the ranges. The CLI's bundled runtime takes no patch, so `tree-sitter fuzz`
 still fails this seed until the pinned CLI includes the fix; the patch goes with that bump.
-Reported upstream: (link once filed).
+Not reported upstream yet.
 
 Replay in the grammar directory:
 `TREE_SITTER_SEED=987 npx tree-sitter fuzz --iterations 1 -i "cpp: newline after decl in layout with one-way if"`.
 PowerShell uses `$env:TREE_SITTER_SEED='987'` before the command.
-The broad fuzz logs and upstream reproduction are recorded in
-[`docs/cold-review-2026-10-20.md`](../docs/cold-review-2026-10-20.md).
 
 ## Reuse after error recovery (inherited limitation)
 

@@ -71,6 +71,24 @@
                 }
             }
         }
+        # Hosted: the most a GitHub-hosted runner can prove, for the Nightly workflow. It has no
+        # Visual Studio session (Integration) and no dpm (Contract, real MSBuild), so the coverage
+        # of the tasks, which those runs give, is left to M3/M6 on a machine that has them.
+        Hosted = @{
+            Required = @('Unit', 'Process', 'Editor', 'MSBuild')
+            Pending  = @{}
+            Tools    = @()
+            Coverage = @{
+                'net10.0' = @{
+                    'Equilibrium.Daml.VisualStudio.Core'           = 85
+                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
+                    'Equilibrium.Daml.Build.Core'                  = 80
+                }
+                'net48'   = @{
+                    'Equilibrium.Daml.VisualStudio.Roslyn' = 75
+                }
+            }
+        }
         # M3: Daml projects in MSBuild and the C# bindings join the gate. L4 runs against the real
         # dpm and generator too (MSBuildBackend), so the JDK is required; the tasks and the Roslyn
         # index are measured on net48, the framework Visual Studio loads them in.

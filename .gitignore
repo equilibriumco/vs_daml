@@ -23,7 +23,7 @@ launchSettings.json
 # Daml build output (dpm/damlc)
 .daml/
 
-# Node / tree-sitter (M4)
+# Node / tree-sitter (the grammar)
 node_modules/
 grammar/tree-sitter-daml/build/
 grammar/test/real-world/

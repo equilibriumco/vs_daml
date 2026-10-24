@@ -18,21 +18,21 @@ place, read from the source (the grammar can't show a construct it doesn't know 
 
 ## By construct
 
-| Construct | Files it stops first | Error regions | Task |
+| Construct | Files it stops first | Error regions | Area |
 |---|---:|---:|---|
-| type signature with `:` | 225 | 4904 | before M4-T04: Daml's `:`/`::` |
-| record with expression | 138 | 12922 | M4-T07 |
-| interface | 83 | 96 | M4-T06 |
-| template clause: signatory | 67 | 166 | M4-T04 |
+| type signature with `:` | 225 | 4904 | Daml's `:`/`::` in signatures, first |
+| record with expression | 138 | 12922 | records with `with` |
+| interface | 83 | 96 | interfaces |
+| template clause: signatory | 67 | 166 | templates |
 | other | 41 | 959 | to look at |
-| interface instance | 28 | 214 | M4-T06 |
-| choice | 16 | 176 | M4-T05 |
-| template | 12 | 29 | M4-T04 |
-| template clause: observer | 8 | 37 | M4-T04 |
-| template clause: ensure | 7 | 87 | M4-T04 |
-| contract key | 7 | 24 | M4-T07 (lower priority) |
-| record with declaration | 5 | 19 | M4-T07 |
-| exception | 0 | 6 | M4-T07 (lower priority) |
+| interface instance | 28 | 214 | interfaces |
+| choice | 16 | 176 | choices |
+| template | 12 | 29 | templates |
+| template clause: observer | 8 | 37 | templates |
+| template clause: ensure | 7 | 87 | templates |
+| contract key | 7 | 24 | templates (lower priority) |
+| record with declaration | 5 | 19 | records with `with` |
+| exception | 0 | 6 | exceptions (lower priority) |
 
 ## By source
 

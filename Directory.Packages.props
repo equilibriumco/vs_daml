@@ -67,9 +67,7 @@
     <PackageVersion Include="Microsoft.Bcl.TimeProvider" Version="8.0.1" />
   </ItemGroup>
 
-  <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3.
-       Microsoft.VisualStudio.Extensibility.Testing.Xunit is only published to the
-       VS SDK Azure Artifacts feed; it gets added together with a nuget.config. -->
+  <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3. -->
   <ItemGroup>
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <!-- Kept at the test SDK's version: xunit.runner.visualstudio pulls an older one onto net48, and the
@@ -96,7 +94,6 @@
          dotnet/roslyn. Pin a build at least two weeks old; the middle number of the suffix is
          the build date (YY*1000 + MM*50 + DD), so 26475 = 2026-09-25. -->
     <PackageVersion Include="Microsoft.VisualStudio.Extensibility.Testing.Xunit" Version="5.12.0-1.26475.5" />
-    <PackageVersion Include="MSBuild.ProjectCreation" Version="20.0.0" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 

@@ -27,8 +27,8 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 // A real damlc started the way the extension starts it: workspace discovery, SDK resolution and
 // the command builder pick the command, the process runs in a job, and the protocol adapter
 // sits between the server and a JSON-RPC client that talks like Visual Studio. Every message is
-// recorded, redacted, to artifacts/test/lsp-transcripts; with EQDAML_RECORD_TRANSCRIPTS=1 the
-// transcripts also replace the ones under test/fixtures/lsp-transcripts.
+// recorded, redacted, to artifacts/test/lsp-transcripts; with EQDAML_RECORD_TRANSCRIPTS=1 they
+// also refresh the recordings kept under test/fixtures/lsp-transcripts, which tests replay.
 internal sealed class RealDamlcSession : IAsyncDisposable
 {
     public static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
@@ -175,9 +175,11 @@ internal sealed class RealDamlcSession : IAsyncDisposable
         var sdk = _sdkVersion;
         var name = $"{(Workspace.Mode == ServerMode.Ide ? "ide" : "multi-ide")}-{_scenario}.jsonl";
         _transcript.Save(Path.Combine(Repository.Root, "artifacts", "test", "lsp-transcripts", sdk, name));
-        if (Environment.GetEnvironmentVariable("EQDAML_RECORD_TRANSCRIPTS") == "1")
+        // Only recordings a test replays are kept; a new one is added by hand, with its test.
+        var kept = Path.Combine(Repository.Root, "test", "fixtures", "lsp-transcripts", sdk, name);
+        if (Environment.GetEnvironmentVariable("EQDAML_RECORD_TRANSCRIPTS") == "1" && File.Exists(kept))
         {
-            _transcript.Save(Path.Combine(Repository.Root, "test", "fixtures", "lsp-transcripts", sdk, name));
+            _transcript.Save(kept);
         }
     }
 

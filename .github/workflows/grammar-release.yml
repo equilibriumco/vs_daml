@@ -16,8 +16,12 @@ jobs:
   artifacts:
     uses: ./.github/workflows/grammar-artifacts.yml
 
+  # A tag on a commit whose grammar tests fail drafts nothing.
+  tests:
+    uses: ./.github/workflows/grammar-tests.yml
+
   release:
-    needs: artifacts
+    needs: [artifacts, tests]
     if: startsWith(github.ref, 'refs/tags/tree-sitter-daml-v')
     runs-on: ubuntu-latest
     timeout-minutes: 10

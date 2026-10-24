@@ -1,15 +1,16 @@
 name: Nightly
 
-# Gate-mode run: every required tool must be present and every required category must
-# execute tests without skips. IDE tests need an interactive desktop session, which hosted
-# runners don't give us, so this stays manual until a self-hosted runner is registered.
-# Then switch runs-on to its label and enable the schedule.
+# Gate-mode run: every required category must execute tests without skips and meet the gate's
+# coverage. On GitHub's hosted runner only the Hosted profile can pass: it has no Visual Studio
+# session for Integration and no dpm for Contract and the real MSBuild tests. The milestone gates
+# (M3, M6) need a self-hosted runner with both; then switch runs-on to its label, pick the
+# milestone, and enable the schedule.
 on:
   workflow_dispatch:
     inputs:
       milestone:
         description: Milestone whose gate to check (see scripts/test-gates.psd1)
-        default: M0
+        default: Hosted
         required: true
   # schedule:
   #   - cron: '0 2 * * *'
@@ -27,7 +28,7 @@ jobs:
     env:
       DOTNET_NOLOGO: 'true'
       DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
-      MILESTONE: ${{ inputs.milestone || 'M0' }}
+      MILESTONE: ${{ inputs.milestone || 'Hosted' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,10 +37,18 @@ jobs:
         with:
           global-json-file: global.json
 
-      # Check only: a gate run must use a toolchain that was installed on purpose, not one
-      # this job quietly downloaded.
+      # Check only: a gate run must use a toolchain that was installed on purpose, not one this
+      # job quietly downloaded. The Hosted profile needs Visual Studio's build tools and the SDK;
+      # the milestone gates also need dpm and a JDK, which bootstrap.ps1 checks.
       - name: Toolchain check
-        run: ./scripts/bootstrap.ps1
+        run: |
+          if ($env:MILESTONE -eq 'Hosted') {
+            Import-Module ./scripts/lib/Toolchain.psm1
+            Select-BuildVsInstance | Format-List DisplayName, Version, MSBuildVersion, SdkVersion
+          }
+          else {
+            ./scripts/bootstrap.ps1
+          }
 
       - name: Build
         run: ./scripts/build.ps1 -Configuration Release

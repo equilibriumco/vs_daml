@@ -32,6 +32,11 @@ public sealed class TranscriptRedactor
     {
         var copy = (JObject)(message ?? throw new ArgumentNullException(nameof(message))).DeepClone();
         RedactCode(copy);
+        // A different number on every run would make every recording differ from the last.
+        if ((string?)copy["method"] == "initialize" && copy.SelectToken("params.processId") is JValue { Type: JTokenType.Integer } processId)
+        {
+            processId.Value = 0;
+        }
         return (JObject)RedactToken(copy);
     }
 

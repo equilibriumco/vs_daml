@@ -9,6 +9,36 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Tests.Contract;
 // into the repository and the same sources run on every SDK of the matrix.
 internal sealed class SampleCopy : IDisposable
 {
+    // damlc can still hold a file when a test ends, so a copy isn't always gone after Dispose;
+    // each run removes what earlier runs left behind instead.
+    private static readonly string CopiesRoot = PrepareCopiesRoot();
+
+    private static string PrepareCopiesRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "daml-contract");
+        if (Directory.Exists(root))
+        {
+            foreach (var earlier in Directory.GetDirectories(root))
+            {
+                if (Directory.GetCreationTimeUtc(earlier) > DateTime.UtcNow.AddHours(-1))
+                {
+                    continue;
+                }
+                try
+                {
+                    Directory.Delete(earlier, recursive: true);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+        return root;
+    }
+
     private SampleCopy(string root, string? sdkVersion)
     {
         Root = root;
@@ -22,7 +52,7 @@ internal sealed class SampleCopy : IDisposable
 
     public static SampleCopy Create(string sample, string sdkVersion)
     {
-        var root = Path.Combine(Path.GetTempPath(), "daml-contract", $"{sample}-{sdkVersion}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
+        var root = Path.Combine(CopiesRoot, $"{sample}-{sdkVersion}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
         Copy(Repository.Sample(sample), root, sdkVersion);
         return new SampleCopy(root, sdkVersion);
     }
@@ -30,7 +60,7 @@ internal sealed class SampleCopy : IDisposable
     // A copy that keeps the SDK the sample names.
     public static SampleCopy Create(string sample)
     {
-        var root = Path.Combine(Path.GetTempPath(), "daml-contract", $"{sample}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
+        var root = Path.Combine(CopiesRoot, $"{sample}-{Guid.NewGuid().ToString("N").Substring(0, 8)}");
         Copy(Repository.Sample(sample), root, sdkVersion: null);
         return new SampleCopy(root, sdkVersion: null);
     }

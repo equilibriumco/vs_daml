@@ -224,20 +224,20 @@ export function summarize(results) {
   };
 }
 
-const tasks = {
-  [signature]: 'before M4-T04: Daml\'s `:`/`::`',
-  template: 'M4-T04',
-  'contract key': 'M4-T07 (lower priority)',
-  choice: 'M4-T05',
-  'controller … can (Daml 1.x)': 'M4-T07 (only if in the corpus)',
-  interface: 'M4-T06',
-  'interface instance': 'M4-T06',
-  'record with declaration': 'M4-T07',
-  'record with expression': 'M4-T07',
-  exception: 'M4-T07 (lower priority)',
+const areas = {
+  [signature]: 'Daml\'s `:`/`::` in signatures, first',
+  template: 'templates',
+  'contract key': 'templates (lower priority)',
+  choice: 'choices',
+  'controller … can (Daml 1.x)': 'Daml 1.x syntax (only if in the corpus)',
+  interface: 'interfaces',
+  'interface instance': 'interfaces',
+  'record with declaration': 'records with `with`',
+  'record with expression': 'records with `with`',
+  exception: 'exceptions (lower priority)',
   other: 'to look at',
 };
-const taskOf = construct => tasks[construct] ?? (construct.startsWith('template clause') ? 'M4-T04' : 'to look at');
+const areaOf = construct => areas[construct] ?? (construct.startsWith('template clause') ? 'templates' : 'to look at');
 const percent = (part, whole) => (whole === 0 ? '–' : `${((100 * part) / whole).toFixed(1)}%`);
 
 /** The baseline report in markdown. */
@@ -258,9 +258,9 @@ export function renderReport(summary, meta) {
   out.push(`| With errors | ${totals.withErrors} |`);
   out.push(`| Error regions | ${totals.regions} |`, '');
   out.push('## By construct', '');
-  out.push('| Construct | Files it stops first | Error regions | Task |', '|---|---:|---:|---|');
+  out.push('| Construct | Files it stops first | Error regions | Area |', '|---|---:|---:|---|');
   for (const c of summary.constructs) {
-    out.push(`| ${c.construct} | ${c.firstErrorFiles} | ${c.regions} | ${taskOf(c.construct)} |`);
+    out.push(`| ${c.construct} | ${c.firstErrorFiles} | ${c.regions} | ${areaOf(c.construct)} |`);
   }
   out.push('', '## By source', '');
   out.push('| Source | Files | Without errors |', '|---|---:|---:|');
