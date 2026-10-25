@@ -5,9 +5,11 @@
 
 .DESCRIPTION
     Removes any previous install of the same extension Id from Exp first, so rebuilding
-    without bumping the version still gets picked up. Close the Exp instance before running;
-    the installer is not allowed to shut down running Visual Studio processes, because that
-    would also kill your normal VS windows. Afterwards the Exp configuration is rebuilt
+    without bumping the version still gets picked up, along with builds from before the
+    extension was renamed: they export the same MEF parts, and Visual Studio stalls on an
+    ImportCardinalityMismatchException while both are installed. Close the Exp instance before
+    running; the installer is not allowed to shut down running Visual Studio processes, because
+    that would also kill your normal VS windows. Afterwards the Exp configuration is rebuilt
     (devenv /updateConfiguration) so the package registration is guaranteed to be picked up.
     The installer log lands in artifacts/logs.
 
@@ -67,8 +69,13 @@ Write-Host "VSIX: $VsixPath ($id)"
 $logName = "daml-vsix-install-$((Get-Date).ToString('yyyyMMdd-HHmmss')).log"
 $common = '/quiet', '/rootSuffix:Exp', "/instanceIds:$($vs.InstanceId)", "/logFile:$logName"
 
+# Ids the extension had before it was renamed.
+$retiredIds = @('Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e')
+
 # Non-zero here usually just means "not installed yet".
-$null = Invoke-VsixInstaller ($common + "/uninstall:$id")
+foreach ($installed in @($id) + $retiredIds) {
+    $null = Invoke-VsixInstaller ($common + "/uninstall:$installed")
+}
 $exitCode = Invoke-VsixInstaller ($common + "`"$VsixPath`"")
 
 $logDir = Join-Path $root 'artifacts\logs'
