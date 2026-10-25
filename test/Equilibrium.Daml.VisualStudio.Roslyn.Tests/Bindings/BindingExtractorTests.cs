@@ -194,6 +194,8 @@ public class BindingExtractorTests
             public sealed record Point(int X);
             """)]);
 
+        // Code that doesn't bind would yield nothing whatever the extractor does.
+        compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ShouldBeEmpty();
         Extract(compilation).ShouldBeEmpty();
     }
 

@@ -117,9 +117,11 @@ public class DamlPackageBuildTests
     public void A_manifest_that_isnt_yaml_keeps_the_readers_diagnostics()
     {
         var result = Read("name: [unclosed\n");
+        var readers = new YamlManifestReader(_files).ReadPackage(Manifest).Diagnostics;
 
         result.Value.ShouldBeNull();
-        result.HasErrors.ShouldBeTrue();
+        readers.ShouldContain(d => d.Severity == ManifestSeverity.Error && d.Line != null);
+        result.Diagnostics.ShouldBe(readers);
     }
 
     // The reader skips a field of the wrong shape and reads on, which is right for the editor; a

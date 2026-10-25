@@ -62,6 +62,8 @@ public sealed class DpmRunnerTests : IDisposable
         var call = _fake.ReadCalls().ShouldHaveSingleItem();
         call.Args.ShouldBe(["build"]);
         call.WorkingDirectory.ShouldBe(_package);
+        call.Environment["DAML_PACKAGE"].ShouldBe(_package);
+        call.Environment["DAML_CACHE"].ShouldNotBeNullOrEmpty();
     }
 
     [Fact, Trait("Category", "Process")]
@@ -74,7 +76,31 @@ public sealed class DpmRunnerTests : IDisposable
         result.Succeeded.ShouldBeTrue();
         lines.Where(l => l.Channel == DpmOutputChannel.Stdout).Select(l => l.Text).ShouldBe(["one", "two"]);
         lines.Where(l => l.Channel == DpmOutputChannel.Stderr).Select(l => l.Text).ShouldBe(["three"]);
-        _fake.ReadCalls().Single().Args.ShouldBe(["build", "--all"]);
+        var call = _fake.ReadCalls().Single();
+        call.Args.ShouldBe(["build", "--all"]);
+        call.Environment.ContainsKey("DAML_PACKAGE").ShouldBeFalse();
+    }
+
+    // A DAML_PROJECT or DAML_PACKAGE inherited from Visual Studio's own environment would point dpm
+    // at another package than the one it runs in; both are taken away, or set to that package.
+    [Theory, Trait("Category", "Process")]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Dpm_runs_on_the_folder_its_given_whatever_was_inherited(bool allPackages)
+    {
+        var runner = new FakeProcessRunner();
+
+        var run = new DpmRunner(runner).RunAsync(@"C:\dpm\dpm.exe", DpmCommandKind.Build, _package, allPackages, onOutput: null, CancellationToken.None);
+        await Wait.UntilAsync(() => runner.Started.Count == 1, "dpm to start");
+        runner.Started[0].Exit(0);
+        await run;
+
+        // A null value takes the variable away from what the process inherits.
+        var environment = runner.Calls.ShouldHaveSingleItem().Environment;
+        environment.TryGetValue("DAML_PROJECT", out var project).ShouldBeTrue();
+        project.ShouldBeNull();
+        environment.TryGetValue("DAML_PACKAGE", out var package).ShouldBeTrue();
+        package.ShouldBe(allPackages ? null : _package);
     }
 
     [Theory, Trait("Category", "Process")]

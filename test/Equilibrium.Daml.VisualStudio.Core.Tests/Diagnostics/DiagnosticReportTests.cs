@@ -206,12 +206,12 @@ public sealed class DiagnosticReportTests : IDisposable
     [Fact, Trait("Category", "Unit")]
     public void Only_the_extensions_own_log_files_are_read()
     {
-        AddLog("daml-20261022-000000-1.log", "own", TimeSpan.Zero);
+        AddLog("daml-20261022-000000-1.log", "an entry of the extension's log", TimeSpan.Zero);
         AddLog("daml-diagnostics-20261021-000000.txt", "an earlier export", TimeSpan.Zero);
 
         var report = Report(Input());
 
-        report.ShouldContain("own");
+        report.ShouldContain("an entry of the extension's log");
         report.ShouldNotContain("an earlier export");
         report.Split('\n').Count(l => l.StartsWith("--- daml-", StringComparison.Ordinal)).ShouldBe(1);
     }

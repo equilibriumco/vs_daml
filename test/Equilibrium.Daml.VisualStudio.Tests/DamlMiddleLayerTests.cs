@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.LanguageClient;
 using Newtonsoft.Json.Linq;
@@ -17,9 +18,24 @@ public class DamlMiddleLayerTests
 
     private static JObject Params(string uri) => JObject.FromObject(new { textDocument = new { uri }, position = new { line = 0, character = 0 } });
 
-    [Fact, Trait("Category", "Editor")]
-    public void Every_document_message_is_looked_at() =>
-        Layer().CanHandle("textDocument/didOpen").ShouldBeTrue();
+    [Theory, Trait("Category", "Editor")]
+    [InlineData("textDocument/didOpen", true)]
+    [InlineData("textDocument/didClose", true)]
+    [InlineData("textDocument/hover", true)]
+    [InlineData("textDocument/definition", true)]
+    [InlineData("workspace/didChangeConfiguration", true)]
+    [InlineData("initialize", false)]
+    [InlineData("workspace/symbol", false)]
+    [InlineData("daml/keepAlive", false)]
+    public void Every_document_message_is_looked_at_and_nothing_else(string method, bool handled) =>
+        Layer().CanHandle(method).ShouldBe(handled, method);
+
+    // With Debug on, every message passes through, to be logged.
+    [Theory, Trait("Category", "Editor")]
+    [InlineData("initialize")]
+    [InlineData("workspace/symbol")]
+    public void With_debug_logging_every_message_is_looked_at(string method) =>
+        new DamlMiddleLayer(new RecordingLogger(DamlLogLevel.Debug), _ => true).CanHandle(method).ShouldBeTrue(method);
 
     [Fact, Trait("Category", "Editor")]
     public async Task Notifications_about_outside_files_are_dropped()

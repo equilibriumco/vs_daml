@@ -67,6 +67,8 @@ public sealed class DamlCustomMessageTargetTests
         var target = Target();
 
         target.VirtualResourceDidChange(JToken.Parse(json));
+        target.VirtualResourceNote(JToken.Parse(json));
+        target.VirtualResourceDidProgress(JToken.Parse(json));
         target.SdkInstallProgress(JToken.Parse(json));
 
         _sinks.Count.ShouldBe(0);

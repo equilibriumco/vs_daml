@@ -37,7 +37,7 @@ public sealed class DarProvenanceTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Manifest_only_reads_do_not_decode_the_DALF_but_generation_still_validates_it()
+    public void Manifest_only_reads_do_not_decode_the_DALF_but_a_full_read_validates_it()
     {
         var entry = "contracts-1.0.0-" + Main + ".dalf";
         var dar = Dar($"Name: contracts-1.0.0\nMain-Dalf: {entry}\n");

@@ -100,7 +100,7 @@ public sealed class DamlTemplatesTests : IDisposable
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(new string[0], true)]
     [InlineData(new[] { "--allow-tool-install", "false" }, false)]
-    public async Task A_new_app_lets_its_first_build_download_the_generator_unless_told_not_to(string[] options, bool allowed)
+    public async Task A_new_app_allows_tool_installs_in_its_project_unless_told_not_to(string[] options, bool allowed)
     {
         await NewAsync(["daml-dotnet-app", "-n", "Demo.App", "-o", "Demo.App", .. options]);
 

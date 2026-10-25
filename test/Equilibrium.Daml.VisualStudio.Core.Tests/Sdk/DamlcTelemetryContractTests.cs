@@ -55,10 +55,11 @@ public sealed class DamlcTelemetryContractTests : IDisposable
         }
     }
 
+    // Only its help can tell: multi-ide takes any switch, known or not, so taking one proves nothing.
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
     [InlineData("3.6.0")]
     [InlineData("3.5.2")]
-    public async Task Damlc_multi_ide_has_no_telemetry_switch(string sdk)
+    public async Task Damlc_multi_ide_lists_no_telemetry_switch_in_its_help(string sdk)
     {
         var help = await DamlcAsync(Package(sdk), "multi-ide", "--help");
 

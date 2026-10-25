@@ -62,7 +62,10 @@ public sealed class DpmToolTaskTests : IDisposable
         var caches = _dpm.ReadCalls().Where(c => c.Args.SequenceEqual(new[] { "build" }))
             .Select(c => c.Environment["DAML_CACHE"]).ToArray();
         caches.Length.ShouldBe(2);
-        caches.ShouldAllBe(p => Path.IsPathRooted(p) && p != inherited);
+        // A slot of the pool that outlives the command, not a throwaway folder that would lose what
+        // the compiler keeps between builds.
+        var pool = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "EquilibriumDamlTools", "compiler-cache");
+        caches.ShouldAllBe(p => string.Equals(Path.GetDirectoryName(p), pool, StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact, Trait("Category", "Process")]

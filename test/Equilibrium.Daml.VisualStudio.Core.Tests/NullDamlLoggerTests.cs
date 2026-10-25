@@ -9,6 +9,9 @@ public class NullDamlLoggerTests
 {
     [Theory, Trait("Category", "Unit")]
     [InlineData(DamlLogLevel.Trace)]
+    [InlineData(DamlLogLevel.Debug)]
+    [InlineData(DamlLogLevel.Information)]
+    [InlineData(DamlLogLevel.Warning)]
     [InlineData(DamlLogLevel.Error)]
     public void Reports_every_level_as_disabled(DamlLogLevel level)
     {

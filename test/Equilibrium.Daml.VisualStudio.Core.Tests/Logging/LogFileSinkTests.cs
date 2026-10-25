@@ -82,7 +82,7 @@ public sealed class LogFileSinkTests : IDisposable
     }
 
     [Fact, Trait("Category", "Unit")]
-    public async Task A_folder_that_cannot_be_created_drops_the_entries_without_throwing()
+    public async Task A_folder_that_cannot_be_created_drops_the_entries_and_the_sink_keeps_working()
     {
         Directory.CreateDirectory(_folder);
         var blocker = Path.Combine(_folder, "not-a-folder");
@@ -91,8 +91,11 @@ public sealed class LogFileSinkTests : IDisposable
 
         sink.Write(DamlLogCategory.Extension, DamlLogLevel.Information, "lost");
         await sink.DrainAsync();
+        File.Delete(blocker);
+        sink.Write(DamlLogCategory.Extension, DamlLogLevel.Information, "kept");
+        await sink.DrainAsync();
 
-        File.ReadAllText(blocker).ShouldBeEmpty();
+        File.ReadAllText(RollingLogFile.Files(blocker).Single().FullName).ShouldBe("2026-10-22 07:50:13.250 info [Extension] kept\r\n");
     }
 
     [Fact, Trait("Category", "Unit")]

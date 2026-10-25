@@ -80,10 +80,11 @@ public class DamlLexerPropertyTests
         return true;
     }
 
-    // What an editor does: keep the state at the start of every line and re-lex from any of
-    // them. Starting over at any line boundary has to give the same tokens as one pass.
+    // What an editor relies on: the state kept at the start of a line is all its tokens depend on,
+    // so re-lexing from any saved state gives what one pass gave. Whether an edit re-lexes the
+    // right lines is for LineStateCacheTests and LineTokensCacheTests.
     [Property, Trait("Category", "Unit")]
-    public bool Restarting_at_any_line_boundary_gives_the_same_tokens(DamlText text, PositiveInt seed)
+    public bool Re_lexing_from_a_saved_line_state_gives_the_same_tokens(DamlText text, PositiveInt seed)
     {
         var lines = Lines(text.Value);
         var startStates = new LexState[lines.Length + 1];

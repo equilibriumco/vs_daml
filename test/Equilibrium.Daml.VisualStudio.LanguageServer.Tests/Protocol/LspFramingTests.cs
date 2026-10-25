@@ -47,6 +47,8 @@ public class LspFramingTests
     [InlineData("Content-Length 2\r\n\r\n{}", "header")]
     [InlineData("Content-Length: 2\n\n{}", "header")]
     [InlineData("Content-Length: 5000\r\n\r\n{}", "limit")]
+    // Refused before anything is allocated for it: a buffer that size would fail with OutOfMemoryException instead.
+    [InlineData("Content-Length: 2147483647\r\n\r\n{}", "limit")]
     public async Task Bad_headers_are_refused(string raw, string expected)
     {
         var error = await Should.ThrowAsync<LspFramingException>(() => Reader(Encoding.ASCII.GetBytes(raw)).ReadFrameAsync(CancellationToken.None));
@@ -74,14 +76,6 @@ public class LspFramingTests
         var error = await Should.ThrowAsync<LspFramingException>(() => Reader(cut).ReadFrameAsync(CancellationToken.None));
 
         error.Message.ShouldContain("ended");
-    }
-
-    [Fact, Trait("Category", "Unit")]
-    public async Task A_huge_announced_frame_is_refused_before_anything_is_allocated_for_it()
-    {
-        var raw = Encoding.ASCII.GetBytes($"Content-Length: {int.MaxValue}\r\n\r\n{{}}");
-
-        await Should.ThrowAsync<LspFramingException>(() => Reader(raw).ReadFrameAsync(CancellationToken.None));
     }
 
     [Fact, Trait("Category", "Unit")]

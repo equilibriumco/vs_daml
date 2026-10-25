@@ -127,7 +127,10 @@ public sealed class DamlBindingLookupTests : IDisposable
     public async Task Without_an_index_nothing_is_looked_up()
     {
         var document = _solution.Solution.GetProject(_app)!.Documents.Single(d => d.FilePath == _usesPath);
+        // A name the full index does lead to.
+        var onAsset = (await document.GetTextAsync()).ToString().IndexOf("Asset Make", StringComparison.Ordinal) + 1;
+        (await At("Asset Make")).ShouldNotBeNull();
 
-        (await DamlBindingLookup.FindAsync(document, 10, BindingIndex.Empty)).ShouldBeNull();
+        (await DamlBindingLookup.FindAsync(document, onAsset, BindingIndex.Empty)).ShouldBeNull();
     }
 }

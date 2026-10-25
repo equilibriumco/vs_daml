@@ -147,8 +147,9 @@
         LockTimeoutSeconds="$(EqDamlLockTimeoutSeconds)" />
   </Target>
 
-  <!-- What Visual Studio's fast up-to-date check has to know about a Daml project: what the DAR is
-       built from, and the DAR with the record of its build. -->
+  <!-- What the DAR is built from, and the DAR with the record of its build, in the items Visual
+       Studio's fast up-to-date check reads. Sdk.props switches that check off, so Visual Studio
+       always runs the build, which decides for itself; the items only describe the project. -->
   <Target Name="EqDamlCollectUpToDateCheckItems" DependsOnTargets="EqDamlResolveManifest">
     <ItemGroup>
       <UpToDateCheckInput Include="$(EqDamlManifestPath);$(_EqDamlMultiPackageManifest);@(EqDamlSource);@(EqDamlDataDependency->'%(DarPath)');@(EqDamlDependency->'%(DarPath)')" />

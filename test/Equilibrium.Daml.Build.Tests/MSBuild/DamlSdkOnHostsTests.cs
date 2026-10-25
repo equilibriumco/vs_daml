@@ -238,12 +238,13 @@ public sealed class DamlSdkOnHostsTests : IDisposable
         Calls("build").Count.ShouldBe(2);
     }
 
-    // What Visual Studio's fast up-to-date check is told, also through its own design-time targets.
+    // The items Visual Studio's fast up-to-date check reads, also through its own design-time
+    // targets; the check itself is off, and the build decides for itself.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     [InlineData(MSBuildHost.MSBuildExe, "EqDamlCollectUpToDateCheckItems")]
     [InlineData(MSBuildHost.Dotnet, "EqDamlCollectUpToDateCheckItems")]
     [InlineData(MSBuildHost.MSBuildExe, "CollectUpToDateCheckInputDesignTime;CollectUpToDateCheckBuiltDesignTime")]
-    public void The_up_to_date_check_knows_what_the_DAR_is_built_from(MSBuildHost host, string targets)
+    public void The_fast_check_is_off_and_its_items_name_what_the_DAR_is_built_from(MSBuildHost host, string targets)
     {
         var multiPackage = _sandbox.Write("multi-package.yaml", "packages: [contracts]\n");
         var dependency = _sandbox.Write(@"lib\dependency.dar", "dependency");
