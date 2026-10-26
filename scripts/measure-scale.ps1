@@ -11,8 +11,15 @@
     binlogs of both builds. -Check fails when the first build didn't build every package and
     generate every reference's C#, or the second one ran a tool.
 
+    -Ide builds nothing: it checks what the Integration test ScaleTests measured of the same fixture
+    in Visual Studio (artifacts/scale/ide.json) against the test strategy's targets: each first
+    diagnostic within 30 s, the C# references rows within 2 s at p95, background sync within 20 s.
+    The test fails only on a step that never finishes, since the times depend on the machine.
+
 .EXAMPLE
     pwsh scripts/measure-scale.ps1 -Check
+.EXAMPLE
+    pwsh scripts/measure-scale.ps1 -Ide
 .EXAMPLE
     pwsh scripts/measure-scale.ps1 -Packages 4 -CSharpProjects 2
 #>
@@ -20,6 +27,7 @@
 param(
     [switch] $Check,
     [switch] $NoRun,
+    [switch] $Ide,
     # Lets the first build install the pinned C# generator on a machine that hasn't got it.
     [switch] $AllowToolInstall,
     # Leaves the fixture in place, to look at or to open in Visual Studio.
@@ -39,6 +47,20 @@ Import-Module (Join-Path $PSScriptRoot 'lib\ScaleBuild.psm1') -Force
 $root = Get-RepoRoot
 $artifacts = Join-Path $root 'artifacts\scale'
 $resultPath = Join-Path $artifacts 'result.json'
+
+if ($Ide) {
+    $idePath = Join-Path $artifacts 'ide.json'
+    if (-not (Test-Path $idePath)) { throw "No measurement at $idePath; run the Integration test ScaleTests first." }
+    $measured = Get-Content $idePath -Raw | ConvertFrom-Json
+    $measured | Format-List | Out-Host
+    $problems = @(Test-ScaleIde $measured)
+    if ($problems.Count -gt 0) {
+        $problems | ForEach-Object { Write-Host $_ -ForegroundColor Red }
+        exit 1
+    }
+    Write-Host 'Visual Studio answered within the targets.' -ForegroundColor Green
+    exit 0
+}
 
 if (-not $NoRun) {
     $thisBuild = Get-ThisBuildPackages -RepositoryRoot $root

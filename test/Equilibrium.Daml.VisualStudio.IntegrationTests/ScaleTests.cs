@@ -18,14 +18,12 @@ namespace Equilibrium.Daml.VisualStudio.IntegrationTests;
 // The scale fixture of the test strategy (20 Daml packages, 1000 files, 100k lines, 500 templates,
 // 10 C# projects) in Visual Studio, after its first build: how long the first diagnostic takes,
 // the C# references rows of templates, and background sync after a save. The times go to
-// artifacts\scale\ide.json; the targets are the test strategy's.
+// artifacts\scale\ide.json, which scripts\measure-scale.ps1 -Ide holds against the test strategy's
+// targets; they depend on the machine, so here only a step that never finishes fails.
 public class ScaleTests
 {
     private const string LensLayer = "DamlLensRows";
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan FirstDiagnosticTarget = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan LensTarget = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan SyncTarget = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(2);
 
     private readonly ITestOutputHelper _output;
@@ -33,7 +31,7 @@ public class ScaleTests
     public ScaleTests(ITestOutputHelper output) => _output = output;
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 30 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
-    public async Task The_scale_fixture_answers_within_the_test_strategys_targets()
+    public async Task The_scale_fixture_answers_and_its_times_are_recorded()
     {
         var fixture = await Ide.NewScaleFixtureAsync();
         File.WriteAllText(Path.Combine(fixture, "Directory.Build.props"), """
@@ -87,10 +85,6 @@ public class ScaleTests
             _output.WriteLine(report);
             Directory.CreateDirectory(Path.Combine(Ide.RepoRoot(), @"artifacts\scale"));
             File.WriteAllText(Path.Combine(Ide.RepoRoot(), @"artifacts\scale\ide.json"), report);
-
-            Assert.True(diagnostics.Max() <= FirstDiagnosticTarget.TotalSeconds, $"A first diagnostic took over {FirstDiagnosticTarget.TotalSeconds:0} s: {report}");
-            Assert.True(P95(warmLenses) <= LensTarget.TotalSeconds, $"The C# references rows took over {LensTarget.TotalSeconds:0} s at p95: {report}");
-            Assert.True(sync <= SyncTarget.TotalSeconds, $"Background sync took over {SyncTarget.TotalSeconds:0} s: {report}");
         }
         finally
         {

@@ -49,3 +49,31 @@ Describe 'Test-ScaleBuild' {
         ($problems -join "`n") | Should Match 'warm build generated C# 2 times'
     }
 }
+
+Describe 'Test-ScaleIde' {
+    function Measured([double] $cold = 4, [double[]] $warm = @(2.1, 2.3), [double] $lensP95 = 0.8, [double] $sync = 10.7) {
+        [pscustomobject] @{ ColdDiagnosticSeconds = $cold; WarmDiagnosticSeconds = $warm; WarmLensP95Seconds = $lensP95; SyncSeconds = $sync }
+    }
+
+    It 'passes times within the targets, on them included' {
+        @(Test-ScaleIde (Measured)).Count | Should Be 0
+        @(Test-ScaleIde (Measured -cold 30 -lensP95 2 -sync 20)).Count | Should Be 0
+    }
+
+    It 'names each time over its target' {
+        $problems = @(Test-ScaleIde (Measured -warm @(2.1, 31.5) -lensP95 2.4 -sync 20.5))
+
+        $problems.Count | Should Be 3
+        ($problems -join "`n") | Should Match 'first diagnostic took 31.5 s; the target is 30 s'
+        ($problems -join "`n") | Should Match 'C# references rows took 2.4 s at p95; the target is 2 s'
+        ($problems -join "`n") | Should Match 'Background sync took 20.5 s; the target is 20 s'
+    }
+
+    It 'counts a time the report lacks as a problem, not a pass' {
+        $problems = @(Test-ScaleIde ([pscustomobject] @{ ColdDiagnosticSeconds = 4; WarmDiagnosticSeconds = @(2) }))
+
+        $problems.Count | Should Be 2
+        ($problems -join "`n") | Should Match 'WarmLensP95Seconds'
+        ($problems -join "`n") | Should Match 'SyncSeconds'
+    }
+}
