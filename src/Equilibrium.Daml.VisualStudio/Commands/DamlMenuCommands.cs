@@ -147,7 +147,14 @@ internal static class CurrentPackage
 
         await TaskScheduler.Default;
         using var cancellation = new CancellationTokenSource();
-        Interlocked.Exchange(ref s_running, cancellation)?.Cancel();
+        try
+        {
+            // The previous run may be between finishing and disposing its source.
+            Interlocked.Exchange(ref s_running, cancellation)?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
         try
         {
             var run = await service.RunAsync(action, cancellation.Token);
