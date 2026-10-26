@@ -17,7 +17,6 @@ function Get-BenchBudgets {
     return @{
         'LexerBenchmarks.LexWholeFile'                = 30
         'LexerBenchmarks.LexWholeFileIntoTokens'      = 30
-        'LexerBenchmarks.RelexAfterOneLineEdit'       = 1
         'LexerBenchmarks.RelexTokensAfterOneLineEdit' = 1
         'LayoutBenchmarks.AnalyzeLexedFile'           = 40
         # The binding index of 500 generated Daml types on a fresh, bound compilation.

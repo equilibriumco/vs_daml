@@ -82,7 +82,7 @@ public class DamlLexerPropertyTests
 
     // What an editor relies on: the state kept at the start of a line is all its tokens depend on,
     // so re-lexing from any saved state gives what one pass gave. Whether an edit re-lexes the
-    // right lines is for LineStateCacheTests and LineTokensCacheTests.
+    // right lines is for LineTokensCacheTests.
     [Property, Trait("Category", "Unit")]
     public bool Re_lexing_from_a_saved_line_state_gives_the_same_tokens(DamlText text, PositiveInt seed)
     {

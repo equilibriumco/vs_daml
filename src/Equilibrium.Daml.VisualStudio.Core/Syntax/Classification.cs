@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Equilibrium.Daml.VisualStudio.Core.Syntax;
 
@@ -48,6 +49,24 @@ public readonly record struct ClassifiedSpan(int Start, int Length, string Class
 /// <summary>Decides the colour of each token.</summary>
 public static class ClassificationMapper
 {
+    /// <summary>The coloured spans of <paramref name="line"/>, in order; tokens in the default colour are left out.</summary>
+    public static IReadOnlyList<ClassifiedSpan> SpansOf(LineTokens line)
+    {
+        if (line is null)
+        {
+            throw new ArgumentNullException(nameof(line));
+        }
+        var spans = new List<ClassifiedSpan>(line.Tokens.Count);
+        foreach (var token in line.Tokens)
+        {
+            if (Map(token, line.Text.AsSpan()) is { } classification)
+            {
+                spans.Add(new ClassifiedSpan(token.Start, token.Length, classification));
+            }
+        }
+        return spans;
+    }
+
     /// <summary>
     /// The classification for <paramref name="token"/> of <paramref name="line"/>, or <c>null</c>
     /// for tokens left in the default text colour (whitespace, brackets, errors).

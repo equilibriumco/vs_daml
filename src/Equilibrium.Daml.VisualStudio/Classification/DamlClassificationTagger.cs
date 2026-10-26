@@ -27,25 +27,21 @@ internal sealed class DamlClassificationTaggerProvider : ITaggerProvider
 }
 
 /// <summary>
-/// Colours a Daml buffer from an <see cref="IDamlSyntaxProvider"/>, which it keeps in step with
-/// the buffer's edits. After an edit only the lines whose colouring can have changed are
-/// reported, e.g. every line below a newly opened block comment, but nothing past the point
-/// where the lexer state agrees with the old one again.
+/// Colours a Daml buffer from the tokens every other feature of the buffer shares. After an edit
+/// only the lines the token cache lexed again are reported, e.g. every line below a newly opened
+/// block comment, but nothing past the point where the lexer state agrees with the old one again.
 /// </summary>
 internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
 {
     private readonly object _gate = new();
     private readonly IClassificationTypeRegistryService _registry;
     private readonly Dictionary<string, IClassificationTag> _tags = new(StringComparer.Ordinal);
-    private readonly IDamlSyntaxProvider _syntax;
-    private ITextSnapshot _snapshot;
+    private readonly DamlTokenCache _tokens;
 
     public DamlClassificationTagger(ITextBuffer buffer, IClassificationTypeRegistryService registry)
     {
         _registry = registry;
-        _snapshot = buffer.CurrentSnapshot;
-        // Kept on the buffer so other features can reuse the same line states.
-        _syntax = buffer.Properties.GetOrCreateSingletonProperty<IDamlSyntaxProvider>(() => new LexerSyntaxProvider(SnapshotText.Lines(_snapshot)));
+        _tokens = DamlTokenCache.For(buffer);
         buffer.Changed += OnBufferChanged;
     }
 
@@ -59,25 +55,9 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
             return result;
         }
 
+        // An older snapshot than the cache's is lexed on its own, so no paint goes uncoloured.
         var snapshot = spans[0].Snapshot;
-        lock (_gate)
-        {
-            if (CatchUp(snapshot))
-            {
-                Collect(snapshot, spans, _syntax, result);
-            }
-            else
-            {
-                // An older snapshot than ours: the editor will ask again for the current one, but
-                // this paint shouldn't go uncoloured, so it is lexed on its own.
-                Collect(snapshot, spans, new LexerSyntaxProvider(SnapshotText.Lines(snapshot)), result);
-            }
-        }
-        return result;
-    }
-
-    private void Collect(ITextSnapshot snapshot, NormalizedSnapshotSpanCollection spans, IDamlSyntaxProvider syntax, List<ITagSpan<IClassificationTag>> result)
-    {
+        var lines = _tokens.Get(snapshot);
         var lastLine = -1;
         foreach (var span in spans)
         {
@@ -85,37 +65,23 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
             var last = snapshot.GetLineNumberFromPosition(span.End);
             for (var number = first; number <= last; number++)
             {
-                var line = snapshot.GetLineFromLineNumber(number);
-                foreach (var classified in syntax.GetClassifications(number))
+                var start = snapshot.GetLineFromLineNumber(number).Start;
+                foreach (var classified in ClassificationMapper.SpansOf(lines[number]))
                 {
-                    result.Add(new TagSpan<IClassificationTag>(new SnapshotSpan(snapshot, line.Start + classified.Start, classified.Length), Tag(classified.Classification)));
+                    result.Add(new TagSpan<IClassificationTag>(new SnapshotSpan(snapshot, start + classified.Start, classified.Length), Tag(classified.Classification)));
                 }
             }
             lastLine = last;
         }
+        return result;
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)
     {
-        LineRange changed;
-        lock (_gate)
-        {
-            if (e.After.Version.VersionNumber <= _snapshot.Version.VersionNumber)
-            {
-                return; // already caught up while tagging, possibly past this change
-            }
-            if (e.Before != _snapshot)
-            {
-                Reset(e.After);
-                changed = new LineRange(0, e.After.LineCount - 1);
-            }
-            else
-            {
-                changed = _syntax.ApplyEdit(SnapshotText.Lines(e.After), SnapshotText.Edit(e));
-                _snapshot = e.After;
-            }
-        }
-
+        // Brings the cache to this snapshot now, on the editor's thread, so the paint that follows
+        // finds it there; another feature may have got there first, in which case this is free.
+        _tokens.Get(e.After);
+        var changed = _tokens.Relexed(e.Before, e.After) ?? new LineRange(0, e.After.LineCount - 1);
         if (!changed.IsEmpty)
         {
             var start = e.After.GetLineFromLineNumber(changed.FirstLine).Start;
@@ -124,37 +90,16 @@ internal sealed class DamlClassificationTagger : ITagger<IClassificationTag>
         }
     }
 
-    // Normally the buffer's Changed event has already brought us to the snapshot being tagged.
-    // If tagging gets there first, start over on it; Changed will then find nothing to do.
-    private bool CatchUp(ITextSnapshot snapshot)
-    {
-        if (snapshot == _snapshot)
-        {
-            return true;
-        }
-        if (snapshot.TextBuffer != _snapshot.TextBuffer || snapshot.Version.VersionNumber < _snapshot.Version.VersionNumber)
-        {
-            return false;
-        }
-        Reset(snapshot);
-        return true;
-    }
-
-    private void Reset(ITextSnapshot snapshot)
-    {
-        _syntax.Reset(SnapshotText.Lines(snapshot));
-        _snapshot = snapshot;
-    }
-
-
     private IClassificationTag Tag(string classification)
     {
-        if (!_tags.TryGetValue(classification, out var tag))
+        lock (_gate)
         {
-            tag = new ClassificationTag(_registry.GetClassificationType(classification));
-            _tags[classification] = tag;
+            if (!_tags.TryGetValue(classification, out var tag))
+            {
+                tag = new ClassificationTag(_registry.GetClassificationType(classification));
+                _tags[classification] = tag;
+            }
+            return tag;
         }
-        return tag;
     }
-
 }

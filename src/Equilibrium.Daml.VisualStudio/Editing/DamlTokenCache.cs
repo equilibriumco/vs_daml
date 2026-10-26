@@ -11,6 +11,7 @@ internal sealed class DamlTokenCache
     private LineTokensCache _cache = new();
     private ITextSnapshot? _snapshot;
     private TextContentChangedEventArgs? _change;
+    private (int FromVersion, int ToVersion, LineRange Lines)? _relexed;
 
     private DamlTokenCache(ITextBuffer buffer) => buffer.Changed += OnBufferChanged;
 
@@ -31,9 +32,10 @@ internal sealed class DamlTokenCache
         }
         // A first lex or a comment edit can be expensive. Buffer.Changed only records the edit,
         // and never waits for a background reader to finish this work.
+        LineRange? relexed = null;
         if (change is not null && change.Before == before && change.After == snapshot)
         {
-            next.Update(SnapshotText.Lines(snapshot), SnapshotText.Edit(change));
+            relexed = next.Update(SnapshotText.Lines(snapshot), SnapshotText.Edit(change));
         }
         else
         {
@@ -44,12 +46,27 @@ internal sealed class DamlTokenCache
             if (snapshot == _snapshot) { return _cache.Lines; }
             if (_snapshot is null || snapshot.Version.VersionNumber > _snapshot.Version.VersionNumber)
             {
+                _relexed = relexed is { } lines && before is not null ? (before.Version.VersionNumber, snapshot.Version.VersionNumber, lines) : null;
                 _snapshot = snapshot;
                 _cache = next;
                 if (_change?.After.Version.VersionNumber <= snapshot.Version.VersionNumber) { _change = null; }
             }
         }
         return next.Lines;
+    }
+
+    /// <summary>
+    /// The lines lexed again when the cache went from <paramref name="before"/> to <paramref name="after"/>,
+    /// or null when it got there another way (a reset, or steps in between) and nothing can be said.
+    /// </summary>
+    public LineRange? Relexed(ITextSnapshot before, ITextSnapshot after)
+    {
+        lock (_gate)
+        {
+            return _relexed is { } relexed && relexed.FromVersion == before.Version.VersionNumber && relexed.ToVersion == after.Version.VersionNumber
+                ? relexed.Lines
+                : null;
+        }
     }
 
     private void OnBufferChanged(object sender, TextContentChangedEventArgs e)

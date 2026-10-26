@@ -38,6 +38,60 @@ public class LineTokensCacheTests
         lines[2].EndState.Mode.ShouldBe(LexMode.BlockComment);
     }
 
+    // The state a line starts in is the previous line's end state; line 0 starts in the default.
+    private static LexState StartOf(LineTokensCache cache, int line) => line == 0 ? default : cache.Lines[line - 1].EndState;
+
+    [Fact, Trait("Category", "Unit")]
+    public void Closing_a_comment_earlier_relexes_only_up_to_where_the_states_agree_again()
+    {
+        var text = TenLines();
+        var cache = Lexed(text);
+        cache.Update(text, text.Replace(2, 1, "x2 = 2 {- now a comment"));
+        cache.Update(text, text.Replace(7, 1, "-} x7 = 7"));
+
+        // Closed on line 5 instead: lines 5 to 7 change, and from the old closing line on the states agree.
+        var range = cache.Update(text, text.Replace(5, 1, "-} x5 = 5"));
+
+        range.ShouldBe(new LineRange(5, 7));
+        Flat(cache.Lines).ShouldBe(Fresh(text));
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Deleting_the_line_that_closed_a_comment_extends_the_comment()
+    {
+        var text = new TextLines("a = 1", "{- open", "-}", "b = 2", "c = 3");
+        var cache = Lexed(text);
+
+        var range = cache.Update(text, text.Replace(2, 1));
+
+        range.ShouldBe(new LineRange(2, 3));
+        StartOf(cache, 3).Mode.ShouldBe(LexMode.BlockComment);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Every_line_whose_start_state_changed_is_in_the_relexed_range()
+    {
+        string[] pieces = ["x = 1", "{- a", "-}", "-- c", "s = \"gap\\", "\\end\""];
+        var random = new Random(7);
+        for (var round = 0; round < 200; round++)
+        {
+            var text = new TextLines(Enumerable.Range(0, 10).Select(_ => pieces[random.Next(pieces.Length)]).ToArray());
+            var cache = Lexed(text);
+            var before = Enumerable.Range(0, text.LineCount).Select(i => StartOf(cache, i)).ToList();
+            var first = random.Next(text.LineCount);
+
+            var range = cache.Update(text, text.Replace(first, 1, pieces[random.Next(pieces.Length)]));
+
+            for (var line = 0; line < text.LineCount; line++)
+            {
+                if (StartOf(cache, line) != before[line])
+                {
+                    (line >= range.FirstLine && line <= range.LastLine).ShouldBeTrue($"round {round}: line {line} changed state outside {range}");
+                }
+            }
+        }
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void An_edit_that_keeps_the_end_state_relexes_only_its_line()
     {

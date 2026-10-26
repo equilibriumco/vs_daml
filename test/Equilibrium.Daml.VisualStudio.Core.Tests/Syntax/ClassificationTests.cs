@@ -54,13 +54,15 @@ public class ClassificationTests
     public void A_qualified_name_takes_the_colour_of_its_last_segment(string name, string expected) =>
         ClassificationMapper.Map(new DamlToken(0, name.Length, DamlTokenKind.QualifiedName), name.AsSpan()).ShouldBe(expected);
 
+    // The spans come from the lexed line, so a line inside a block comment opened above is coloured
+    // as such; whitespace, brackets and errors stay in the default colour and are left out.
     [Fact, Trait("Category", "Unit")]
-    public void The_provider_classifies_a_line_with_the_state_of_the_lines_above()
+    public void The_spans_of_a_line_follow_the_state_of_the_lines_above()
     {
-        var provider = new LexerSyntaxProvider(new TextLines("{- start", "template T", "-} template T"));
+        var lines = LineTokens.Lex(["{- start", "template T", "-} template T"]);
 
-        provider.GetClassifications(1).ShouldBe([new ClassifiedSpan(0, 10, DamlClassificationNames.Comment)]);
-        provider.GetClassifications(2).ShouldBe(
+        ClassificationMapper.SpansOf(lines[1]).ShouldBe([new ClassifiedSpan(0, 10, DamlClassificationNames.Comment)]);
+        ClassificationMapper.SpansOf(lines[2]).ShouldBe(
         [
             new ClassifiedSpan(0, 2, DamlClassificationNames.Comment),
             new ClassifiedSpan(3, 8, DamlClassificationNames.Declaration),
@@ -69,44 +71,16 @@ public class ClassificationTests
     }
 
     [Fact, Trait("Category", "Unit")]
-    public void Editing_through_the_provider_reports_the_lines_to_recolour()
-    {
-        var text = new TextLines("a = 1", "b = 2", "c = 3", "d = 4");
-        var provider = new LexerSyntaxProvider(text);
-        provider.GetClassifications(3);
-
-        var opened = provider.ApplyEdit(text, text.Replace(1, 1, "b = {- 2"));
-        var closed = provider.ApplyEdit(text, text.Replace(2, 1, "-} c = 3"));
-
-        opened.ShouldBe(new LineRange(1, 3));
-        closed.ShouldBe(new LineRange(2, 3));
-        provider.GetClassifications(3).Select(s => s.Classification).ShouldBe([DamlClassificationNames.Identifier, DamlClassificationNames.Operator, DamlClassificationNames.Number]);
-    }
-
-    [Fact, Trait("Category", "Unit")]
-    public void Resetting_the_provider_starts_over_on_new_text()
-    {
-        var provider = new LexerSyntaxProvider(new TextLines("{- a", "b"));
-        provider.GetClassifications(1).Single().Classification.ShouldBe(DamlClassificationNames.Comment);
-
-        provider.Reset(new TextLines("a", "b"));
-
-        provider.GetClassifications(1).Single().Classification.ShouldBe(DamlClassificationNames.Identifier);
-    }
-
-    [Fact, Trait("Category", "Unit")]
     public Task Classified_spans_of_a_fixture()
     {
-        var text = TextLines.Parse(File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "lexer", "keywords.daml"), Encoding.UTF8));
-        var provider = new LexerSyntaxProvider(text);
+        var lines = LineTokens.Lex(File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "lexer", "keywords.daml"), Encoding.UTF8));
         var output = new StringBuilder();
-        for (var line = 0; line < text.LineCount; line++)
+        for (var line = 0; line < lines.Count; line++)
         {
-            var lineText = text.GetLineText(line);
-            foreach (var span in provider.GetClassifications(line))
+            foreach (var span in ClassificationMapper.SpansOf(lines[line]))
             {
                 output.Append('L').Append(line + 1).Append(" [").Append(span.Start).Append("..").Append(span.Start + span.Length).Append(") ")
-                    .Append(span.Classification).Append(" \"").Append(lineText, span.Start, span.Length).Append('"').Append('\n');
+                    .Append(span.Classification).Append(" \"").Append(lines[line].Text, span.Start, span.Length).Append('"').Append('\n');
             }
         }
         return Verifier.Verify(output.ToString(), extension: "txt");
