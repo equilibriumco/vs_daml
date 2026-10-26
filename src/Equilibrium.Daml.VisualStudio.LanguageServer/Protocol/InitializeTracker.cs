@@ -116,7 +116,7 @@ public sealed class InitializeTracker
 
         if (message["error"] is JObject error)
         {
-            Failed?.Invoke(this, new InitializeFailedEventArgs((string?)error["message"] ?? error.ToString(Newtonsoft.Json.Formatting.None)));
+            Failed?.Invoke(this, new InitializeFailedEventArgs(LspJson.Text(error["message"]) ?? error.ToString(Newtonsoft.Json.Formatting.None)));
         }
         else
         {

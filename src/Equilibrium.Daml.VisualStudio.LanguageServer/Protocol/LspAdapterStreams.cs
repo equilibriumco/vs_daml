@@ -388,6 +388,14 @@ public sealed class ServerToClientStream : Stream
         {
             // The server went away.
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // One of our own handlers: the connection still has to end where Visual Studio can
+            // see it, or its reader waits forever on a pump that is gone.
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Error, "Handling a message from the language server failed; closing the connection.", ex);
+            _failure = ex;
+            _onFailure?.Invoke(ex);
+        }
         lock (_gate)
         {
             _ended = true;

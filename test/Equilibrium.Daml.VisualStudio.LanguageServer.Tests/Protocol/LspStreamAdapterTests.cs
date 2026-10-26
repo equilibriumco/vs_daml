@@ -309,6 +309,41 @@ public class LspStreamAdapterTests
         reported.ShouldBeOfType<LspFramingException>();
     }
 
+    // A handler of the extension's own, not the server, is what fails here; the connection must
+    // still end visibly instead of leaving Visual Studio waiting on a reader that stopped.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_failing_message_handler_ends_the_connection_with_an_IO_error_and_tells_the_owner()
+    {
+        Exception? reported = null;
+        var documents = new OpenDocuments();
+        documents.Activity += _ => throw new InvalidOperationException("the lens service broke");
+        var serverOutput = Frame("""{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":"file:///C:/work/a.daml","diagnostics":[]}}""");
+        using var fromServer = new ServerToClientStream(new MemoryStream(serverOutput), Settings, new InitializeTracker(), NullDamlLogger.Instance, documents, onFailure: ex => reported = ex);
+
+        await Should.ThrowAsync<IOException>(() => ReadToEndAsync(fromServer, 64));
+
+        reported.ShouldBeOfType<InvalidOperationException>();
+    }
+
+    // Shapes the protocol doesn't allow are the server's problem, not a reason to stop reading.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("""{"jsonrpc":"2.0","method":["textDocument/publishDiagnostics"],"params":{"uri":"file:///C:/a.daml"}}""")]
+    [InlineData("""{"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":{"textDocument/publishDiagnostics":1}}}""")]
+    [InlineData("""{"jsonrpc":"2.0","id":5,"error":{"code":-32603,"message":{"nested":"textDocument/publishDiagnostics"}}}""")]
+    public async Task A_message_with_a_field_of_the_wrong_shape_passes_through(string json)
+    {
+        var tracker = new InitializeTracker();
+        tracker.Expect(new JValue(5));
+        var failures = new List<string>();
+        tracker.Failed += (_, e) => failures.Add(e.Message);
+        using var fromServer = new ServerToClientStream(new MemoryStream(Frame(json)), Settings, tracker, NullDamlLogger.Instance, new OpenDocuments());
+
+        var frames = await ReadAllFramesAsync(await ReadToEndAsync(fromServer, 64));
+
+        frames.ShouldHaveSingleItem();
+        failures.ShouldAllBe(message => message.Contains("nested"));
+    }
+
     private static async Task<List<JObject>> ReadAllFramesAsync(byte[] data)
     {
         var reader = new LspFrameReader(new MemoryStream(data), Settings);

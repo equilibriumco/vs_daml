@@ -27,4 +27,7 @@ internal static class LspJson
 
     /// <summary>The compact UTF-8 bytes of a message.</summary>
     public static byte[] ToBytes(JToken message) => Encoding.UTF8.GetBytes(message.ToString(Formatting.None));
+
+    /// <summary>The text of <paramref name="token"/>, or null when there is none or it isn't a string (a cast would throw).</summary>
+    public static string? Text(JToken? token) => token is JValue { Type: JTokenType.String } value ? (string?)value.Value : null;
 }

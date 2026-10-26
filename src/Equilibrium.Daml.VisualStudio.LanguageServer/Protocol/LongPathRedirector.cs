@@ -81,7 +81,7 @@ public sealed class LongPathRedirector
         }
         foreach (var key in new[] { "uri", "targetUri" })
         {
-            if ((string?)location[key] is { } uri && Map(uri) is { } mapped)
+            if (LspJson.Text(location[key]) is { } uri && Map(uri) is { } mapped)
             {
                 var copy = (JObject)location.DeepClone();
                 copy[key] = mapped;

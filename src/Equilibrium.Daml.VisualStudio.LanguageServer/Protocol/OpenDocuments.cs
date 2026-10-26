@@ -137,8 +137,8 @@ public sealed class OpenDocuments
     internal bool FromServer(byte[] body)
     {
         if (!ClientMessageSanitizer.Contains(body, PublishDiagnostics) || LspJson.Parse(body) is not { } message
-            || (string?)message["method"] != "textDocument/publishDiagnostics"
-            || (string?)message["params"]?["uri"] is not { } uri || !IsFile(uri))
+            || LspJson.Text(message["method"]) != "textDocument/publishDiagnostics"
+            || LspJson.Text(message["params"]?["uri"]) is not { } uri || !IsFile(uri))
         {
             return true;
         }
