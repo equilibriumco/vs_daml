@@ -179,6 +179,42 @@ public class ManifestReaderTests
         list.Value.ShouldNotBeNull().ModulePrefixes.ShouldBeEmpty();
     }
 
+    // daml-finance writes "data-dependencies: null"; damlc reads every plain YAML null as "not given".
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("null")]
+    [InlineData("Null")]
+    [InlineData("NULL")]
+    [InlineData("~")]
+    public void A_plain_yaml_null_means_the_field_is_not_given(string nothing)
+    {
+        _files.AddFile(@"C:\work\app\daml.yaml", $"name: app\nsource: {nothing}\ndata-dependencies: {nothing}\nbuild-options: {nothing}\nmodule-prefixes: {nothing}\n");
+        _files.AddFile(@"C:\work\multi-package.yaml", $"packages: {nothing}\n");
+
+        var package = _reader.ReadPackage(@"C:\work\app\daml.yaml");
+        var multi = _reader.ReadMultiPackage(@"C:\work\multi-package.yaml");
+
+        package.Diagnostics.ShouldBeEmpty();
+        var m = package.Value.ShouldNotBeNull();
+        m.Name.ShouldBe("app");
+        m.Source.ShouldBeNull();
+        m.DataDependencies.ShouldBeEmpty();
+        m.BuildOptions.ShouldBeEmpty();
+        m.ModulePrefixes.ShouldBeEmpty();
+        multi.Diagnostics.ShouldBeEmpty();
+        multi.Value.ShouldNotBeNull().Packages.ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_quoted_null_is_text()
+    {
+        _files.AddFile(@"C:\work\app\daml.yaml", "name: 'null'\ndependencies: \"~\"\n");
+
+        var result = _reader.ReadPackage(@"C:\work\app\daml.yaml");
+
+        result.Value.ShouldNotBeNull().Name.ShouldBe("null");
+        result.Diagnostics.ShouldHaveSingleItem().Line.ShouldBe(2);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void Quoted_empty_values_are_kept_as_empty_text()
     {

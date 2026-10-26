@@ -243,9 +243,9 @@ public sealed class YamlManifestReader : IManifestReader
         private static YamlNode? Find(YamlMappingNode root, string key) =>
             root.Children.TryGetValue(new YamlScalarNode(key), out var node) ? node : null;
 
-        // "key:" with nothing after it reads as an empty plain scalar: treat it as not given.
+        // "key:" with nothing after it, or with an unquoted YAML null, means the key isn't given.
         private static bool Absent(YamlScalarNode scalar) =>
-            scalar.Style == ScalarStyle.Plain && string.IsNullOrEmpty(scalar.Value);
+            scalar.Style == ScalarStyle.Plain && scalar.Value is null or "" or "null" or "Null" or "NULL" or "~";
 
         private T? Wrong<T>(YamlNode node, string message)
             where T : class
