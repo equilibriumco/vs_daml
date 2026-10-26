@@ -34,10 +34,9 @@ public sealed record SourceCandidate(string ManifestPath, SourceStatus Status, I
 /// </summary>
 public sealed class DamlSources
 {
-    private readonly IDamlFileSystem _files;
-
-    /// <summary>Reads sources from <paramref name="files"/>, or the disk.</summary>
-    public DamlSources(IDamlFileSystem? files = null) => _files = files ?? new PhysicalFileSystem();
+    // The disk, always: the fingerprint hashes the source files the way the build does, which no
+    // stand-in file system could.
+    private readonly IDamlFileSystem _files = new PhysicalFileSystem();
 
     /// <summary>Whether the sources <paramref name="generation"/> records are still the Daml on this machine.</summary>
     public SourceStatus StatusOf(GenerationProvenance generation)

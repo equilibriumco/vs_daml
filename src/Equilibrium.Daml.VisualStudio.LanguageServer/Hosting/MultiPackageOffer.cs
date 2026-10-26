@@ -80,6 +80,8 @@ public sealed class MultiPackageOffer
             return false;
         }
         var content = Encoding.UTF8.GetBytes(MultiPackageAdvisor.Content(solutionDirectory, proposal.Packages));
+        // Straight to disk, not through the file system the reads use: the file may only be
+        // created where none is, in one step, so a file the user made meanwhile is never replaced.
         try
         {
             using var file = new FileStream(proposal.ManifestPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
