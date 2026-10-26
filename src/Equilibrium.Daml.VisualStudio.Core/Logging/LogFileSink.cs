@@ -82,9 +82,10 @@ public sealed class LogFileSink
                 {
                     _file.Append(batch.ToString());
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException)
+                catch (Exception ex) when (ex is not OutOfMemoryException)
                 {
-                    // Nowhere to report it: the log is where it would go.
+                    // Nowhere to report it: the log is where it would go. Whatever the disk or the
+                    // path throws, the drain must go on, or every later entry would queue up unseen.
                 }
                 batch.Clear();
             }

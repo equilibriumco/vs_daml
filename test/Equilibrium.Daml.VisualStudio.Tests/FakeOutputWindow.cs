@@ -87,6 +87,9 @@ internal sealed class FakeOutputWindow : IVsOutputWindow
             }
         }
 
+        /// <summary>How many of the next writes fail the way a pane that is gone does.</summary>
+        public int FailingWrites { get; set; }
+
         public int OutputString(string pszOutputString) => Append(pszOutputString);
 
         public int OutputStringThreadSafe(string pszOutputString) => Append(pszOutputString);
@@ -95,6 +98,11 @@ internal sealed class FakeOutputWindow : IVsOutputWindow
         {
             lock (_lines)
             {
+                if (FailingWrites > 0)
+                {
+                    FailingWrites--;
+                    throw new InvalidOperationException("The pane is gone.");
+                }
                 _lines.Add(text);
             }
             return VSConstants.S_OK;

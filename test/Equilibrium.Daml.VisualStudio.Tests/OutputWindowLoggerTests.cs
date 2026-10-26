@@ -104,6 +104,27 @@ public class OutputWindowLoggerTests
         text.ShouldContain("https://***@registry/c");
     }
 
+    // A pane write can fail during shutdown or when the Output window is torn down; the batch is
+    // lost, but the lines after it must still arrive instead of queuing up unseen for the session.
+    [Fact, Trait("Category", "Editor")]
+    public async Task A_write_the_pane_refuses_loses_that_batch_and_nothing_after_it()
+    {
+        Task<IVsOutputWindowPane?> CreatePaneAsync(Guid id, string title)
+        {
+            var pane = _outputWindow.Create(id, title);
+            pane.FailingWrites = 1;
+            return Task.FromResult<IVsOutputWindowPane?>(pane);
+        }
+        var logger = new OutputWindowLogger(ThreadHelper.JoinableTaskContext, CreatePaneAsync);
+
+        logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "lost");
+        await logger.DrainAsync();
+        logger.Log(DamlLogCategory.Build, DamlLogLevel.Information, "kept");
+        await logger.DrainAsync();
+
+        LinesOf(_outputWindow.Panes.Single()).Select(Message).ShouldBe(new[] { "kept" });
+    }
+
     [Fact, Trait("Category", "Editor")]
     public async Task A_burst_is_written_in_order_with_far_fewer_pane_writes_than_lines()
     {

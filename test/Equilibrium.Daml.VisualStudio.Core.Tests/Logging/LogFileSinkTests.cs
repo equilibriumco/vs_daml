@@ -98,6 +98,20 @@ public sealed class LogFileSinkTests : IDisposable
         File.ReadAllText(RollingLogFile.Files(blocker).Single().FullName).ShouldBe("2026-10-22 07:50:13.250 info [Extension] kept\r\n");
     }
 
+    // The platform refuses the name with an ArgumentException (.NET Framework) or an IOException
+    // (.NET): either way the entries are lost, and neither may stop the sink or escape DrainAsync.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_folder_name_the_file_system_rejects_drops_the_entries_and_the_sink_keeps_working()
+    {
+        // Not Path.Combine: on .NET Framework it rejects the name before the sink can.
+        var sink = Sink(_folder + @"\bad<name");
+
+        sink.Write(DamlLogCategory.Extension, DamlLogLevel.Information, "lost");
+        await sink.DrainAsync();
+        sink.Write(DamlLogCategory.Extension, DamlLogLevel.Information, "lost too");
+        await sink.DrainAsync();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Draining_with_nothing_written_completes()
     {

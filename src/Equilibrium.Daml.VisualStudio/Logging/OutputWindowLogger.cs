@@ -126,24 +126,43 @@ internal sealed class OutputWindowLogger : IDamlLogger
     // a pane creation awaits. Each pass writes a bounded batch, then yields the UI thread.
     private async Task FlushAsync()
     {
-        await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
-
-        while (true)
+        try
         {
-            await WriteBatchAsync();
-
-            if (_queue.IsEmpty)
-            {
-                Volatile.Write(ref _flushScheduled, 0);
-                // Something enqueued just before the reset saw the flag still set and didn't
-                // schedule a flush; take it on here unless a new Log call already has.
-                if (_queue.IsEmpty || Interlocked.CompareExchange(ref _flushScheduled, 1, 0) != 0)
-                {
-                    return;
-                }
-            }
-
             await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
+
+            while (true)
+            {
+                try
+                {
+                    await WriteBatchAsync();
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    // A pane that is gone (shutdown, the window torn down) loses this batch; the
+                    // flusher stays alive for the lines after it.
+                    ActivityLog.TryLogError(ActivityLogSource, $"Could not write to the Output window: {ex}");
+                }
+
+                if (_queue.IsEmpty)
+                {
+                    Volatile.Write(ref _flushScheduled, 0);
+                    // Something enqueued just before the reset saw the flag still set and didn't
+                    // schedule a flush; take it on here unless a new Log call already has.
+                    if (_queue.IsEmpty || Interlocked.CompareExchange(ref _flushScheduled, 1, 0) != 0)
+                    {
+                        return;
+                    }
+                }
+
+                await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // The UI thread is going away. Leaving the flag set would mean no flush ever again,
+            // so a later Log call gets to try.
+            Volatile.Write(ref _flushScheduled, 0);
+            ActivityLog.TryLogError(ActivityLogSource, $"The Output window flush stopped: {ex}");
         }
     }
 
