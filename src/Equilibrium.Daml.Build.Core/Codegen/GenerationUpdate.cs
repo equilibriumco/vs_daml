@@ -89,9 +89,10 @@ public sealed class GenerationUpdate
         using (held)
         {
             var publisher = new GenerationPublisher(root);
-            foreach (var planned in plan.Generations)
+            foreach (var found in plan.Generations)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                var planned = AsItIsNow(found, tools, Report);
                 var reference = planned.Input.Reference;
                 RecoveryOutcome recovered;
                 try
@@ -193,6 +194,33 @@ public sealed class GenerationUpdate
                 $"Wait for it to finish, or raise {DamlProperties.LockTimeoutSeconds.Name}.");
             return null;
         }
+    }
+
+    // The preflight hashed the DAR before this build held the lock, and a parallel build may have
+    // rebuilt it since; then it is judged, and generated from, as it is now.
+    private static PlannedGeneration AsItIsNow(PlannedGeneration planned, CodegenTools tools, Action<DamlDiagnosticSeverity, string?, string> report)
+    {
+        if (planned.DarSha256 is not { } seen)
+        {
+            return planned;
+        }
+        string now;
+        try
+        {
+            now = Hashing.Sha256File(planned.Input.DarPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The run reports a DAR it can't read.
+            return planned;
+        }
+        if (string.Equals(now, seen, StringComparison.OrdinalIgnoreCase))
+        {
+            return planned;
+        }
+        report(DamlDiagnosticSeverity.Information, null,
+            $"{planned.Input.DarPath} was rebuilt while this build waited; C# for {planned.Input.Reference.Include} is judged against it as it is now.");
+        return planned with { Fingerprint = GenerationFingerprint.Of(planned.Input, now, tools.Cache.Pin.Digest, tools.DpmVersion), DarSha256 = now };
     }
 
     // Generations of references the project no longer has, and whatever their runs left in the

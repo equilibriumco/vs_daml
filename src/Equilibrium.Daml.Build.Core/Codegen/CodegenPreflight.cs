@@ -116,14 +116,14 @@ public sealed class CodegenPreflight
                 continue;
             }
             var folder = Path.Combine(root, input.Reference.FolderName);
-            var fingerprint = GenerationFingerprint.Compute(new GenerationFingerprintInputs(
-                input.Reference.GenerationId, Hashing.Sha256File(input.DarPath), pin.Digest, dpmVersion, input.Source?.Fingerprint));
+            var darSha256 = Hashing.Sha256File(input.DarPath);
+            var fingerprint = GenerationFingerprint.Of(input, darSha256, pin.Digest, dpmVersion);
             var state = GenerationState.Evaluate(folder, fingerprint, request.ProjectPath);
             if (state.Status == GenerationStatus.Conflict)
             {
                 problems.Add(new ConfigurationError(DamlDiagnosticCodes.OutputConflict, state.Reason!));
             }
-            generations.Add(new PlannedGeneration(input, folder, fingerprint, state));
+            generations.Add(new PlannedGeneration(input, folder, fingerprint, state) { DarSha256 = darSha256 });
         }
         return new CodegenPlan(problems, generations, new CodegenTools(dpm, java, dpmVersion, cache));
     }

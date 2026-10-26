@@ -52,12 +52,15 @@ public sealed class GeneratorRunTests : IDisposable
         return new PlannedGeneration(new CodegenInput(reference, Dar, Sources), Published, "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
     }
 
+    // The copy of the DAR the generator is given, in the run folder.
+    private static string Snapshot(string staging) => GeneratorRun.DarSnapshotOf(staging);
+
     private static string[] Arguments(string dar, string staging, string? @namespace) =>
         @namespace is null ? ["codegen-cs", "--dar", dar, "--out", staging] : ["codegen-cs", "--dar", dar, "--out", staging, "--", "-n", @namespace];
 
     // The generator writing its files where it was told.
     private void Generates(string staging, IReadOnlyDictionary<string, string> files, string? @namespace = "Contracts", int exitCode = 0, string stderr = "") =>
-        _runner.On(Dpm, Arguments(Dar, staging, @namespace), spec =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, @namespace), spec =>
         {
             _runFolder = spec.WorkingDirectory;
             foreach (var file in files)
@@ -78,6 +81,46 @@ public sealed class GeneratorRunTests : IDisposable
         [@"Contracts\Kinds\Asset\Asset.cs"] = "public sealed partial record Asset",
         [@"Contracts\Kinds\Asset\Asset.Give.cs"] = "partial record Asset",
     };
+
+    // A parallel build may rebuild the DAR while the generator runs. The C#, the package the
+    // manifest names and the hash it records must all come from the one copy the generator was given.
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_generator_and_the_manifest_see_one_copy_of_the_DAR()
+    {
+        var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
+        var given = Hashing.Sha256File(Dar);
+        string? generatorSaw = null;
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), spec =>
+        {
+            generatorSaw = Hashing.Sha256File(spec.Arguments[2]);
+            File.Delete(Dar);
+            TestDar.Write(Dar, "contracts-1.2.1");
+            File.WriteAllText(Path.Combine(staging, "Asset.cs"), "partial record Asset");
+            return Task.FromResult(new ProcessResult(0, "", ""));
+        });
+
+        (await Run(staging)).ShouldBeNull();
+
+        var manifest = GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName), Published).ShouldNotBeNull();
+        generatorSaw.ShouldBe(given);
+        manifest.DarSha256.ShouldBe(given);
+        manifest.Package.ShouldNotBeNull().PackageVersion.ShouldBe("1.2.0");
+    }
+
+    // The fingerprint says which DAR the code came from; a DAR other than the one the plan hashed
+    // gets a fingerprint of its own, or the next build would take the code for current.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_DAR_other_than_the_planned_one_gets_its_own_fingerprint()
+    {
+        var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
+        Generates(staging, AssetFiles);
+        var planned = Planned() with { DarSha256 = "the DAR as the preflight saw it" };
+
+        (await Run(staging, planned)).ShouldBeNull();
+
+        var manifest = GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName), Published).ShouldNotBeNull();
+        manifest.Fingerprint.ShouldBe(GenerationFingerprint.Of(planned.Input, Hashing.Sha256File(Dar), Tools.Cache.Pin.Digest, Tools.DpmVersion));
+    }
 
     [Fact, Trait("Category", "Unit")]
     public async Task The_generator_runs_on_the_pinned_home_and_the_projects_java_and_its_files_get_a_manifest()
@@ -116,7 +159,7 @@ public sealed class GeneratorRunTests : IDisposable
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         string? manifest = null;
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), spec =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), spec =>
         {
             manifest = File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "daml.yaml"));
             File.WriteAllText(Path.Combine(staging, "A.cs"), "class A { }");
@@ -135,7 +178,7 @@ public sealed class GeneratorRunTests : IDisposable
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         string? multiPackage = null;
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), spec =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), spec =>
         {
             multiPackage = File.ReadAllText(Path.Combine(spec.WorkingDirectory!, "multi-package.yaml"));
             File.WriteAllText(Path.Combine(staging, "A.cs"), "class A { }");
@@ -206,7 +249,7 @@ public sealed class GeneratorRunTests : IDisposable
     public async Task A_generator_past_the_time_limit_is_EQD0110()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), new TimeoutException("ran past its limit"));
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), new TimeoutException("ran past its limit"));
 
         var problem = (await Run(staging, timeout: TimeSpan.FromSeconds(90))).ShouldNotBeNull();
 
@@ -219,7 +262,7 @@ public sealed class GeneratorRunTests : IDisposable
     public async Task A_file_past_the_path_limit_goes_into_the_manifest()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), _ =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), _ =>
         {
             DeepPath.Write(staging, DeepPath.Relative, "class Registration { }");
             return Task.FromResult(new ProcessResult(0, "", ""));
@@ -237,7 +280,7 @@ public sealed class GeneratorRunTests : IDisposable
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         FileStream? held = null;
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), _ =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), _ =>
         {
             held = new FileStream(Path.Combine(staging, "Asset.cs"), FileMode.Create, FileAccess.Write, FileShare.None);
             return Task.FromResult(new ProcessResult(0, "", ""));
@@ -258,7 +301,7 @@ public sealed class GeneratorRunTests : IDisposable
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
         FileStream? held = null;
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), spec =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), spec =>
         {
             _runFolder = spec.WorkingDirectory;
             File.WriteAllText(Path.Combine(staging, "A.cs"), "class A { }");
@@ -280,7 +323,7 @@ public sealed class GeneratorRunTests : IDisposable
     public async Task Cancelling_stops_the_run_and_leaves_no_run_folder()
     {
         var staging = _publisher.NewStaging("Contracts-0123456789abcdef");
-        _runner.On(Dpm, Arguments(Dar, staging, "Contracts"), spec =>
+        _runner.On(Dpm, Arguments(Snapshot(staging), staging, "Contracts"), spec =>
         {
             _runFolder = spec.WorkingDirectory;
             return Task.FromException<ProcessResult>(new OperationCanceledException());

@@ -38,6 +38,9 @@ public sealed class GeneratorRun
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
     }
 
+    /// <summary>The copy of the DAR a run on <paramref name="staging"/> gives the generator, in its run folder.</summary>
+    internal static string DarSnapshotOf(string staging) => Path.Combine(GenerationPublisher.RunFolderOf(staging), "input.dar");
+
     /// <summary>Generates <paramref name="generation"/> into <paramref name="staging"/>.</summary>
     /// <param name="tools">The checked tools and the ready generator.</param>
     /// <param name="generation">What to generate and from which DAR.</param>
@@ -64,16 +67,6 @@ public sealed class GeneratorRun
             throw new ArgumentNullException(nameof(generation));
         }
         var reference = generation.Input.Reference;
-        var dar = generation.Input.DarPath;
-        DarProvenance package;
-        try
-        {
-            package = DarProvenance.Read(dar);
-        }
-        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
-        {
-            return new ConfigurationError(DamlDiagnosticCodes.CodegenFailed, $"No C# can be generated for {reference.Include}: {ex.Message}");
-        }
         // Recovery removes it with the staging when a run dies.
         var run = GenerationPublisher.RunFolderOf(staging);
         var temp = Path.Combine(run, "tmp");
@@ -81,6 +74,32 @@ public sealed class GeneratorRun
         try
         {
             GeneratorWorkFolder.PrepareRun(run, tools.Cache.Pin);
+            // One copy of the DAR for the whole run: a parallel build may rebuild the original
+            // meanwhile, and the code, the package read from it and the manifest's hash must all be
+            // of the same DAR.
+            var dar = DarSnapshotOf(staging);
+            DarProvenance package;
+            string darSha256;
+            try
+            {
+                File.Copy(generation.Input.DarPath, dar, overwrite: true);
+                darSha256 = Hashing.Sha256File(dar);
+                package = DarProvenance.Read(dar);
+            }
+            catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+            {
+                // The user knows the DAR, not the copy.
+                return new ConfigurationError(DamlDiagnosticCodes.CodegenFailed,
+                    $"No C# can be generated for {reference.Include}: {ex.Message.Replace(dar, generation.Input.DarPath)}");
+            }
+            if (generation.DarSha256 is { } planned && !string.Equals(planned, darSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                generation = generation with
+                {
+                    Fingerprint = GenerationFingerprint.Of(generation.Input, darSha256, tools.Cache.Pin.Digest, tools.DpmVersion),
+                    DarSha256 = darSha256,
+                };
+            }
             var arguments = new List<string> { "codegen-cs", "--dar", dar, "--out", staging };
             if (reference.Namespace is { } @namespace)
             {
@@ -129,7 +148,7 @@ public sealed class GeneratorRun
 
             try
             {
-                return WriteManifest(tools, generation, package, staging, owner);
+                return WriteManifest(tools, generation, package, darSha256, staging, owner);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -155,7 +174,7 @@ public sealed class GeneratorRun
         }
     }
 
-    private static ConfigurationError? WriteManifest(CodegenTools tools, PlannedGeneration generation, DarProvenance package, string staging, string owner)
+    private static ConfigurationError? WriteManifest(CodegenTools tools, PlannedGeneration generation, DarProvenance package, string darSha256, string staging, string owner)
     {
         var reference = generation.Input.Reference;
         var dar = generation.Input.DarPath;
@@ -174,7 +193,7 @@ public sealed class GeneratorRun
             reference.Path,
             reference.Namespace,
             dar,
-            Hashing.Sha256File(dar),
+            darSha256,
             tools.Cache.Pin.Reference,
             files.Select(f => new GenerationManifestFile(f, Hashing.Sha256File(Path.Combine(staging, f)))).ToList())
         {

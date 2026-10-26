@@ -12,6 +12,16 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// </summary>
 internal static class GenerationFingerprint
 {
+    /// <summary>The fingerprint of generating <paramref name="input"/> from a DAR with the SHA-256 <paramref name="darSha256"/>.</summary>
+    public static string Of(CodegenInput input, string darSha256, string generatorDigest, string dpmVersion)
+    {
+        if (input is null)
+        {
+            throw new ArgumentNullException(nameof(input));
+        }
+        return Compute(new GenerationFingerprintInputs(input.Reference.GenerationId, darSha256, generatorDigest, dpmVersion, input.Source?.Fingerprint));
+    }
+
     /// <summary>The SHA-256 over <paramref name="inputs"/>, the generation contract and the runtime version.</summary>
     public static string Compute(GenerationFingerprintInputs inputs)
     {

@@ -95,7 +95,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
     private void GeneratesInto(string root, GenerationReference reference, Func<Task>? whileRunning, params string[] files)
     {
         var staging = Path.Combine(root, GenerationPublisher.WorkFolderName, reference.GenerationId + ".new");
-        _runner.On(Dpm, ["codegen-cs", "--dar", Dar, "--out", staging, "--", "-n", reference.Namespace!], async _ =>
+        _runner.On(Dpm, ["codegen-cs", "--dar", GeneratorRun.DarSnapshotOf(staging), "--out", staging, "--", "-n", reference.Namespace!], async _ =>
         {
             if (whileRunning is not null)
             {

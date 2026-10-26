@@ -68,9 +68,9 @@ public sealed class GenerationUpdateTests : IDisposable
         "0.6.0");
 
     // What the preflight found before the update took the lock.
-    private CodegenPlan Plan(GenerationStatus found = GenerationStatus.Stale) => new(
+    private CodegenPlan Plan(GenerationStatus found = GenerationStatus.Stale, string? darSha256 = null) => new(
         [],
-        [new PlannedGeneration(Input, Folder, Fingerprint, new GenerationState(found, found == GenerationStatus.Current ? null : "There is no generation yet.", [], []))],
+        [new PlannedGeneration(Input, Folder, Fingerprint, new GenerationState(found, found == GenerationStatus.Current ? null : "There is no generation yet.", [], [])) { DarSha256 = darSha256 }],
         new CodegenTools(Dpm, Java, "1.0.22", new GeneratorCache(_cache.Root, _cache.Pin)));
 
     private Task<CodegenResult> Update(CodegenPlan? plan = null, CodegenRequest? request = null, CancellationToken cancellationToken = default) =>
@@ -326,6 +326,23 @@ public sealed class GenerationUpdateTests : IDisposable
         WorkLeftovers().ShouldBeEmpty();
         result.Messages.ShouldContain(m => m.Severity == DamlDiagnosticSeverity.Information && m.Text.Contains(finance));
         result.Files.ShouldBe([new GeneratedFile(Path.Combine(Folder, "Asset.cs"), Id)]);
+    }
+
+    // The preflight hashed the DAR before this build had the output lock; a parallel build may have
+    // rebuilt it since. What is current is decided by the DAR as it is under the lock.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_DAR_rebuilt_while_this_build_waited_for_the_lock_is_generated_again()
+    {
+        Published(Folder);
+        var plan = Plan(GenerationStatus.Current, Hashing.Sha256File(Dar));
+        File.Delete(Dar);
+        TestDar.Write(Dar, "contracts-1.2.1");
+        _generator.Writes(new() { ["Asset.cs"] = "class Asset { int Rebuilt; }" });
+
+        var result = await Update(plan);
+
+        result.Messages.ShouldContain(m => m.Text.Contains("Generated C#"));
+        GenerationManifest.Read(Path.Combine(Folder, GenerationManifest.FileName)).ShouldNotBeNull().DarSha256.ShouldBe(Hashing.Sha256File(Dar));
     }
 
     // Projects can share a generation root. A publish another project left unfinished is that
