@@ -460,6 +460,28 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
         GeneratorRuns().ShouldBe(1);
     }
 
+    // Committed bindings are the point of Source mode: a machine without dpm builds from them with
+    // the generator switched off.
+    [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
+    public void Source_mode_with_codegen_off_compiles_the_committed_bindings()
+    {
+        App("""<EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />""", "<EqDamlGeneratedOutputMode>Source</EqDamlGeneratedOutputMode>");
+        Scenario(Generator("Finance"));
+        Dar(@"vendor\finance-1.0.0.dar", "finance-1.0.0");
+        Uses("Finance");
+        var generating = Build(MSBuildHost.Dotnet);
+
+        var committed = Build(MSBuildHost.Dotnet, "Build;ShowCompiled", true, ("EqDamlCodegenEnabled", "false"));
+
+        generating.ExitCode.ShouldBe(0, generating.Log);
+        committed.ExitCode.ShouldBe(0, committed.Log);
+        committed.Log.ShouldNotContain("Generated C# for");
+        var compiled = Lines(committed.Log, "Compiled: ");
+        compiled.ShouldBeUnique();
+        compiled.Count(f => f.StartsWith(Path.Combine(AppFolder, @"Generated\Daml\"), StringComparison.OrdinalIgnoreCase)).ShouldBe(2);
+        GeneratorRuns().ShouldBe(1);
+    }
+
     // A folder of the user's choosing: the globs mustn't find it either, and clean empties it.
     [SkippableFact, Trait("Category", "MSBuild"), Trait("Backend", "Fake")]
     public void Source_mode_generates_into_the_chosen_folder_and_clean_empties_it()
