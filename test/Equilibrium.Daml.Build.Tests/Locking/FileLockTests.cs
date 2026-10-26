@@ -44,6 +44,20 @@ public sealed class FileLockTests : IDisposable
         using var taken = await second;
     }
 
+    // Only another holder is worth waiting for. A name the file system rejects (an IOException on
+    // .NET, an ArgumentException on .NET Framework) would never clear, and spending the whole
+    // timeout on it reports the wrong cause.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_lock_path_the_file_system_rejects_fails_at_once_and_not_as_a_timeout()
+    {
+        var clock = Stopwatch.StartNew();
+
+        var ex = await Should.ThrowAsync<Exception>(() => FileLock.AcquireAsync(Path.Combine(_root, "bad<name.lock"), TimeSpan.FromSeconds(3), CancellationToken.None));
+
+        ex.ShouldNotBeOfType<TimeoutException>();
+        clock.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(2));
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task Waiting_past_the_limit_is_a_timeout()
     {

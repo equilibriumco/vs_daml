@@ -72,16 +72,20 @@ public sealed class FileLock : IDisposable
         {
             return new FileLock(new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
         }
-        catch (IOException) when (DateTime.UtcNow < deadline)
+        catch (IOException ex) when (IsHeld(ex) && DateTime.UtcNow < deadline)
         {
             // Held by another process (or another build in this one).
             return null;
         }
-        catch (IOException ex)
+        catch (IOException ex) when (IsHeld(ex))
         {
             throw new TimeoutException($"{path} was still held after {timeout.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)} s.", ex);
         }
     }
+
+    // ERROR_SHARING_VIOLATION and ERROR_LOCK_VIOLATION. Any other IOException (a bad path, a full
+    // disk) won't clear by waiting and goes to the caller as it is.
+    private static bool IsHeld(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33;
 
     /// <summary>Lets go of the lock.</summary>
     public void Dispose() => _file.Dispose();
