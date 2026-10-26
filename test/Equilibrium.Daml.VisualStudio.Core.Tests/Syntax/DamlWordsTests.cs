@@ -24,6 +24,8 @@ public class DamlWordsTests
     [InlineData("f ['\\n|'] x", true)]
     [InlineData("[x|'] ", true)]
     [InlineData("[Üb|er] 1", true)]
+    [InlineData("fra [|t₁] t₂", true)]
+    [InlineData("fra [t|₁] t₂", true)]
     [InlineData("f [|😀] x", true)]
     public void The_word_under_the_caret_is_found(string marked, bool significant)
     {

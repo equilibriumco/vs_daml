@@ -89,6 +89,26 @@ public class DamlLexerTests
     [InlineData("()", Unit)]
     public void Identifiers_are_varids_or_conids(string text, DamlTokenKind kind) => Single(text).ShouldBe(kind);
 
+    // damlc accepts subscripts, superscripts and combining accents after the first character of a
+    // name, as in daml-finance's "fra t₁ t₂ r₀ r₁".
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("t₁", VarId)]
+    [InlineData("r₀", VarId)]
+    [InlineData("x²", VarId)]
+    [InlineData("y₁'", VarId)]
+    [InlineData("P₁", ConId)]
+    [InlineData("café", VarId)]
+    [InlineData("x\U00010107", VarId)]
+    public void Subscripts_superscripts_and_combining_marks_continue_a_name(string text, DamlTokenKind kind) => Single(text).ShouldBe(kind);
+
+    [Fact, Trait("Category", "Unit")]
+    public void Roman_numerals_and_a_leading_subscript_do_not_belong_to_a_name()
+    {
+        // damlc rejects both: letter numbers aren't name characters, and no digit starts a name.
+        Significant("vⅫ")[0].ShouldBe(("v", VarId));
+        Significant("₁x")[0].Kind.ShouldBe(Error);
+    }
+
     [Theory, Trait("Category", "Unit")]
     [InlineData("DA.List.sort")]
     [InlineData("M.T")]

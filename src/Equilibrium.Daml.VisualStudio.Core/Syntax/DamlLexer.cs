@@ -399,9 +399,15 @@ public static class DamlLexer
 
     internal static bool IsNameStart(char c) => c == '_' || char.IsLetter(c);
 
-    internal static bool IsNameChar(char c) => c == '_' || c == '\'' || char.IsLetterOrDigit(c);
+    // Past its first character a name also takes subscripts and superscripts (t₁, x²) and
+    // combining accents, as damlc does; roman numerals and the like it rejects.
+    internal static bool IsNameChar(char c) =>
+        c == '_' || c == '\'' || char.IsLetterOrDigit(c) || IsNameMarkOrNumber(char.GetUnicodeCategory(c));
 
-    // How many units the name character at index takes: 1, 2 for a letter or digit outside the
+    private static bool IsNameMarkOrNumber(UnicodeCategory category) =>
+        category is UnicodeCategory.OtherNumber or UnicodeCategory.NonSpacingMark;
+
+    // How many units the name character at index takes: 1, 2 for a name character outside the
     // BMP (a surrogate pair), 0 when it isn't one.
     private static int NameStartLength(ReadOnlySpan<char> line, int index) =>
         index >= line.Length ? 0 : IsNameStart(line[index]) ? 1 : AstralLength(line, index, digitsToo: false);
@@ -418,7 +424,7 @@ public static class DamlLexer
         var category = CharUnicodeInfo.GetUnicodeCategory(line.Slice(index, 2).ToString(), 0);
         var isLetter = category is UnicodeCategory.UppercaseLetter or UnicodeCategory.LowercaseLetter or UnicodeCategory.TitlecaseLetter
             or UnicodeCategory.ModifierLetter or UnicodeCategory.OtherLetter;
-        return isLetter || (digitsToo && category == UnicodeCategory.DecimalDigitNumber) ? 2 : 0;
+        return isLetter || (digitsToo && (category == UnicodeCategory.DecimalDigitNumber || IsNameMarkOrNumber(category))) ? 2 : 0;
     }
 
     private static bool IsUpper(char c) => char.IsUpper(c) || char.GetUnicodeCategory(c) == UnicodeCategory.TitlecaseLetter;
