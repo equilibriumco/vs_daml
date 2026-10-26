@@ -154,6 +154,38 @@ public sealed class LanguageServerHostTests
         requests.ShouldBe(restarts ? 1 : 0);
     }
 
+    // A rename is one event with two names: a manifest renamed away matters as much as one
+    // renamed into place.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\repo\daml.yaml", @"C:\repo\daml.yaml.bak")]
+    [InlineData(@"C:\repo\daml.old.yaml", @"C:\repo\daml.yaml")]
+    public void Renaming_a_manifest_away_or_into_place_asks_for_a_restart(string from, string to)
+    {
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
+        var requests = 0;
+        host.Supervisor.RestartRequested += (_, _) => requests++;
+
+        host.OnFileRenamed(from, to);
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        requests.ShouldBe(1);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void Renaming_a_Daml_source_without_a_session_neither_fails_nor_restarts()
+    {
+        var time = new FakeTimeProvider();
+        using var host = Host(new FakeProcessRunner(), new InMemoryFileSystem(), _ => null, time);
+        host.SetWorkspace(Single(@"C:\repo"), new LanguageServerOptions());
+
+        host.OnFileRenamed(@"C:\repo\daml\Dep.daml", @"C:\repo\daml\Renamed.daml");
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+    }
+
     // One save is several change events; they add up to one restart, asked for once the
     // changes have been quiet for a moment.
     [Fact, Trait("Category", "Unit")]

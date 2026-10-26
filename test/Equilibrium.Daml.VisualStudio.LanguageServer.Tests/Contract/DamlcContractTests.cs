@@ -321,6 +321,33 @@ public class DamlcContractTests
         }
     }
 
+    // damlc keeps resolving a renamed module's old name until it hears the old file is gone, and
+    // Visual Studio reports a rename without that; the extension's own report has to be enough.
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [MemberData(nameof(Matrix))]
+    public async Task A_renamed_module_is_missing_once_the_rename_is_reported(string sdk, string mode)
+    {
+        using var sample = SampleCopy.Create("single-package", sdk);
+        var dependency = sample.File(@"daml\Dep.daml");
+        var user = sample.File(@"daml\User.daml");
+        File.WriteAllText(dependency, "module Dep where\n\nprobeValue : Int\nprobeValue = 42\n");
+        // Only a type check against Dep finds this error, so once it shows, damlc has read Dep.
+        File.WriteAllText(user, "module User where\n\nimport Dep\n\ncheck : Text\ncheck = probeValue\n");
+        await using var damlc = await RealDamlcSession.StartAsync(sample, user, Mode(mode));
+        await damlc.OpenAsync(user);
+        (await damlc.WaitForDiagnosticsAsync(user, d => d.Any(e => (int?)e["severity"] == 1))).ShouldNotBeNull("Dep was never type-checked");
+
+        var renamed = sample.File(@"daml\Renamed.daml");
+        File.Move(dependency, renamed);
+        File.WriteAllText(renamed, "module Renamed where\n\nprobeValue : Int\nprobeValue = 42\n");
+        var channel = new DamlRpcChannel();
+        channel.Attach(damlc.Rpc, 1);
+        (await channel.NotifyWatchedFilesAsync(WatchedFiles.ForRename(dependency, renamed))).ShouldBeTrue();
+
+        var missing = await damlc.WaitForDiagnosticsAsync(user, d => d.Any(e => ((string?)e["message"])?.Contains("Could not find module") == true));
+        missing.ShouldNotBeNull($"damlc {mode} {sdk} still resolves Dep after the rename was reported");
+    }
+
     // ide sends no diagnostics at all for a clean file, so there's nothing to wait for; the
     // requests themselves are retried until damlc has checked the file.
     private static async Task<RealDamlcSession> OpenedAsync(SampleCopy sample, string file, string mode, [CallerMemberName] string scenario = "")

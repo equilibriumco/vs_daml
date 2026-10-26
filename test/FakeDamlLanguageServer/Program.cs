@@ -127,6 +127,10 @@ internal static class Program
         [JsonRpcMethod("daml/sdkInstallCancel", UseSingleObjectParameterDeserialization = true)]
         public void SdkInstallCancel(JToken? parameters) => Record("daml/sdkInstallCancel:" + (string?)parameters?["sdkVersionIdentifier"]);
 
+        [JsonRpcMethod("workspace/didChangeWatchedFiles", UseSingleObjectParameterDeserialization = true)]
+        public void DidChangeWatchedFiles(JToken? parameters) => Record("workspace/didChangeWatchedFiles:"
+            + string.Join(",", (parameters?["changes"] ?? new JArray()).Select(c => $"{(int?)c["type"]} {(string?)c["uri"]}")));
+
         [JsonRpcMethod("shutdown")]
         public object? Shutdown()
         {

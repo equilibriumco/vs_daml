@@ -110,6 +110,36 @@ public sealed class DamlCustomMessageTargetTests
         (await new DamlRpcChannel().CancelSdkInstallAsync("3.6.0")).ShouldBeFalse();
     }
 
+    [Fact, Trait("Category", "Process")]
+    public async Task Watched_file_changes_are_sent_to_the_server()
+    {
+        using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario());
+        using var process = new ProcessRunner().Start(new ProcessSpec(server.ExecutablePath, []) { Environment = server.Environment.ToDictionary(p => p.Key, p => (string?)p.Value) });
+        using var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(process.StandardInput, process.StandardOutput, new JsonMessageFormatter()));
+        rpc.StartListening();
+        await rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, capabilities = new { } });
+        var channel = new DamlRpcChannel();
+        channel.Attach(rpc, 1);
+
+        (await channel.NotifyWatchedFilesAsync(WatchedFiles.ForRename(@"C:\repo\daml\Dep.daml", @"C:\repo\daml\Renamed.daml"))).ShouldBeTrue();
+
+        const string Expected = "workspace/didChangeWatchedFiles:3 file:///C:/repo/daml/Dep.daml,1 file:///C:/repo/daml/Renamed.daml";
+        var deadline = DateTime.UtcNow + Generous;
+        while (!server.ReadReceivedMethods().Contains(Expected) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+        }
+        server.ReadReceivedMethods().ShouldContain(Expected);
+        await rpc.NotifyAsync("exit");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Without_a_session_or_without_changes_nothing_is_sent()
+    {
+        (await new DamlRpcChannel().NotifyWatchedFilesAsync(WatchedFiles.ForRename(@"C:\repo\A.daml", @"C:\repo\B.daml"))).ShouldBeFalse();
+        (await new DamlRpcChannel().NotifyWatchedFilesAsync([])).ShouldBeFalse();
+    }
+
     private sealed class RecordingSinks : IVirtualResourceSink, ISdkInstallProgressSink
     {
         private readonly object _gate = new();

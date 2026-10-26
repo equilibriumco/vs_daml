@@ -12,6 +12,7 @@ using Equilibrium.Daml.VisualStudio.Core.Project;
 using Equilibrium.Daml.VisualStudio.Core.Sdk;
 using Equilibrium.Daml.VisualStudio.Core.Server;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Lenses;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Messages;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Supervision;
 using StreamJsonRpc;
@@ -388,6 +389,32 @@ public sealed class LanguageServerHost : IDisposable
     }
 
     /// <summary>
+    /// A file in the workspace was renamed. Both names count as changed, so a manifest renamed
+    /// away is noticed as well as one renamed into place. A renamed Daml source is reported to
+    /// the server as deleted under its old name and created under the new one: Visual Studio
+    /// reports only the new name, and damlc keeps resolving imports of the old module until it
+    /// hears the old file is gone.
+    /// </summary>
+    public void OnFileRenamed(string oldPath, string newPath)
+    {
+        if (oldPath is null)
+        {
+            throw new ArgumentNullException(nameof(oldPath));
+        }
+        if (newPath is null)
+        {
+            throw new ArgumentNullException(nameof(newPath));
+        }
+        OnFileChanged(oldPath);
+        OnFileChanged(newPath);
+        var events = WatchedFiles.ForRename(oldPath, newPath);
+        if (events.Count > 0)
+        {
+            _ = NotifyWatchedFilesAsync(events);
+        }
+    }
+
+    /// <summary>
     /// The file watcher lost events (its buffer overflowed, say under a large clean or build):
     /// whatever changed, a fresh start sees it.
     /// </summary>
@@ -453,6 +480,20 @@ public sealed class LanguageServerHost : IDisposable
             {
                 _fileChangeTimer.Change(FileChangeWindow, Timeout.InfiniteTimeSpan);
             }
+        }
+    }
+
+    // A session ending while the events are on their way has nothing left to tell; the next one
+    // reads the files afresh.
+    private async Task NotifyWatchedFilesAsync(IReadOnlyList<FileEvent> events)
+    {
+        try
+        {
+            await _channel.NotifyWatchedFilesAsync(events).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is ConnectionLostException or ObjectDisposedException)
+        {
+            Log(DamlLogLevel.Debug, "The session ended before a file rename reached the language server.", ex);
         }
     }
 

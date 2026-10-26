@@ -9,8 +9,9 @@ namespace Equilibrium.Daml.VisualStudio.LanguageClient;
 
 /// <summary>
 /// Watches the workspace root, and the solution's packages outside it, for the changes the server
-/// won't notice by itself: manifest edits, and the package database vanishing under a clean. What
-/// it sees goes to the host, which decides whether a restart is due.
+/// won't notice by itself: manifest edits, renamed Daml files (Visual Studio reports only their new
+/// name), and the package database vanishing under a clean. What it sees goes to the host, which
+/// decides whether a restart is due or what to tell the server.
 /// </summary>
 internal sealed class WorkspaceWatcher : IDisposable
 {
@@ -68,10 +69,17 @@ internal sealed class WorkspaceWatcher : IDisposable
         files.Changed += (_, e) => _host.OnFileChanged(e.FullPath);
         files.Created += (_, e) => _host.OnFileChanged(e.FullPath);
         files.Deleted += (_, e) => _host.OnFileChanged(e.FullPath);
-        files.Renamed += (_, e) => _host.OnFileChanged(e.FullPath);
+        files.Renamed += (_, e) => _host.OnFileRenamed(e.OldFullPath, e.FullPath);
         files.Error += (_, _) => _host.OnWatcherOverflow();
         files.EnableRaisingEvents = true;
         _watchers.Add(files);
+
+        // Only renames: Visual Studio already reports Daml files created, changed and deleted.
+        var sources = new FileSystemWatcher(folder, "*.daml") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName, InternalBufferSize = BufferSize };
+        sources.Renamed += (_, e) => _host.OnFileRenamed(e.OldFullPath, e.FullPath);
+        sources.Error += (_, _) => _host.OnWatcherOverflow();
+        sources.EnableRaisingEvents = true;
+        _watchers.Add(sources);
 
         // dpm clean deletes the package database damlc reads library sources from.
         var directories = new FileSystemWatcher(folder) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = BufferSize };
