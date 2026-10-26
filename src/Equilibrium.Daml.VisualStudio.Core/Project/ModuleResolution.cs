@@ -3,7 +3,7 @@ using System.Collections.Generic;
 namespace Equilibrium.Daml.VisualStudio.Core.Project;
 
 /// <summary>Outcome of resolving a module name to a source file.</summary>
-public enum ModuleResolutionStatus
+internal enum ModuleResolutionStatus
 {
     /// <summary>Exactly one file declares the module.</summary>
     Found,
@@ -23,10 +23,10 @@ public enum ModuleResolutionStatus
 /// <param name="ModuleName">Module name inside that package (without any import prefix).</param>
 /// <param name="Path">Full path of the file.</param>
 /// <param name="DeclaredModule">What the file's header declares, or <c>null</c> if it has none.</param>
-public sealed record ModuleCandidate(string PackageRoot, string ModuleName, string Path, string? DeclaredModule);
+internal sealed record ModuleCandidate(string PackageRoot, string ModuleName, string Path, string? DeclaredModule);
 
 /// <summary>Where a module lives, or why that can't be said.</summary>
-public sealed record ModuleResolution
+internal sealed record ModuleResolution
 {
     /// <summary>The verdict.</summary>
     public required ModuleResolutionStatus Status { get; init; }

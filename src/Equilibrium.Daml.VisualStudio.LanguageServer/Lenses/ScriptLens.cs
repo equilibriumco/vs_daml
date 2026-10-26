@@ -22,7 +22,7 @@ public readonly record struct LensRange(int StartLine, int StartCharacter, int E
 public sealed record ScriptLens(LensRange Range, string Title, VirtualResourceUri Resource);
 
 /// <summary>Reads damlc's answer to <c>textDocument/codeLens</c>.</summary>
-public static class ScriptLensParser
+internal static class ScriptLensParser
 {
     /// <summary>The command damlc puts on a script's lens.</summary>
     public const string ShowResourceCommand = "daml.showResource";

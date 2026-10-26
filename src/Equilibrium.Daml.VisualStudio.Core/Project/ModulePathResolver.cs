@@ -14,7 +14,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Project;
 /// Every candidate file's header is checked, so the answer is never just "the first file with
 /// that name somewhere".
 /// </summary>
-public sealed class ModulePathResolver
+internal sealed class ModulePathResolver
 {
     private readonly IDamlFileSystem _fileSystem;
 

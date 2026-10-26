@@ -7,7 +7,7 @@ using Equilibrium.Daml.Build.Core.Diagnostics;
 namespace Equilibrium.Daml.Build.Core.Codegen;
 
 /// <summary>Whether a C# project can compile the code this release's generator writes.</summary>
-public static class RuntimeCompatibility
+internal static class RuntimeCompatibility
 {
     private static readonly Regex ModernFramework = new(@"^net(?<major>\d+)\.(?<minor>\d+)(-.+)?$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 

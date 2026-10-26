@@ -1,7 +1,7 @@
 namespace Equilibrium.Daml.Build.Core.Configuration;
 
 /// <summary>Property values read the way MSBuild reads them.</summary>
-public static class MSBuildValue
+internal static class MSBuildValue
 {
     /// <summary>
     /// A boolean as MSBuild accepts it: <c>true</c>, <c>on</c> or <c>yes</c>, <c>false</c>,

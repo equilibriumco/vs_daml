@@ -15,7 +15,7 @@ namespace Equilibrium.Daml.Build.Core.FileSystem;
 /// every path stays plain and paths past the limit fail as they always did. Only full,
 /// normalized paths have an extended form.
 /// </summary>
-public static class LongPaths
+internal static class LongPaths
 {
     /// <summary>The longest path Windows takes without long paths turned on.</summary>
     public const int MaxPathLength = 259;

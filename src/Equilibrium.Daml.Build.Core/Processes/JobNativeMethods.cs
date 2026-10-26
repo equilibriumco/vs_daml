@@ -17,7 +17,7 @@ internal static class JobNativeMethods
     public static readonly IntPtr ProcThreadAttributeJobList = (IntPtr)0x0002000D;
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct StartupInfo
+    internal struct StartupInfo
     {
         public int Size;
         public IntPtr Reserved;
@@ -40,14 +40,14 @@ internal static class JobNativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct StartupInfoEx
+    internal struct StartupInfoEx
     {
         public StartupInfo StartupInfo;
         public IntPtr AttributeList;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct ProcessInformation
+    internal struct ProcessInformation
     {
         public IntPtr Process;
         public IntPtr Thread;
@@ -56,7 +56,7 @@ internal static class JobNativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct JobObjectBasicLimitInformation
+    internal struct JobObjectBasicLimitInformation
     {
         public long PerProcessUserTimeLimit;
         public long PerJobUserTimeLimit;
@@ -70,7 +70,7 @@ internal static class JobNativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct IoCounters
+    internal struct IoCounters
     {
         public ulong ReadOperationCount;
         public ulong WriteOperationCount;
@@ -81,7 +81,7 @@ internal static class JobNativeMethods
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct JobObjectExtendedLimitInformation
+    internal struct JobObjectExtendedLimitInformation
     {
         public JobObjectBasicLimitInformation BasicLimitInformation;
         public IoCounters IoInfo;

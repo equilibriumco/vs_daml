@@ -10,7 +10,7 @@ using Equilibrium.Daml.Build.Core.Diagnostics;
 namespace Equilibrium.Daml.Build.Core.Tools;
 
 /// <summary>Which Java the generator would run on, from <c>java -version</c>, and whether it is new enough.</summary>
-public static class JavaVersion
+internal static class JavaVersion
 {
     private const int QuotedLines = 5;
 

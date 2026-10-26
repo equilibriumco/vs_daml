@@ -12,7 +12,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Sdk;
 /// (<c>dpm version --all</c> would ask the remote registry). The active SDK is dpm's global
 /// default, not necessarily what a package's daml.yaml asks for.
 /// </summary>
-public sealed class DpmSdkResolver : ISdkResolver
+internal sealed class DpmSdkResolver : ISdkResolver
 {
     private static readonly string[] Arguments = ["versions", "-o", "json"];
 

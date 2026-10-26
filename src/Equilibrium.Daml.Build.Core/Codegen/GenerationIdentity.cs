@@ -11,7 +11,7 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// The identity of a reference's generated code. It names the folder the code is kept in, so
 /// it must come out the same in every build and on every host for the same reference.
 /// </summary>
-public static class GenerationIdentity
+internal static class GenerationIdentity
 {
     private const int LabelLength = 32;
 

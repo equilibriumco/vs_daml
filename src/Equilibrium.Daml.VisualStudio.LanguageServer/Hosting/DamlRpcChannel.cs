@@ -18,7 +18,7 @@ public interface IDamlRpcChannel
 }
 
 /// <summary>Holds at most one session's connection.</summary>
-public sealed class DamlRpcChannel : IDamlRpcChannel
+internal sealed class DamlRpcChannel : IDamlRpcChannel
 {
     private readonly object _gate = new();
     private JsonRpc? _rpc;

@@ -12,7 +12,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 /// each acceptable to damlc and writes it on to the server's stdin with a fresh
 /// <c>Content-Length</c>. Expects one writer at a time, which is how JSON-RPC writes.
 /// </summary>
-public sealed class ClientToServerStream : Stream
+internal sealed class ClientToServerStream : Stream
 {
     private readonly Stream _server;
     private readonly LspAdapterSettings _settings;
@@ -199,7 +199,7 @@ public sealed class ClientToServerStream : Stream
 /// <see cref="OpenDocuments"/> reaches the client even while the server stays silent. A framing
 /// error surfaces as an <see cref="IOException"/>, which ends the connection.
 /// </summary>
-public sealed class ServerToClientStream : Stream
+internal sealed class ServerToClientStream : Stream
 {
     private readonly Stream _server;
     private readonly LspFrameReader _reader;

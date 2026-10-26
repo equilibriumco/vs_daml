@@ -22,7 +22,7 @@ public sealed record LspAdapterSettings
 }
 
 /// <summary>The byte stream doesn't follow LSP's <c>Content-Length</c> framing.</summary>
-public sealed class LspFramingException : IOException
+internal sealed class LspFramingException : IOException
 {
     /// <summary>Creates the exception.</summary>
     public LspFramingException(string message)

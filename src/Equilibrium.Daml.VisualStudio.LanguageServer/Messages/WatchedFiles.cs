@@ -24,7 +24,7 @@ public enum FileChangeType
 public sealed record FileEvent(string Uri, FileChangeType Type);
 
 /// <summary>The file events damlc needs to hear about that Visual Studio doesn't send.</summary>
-public static class WatchedFiles
+internal static class WatchedFiles
 {
     /// <summary>
     /// The events for renaming <paramref name="oldPath"/> to <paramref name="newPath"/>: the old

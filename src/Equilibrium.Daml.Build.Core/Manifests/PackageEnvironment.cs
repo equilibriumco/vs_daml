@@ -4,7 +4,7 @@ using System.Text;
 namespace Equilibrium.Daml.Build.Core.Manifests;
 
 /// <summary>DPM's raw package-YAML expansion, following Go os.Expand.</summary>
-public static class PackageEnvironment
+internal static class PackageEnvironment
 {
     /// <summary>Expands shell-style variable references; an unset variable is a configuration error.</summary>
     public static string Expand(string text, Func<string, string?> environment)

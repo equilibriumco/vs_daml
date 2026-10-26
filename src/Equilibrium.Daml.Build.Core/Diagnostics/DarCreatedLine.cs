@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Equilibrium.Daml.Build.Core.Diagnostics;
 
 /// <summary>The line <c>dpm build</c> ends a successful build with: <c>Created .daml\dist\name-version.dar</c>.</summary>
-public static class DarCreatedLine
+internal static class DarCreatedLine
 {
     private static readonly Regex Shape = new(@"^Created (?<dar>\S.*\.dar)\s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 

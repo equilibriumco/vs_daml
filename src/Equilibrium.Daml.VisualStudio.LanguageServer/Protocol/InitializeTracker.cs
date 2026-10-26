@@ -5,7 +5,7 @@ using Newtonsoft.Json.Linq;
 namespace Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 
 /// <summary>Why the server refused <c>initialize</c>.</summary>
-public sealed class InitializeFailedEventArgs : EventArgs
+internal sealed class InitializeFailedEventArgs : EventArgs
 {
     /// <summary>Creates the event data.</summary>
     public InitializeFailedEventArgs(string message) => Message = message;
@@ -22,7 +22,7 @@ public sealed class InitializeFailedEventArgs : EventArgs
 /// VS treats a server that dies before its <c>initialized</c> as one that failed to start, and
 /// doesn't start it again by itself.
 /// </summary>
-public sealed class InitializeTracker
+internal sealed class InitializeTracker
 {
     private static readonly byte[] IdProperty = Encoding.UTF8.GetBytes("\"id\"");
 

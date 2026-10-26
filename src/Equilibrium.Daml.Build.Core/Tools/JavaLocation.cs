@@ -12,7 +12,7 @@ namespace Equilibrium.Daml.Build.Core.Tools;
 /// Finds the java the generator runs on. Its wrapper only looks on PATH, so the build puts the
 /// folder of the java found here first on the PATH it starts the generator with.
 /// </summary>
-public static class JavaLocation
+internal static class JavaLocation
 {
     /// <summary>
     /// <c>bin\java.exe</c> of <paramref name="javaHome"/> when it is set (it defaults to

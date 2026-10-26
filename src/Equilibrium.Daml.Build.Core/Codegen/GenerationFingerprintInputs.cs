@@ -9,4 +9,4 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// The fingerprint of the sources the DAR was built from, so the manifest never records sources
 /// the DAR didn't come from; null when unknown or for a DAR reference.
 /// </param>
-public sealed record GenerationFingerprintInputs(string GenerationId, string DarSha256, string GeneratorDigest, string DpmVersion, string? SourceFingerprint = null);
+internal sealed record GenerationFingerprintInputs(string GenerationId, string DarSha256, string GeneratorDigest, string DpmVersion, string? SourceFingerprint = null);

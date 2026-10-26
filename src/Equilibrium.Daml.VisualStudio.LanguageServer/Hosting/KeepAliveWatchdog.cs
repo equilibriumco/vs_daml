@@ -28,7 +28,7 @@ public sealed record KeepAliveSettings
 /// or a server without the method also ends watching, without a report: those are someone
 /// else's business.
 /// </summary>
-public sealed class KeepAliveWatchdog : IDisposable
+internal sealed class KeepAliveWatchdog : IDisposable
 {
     private readonly IDamlRpcChannel _channel;
     private readonly Action<int> _unresponsive;

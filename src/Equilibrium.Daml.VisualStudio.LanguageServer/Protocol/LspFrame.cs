@@ -11,7 +11,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 /// Reads LSP messages (<c>Content-Length</c> header, empty line, body) from a stream. Each body
 /// is read into one exactly sized array; nothing beyond the limits is ever allocated.
 /// </summary>
-public sealed class LspFrameReader
+internal sealed class LspFrameReader
 {
     private readonly Stream _stream;
     private readonly LspAdapterSettings _settings;
@@ -96,7 +96,7 @@ public sealed class LspFrameReader
 }
 
 /// <summary>Writes LSP messages.</summary>
-public static class LspFrameWriter
+internal static class LspFrameWriter
 {
     /// <summary>Writes <paramref name="body"/> with its <c>Content-Length</c> header.</summary>
     public static async Task WriteAsync(Stream stream, byte[] body, CancellationToken cancellationToken)

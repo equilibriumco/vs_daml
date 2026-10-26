@@ -7,7 +7,7 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// What this release was tested with, in one place: the generator it pins, the runtime its code
 /// is for and the oldest tools it runs on. A new generator or runtime version is a new release.
 /// </summary>
-public static class ReleaseTools
+internal static class ReleaseTools
 {
     /// <summary>The version of the generation contract; a change regenerates every generation in place.</summary>
     public const int GenerationContract = 2;

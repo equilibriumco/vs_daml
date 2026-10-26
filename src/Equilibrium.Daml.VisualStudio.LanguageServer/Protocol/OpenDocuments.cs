@@ -11,7 +11,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 /// becomes a full-text change. Diagnostics are replayed only when their text fingerprint matches.
 /// Virtual resources retain their normal open/close lifecycle.
 /// </summary>
-public sealed class OpenDocuments
+internal sealed class OpenDocuments
 {
     private static readonly byte[] DidOpen = Encoding.UTF8.GetBytes("\"textDocument/didOpen\"");
     private static readonly byte[] DidClose = Encoding.UTF8.GetBytes("\"textDocument/didClose\"");

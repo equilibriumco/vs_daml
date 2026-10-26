@@ -10,7 +10,7 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// The build's configuration and target framework are left out on purpose, since the code
 /// doesn't depend on them.
 /// </summary>
-public static class GenerationFingerprint
+internal static class GenerationFingerprint
 {
     /// <summary>The SHA-256 over <paramref name="inputs"/>, the generation contract and the runtime version.</summary>
     public static string Compute(GenerationFingerprintInputs inputs)

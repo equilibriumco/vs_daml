@@ -19,7 +19,7 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// only, and installed with <c>dpm install package</c> when the build may download, then held to
 /// the pin file by file before it is marked ready.
 /// </summary>
-public sealed class GeneratorPreparation
+internal sealed class GeneratorPreparation
 {
     private const int QuotedLines = 6;
 

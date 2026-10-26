@@ -9,7 +9,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Sdk;
 /// Reads the SDK the daml assistant would use from <c>daml version</c>, run in the project
 /// folder so the project's daml.yaml is taken into account.
 /// </summary>
-public sealed class DamlAssistantSdkResolver : ISdkResolver
+internal sealed class DamlAssistantSdkResolver : ISdkResolver
 {
     private static readonly string[] Arguments = ["version"];
 

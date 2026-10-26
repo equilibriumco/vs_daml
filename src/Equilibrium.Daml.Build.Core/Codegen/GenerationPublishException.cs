@@ -3,7 +3,7 @@ using System;
 namespace Equilibrium.Daml.Build.Core.Codegen;
 
 /// <summary>A publish that didn't happen; the message says what state the generation was left in.</summary>
-public sealed class GenerationPublishException : Exception
+internal sealed class GenerationPublishException : Exception
 {
     /// <summary>Creates the exception.</summary>
     /// <param name="code">EQD0104 when the previous generation is in place, EQD0109 when it is kept for the next build to restore.</param>

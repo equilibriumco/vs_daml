@@ -7,7 +7,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 /// (<c>file:///m%3A/...</c>) and damlc echoes that back, while <see cref="Uri.LocalPath"/>
 /// turns the escaped form into <c>/m:/...</c>, which isn't a Windows path at all.
 /// </summary>
-public static class LspUri
+internal static class LspUri
 {
     /// <summary>The Windows path of a <c>file:</c> URI, or null for any other URI or none.</summary>
     public static string? ToLocalPath(string? uri)
