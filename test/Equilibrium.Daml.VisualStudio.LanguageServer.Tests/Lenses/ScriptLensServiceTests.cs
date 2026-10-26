@@ -22,7 +22,7 @@ public sealed class ScriptLensServiceTests : IDisposable
 
     // damlc 3.6's answer for samples/single-package/daml/Main.daml.
     private static readonly JToken Answer = JToken.Parse("""
-        [{"command":{"arguments":["Script: setup","daml://compiler?file=M%3A%2FMoje%2FProjekty%2Fvs_daml%2Fsamples%2Fsingle-package%2Fdaml%2FMain.daml&top-level-decl=setup"],
+        [{"command":{"arguments":["Script: setup","daml://compiler?file=C%3A%2Fwork%2Fvs_daml%2Fsamples%2Fsingle-package%2Fdaml%2FMain.daml&top-level-decl=setup"],
           "command":"daml.showResource","title":"Script results"},
           "range":{"end":{"character":5,"line":21},"start":{"character":0,"line":21}}}]
         """);
@@ -260,7 +260,7 @@ public sealed class ScriptLensServiceTests : IDisposable
     {
         await LensesArrivedAsync();
 
-        _service.GetLenses("file:///m%3A/moje/projekty/vs_daml/samples/single-package/daml/main.daml").Count.ShouldBe(1);
+        _service.GetLenses("file:///c%3A/WORK/vs_daml/samples/single-package/daml/main.daml").Count.ShouldBe(1);
     }
 
     private async Task LensesArrivedAsync()

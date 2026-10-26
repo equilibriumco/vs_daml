@@ -35,7 +35,3 @@ grammar/test/real-world/
 Thumbs.db
 Desktop.ini
 .DS_Store
-
-# Kept locally only: the working log of tasks and decisions and the changelog are not published.
-docs/progress.md
-CHANGELOG.md

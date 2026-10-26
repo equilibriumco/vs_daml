@@ -8,7 +8,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Tests.Server;
 public class VirtualResourceUriTests
 {
     // As damlc 3.6 sends it in a code lens for samples/single-package.
-    private const string Recorded = "daml://compiler?file=M%3A%2FMoje%2FProjekty%2Fvs_daml%2Fsamples%2Fsingle-package%2Fdaml%2FMain.daml&top-level-decl=setup";
+    private const string Recorded = "daml://compiler?file=C%3A%2Fwork%2Fvs_daml%2Fsamples%2Fsingle-package%2Fdaml%2FMain.daml&top-level-decl=setup";
 
     [Fact, Trait("Category", "Unit")]
     public void A_recorded_uri_names_the_file_and_the_declaration()
