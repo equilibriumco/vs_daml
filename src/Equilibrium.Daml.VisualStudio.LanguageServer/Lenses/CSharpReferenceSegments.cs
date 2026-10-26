@@ -110,6 +110,7 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
     private readonly Dictionary<string, Document> _documents = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
     private int _generation;
+    private long _linkTurn;
     private bool _disposed;
 
     /// <summary>Creates the provider over <paramref name="source"/>.</summary>
@@ -177,28 +178,43 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
         {
             return;
         }
-        bool changed;
-        var stop = new List<CancellationTokenSource>();
+        Document? document;
+        long turn;
+        bool reread;
         lock (_gate)
         {
             if (_disposed)
             {
                 return;
             }
-            if (!_documents.TryGetValue(documentUri, out var document))
+            if (!_documents.TryGetValue(documentUri, out document))
             {
                 _documents[documentUri] = document = new Document(file);
             }
-            changed = false;
-            if (document.TextVersion != textVersion)
+            turn = ++_linkTurn;
+            reread = textVersion > document.TextVersion;
+        }
+
+        // Parsing the text and finding the link, which hashes the package's sources, are done
+        // outside the lock: layout reads the rows meanwhile.
+        (string? Module, IReadOnlyList<DamlLensDeclaration> Declarations)? parsed = reread ? DamlLensDeclarations.Of(text()) : null;
+        var link = _source.LinkOf(file);
+
+        var changed = false;
+        var stop = new List<CancellationTokenSource>();
+        lock (_gate)
+        {
+            // Closed while this looked: the document stays gone.
+            if (_disposed || !_documents.TryGetValue(documentUri, out var now) || !ReferenceEquals(now, document))
             {
-                var (module, declarations) = DamlLensDeclarations.Of(text());
+                return;
+            }
+            if (parsed is var (module, declarations) && textVersion > document.TextVersion)
+            {
                 changed = module != document.Module || !declarations.SequenceEqual(document.Declarations);
                 (document.Module, document.Declarations, document.TextVersion) = (module, declarations, textVersion);
             }
-            var link = _source.LinkOf(file);
-            changed |= link != document.Link;
-            document.Link = link;
+            changed |= Relink(document, link, turn);
             (document.FirstLine, document.LastLine) = (firstLine, lastLine);
             Schedule(documentUri, document, stop);
         }
@@ -337,8 +353,8 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
     // screen, the old one showing until then; counts under way finish first and are redone after.
     private void OnSourceChanged(object? sender, EventArgs e)
     {
-        List<string> changed;
-        var stop = new List<CancellationTokenSource>();
+        List<KeyValuePair<string, Document>> documents;
+        long turn;
         lock (_gate)
         {
             if (_disposed)
@@ -346,16 +362,32 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
                 return;
             }
             _generation++;
-            changed = [];
-            foreach (var pair in _documents)
+            turn = ++_linkTurn;
+            documents = [.. _documents];
+        }
+
+        var links = documents.Select(pair => _source.LinkOf(pair.Value.File)).ToList();
+
+        var changed = new List<string>();
+        var stop = new List<CancellationTokenSource>();
+        lock (_gate)
+        {
+            if (_disposed)
             {
-                var link = _source.LinkOf(pair.Value.File);
-                if (link != pair.Value.Link)
+                return;
+            }
+            for (var i = 0; i < documents.Count; i++)
+            {
+                var (uri, document) = (documents[i].Key, documents[i].Value);
+                if (!_documents.TryGetValue(uri, out var now) || !ReferenceEquals(now, document))
                 {
-                    pair.Value.Link = link;
-                    changed.Add(pair.Key);
+                    continue;
                 }
-                Schedule(pair.Key, pair.Value, stop);
+                if (Relink(document, links[i], turn))
+                {
+                    changed.Add(uri);
+                }
+                Schedule(uri, document, stop);
             }
         }
         Cancel(stop);
@@ -365,9 +397,25 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
         }
     }
 
+    // Under the lock. Links are found outside it, so one asked for earlier can arrive later; it is
+    // out of date by then and dropped. Returns whether the document's link changed.
+    private static bool Relink(Document document, CSharpLinkState link, long turn)
+    {
+        if (turn < document.LinkTurn)
+        {
+            return false;
+        }
+        document.LinkTurn = turn;
+        var changed = link != document.Link;
+        document.Link = link;
+        return changed;
+    }
+
     private sealed class Document(string file)
     {
         public string File { get; } = file;
+
+        public long LinkTurn { get; set; }
 
         public int TextVersion { get; set; } = -1;
 

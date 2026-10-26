@@ -51,7 +51,7 @@ public sealed class DamlSources
             {
                 return SourceStatus.External;
             }
-            var now = PackageBuildState.Compute(source.ManifestPath, package.Source.Path, []).SourceFingerprint;
+            var now = PackageBuildState.SourceFingerprintOf(package.Source.Path);
             return string.Equals(now, source.Fingerprint, StringComparison.OrdinalIgnoreCase) ? SourceStatus.Current : SourceStatus.Stale;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

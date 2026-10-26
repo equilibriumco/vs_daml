@@ -317,6 +317,18 @@ public sealed class PackageBuildStateTests : IDisposable
             .ShouldBe([Path.Combine(Source, @"Asset\Asset.daml"), Path.Combine(Source, "Main.daml")]);
     }
 
+    // What the IDE compares with a generation's record, without the tool and SDK inputs of a build.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("daml")]
+    [InlineData(@"daml\Main.daml")]
+    public void The_source_fingerprint_alone_is_the_one_the_build_state_has(string source)
+    {
+        var sourcePath = Path.Combine(_root, source);
+
+        PackageBuildState.SourceFingerprintOf(sourcePath)
+            .ShouldBe(PackageBuildState.Compute(Manifest, sourcePath, Dependencies, NoEnvironment, null).SourceFingerprint);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void The_source_fingerprint_of_the_last_build_can_be_read_back_without_hashing_anything()
     {

@@ -54,14 +54,7 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
         {
             throw new ArgumentNullException(nameof(dependencyDars));
         }
-        var folder = SourceFolder(sourcePath);
-        var sources = new StringBuilder("daml-sources/1\n");
-        foreach (var file in SourceFiles(sourcePath))
-        {
-            sources.Append(Hashing.Sha256File(file)).Append(' ').Append(file.Substring(folder.Length).TrimStart(Path.DirectorySeparatorChar)).Append('\n');
-        }
-        var sourceFingerprint = Hashing.Sha256Text(sources.ToString());
-
+        var sourceFingerprint = SourceFingerprintOf(sourcePath);
         var all = new StringBuilder("daml-build-state/1\n")
             .Append("manifest=").Append(Hashing.Sha256File(manifestPath)).Append('\n')
             .Append("sources=").Append(sourceFingerprint).Append('\n');
@@ -105,6 +98,22 @@ public sealed record PackageBuildState(string Fingerprint, string SourceFingerpr
                 && (multi is null || multi.Components.Count == 0)
                 && package.Dependencies.Concat(package.DataDependencies).All(d => !d.Contains("://") && !d.StartsWith("@", StringComparison.Ordinal)),
         };
+    }
+
+    /// <summary>
+    /// The <see cref="SourceFingerprint"/> of the sources as they are now: their paths and content,
+    /// with nothing of the tools or the SDK a build also tracks.
+    /// </summary>
+    /// <param name="sourcePath">The package's <c>source</c>: a folder, or a single file.</param>
+    public static string SourceFingerprintOf(string sourcePath)
+    {
+        var folder = SourceFolder(sourcePath);
+        var sources = new StringBuilder("daml-sources/1\n");
+        foreach (var file in SourceFiles(sourcePath))
+        {
+            sources.Append(Hashing.Sha256File(file)).Append(' ').Append(file.Substring(folder.Length).TrimStart(Path.DirectorySeparatorChar)).Append('\n');
+        }
+        return Hashing.Sha256Text(sources.ToString());
     }
 
     private static IEnumerable<string> SdkManifests(string home, string edition, string? sdk)

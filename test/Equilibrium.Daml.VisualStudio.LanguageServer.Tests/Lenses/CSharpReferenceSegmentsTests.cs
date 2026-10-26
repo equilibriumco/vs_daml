@@ -144,8 +144,6 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         Texts()[0].ShouldBe("C#: 3 references", "the old count shows until the new one arrives");
     }
 
-    // The C# workspace changes over and over while a solution loads; a count under way still ends and
-    // shows, and the next one starts after it, so the row never stays "C#: …" for good.
     // Every view of the file closed: what it was counting stops, and changes to the C# over a long
     // session don't keep counting for a file nobody looks at.
     [Fact, Trait("Category", "Unit")]
@@ -178,6 +176,8 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         _source.Asked.ShouldBe(["T0", "T0"]);
     }
 
+    // The C# workspace changes over and over while a solution loads; a count under way still ends and
+    // shows, and the next one starts after it, so the row never stays "C#: …" for good.
     [Fact, Trait("Category", "Unit")]
     public async Task A_count_under_way_finishes_however_often_the_CSharp_changes()
     {
@@ -248,6 +248,61 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         }
     }
 
+    // Finding the link hashes the package's Daml sources; layout asking for rows doesn't wait for it.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Rows_can_be_read_while_the_link_is_found()
+    {
+        Show(0, 5);
+        await UntilAsync(() => _source.Asked.Count == 1);
+        using var release = new ManualResetEventSlim();
+        _source.HoldNextLink(release);
+
+        var changing = Task.Run(_source.RaiseChanged);
+        try
+        {
+            await UntilAsync(() => _source.LinksHeld == 1);
+
+            (await FinishesAsync(Task.Run(() => _segments.SegmentsFor(Uri)))).ShouldBeTrue("the rows waited for the link");
+        }
+        finally
+        {
+            release.Set();
+            await changing;
+        }
+    }
+
+    // Two changes in quick succession: the link found for the first, arriving last, doesn't undo the second.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_link_found_late_for_an_older_change_doesnt_win()
+    {
+        Show(0, 100);
+        await UntilAsync(() => _source.Asked.Count == 2);
+        using var release = new ManualResetEventSlim();
+        _source.HoldNextLink(release);
+        var older = Task.Run(_source.RaiseChanged);
+        Task? newer = null;
+        try
+        {
+            await UntilAsync(() => _source.LinksHeld == 1);
+            _source.Link = CSharpLinkState.Stale;
+            newer = Task.Run(_source.RaiseChanged);
+
+            (await FinishesAsync(newer)).ShouldBeTrue("the newer change waited for the older one");
+        }
+        finally
+        {
+            release.Set();
+            await Task.WhenAll(older, newer ?? Task.CompletedTask);
+        }
+
+        Texts().ShouldAllBe(t => t == "C#: out of date (build to update)");
+    }
+
+#pragma warning disable VSTHRD003 // The task was started by the test that asks.
+    private static async Task<bool> FinishesAsync(Task task) =>
+        await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(10))).ConfigureAwait(false) == task;
+#pragma warning restore VSTHRD003
+
     // A declaration added since the last build has no C# yet; its row would only mislead.
     [Fact, Trait("Category", "Unit")]
     public async Task A_declaration_without_generated_CSharp_has_no_segment()
@@ -268,6 +323,8 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
         private readonly List<(string Name, TaskCompletionSource<IReadOnlyList<CSharpReference>?> Result)> _runs = [];
         private readonly List<string> _cancelled = [];
         private int _running;
+        private int _linksHeld;
+        private ManualResetEventSlim? _holdNextLink;
 
         public event EventHandler? Changed;
 
@@ -297,7 +354,21 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
 
         public int Running => Volatile.Read(ref _running);
 
-        public CSharpLinkState LinkOf(string damlFile) => Link;
+        // The next LinkOf answers with the link as it is when asked, but only once this is set.
+        public void HoldNextLink(ManualResetEventSlim release) => Volatile.Write(ref _holdNextLink, release);
+
+        public int LinksHeld => Volatile.Read(ref _linksHeld);
+
+        public CSharpLinkState LinkOf(string damlFile)
+        {
+            var link = Link;
+            if (Interlocked.Exchange(ref _holdNextLink, null) is { } hold)
+            {
+                Interlocked.Increment(ref _linksHeld);
+                hold.Wait();
+            }
+            return link;
+        }
 
         public async Task<IReadOnlyList<CSharpReference>?> FindAsync(string damlFile, string damlModule, DamlLensDeclaration declaration, CancellationToken cancellationToken)
         {
