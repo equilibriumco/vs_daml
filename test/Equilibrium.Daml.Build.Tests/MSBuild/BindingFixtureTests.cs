@@ -78,7 +78,8 @@ public sealed class BindingFixtureTests : IDisposable
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.WriteAllText(target, file.Value);
             }
-            return;
+            // Not a pass: a CI that inherits the variable would go green without comparing anything.
+            throw new SkipException($"The {fixtureName} fixture was regenerated; run again without EQDAML_UPDATE_BINDING_FIXTURES to compare.");
         }
         var checkedIn = CSharpFiles(expected);
         generated.Keys.ShouldBe(checkedIn.Keys, ignoreOrder: true, "the generator writes other files than the fixture has; regenerate it");

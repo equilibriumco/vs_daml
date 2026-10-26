@@ -180,7 +180,9 @@ internal sealed class MSBuildSandbox : IDisposable
         process.BeginErrorReadLine();
         if (!process.WaitForExit(300_000))
         {
-            process.Kill();
+            // Kill alone leaves the build's children (dotnet nodes, dpm, java) holding the sandbox.
+            using var taskkill = Process.Start(new ProcessStartInfo("taskkill.exe", $"/T /F /PID {process.Id}") { UseShellExecute = false, CreateNoWindow = true })!;
+            taskkill.WaitForExit(30_000);
             throw new TimeoutException($"{host} didn't finish {project} within 5 minutes.");
         }
         process.WaitForExit();
