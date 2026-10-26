@@ -12,6 +12,7 @@ using Equilibrium.Daml.Build.Core.Configuration;
 using Equilibrium.Daml.Build.Core.Diagnostics;
 using Equilibrium.Daml.Build.Core.FileSystem;
 using Equilibrium.Daml.Build.Core.Locking;
+using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.Build.Core.Tools;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -156,8 +157,37 @@ public abstract class DpmToolTask : ToolTask
                 $"{DamlProperties.SkipPreflight.Name} is true, so the build doesn't check that dpm is new enough.");
             return true;
         }
-        var (version, output) = DpmVersionProbe.Read(_dpm!, BuildEngine, EnvironmentVariables);
-        if (DpmVersion.Problem(version, output) is not { } problem)
+        // Through the job runner and the same cancellable wait as the package lock, so a build
+        // cancelled while dpm is asked stops at once instead of waiting out the probe.
+        var environment = (EnvironmentVariables ?? [])
+            .Select(v => v.Split(['='], 2))
+            .Where(v => v.Length == 2)
+            .GroupBy(v => v[0], StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => (string?)g.Last()[1], StringComparer.OrdinalIgnoreCase);
+        using var waiting = new CancellationTokenSource();
+        Volatile.Write(ref _waiting, waiting);
+        if (_cancelled)
+        {
+            waiting.Cancel();
+        }
+        ConfigurationError? problem;
+        try
+        {
+            // MSBuild runs a task on a worker thread of its own, with no synchronization context.
+#pragma warning disable VSTHRD002
+            problem = new ToolVersionProbe(new ProcessRunner()).DpmAsync(_dpm!, environment, waiting.Token).GetAwaiter().GetResult().Problem;
+#pragma warning restore VSTHRD002
+        }
+        catch (OperationCanceledException)
+        {
+            Stopped($"dpm {Command.ToString().ToLowerInvariant()} was cancelled while dpm was asked its version.");
+            return false;
+        }
+        finally
+        {
+            Volatile.Write(ref _waiting, null);
+        }
+        if (problem is null)
         {
             return true;
         }

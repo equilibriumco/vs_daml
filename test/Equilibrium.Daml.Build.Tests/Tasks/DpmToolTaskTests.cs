@@ -326,6 +326,29 @@ public sealed class DpmToolTaskTests : IDisposable
         WaitUntilNoFakeDpmRuns();
     }
 
+    // The version check is the first thing the task runs; a dpm that hangs there must not outlast
+    // a cancelled build.
+    [Fact, Trait("Category", "Process")]
+    public async Task Cancelling_while_dpm_is_asked_its_version_stops_the_task()
+    {
+        var hanging = Version("version: 1.0.22\n");
+        hanging.DelayMilliseconds = 60_000;
+        var task = Build(hanging, Command("build", ""));
+        File.SetLastWriteTimeUtc(_dpm.ExecutablePath, DateTime.UtcNow.AddDays(-1));
+        var run = Task.Run(task.Execute);
+        SpinWait.SpinUntil(() => VersionProbes() > 0, TimeSpan.FromSeconds(30)).ShouldBeTrue("dpm was never asked its version");
+        var clock = Stopwatch.StartNew();
+
+        task.Cancel();
+
+        (await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(30)))).ShouldBe(run, "the task didn't return after cancelling");
+        (await run).ShouldBeFalse();
+        clock.Elapsed.ShouldBeLessThan(TimeSpan.FromSeconds(20));
+        _engine.Errors.ShouldContain(e => e.Code == DamlDiagnosticCodes.CancelledOrTimedOut && e.Message!.Contains("cancelled"));
+        ToolCalls().ShouldBeEmpty();
+        WaitUntilGone(_dpm.ReadCalls().Single(IsVersionProbe));
+    }
+
     [Fact, Trait("Category", "Process")]
     public void A_dpm_that_isnt_there_fails_before_anything_runs()
     {
@@ -434,9 +457,10 @@ public sealed class DpmToolTaskTests : IDisposable
         (warning.Code, warning.Message).ShouldBe((DamlDiagnosticCodes.DpmTooOld, "EqDamlSkipPreflight is true, so the build doesn't check that dpm is new enough."));
     }
 
-    private void WaitUntilNoFakeDpmRuns()
+    private void WaitUntilNoFakeDpmRuns() => WaitUntilGone(ToolCalls().ShouldHaveSingleItem());
+
+    private static void WaitUntilGone(FakeDpmCall call)
     {
-        var call = ToolCalls().ShouldHaveSingleItem();
         call.ProcessId.ShouldBeGreaterThan(0);
         bool Running()
         {

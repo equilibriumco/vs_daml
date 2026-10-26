@@ -22,14 +22,13 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 public sealed class CodegenPreflight
 {
     private const string Unchecked = "unchecked";
-    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(60);
 
     private readonly IProcessRunner _runner;
     private readonly IDamlFileSystem _files;
     private readonly Func<string, string?> _environment;
     private readonly string _codegenRoot;
     private readonly string _locks;
-    private readonly ToolVersionCache _versions;
+    private readonly ToolVersionProbe _versions;
 
     /// <summary>Creates the preflight.</summary>
     /// <param name="runner">Runs dpm and java.</param>
@@ -49,7 +48,7 @@ public sealed class CodegenPreflight
         _environment = environment ?? throw new ArgumentNullException(nameof(environment));
         _codegenRoot = codegenRoot ?? throw new ArgumentNullException(nameof(codegenRoot));
         _locks = locks ?? throw new ArgumentNullException(nameof(locks));
-        _versions = versions;
+        _versions = new ToolVersionProbe(_runner, versions);
     }
 
     /// <summary>
@@ -79,9 +78,8 @@ public sealed class CodegenPreflight
         {
             if (dpm is not null)
             {
-                var (output, _) = await AskAsync(dpm, DpmVersion.Arguments, stderr: false, cancellationToken).ConfigureAwait(false);
-                var version = DpmVersion.Parse(output);
-                if (DpmVersion.Problem(version, output) is { } problem)
+                var (version, problem) = await _versions.DpmAsync(dpm, null, cancellationToken).ConfigureAwait(false);
+                if (problem is not null)
                 {
                     problems.Add(problem);
                 }
@@ -89,7 +87,7 @@ public sealed class CodegenPreflight
             }
             if (java is not null)
             {
-                var (output, _) = await AskAsync(java, JavaVersion.Arguments, stderr: true, cancellationToken).ConfigureAwait(false);
+                var (output, _) = await _versions.AskAsync(java, JavaVersion.Arguments, stderr: true, null, cancellationToken).ConfigureAwait(false);
                 if (JavaVersion.Problem(JavaVersion.Parse(output), java, output) is { } problem)
                 {
                     problems.Add(problem);
@@ -129,20 +127,4 @@ public sealed class CodegenPreflight
         }
         return new CodegenPlan(problems, generations, new CodegenTools(dpm, java, dpmVersion, cache));
     }
-
-    // A tool that can't run says so in its output, which the version check then quotes.
-    private Task<(IReadOnlyList<string> Output, bool Succeeded)> AskAsync(string tool, IReadOnlyList<string> arguments, bool stderr, CancellationToken cancellationToken) =>
-        _versions.OutputAsync(tool, async () =>
-        {
-            try
-            {
-                var result = await _runner.RunAsync(new ProcessSpec(tool, arguments) { Timeout = ProbeTimeout }, cancellationToken).ConfigureAwait(false);
-                var text = stderr ? result.Stderr + "\n" + result.Stdout : result.Stdout + "\n" + result.Stderr;
-                return ((IReadOnlyList<string>)text.Split('\n').Select(l => l.TrimEnd('\r')).ToList(), result.ExitCode == 0);
-            }
-            catch (Exception ex) when (ex is TimeoutException or FileNotFoundException)
-            {
-                return ([ex.Message], false);
-            }
-        }, cancellationToken);
 }
