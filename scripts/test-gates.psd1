@@ -31,49 +31,9 @@
             Tools    = @()
             Coverage = @{}
         }
-        M0 = @{
-            Required = @('Unit', 'Process', 'Editor', 'Integration')
-            Pending  = @{}
-            Tools    = @()
-            Coverage = @{
-                'net10.0' = @{
-                    'Equilibrium.Daml.VisualStudio.Core'           = 85
-                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
-                    'Equilibrium.Daml.Build.Core'                  = 80
-                }
-            }
-        }
-        # M1: the language server against the real damlc (Contract, SDK 3.6 and 3.5) and the
-        # extension inside Visual Studio (Integration) join the gate; both need dpm.
-        M1 = @{
-            Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
-            Pending  = @{}
-            Tools    = @('dpm')
-            Coverage = @{
-                'net10.0' = @{
-                    'Equilibrium.Daml.VisualStudio.Core'           = 85
-                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
-                    'Equilibrium.Daml.Build.Core'                  = 80
-                }
-            }
-        }
-        # M2: what M1 requires, now also covering the native editor and the script results; the
-        # demo is the human's part of the gate.
-        M2 = @{
-            Required = @('Unit', 'Process', 'Editor', 'Contract', 'Integration')
-            Pending  = @{}
-            Tools    = @('dpm')
-            Coverage = @{
-                'net10.0' = @{
-                    'Equilibrium.Daml.VisualStudio.Core'           = 85
-                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
-                    'Equilibrium.Daml.Build.Core'                  = 80
-                }
-            }
-        }
         # Hosted: the most a GitHub-hosted runner can prove, for the Nightly workflow. It has no
         # Visual Studio session (Integration) and no dpm (Contract, real MSBuild), so the coverage
-        # of the tasks, which those runs give, is left to M3/M6 on a machine that has them.
+        # of the tasks, which those runs give, is left to Full on a machine that has them.
         Hosted = @{
             Required = @('Unit', 'Process', 'Editor', 'MSBuild')
             Pending  = @{}
@@ -89,10 +49,10 @@
                 }
             }
         }
-        # M3: Daml projects in MSBuild and the C# bindings join the gate. L4 runs against the real
-        # dpm and generator too (MSBuildBackend), so the JDK is required; the tasks and the Roslyn
-        # index are measured on net48, the framework Visual Studio loads them in.
-        M3 = @{
+        # Full: everything, for a release candidate on each supported host. The MSBuild tests run
+        # against the real dpm and generator too (MSBuildBackend), so the JDK is required; the
+        # tasks and the Roslyn index are measured on net48, the framework Visual Studio loads them in.
+        Full = @{
             Required       = @('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration')
             Pending        = @{}
             Tools          = @('dpm', 'java')
@@ -109,29 +69,10 @@
                 }
             }
         }
-        # M6: the 1.0 release on the lexer. Every category of M3 again, run on each supported host
-        # with the same tools and thresholds; the grammar stays its own path (M4).
-        M6 = @{
-            Required       = @('Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration')
-            Pending        = @{}
-            Tools          = @('dpm', 'java')
-            MSBuildBackend = 'All'
-            Coverage       = @{
-                'net10.0' = @{
-                    'Equilibrium.Daml.VisualStudio.Core'           = 85
-                    'Equilibrium.Daml.VisualStudio.LanguageServer' = 80
-                    'Equilibrium.Daml.Build.Core'                  = 80
-                }
-                'net48'   = @{
-                    'Equilibrium.Daml.Build.Tasks'         = 80
-                    'Equilibrium.Daml.VisualStudio.Roslyn' = 75
-                }
-            }
-        }
-        # M4: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
+        # Grammar: the tree-sitter grammar on its own (it doesn't touch the extension): corpus,
         # highlight and tag tests, `tree-sitter fuzz`, the scripts' tests and the corpus gate,
         # which in a gate run needs the collected real-world corpus.
-        M4 = @{
+        Grammar = @{
             Required = @('Grammar')
             Pending  = @{}
             Tools    = @()

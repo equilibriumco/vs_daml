@@ -56,7 +56,7 @@ jobs:
       # The PR profile in scripts/test-gates.psd1: every required project must run tests on each
       # of its frameworks without skips; coverage is reported, not enforced.
       - name: Tests (PR gate)
-        run: ./scripts/test.ps1 -Category All -Milestone PR -RequiredTools -Configuration Release -NoBuild
+        run: ./scripts/test.ps1 -Category All -Gate PR -RequiredTools -Configuration Release -NoBuild
 
       # Two paths: the artifact holds packages/ and sbom/ folders.
       - name: Upload VSIX, packages and SBOMs

@@ -58,7 +58,7 @@ jobs:
           ./scripts/test-scripts.ps1
 
       - name: Tests (PR gate)
-        run: ./scripts/test.ps1 -Category All -Milestone PR -RequiredTools -Configuration Release -NoBuild
+        run: ./scripts/test.ps1 -Category All -Gate PR -RequiredTools -Configuration Release -NoBuild
 
       - name: One version, named by the tag
         id: version

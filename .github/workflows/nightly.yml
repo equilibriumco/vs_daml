@@ -2,14 +2,18 @@ name: Nightly
 
 # Gate-mode run: every required category must execute tests without skips and meet the gate's
 # coverage. On GitHub's hosted runner only the Hosted profile can pass: it has no Visual Studio
-# session for Integration and no dpm for Contract and the real MSBuild tests. The milestone gates
-# (M3, M6) need a self-hosted runner with both; then switch runs-on to its label, pick the
-# milestone, and enable the schedule.
+# session for Integration and no dpm for Contract and the real MSBuild tests. The Full gate
+# needs a self-hosted runner with both; then switch runs-on to its label, pick Full, and enable
+# the schedule.
 on:
   workflow_dispatch:
     inputs:
-      milestone:
-        description: Milestone whose gate to check (see scripts/test-gates.psd1)
+      gate:
+        description: Gate to check (see scripts/test-gates.psd1)
+        type: choice
+        options:
+          - Hosted
+          - Full
         default: Hosted
         required: true
   # schedule:
@@ -28,7 +32,7 @@ jobs:
     env:
       DOTNET_NOLOGO: 'true'
       DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
-      MILESTONE: ${{ inputs.milestone || 'Hosted' }}
+      GATE: ${{ inputs.gate || 'Hosted' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,10 +43,10 @@ jobs:
 
       # Check only: a gate run must use a toolchain that was installed on purpose, not one this
       # job quietly downloaded. The Hosted profile needs Visual Studio's build tools and the SDK;
-      # the milestone gates also need dpm and a JDK, which bootstrap.ps1 checks.
+      # the Full gate also needs dpm and a JDK, which bootstrap.ps1 checks.
       - name: Toolchain check
         run: |
-          if ($env:MILESTONE -eq 'Hosted') {
+          if ($env:GATE -eq 'Hosted') {
             Import-Module ./scripts/lib/Toolchain.psm1
             Select-BuildVsInstance | Format-List DisplayName, Version, MSBuildVersion, SdkVersion
           }
@@ -54,13 +58,13 @@ jobs:
         run: ./scripts/build.ps1 -Configuration Release
 
       - name: Gate tests
-        run: ./scripts/test.ps1 -Category All -Milestone $env:MILESTONE -RequiredTools -Configuration Release -NoBuild
+        run: ./scripts/test.ps1 -Category All -Gate $env:GATE -RequiredTools -Configuration Release -NoBuild
 
       - name: Upload logs and test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nightly-${{ env.MILESTONE }}-${{ github.run_number }}
+          name: nightly-${{ env.GATE }}-${{ github.run_number }}
           path: |
             artifacts/logs
             artifacts/test

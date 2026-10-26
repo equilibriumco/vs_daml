@@ -9,19 +9,20 @@
     target framework. Results go to artifacts/test/<Category>/<tfm>/<project>/.
 
     Local runs are lenient: a category without tests is reported as N/A and skipped tests
-    are allowed. -RequiredTools turns the run into a gate check for -Milestone (M0, M1, ... or
-    PR for pull requests): every category of the gate runs, missing tools, a required project
-    that executes no tests on one of its frameworks, any skip, any failure, a pending category
-    that suddenly has tests, and coverage below the gate's thresholds all make the script exit
-    non-zero. Test code sees EQDAML_REQUIRED_TOOLS=1 and must fail instead of skipping when a
+    are allowed. -RequiredTools turns the run into a check of -Gate, one of the profiles in
+    test-gates.psd1 (PR for pull requests, Hosted for a GitHub-hosted runner, Full for a release
+    candidate, Grammar for the tree-sitter grammar): every category of the gate runs, and
+    missing tools, a required project that executes no tests on one of its frameworks, any
+    skip, any failure, a pending category that suddenly has tests, and coverage below the
+    gate's thresholds all make the script exit non-zero. Test code sees EQDAML_REQUIRED_TOOLS=1 and must fail instead of skipping when a
     tool is missing.
 
 .EXAMPLE
     pwsh scripts/test.ps1 -Category Unit
 .EXAMPLE
-    pwsh scripts/test.ps1 -Category All -Milestone PR -RequiredTools
+    pwsh scripts/test.ps1 -Category All -Gate PR -RequiredTools
 .EXAMPLE
-    pwsh scripts/test.ps1 -Category All -Milestone M0 -RequiredTools
+    pwsh scripts/test.ps1 -Category All -Gate Full -RequiredTools
 #>
 [CmdletBinding()]
 param(
@@ -35,8 +36,8 @@ param(
     [ValidateSet('Fake', 'Real', 'All')]
     [string] $Backend = 'Fake',
 
-    [ValidatePattern('^(M\d|PR)$')]
-    [string] $Milestone,
+    [ValidateSet('PR', 'Hosted', 'Full', 'Grammar')]
+    [string] $Gate,
 
     [switch] $RequiredTools,
     [switch] $NoBuild,
@@ -53,37 +54,37 @@ $resultsRoot = Join-Path $root 'artifacts\test'
 $vstestCategories = 'Unit', 'Process', 'Editor', 'Contract', 'MSBuild', 'Integration'
 $layout = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'test-gates.psd1')
 
-$gate = $null
-if ($Milestone) {
-    if (-not $layout.Gates.ContainsKey($Milestone)) { throw "No gate definition for $Milestone in test-gates.psd1." }
-    $gate = $layout.Gates[$Milestone]
+$gateProfile = $null
+if ($Gate) {
+    if (-not $layout.Gates.ContainsKey($Gate)) { throw "No gate definition for $Gate in test-gates.psd1." }
+    $gateProfile = $layout.Gates[$Gate]
 }
 if ($RequiredTools) {
-    if (-not $gate) { throw '-RequiredTools needs -Milestone to know what is required.' }
+    if (-not $gateProfile) { throw '-RequiredTools needs -Gate to know what is required.' }
     # A gate is all-or-nothing: checking one category would report green while the others
     # never ran.
-    if ($Category -ne 'All') { throw "A gate run checks every category of $Milestone; use -Category All instead of -Category $Category." }
-    if ($NoCoverage -and $gate.Coverage.Count -gt 0) { throw "$Milestone enforces coverage thresholds; -NoCoverage is not allowed with -RequiredTools." }
-    # From M3 on, L4 has to run against the real dpm as well, not only the fake one.
-    if ($gate.ContainsKey('MSBuildBackend')) {
-        if ($PSBoundParameters.ContainsKey('Backend') -and $Backend -ne $gate.MSBuildBackend) {
-            throw "$Milestone runs the MSBuild tests with -Backend $($gate.MSBuildBackend); -Backend $Backend would leave some out."
+    if ($Category -ne 'All') { throw "A gate run checks every category of $Gate; use -Category All instead of -Category $Category." }
+    if ($NoCoverage -and $gateProfile.Coverage.Count -gt 0) { throw "$Gate enforces coverage thresholds; -NoCoverage is not allowed with -RequiredTools." }
+    # Some gates run the MSBuild tests against the real dpm as well, not only the fake one.
+    if ($gateProfile.ContainsKey('MSBuildBackend')) {
+        if ($PSBoundParameters.ContainsKey('Backend') -and $Backend -ne $gateProfile.MSBuildBackend) {
+            throw "$Gate runs the MSBuild tests with -Backend $($gateProfile.MSBuildBackend); -Backend $Backend would leave some out."
         }
-        $Backend = $gate.MSBuildBackend
+        $Backend = $gateProfile.MSBuildBackend
     }
 }
 
 $categories = if ($Category -ne 'All') { @($Category) }
-              elseif ($gate) { @($gate.Required) + @($gate.Pending.Keys) }
+              elseif ($gateProfile) { @($gateProfile.Required) + @($gateProfile.Pending.Keys) }
               else { $vstestCategories }
-$required = if ($RequiredTools) { @($gate.Required) } else { @() }
-$pending = if ($RequiredTools) { $gate.Pending } else { @{} }
+$required = if ($RequiredTools) { @($gateProfile.Required) } else { @() }
+$pending = if ($RequiredTools) { $gateProfile.Pending } else { @{} }
 
 $problems = [System.Collections.Generic.List[string]]::new()
 
 if ($RequiredTools) {
     $env:EQDAML_REQUIRED_TOOLS = '1'
-    foreach ($tool in $gate.Tools) {
+    foreach ($tool in $gateProfile.Tools) {
         $path = Find-Tool $tool
         if ($path) { Write-Host "Tool ${tool}: $path" }
         else { $problems.Add("required tool '$tool' not found") }
@@ -298,10 +299,10 @@ $summary = foreach ($cat in $categories) {
 
 $summary | Format-Table -AutoSize -Wrap | Out-Host
 
-if ($RequiredTools -and $gate.Coverage.Count -gt 0) {
-    $rows = foreach ($tfm in $gate.Coverage.Keys | Sort-Object) {
+if ($RequiredTools -and $gateProfile.Coverage.Count -gt 0) {
+    $rows = foreach ($tfm in $gateProfile.Coverage.Keys | Sort-Object) {
         $reports = @(Get-RunCoverageReports -ResultsRoot $resultsRoot -Categories @($categories | Where-Object { $_ -in $coverageCategories }) -Framework $tfm)
-        foreach ($row in Get-CoverageVerdict -Measured (Measure-AssemblyCoverage $reports) -Framework $tfm -Thresholds $gate.Coverage[$tfm]) {
+        foreach ($row in Get-CoverageVerdict -Measured (Measure-AssemblyCoverage $reports) -Framework $tfm -Thresholds $gateProfile.Coverage[$tfm]) {
             if ($row.Problem) { $problems.Add($row.Problem) }
             $row
         }

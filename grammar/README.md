@@ -24,7 +24,7 @@ From the repository root unless said otherwise; the grammar's own commands
 
 ```powershell
 pwsh scripts/test.ps1 -Category Grammar                          # tree-sitter test and fuzz, the scripts' tests, the corpus gate
-pwsh scripts/test.ps1 -Category All -Milestone M4 -RequiredTools # the same as a gate: a missing corpus or tool fails
+pwsh scripts/test.ps1 -Category All -Gate Grammar -RequiredTools # the same as a gate: a missing corpus or tool fails
 pwsh scripts/collect-corpus.ps1                                  # the real-world corpus into test/real-world/ (not committed)
 node grammar/scripts/corpus-gate.mjs                             # ≥ 99% of the corpus without errors → docs/corpus.md
 node grammar/scripts/edit-properties.mjs --cases 1000 --seed N   # incremental parsing after random edits = a full parse
