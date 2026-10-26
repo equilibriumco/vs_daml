@@ -156,9 +156,9 @@ in the same directory* to get the same layout as `dotnet new`.
 | `EqDamlLockTimeoutSeconds` | both | 600 | Wait limit for another build of the same package or generation (`EQD0105`). |
 | `EqDamlManifestPath` | Daml | `daml.yaml` next to the project | Package manifest. |
 | `EqDamlBuildEnabled` | Daml | true | false skips `dpm build` and uses the existing DAR. |
-| `EqDamlCodegenEnabled` | C# | true | false disables generation. |
+| `EqDamlCodegenEnabled` | C# | true | false disables generation; in `Source` mode the committed bindings are compiled. |
 | `EqDamlCodegenComponent` | C# | pinned generator | Another generator as `oci://<registry>/<repo>:<tag>@sha256:<digest>`; untested ones raise `EQD0106`. |
-| `EqDamlGeneratedOutputMode` | C# | `Intermediate` | `Intermediate` or `Source`. |
+| `EqDamlGeneratedOutputMode` | C# | `Intermediate` | `Intermediate` (under `obj`) or `Source` (in the project, to commit: any checkout finds the same generation, and a machine without dpm builds from it with `EqDamlCodegenEnabled=false`). |
 | `EqDamlGeneratedDir` | C# | `obj\…\Daml\` or `Generated\Daml\` | Output folder; must be a folder of its own. |
 | `EqDamlJavaHome` | C# | `$(JAVA_HOME)` | JDK for the generator. |
 

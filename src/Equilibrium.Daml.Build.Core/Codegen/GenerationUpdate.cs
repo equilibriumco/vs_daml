@@ -196,8 +196,9 @@ public sealed class GenerationUpdate
     }
 
     // Generations of references the project no longer has, and whatever their runs left in the
-    // work folder; another project's generation is its own build's business. Nothing here fails
-    // the build: none of it is compiled, and the next build tries again.
+    // work folder; another project's generation, and work no manifest says is this project's, is
+    // its own build's business: a backup in there may be the only copy of what that project had.
+    // Nothing here fails the build: none of it is compiled, and the next build tries again.
     private static void Sweep(
         GenerationPublisher publisher,
         string root,
@@ -232,7 +233,7 @@ public sealed class GenerationUpdate
         }
         try
         {
-            foreach (var id in publisher.WorkIds().Where(id => !keepIds.Contains(id)))
+            foreach (var id in publisher.WorkIds().Where(id => !keepIds.Contains(id) && publisher.WorkOwnedBy(id, owner)))
             {
                 publisher.RemoveWork(id);
             }

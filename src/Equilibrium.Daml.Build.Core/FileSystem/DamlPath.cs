@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Equilibrium.Daml.Build.Core.FileSystem;
 
@@ -41,6 +42,31 @@ public static class DamlPath
     /// </summary>
     public static string Resolve(string baseDirectory, string path) =>
         Normalize(Path.Combine(baseDirectory, path.Replace('/', '\\')));
+
+    /// <summary>
+    /// The way from <paramref name="baseDirectory"/> to <paramref name="path"/>, such as
+    /// <c>..\Contracts\Contracts.msbuildproj</c>, or <c>.</c> for the folder itself; letter case
+    /// is ignored. A path on another drive or share has no such way and comes back in full.
+    /// <see cref="Resolve"/> turns the result back into the path.
+    /// </summary>
+    public static string Relative(string baseDirectory, string path)
+    {
+        var from = Normalize(baseDirectory ?? throw new ArgumentNullException(nameof(baseDirectory)));
+        var to = Normalize(path ?? throw new ArgumentNullException(nameof(path)));
+        if (!string.Equals(Path.GetPathRoot(from), Path.GetPathRoot(to), StringComparison.OrdinalIgnoreCase))
+        {
+            return to;
+        }
+        var fromParts = from.Split(['\\'], StringSplitOptions.RemoveEmptyEntries);
+        var toParts = to.Split(['\\'], StringSplitOptions.RemoveEmptyEntries);
+        var common = 0;
+        while (common < fromParts.Length && common < toParts.Length && string.Equals(fromParts[common], toParts[common], StringComparison.OrdinalIgnoreCase))
+        {
+            common++;
+        }
+        var parts = Enumerable.Repeat("..", fromParts.Length - common).Concat(toParts.Skip(common)).ToList();
+        return parts.Count == 0 ? "." : string.Join("\\", parts);
+    }
 
     /// <summary>
     /// True when <paramref name="path"/> names a place on its own: a drive with its root

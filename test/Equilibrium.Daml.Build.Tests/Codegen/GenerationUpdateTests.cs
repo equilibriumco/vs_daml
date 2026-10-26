@@ -77,21 +77,22 @@ public sealed class GenerationUpdateTests : IDisposable
         new GenerationUpdate(new GeneratorRun(_generator, _ => null), Locks)
             .RunAsync(request ?? Request(), plan ?? Plan(), cancellationToken);
 
-    // A generation as a build publishes it: its files and, last, its manifest.
-    private void Published(string folder, string content = "class Asset { }", string fingerprint = Fingerprint)
+    // A generation as a build publishes it: its files and, last, its manifest. A backup or a staging
+    // folder holds a generation made for the published place, which its manifest's paths are relative to.
+    private void Published(string folder, string content = "class Asset { }", string fingerprint = Fingerprint, string? livesIn = null, string? owner = null)
     {
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "Asset.cs"), content);
-        new GenerationManifest(Id, fingerprint, Project, DamlReferenceKind.Project, Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), "Contracts",
+        new GenerationManifest(Id, fingerprint, owner ?? Project, DamlReferenceKind.Project, Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), "Contracts",
             Dar, Hashing.Sha256File(Dar), _cache.Pin.Reference, [new GenerationManifestFile("Asset.cs", Hashing.Sha256Text(content))])
-            .Write(Path.Combine(folder, GenerationManifest.FileName));
+            .Write(Path.Combine(folder, GenerationManifest.FileName), livesIn ?? folder);
     }
 
     // What a build killed between moving the old generation aside and moving the new one in leaves.
     private string KilledWithTheOldGenerationAside()
     {
         var staging = Path.Combine(Work, Id + ".new");
-        Published(Path.Combine(Work, Id + ".old"));
+        Published(Path.Combine(Work, Id + ".old"), livesIn: Folder);
         Directory.CreateDirectory(staging);
         File.WriteAllText(Path.Combine(Work, Id + ".journal"), $"staging={Id}.new\nphase=old-moved\n");
         return staging;
@@ -325,6 +326,46 @@ public sealed class GenerationUpdateTests : IDisposable
         WorkLeftovers().ShouldBeEmpty();
         result.Messages.ShouldContain(m => m.Severity == DamlDiagnosticSeverity.Information && m.Text.Contains(finance));
         result.Files.ShouldBe([new GeneratedFile(Path.Combine(Folder, "Asset.cs"), Id)]);
+    }
+
+    // Projects can share a generation root. A publish another project left unfinished is that
+    // project's to recover: its backup is the only copy of the generation it had before.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_leaves_another_projects_unfinished_publish_alone()
+    {
+        var backup = Path.Combine(Work, "fedcba9876543210.old");
+        var journal = Path.Combine(Work, "fedcba9876543210.journal");
+        Published(backup, livesIn: Path.Combine(Root, "Ledger-fedcba9876543210"), owner: Path.Combine(_root, @"Other\Other.csproj"));
+        File.WriteAllText(journal, "staging=fedcba9876543210.new\nphase=old-moved\n");
+
+        await Clean();
+
+        Directory.Exists(backup).ShouldBeTrue("another project's backup was deleted");
+        File.Exists(journal).ShouldBeTrue("another project's journal was deleted");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_takes_the_projects_own_unfinished_publish()
+    {
+        Published(Path.Combine(Work, Id + ".old"), livesIn: Folder);
+        File.WriteAllText(Path.Combine(Work, Id + ".journal"), $"staging={Id}.new\nphase=old-moved\n");
+
+        await Clean();
+
+        WorkLeftovers().ShouldBeEmpty();
+    }
+
+    // Without a manifest nothing says whose an entry is, so it stays for its owner's next build.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Clean_leaves_work_no_manifest_can_attribute()
+    {
+        var staging = Path.Combine(Work, "1111111111111111.new");
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "Half.cs"), "class Half { }");
+
+        await Clean();
+
+        Directory.Exists(staging).ShouldBeTrue();
     }
 
     [Fact, Trait("Category", "Unit")]

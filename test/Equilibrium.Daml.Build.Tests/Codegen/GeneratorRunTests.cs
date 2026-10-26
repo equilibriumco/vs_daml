@@ -42,11 +42,14 @@ public sealed class GeneratorRunTests : IDisposable
 
     private CodegenTools Tools => new(Dpm, Java, "1.0.22", new GeneratorCache(_generator.Root, _generator.Pin));
 
+    // Where the generation is published once the run is over; its manifest's paths are relative to it.
+    private const string Published = @"C:\work\App\obj\Daml\Contracts-0123456789abcdef";
+
     private PlannedGeneration Planned(string? @namespace = "Contracts")
     {
         var reference = new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             @"C:\work\Contracts\Contracts.msbuildproj", @namespace, "0123456789abcdef", "Contracts-0123456789abcdef");
-        return new PlannedGeneration(new CodegenInput(reference, Dar, Sources), @"C:\unused", "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
+        return new PlannedGeneration(new CodegenInput(reference, Dar, Sources), Published, "f1n9", new GenerationState(GenerationStatus.Stale, "", [], []));
     }
 
     private static string[] Arguments(string dar, string staging, string? @namespace) =>
@@ -94,7 +97,9 @@ public sealed class GeneratorRunTests : IDisposable
         call.Environment["TMP"].ShouldBe(call.Environment["TEMP"]);
         Directory.Exists(_runFolder).ShouldBeFalse();
 
-        var manifest = GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName)).ShouldNotBeNull();
+        // The run writes the manifest for where the generation will be published, not for staging.
+        File.ReadAllText(Path.Combine(staging, GenerationManifest.FileName)).ShouldContain(@"owner=..\..\..\App.csproj");
+        var manifest = GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName), Published).ShouldNotBeNull();
         (manifest.GenerationId, manifest.Fingerprint, manifest.Owner, manifest.Namespace, manifest.Dar).ShouldBe(("0123456789abcdef", "f1n9", Project, "Contracts", Dar));
         (manifest.DarSha256, manifest.Generator).ShouldBe((Hashing.Sha256File(Dar), _generator.Pin.Reference));
         manifest.Package.ShouldBe(new DarProvenance("contracts", "1.2.0", "3.6.0", TestDar.MainPackageId, [TestDar.DependencyPackageId]));
@@ -222,7 +227,7 @@ public sealed class GeneratorRunTests : IDisposable
 
         (await Run(staging)).ShouldBeNull();
 
-        GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName))!.Files
+        GenerationManifest.Read(Path.Combine(staging, GenerationManifest.FileName), Published)!.Files
             .ShouldBe([new GenerationManifestFile(DeepPath.Relative, Hashing.Sha256Text("class Registration { }"))]);
     }
 

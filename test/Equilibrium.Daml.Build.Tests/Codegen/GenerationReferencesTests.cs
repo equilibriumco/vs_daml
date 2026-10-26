@@ -37,7 +37,7 @@ public class GenerationReferencesTests
             (DamlReferenceKind.Dar, @"C:\vendor\finance-1.0.0.dar", null),
         ]);
         var first = references[0];
-        first.GenerationId.ShouldBe(GenerationIdentity.Id(DamlReferenceKind.Project, first.Path, "Contracts", Digest));
+        first.GenerationId.ShouldBe(GenerationIdentity.Id(DamlReferenceKind.Project, first.Path, Project, "Contracts", Digest));
         first.FolderName.ShouldBe("Contracts-" + first.GenerationId);
         first.Include.ShouldBe(@"..\Contracts\Contracts.msbuildproj");
     }

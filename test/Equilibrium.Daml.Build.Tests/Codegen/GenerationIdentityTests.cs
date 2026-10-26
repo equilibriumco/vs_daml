@@ -13,17 +13,19 @@ public class GenerationIdentityTests
     private const string Digest = "9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548";
     private const string OtherDigest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private const string Contracts = @"C:\work\Contracts\Contracts.msbuildproj";
+    private const string App = @"C:\work\App";
 
     private static string Id(DamlReferenceKind kind, string path, string? @namespace, string digest = Digest) =>
-        GenerationIdentity.Id(kind, path, @namespace, digest);
+        GenerationIdentity.Id(kind, path, App, @namespace, digest);
 
     // Ids name folders on disk that later builds must find again, so the recipe is fixed here,
-    // not just whatever the code happens to compute.
+    // not just whatever the code happens to compute. The path is the reference's as seen from the
+    // project, so the same repository checked out anywhere gives the same ids.
     [Fact, Trait("Category", "Unit")]
     public void The_id_is_the_start_of_a_sha256_over_kind_path_namespace_and_generator()
     {
         using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        sha.AppendData(Encoding.UTF8.GetBytes("daml-generation-id/1\nproject\n" + Contracts.ToUpperInvariant() + "\nContracts.Gen\n" + Digest));
+        sha.AppendData(Encoding.UTF8.GetBytes("daml-generation-id/2\nproject\n" + @"..\CONTRACTS\CONTRACTS.MSBUILDPROJ" + "\nContracts.Gen\n" + Digest));
         var hash = sha.GetHashAndReset();
         var expected = new StringBuilder();
         for (var i = 0; i < 8; i++)
@@ -32,6 +34,17 @@ public class GenerationIdentityTests
         }
 
         Id(DamlReferenceKind.Project, Contracts, "Contracts.Gen").ShouldBe(expected.ToString());
+    }
+
+    // Committed bindings are the point of the Source output mode: a teammate's or CI's checkout
+    // must find the generation the repository holds instead of making a second one.
+    [Fact, Trait("Category", "Unit")]
+    public void The_same_repository_checked_out_elsewhere_has_the_same_ids()
+    {
+        var here = GenerationIdentity.Id(DamlReferenceKind.Project, @"C:\work\repo\Contracts\Contracts.msbuildproj", @"C:\work\repo\App", "Gen", Digest);
+        var there = GenerationIdentity.Id(DamlReferenceKind.Project, @"D:\builds\agent-7\Contracts\Contracts.msbuildproj", @"D:\builds\agent-7\App", "Gen", Digest);
+
+        there.ShouldBe(here);
     }
 
     [Fact, Trait("Category", "Unit")]

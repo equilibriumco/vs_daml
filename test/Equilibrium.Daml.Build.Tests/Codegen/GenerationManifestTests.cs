@@ -30,6 +30,81 @@ public sealed class GenerationManifestTests : IDisposable
         read.Files.ShouldHaveSingleItem().ShouldBe(new GenerationManifestFile(@"Contracts\Asset.cs", "a55e7"));
     }
 
+    // A committed Source-mode generation travels with the repository: its manifest has to name the
+    // project, the reference, the DAR and the sources where the checkout is, not where it was made.
+    [Fact, Trait("Category", "Unit")]
+    public void A_manifest_moved_with_its_repository_names_the_places_in_the_new_checkout()
+    {
+        var made = Path.Combine(Path.GetTempPath(), "daml-moved-" + Guid.NewGuid().ToString("N"));
+        var moved = Path.Combine(Path.GetTempPath(), "daml-moved-" + Guid.NewGuid().ToString("N"), "deeper");
+        try
+        {
+            var folder = Path.Combine(made, @"App\Generated\Daml\contracts-0123456789abcdef");
+            Directory.CreateDirectory(folder);
+            var written = new GenerationManifest(
+                "0123456789abcdef", "f1n9", Path.Combine(made, @"App\App.csproj"), DamlReferenceKind.Project, Path.Combine(made, @"Contracts\Contracts.msbuildproj"), null,
+                Path.Combine(made, @"Contracts\.daml\dist\contracts-1.2.0.dar"), "da12", "oci://x", [new GenerationManifestFile("Asset.cs", "a55e7")])
+            {
+                Source = new SourceProvenance(Path.Combine(made, @"Contracts\daml.yaml"), "50c"),
+            };
+            written.Write(Path.Combine(folder, GenerationManifest.FileName));
+            File.ReadAllText(Path.Combine(folder, GenerationManifest.FileName)).ShouldNotContain(made, Case.Insensitive);
+
+            var copy = Path.Combine(moved, @"App\Generated\Daml\contracts-0123456789abcdef");
+            Directory.CreateDirectory(copy);
+            File.Copy(Path.Combine(folder, GenerationManifest.FileName), Path.Combine(copy, GenerationManifest.FileName));
+            var read = GenerationManifest.Read(Path.Combine(copy, GenerationManifest.FileName)).ShouldNotBeNull();
+
+            read.Owner.ShouldBe(Path.Combine(moved, @"App\App.csproj"), StringCompareShould.IgnoreCase);
+            read.Reference.ShouldBe(Path.Combine(moved, @"Contracts\Contracts.msbuildproj"), StringCompareShould.IgnoreCase);
+            read.Dar.ShouldBe(Path.Combine(moved, @"Contracts\.daml\dist\contracts-1.2.0.dar"), StringCompareShould.IgnoreCase);
+            read.Source.ShouldNotBeNull().ManifestPath.ShouldBe(Path.Combine(moved, @"Contracts\daml.yaml"), StringCompareShould.IgnoreCase);
+        }
+        finally
+        {
+            foreach (var root in new[] { made, Path.GetDirectoryName(moved)! })
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, recursive: true);
+                }
+            }
+        }
+    }
+
+    // The manifest is written into a staging folder and then moved into place, which may be at
+    // another depth; the paths are relative to where it ends up.
+    [Fact, Trait("Category", "Unit")]
+    public void Paths_are_written_relative_to_the_folder_the_manifest_will_live_in()
+    {
+        var staging = Path.Combine(Path.GetTempPath(), "daml-staging-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(staging);
+        try
+        {
+            var final = @"C:\work\App\Generated\Daml\contracts-0123456789abcdef";
+            Manifest().Write(Path.Combine(staging, GenerationManifest.FileName), final);
+
+            File.ReadAllText(Path.Combine(staging, GenerationManifest.FileName)).ShouldContain(@"owner=..\..\..\App.csproj");
+        }
+        finally
+        {
+            Directory.Delete(staging, recursive: true);
+        }
+    }
+
+    // Manifests written before paths became relative still read the same.
+    [Fact, Trait("Category", "Unit")]
+    public void A_manifest_with_full_paths_reads_as_written()
+    {
+        File.WriteAllText(_path,
+            "schema=1\ngenerationId=0123456789abcdef\nfingerprint=f1n9\nowner=C:\\work\\App\\App.csproj\nreferenceKind=project\n" +
+            "reference=C:\\work\\Contracts\\Contracts.msbuildproj\nnamespace=\ndar=D:\\vendor\\contracts.dar\ndarSha256=da12\ngenerator=oci://x\nfile=a55e7 Asset.cs\n");
+
+        var read = GenerationManifest.Read(_path).ShouldNotBeNull();
+
+        (read.Owner, read.Reference, read.Dar).ShouldBe((@"C:\work\App\App.csproj", @"C:\work\Contracts\Contracts.msbuildproj", @"D:\vendor\contracts.dar"));
+    }
+
     // A DAR reference has no sources of its own.
     [Fact, Trait("Category", "Unit")]
     public void Without_them_the_manifest_reads_as_before()

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Equilibrium.Daml.Build.Core.FileSystem;
 
 namespace Equilibrium.Daml.Build.Core.Codegen;
 
@@ -10,7 +11,9 @@ namespace Equilibrium.Daml.Build.Core.Codegen;
 /// What a generation's folder holds and where it came from, written last when it is published:
 /// its presence is what makes the folder the generator's, and its file list is all the build
 /// ever compiles or cleans in it. Plain <c>key=value</c> lines; a reader skips keys it doesn't
-/// know, so later versions can add to it.
+/// know, so later versions can add to it. The paths in it are written relative to the folder the
+/// manifest lives in and read back as full paths, so a generation committed with its project
+/// names the right places in any checkout.
 /// </summary>
 /// <param name="GenerationId">The generation's identity.</param>
 /// <param name="Fingerprint">The inputs it was generated from, see <see cref="GenerationFingerprint"/>.</param>
@@ -37,8 +40,8 @@ public sealed record GenerationManifest(
     /// <summary>The manifest's name in a generation's folder.</summary>
     public const string FileName = "daml-generation.manifest";
 
-    /// <summary>The format version this build reads and writes.</summary>
-    public const int Schema = 1;
+    /// <summary>The format version this build writes. It still reads version 1, whose paths were full.</summary>
+    public const int Schema = 2;
 
     /// <summary>The package and package ids the DAR names; null when the manifest doesn't record them.</summary>
     public DarProvenance? Package { get; init; }
@@ -47,17 +50,25 @@ public sealed record GenerationManifest(
     public SourceProvenance? Source { get; init; }
 
     /// <summary>Writes the manifest to <paramref name="path"/>.</summary>
-    public void Write(string path)
+    /// <param name="path">Where to write it.</param>
+    /// <param name="folder">
+    /// The folder the manifest will live in, which its paths are written relative to; null for the
+    /// folder of <paramref name="path"/>. A manifest written in a staging folder and then moved into
+    /// place passes the place.
+    /// </param>
+    public void Write(string path, string? folder = null)
     {
+        var home = folder ?? Path.GetDirectoryName(path ?? throw new ArgumentNullException(nameof(path)))!;
+        string Relative(string full) => DamlPath.IsFullPath(full) ? DamlPath.Relative(home, full) : full;
         var text = new StringBuilder()
             .Append("schema=").Append(Schema).Append('\n')
             .Append("generationId=").Append(GenerationId).Append('\n')
             .Append("fingerprint=").Append(Fingerprint).Append('\n')
-            .Append("owner=").Append(Owner).Append('\n')
+            .Append("owner=").Append(Relative(Owner)).Append('\n')
             .Append("referenceKind=").Append(ReferenceKind == DamlReferenceKind.Dar ? "dar" : "project").Append('\n')
-            .Append("reference=").Append(Reference).Append('\n')
+            .Append("reference=").Append(Relative(Reference)).Append('\n')
             .Append("namespace=").Append(Namespace ?? "").Append('\n')
-            .Append("dar=").Append(Dar).Append('\n')
+            .Append("dar=").Append(Relative(Dar)).Append('\n')
             .Append("darSha256=").Append(DarSha256).Append('\n')
             .Append("generator=").Append(Generator).Append('\n');
         if (Package is { } package)
@@ -77,7 +88,7 @@ public sealed record GenerationManifest(
         }
         if (Source is { } source)
         {
-            text.Append("sourceManifest=").Append(source.ManifestPath).Append('\n')
+            text.Append("sourceManifest=").Append(Relative(source.ManifestPath)).Append('\n')
                 .Append("sourceFingerprint=").Append(source.Fingerprint).Append('\n');
         }
         foreach (var file in Files)
@@ -88,7 +99,9 @@ public sealed record GenerationManifest(
     }
 
     /// <summary>The manifest at <paramref name="path"/>; null when there is none, or it is of another schema or incomplete.</summary>
-    public static GenerationManifest? Read(string path)
+    /// <param name="path">The manifest.</param>
+    /// <param name="folder">The folder its paths are relative to; null for the folder it is in. Reading one still in staging passes its place.</param>
+    public static GenerationManifest? Read(string path, string? folder = null)
     {
         if (!File.Exists(path ?? throw new ArgumentNullException(nameof(path))))
         {
@@ -135,7 +148,10 @@ public sealed record GenerationManifest(
             }
         }
         string? Value(string key) => values.TryGetValue(key, out var value) ? value : null;
-        if (Value("schema") != Schema.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        // Version 1 wrote full paths, which resolve to themselves.
+        var home = folder ?? Path.GetDirectoryName(path)!;
+        string? Full(string? relative) => relative is null ? null : DamlPath.Resolve(home, relative);
+        if (Value("schema") is not ("1" or "2")
             || Value("generationId") is not { } id
             || Value("fingerprint") is not { } fingerprint
             || Value("owner") is not { } owner
@@ -146,25 +162,33 @@ public sealed record GenerationManifest(
         {
             return null;
         }
-        return new GenerationManifest(
-            id,
-            fingerprint,
-            owner,
-            Value("referenceKind") == "dar" ? DamlReferenceKind.Dar : DamlReferenceKind.Project,
-            reference,
-            Value("namespace") is { Length: > 0 } @namespace ? @namespace : null,
-            dar,
-            darSha256,
-            generator,
-            files)
+        try
         {
-            Package = Value("darPackage") is { } package && Value("darVersion") is { } version && Value("mainPackageId") is { } main
-                ? new DarProvenance(package, version, Value("darSdk") is { Length: > 0 } sdk ? sdk : null, main, dependencies) { Modules = modules }
-                : null,
-            Source = Value("sourceManifest") is { } sourceManifest && Value("sourceFingerprint") is { } sourceFingerprint
-                ? new SourceProvenance(sourceManifest, sourceFingerprint)
-                : null,
-        };
+            return new GenerationManifest(
+                id,
+                fingerprint,
+                Full(owner)!,
+                Value("referenceKind") == "dar" ? DamlReferenceKind.Dar : DamlReferenceKind.Project,
+                Full(reference)!,
+                Value("namespace") is { Length: > 0 } @namespace ? @namespace : null,
+                Full(dar)!,
+                darSha256,
+                generator,
+                files)
+            {
+                Package = Value("darPackage") is { } package && Value("darVersion") is { } version && Value("mainPackageId") is { } main
+                    ? new DarProvenance(package, version, Value("darSdk") is { Length: > 0 } sdk ? sdk : null, main, dependencies) { Modules = modules }
+                    : null,
+                Source = Value("sourceManifest") is { } sourceManifest && Value("sourceFingerprint") is { } sourceFingerprint
+                    ? new SourceProvenance(Full(sourceManifest)!, sourceFingerprint)
+                    : null,
+            };
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // A path that isn't one: the manifest doesn't prove anything.
+            return null;
+        }
     }
 
     private static bool ValidFilePath(string path) =>

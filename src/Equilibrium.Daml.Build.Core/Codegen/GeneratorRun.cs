@@ -181,7 +181,7 @@ public sealed class GeneratorRun
             Package = package,
             Source = generation.Input.Source,
         }
-            .Write(Path.Combine(staging, GenerationManifest.FileName));
+            .Write(Path.Combine(staging, GenerationManifest.FileName), generation.Folder);
         return null;
     }
 }

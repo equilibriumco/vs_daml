@@ -109,7 +109,7 @@ public static class GenerationReferences
         }
 
         var kind = reference.Source == DamlReferenceSource.EqDamlDar ? DamlReferenceKind.Dar : DamlReferenceKind.Project;
-        var id = GenerationIdentity.Id(kind, path, @namespace, generatorDigest);
+        var id = GenerationIdentity.Id(kind, path, projectDirectory, @namespace, generatorDigest);
         return new GenerationReference(reference.Source, reference.Include, path, @namespace, id, GenerationIdentity.FolderName(path, id));
     }
 

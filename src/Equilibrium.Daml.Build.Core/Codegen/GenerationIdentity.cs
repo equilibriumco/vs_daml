@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Equilibrium.Daml.Build.Core.FileSystem;
 
 namespace Equilibrium.Daml.Build.Core.Codegen;
 
@@ -17,19 +18,27 @@ internal static class GenerationIdentity
 
     /// <summary>
     /// The first 64 bits, as 16 lowercase hex digits, of a SHA-256 over the reference's kind, its
-    /// canonical path in upper case (Windows paths ignore case), the namespace (C# doesn't) and the
-    /// generator's digest. The contract version of the generated code is deliberately left out:
-    /// a new contract regenerates the same folder rather than starting another.
+    /// path as seen from the project in upper case (Windows paths ignore case), the namespace (C#
+    /// doesn't) and the generator's digest. The relative path makes the id the same in every
+    /// checkout of a repository, which committed bindings depend on; a reference on another drive
+    /// has no relative path and counts with its full one. The contract version of the generated
+    /// code is deliberately left out: a new contract regenerates the same folder rather than
+    /// starting another.
     /// </summary>
     /// <param name="kind">Project or DAR.</param>
     /// <param name="canonicalPath">The reference's canonical full path.</param>
+    /// <param name="projectDirectory">The folder of the project that generates the code.</param>
     /// <param name="namespace">The namespace prefix, or null for none.</param>
     /// <param name="generatorDigest">The generator's SHA-256 digest in lowercase hex.</param>
-    public static string Id(DamlReferenceKind kind, string canonicalPath, string? @namespace, string generatorDigest)
+    public static string Id(DamlReferenceKind kind, string canonicalPath, string projectDirectory, string? @namespace, string generatorDigest)
     {
         if (canonicalPath is null)
         {
             throw new ArgumentNullException(nameof(canonicalPath));
+        }
+        if (projectDirectory is null)
+        {
+            throw new ArgumentNullException(nameof(projectDirectory));
         }
         if (generatorDigest is null)
         {
@@ -37,9 +46,9 @@ internal static class GenerationIdentity
         }
         var text = string.Join(
             "\n",
-            "daml-generation-id/1",
+            "daml-generation-id/2",
             kind == DamlReferenceKind.Dar ? "dar" : "project",
-            canonicalPath.ToUpperInvariant(),
+            DamlPath.Relative(projectDirectory, canonicalPath).ToUpperInvariant(),
             @namespace ?? "",
             generatorDigest);
         byte[] hash;

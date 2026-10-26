@@ -214,6 +214,6 @@ public sealed class GenerationStateTests : IDisposable
         var read = GenerationManifest.Read(path).ShouldNotBeNull();
         read.ShouldBe(manifest with { Files = read.Files });
         read.Files.ShouldBe(manifest.Files);
-        File.ReadAllText(path).ShouldStartWith("schema=1\n");
+        File.ReadAllText(path).ShouldStartWith("schema=2\n");
     }
 }

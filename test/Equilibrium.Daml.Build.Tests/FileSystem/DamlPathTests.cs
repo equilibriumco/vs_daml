@@ -14,6 +14,22 @@ public class DamlPathTests
     public void Normalize_gives_one_canonical_spelling(string input, string expected) =>
         DamlPath.Normalize(input).ShouldBe(expected);
 
+    // What a manifest records so a checkout elsewhere finds the same places; a path on another
+    // drive or share can't be relative and stays as it is.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(@"C:\work\app", @"C:\work\app\Generated\Daml", @"Generated\Daml")]
+    [InlineData(@"C:\work\app\obj\Debug\Daml\x-1", @"C:\work\app\App.csproj", @"..\..\..\..\App.csproj")]
+    [InlineData(@"C:\work\App", @"c:\WORK\app\file.txt", "file.txt")]
+    [InlineData(@"C:\work\app", @"C:\work\app", ".")]
+    [InlineData(@"C:\work\app", @"C:\work\application\x", @"..\application\x")]
+    [InlineData(@"C:\work\app", @"D:\vendor\a.dar", @"D:\vendor\a.dar")]
+    [InlineData(@"\\server\share\app", @"\\server\other\a.dar", @"\\server\other\a.dar")]
+    public void Relative_gives_the_way_from_a_folder_to_a_path(string from, string to, string expected)
+    {
+        DamlPath.Relative(from, to).ShouldBe(expected);
+        DamlPath.Resolve(from, DamlPath.Relative(from, to)).ShouldBe(DamlPath.Normalize(to), StringCompareShould.IgnoreCase);
+    }
+
     [Theory, Trait("Category", "Unit")]
     [InlineData(@"C:\work\repo", "./daml/test", @"C:\work\repo\daml\test")]
     [InlineData(@"C:\work\repo", "../shared", @"C:\work\shared")]

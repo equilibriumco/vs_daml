@@ -1,44 +1,44 @@
-﻿== basic.csproj
+== basic.csproj
 tools: dpm=(look for it) offline=False install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Intermediate root=C:\work\App\obj\Debug\net10.0\Daml java=(PATH)
 generator: oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548
-generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=Contracts -> Contracts-633179bb9b08ea15
-generation: EqDamlDar C:\work\vendor\finance-1.0.0.dar namespace=Finance -> finance-1.0.0-4393cc8da1459acb
+generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=Contracts -> Contracts-8abcbf16885e8bd2
+generation: EqDamlDar C:\work\vendor\finance-1.0.0.dar namespace=Finance -> finance-1.0.0-275e36ad52111bda
 
 == misconfigured.csproj
 tools: dpm=(look for it) offline=True install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Source root=(none) java=(PATH)
 generator: (none)
-generation: EqDamlDar C:\work\vendor\ledger.dar namespace=Ledger -> ledger-fd911920cdeef811
+generation: EqDamlDar C:\work\vendor\ledger.dar namespace=Ledger -> ledger-18b064b8187555cf
 error EQD0100: EqDamlLockTimeoutSeconds is '0', but it has to be a whole number of seconds from 1 up.
 error EQD0106: EqDamlCodegenComponent is 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:latest', but the generator has to be pinned by its digest: oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>.
 error EQD0100: EqDamlGeneratedDir is '.', which holds the project folder C:\work\App. Generated code needs a folder of its own.
 error EQD0100: EqDamlReference ..\vendor\finance-1.0.0.dar is a DAR. Reference DAR files with EqDamlDar instead.
 error EQD0100: Namespace 'My Contracts' on ..\Contracts\Contracts.msbuildproj isn't a C# namespace: use names made of letters, digits and underscores, joined by dots.
-error EQD0108: ..\VENDOR\Ledger.dar is referenced again with Namespace 'Ledger' after ..\vendor\ledger.dar, so both would generate into ledger-fd911920cdeef811. Remove one of them.
+error EQD0108: ..\VENDOR\Ledger.dar is referenced again with Namespace 'Ledger' after ..\vendor\ledger.dar, so both would generate into ledger-18b064b8187555cf. Remove one of them.
 
 == same-package-two-folders.csproj
 tools: dpm=(look for it) offline=False install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Intermediate root=C:\work\App\obj\Debug\net10.0\Daml java=(PATH)
 generator: oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548
-generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=(none) -> Contracts-939b6e6525238911
-generation: EqDamlReference C:\work\Contracts2\Contracts.msbuildproj namespace=Second -> Contracts-22412ee237584c30
+generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=(none) -> Contracts-161064451933acab
+generation: EqDamlReference C:\work\Contracts2\Contracts.msbuildproj namespace=Second -> Contracts-afe2dbd63ce27b70
 
 == source-mode.csproj
 tools: dpm=(look for it) offline=True install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Source root=C:\work\App\Generated\Daml java=(PATH)
 generator: oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548
-generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=Contracts -> Contracts-633179bb9b08ea15
+generation: EqDamlReference C:\work\Contracts\Contracts.msbuildproj namespace=Contracts -> Contracts-8abcbf16885e8bd2
 
 == visual-studio-reference.csproj
 tools: dpm=(look for it) offline=False install=False skip-preflight=False
 timeouts: process=1800s lock=600s
 codegen: enabled=True mode=Intermediate root=C:\work\App\obj\Debug\net10.0\Daml java=(PATH)
 generator: oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548
-generation: ProjectReference C:\work\Contracts\Contracts.msbuildproj namespace=(none) -> Contracts-939b6e6525238911
-generation: ProjectReference C:\work\Ledger\Ledger.msbuildproj namespace=Ledger.Bindings -> Ledger-d002ed5e7f30e01f
+generation: ProjectReference C:\work\Contracts\Contracts.msbuildproj namespace=(none) -> Contracts-161064451933acab
+generation: ProjectReference C:\work\Ledger\Ledger.msbuildproj namespace=Ledger.Bindings -> Ledger-97dc1226b54b2b82
 

@@ -249,9 +249,9 @@ public sealed class DamlBuildCSharpOnHostsTests : IDisposable
 
         first.ExitCode.ShouldBe(0, first.Log);
         File.Exists(Path.Combine(AppFolder, @"bin\Debug\net10.0\App.dll")).ShouldBeTrue();
-        var manifest = File.ReadAllText(Directory.GetFiles(GeneratedRoot, GenerationManifest.FileName, SearchOption.AllDirectories).ShouldHaveSingleItem());
-        manifest.ShouldContain(TestDar.MainPackageId);
-        manifest.ShouldContain("sourceManifest=" + Path.Combine(_sandbox.Root, @"contracts\daml.yaml"));
+        var manifest = GenerationManifest.Read(Directory.GetFiles(GeneratedRoot, GenerationManifest.FileName, SearchOption.AllDirectories).ShouldHaveSingleItem()).ShouldNotBeNull();
+        manifest.Package.ShouldNotBeNull().MainPackageId.ShouldBe(TestDar.MainPackageId);
+        manifest.Source.ShouldNotBeNull().ManifestPath.ShouldBe(Path.Combine(_sandbox.Root, @"contracts\daml.yaml"), StringCompareShould.IgnoreCase);
         second.ExitCode.ShouldBe(0, second.Log);
         (DarBuilds(), GeneratorRuns()).ShouldBe((1, 1));
     }

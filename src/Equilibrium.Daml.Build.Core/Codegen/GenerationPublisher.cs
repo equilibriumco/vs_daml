@@ -37,6 +37,10 @@ public sealed class GenerationPublisher
 
     private const string RunSuffix = ".run";
 
+    // The work entries a manifest can be in: a backup holds the generation it replaced, a staging
+    // folder the one being made.
+    private static readonly string[] WithManifests = [".old", ".new"];
+
     private readonly string _root;
     private readonly IPublishSteps _steps;
 
@@ -149,6 +153,21 @@ public sealed class GenerationPublisher
         }
         RemoveWork(GenerationIdentity.IdOfFolder(folderName));
         return new GenerationRemoval(Owned: true, kept);
+    }
+
+    /// <summary>
+    /// Whether the work folder's entries for the generation <paramref name="id"/> are
+    /// <paramref name="owner"/>'s: a manifest in its backup or its staging says so. A run folder or a
+    /// journal alone proves nothing.
+    /// </summary>
+    public bool WorkOwnedBy(string id, string owner)
+    {
+        // A generation's manifest is written for its published place, one level below the root; any
+        // folder at that depth resolves its paths the same.
+        var place = Path.Combine(_root, id);
+        return WithManifests
+            .Select(suffix => GenerationManifest.Read(Path.Combine(Work, id + suffix, GenerationManifest.FileName), place))
+            .Any(manifest => manifest is not null && DamlPath.Comparer.Equals(manifest.Owner, owner));
     }
 
     /// <summary>Removes the work folder's entries for the generation <paramref name="id"/>: staging, backup, journal and run folder.</summary>
