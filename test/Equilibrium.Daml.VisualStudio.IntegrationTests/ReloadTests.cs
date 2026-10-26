@@ -15,8 +15,8 @@ public class ReloadTests
     public async Task Reloading_unchanged_text_keeps_colouring_and_token_caches_usable()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        const string text = "module Scratch where\n\nvalue = 42\n";
-        var (_, view) = Ide.OpenScratch(text);
+        const string Text = "module Scratch where\n\nvalue = 42\n";
+        var (_, view) = Ide.OpenScratch(Text);
         var buffer = view.TextBuffer;
         try
         {
@@ -31,7 +31,7 @@ public class ReloadTests
 
             Assert.NotNull(reloaded);
             Assert.Empty(reloaded!.Changes);
-            Assert.Equal(text, buffer.CurrentSnapshot.GetText());
+            Assert.Equal(Text, buffer.CurrentSnapshot.GetText());
             // VS guards buffer event handlers, so an exception there would otherwise be
             // swallowed and this test could pass while the editor shows an error dialog.
             var extension = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "Equilibrium.Daml.VisualStudio");
