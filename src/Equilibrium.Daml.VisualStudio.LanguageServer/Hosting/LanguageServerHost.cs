@@ -96,6 +96,7 @@ public sealed class LanguageServerHost : IDisposable
     private int _attachedSession;
     private int _unresponsiveSession;
     private bool _ready;
+    private int _readySession;
     private int _activations;
 
     /// <summary>Creates a host.</summary>
@@ -233,13 +234,16 @@ public sealed class LanguageServerHost : IDisposable
     public async Task<ServerConnection?> ActivateAsync(CancellationToken cancellationToken)
     {
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"Visual Studio asked for a server session (activation {Interlocked.Increment(ref _activations)}).");
+        bool noWorkspace;
         lock (_gate)
         {
-            if (_workspace is null)
-            {
-                Raise(LanguageServerProblemKind.NoWorkspace, "No daml.yaml found for the open folder or file; Daml language features are off.");
-                return null;
-            }
+            noWorkspace = _workspace is null;
+        }
+        if (noWorkspace)
+        {
+            // Outside the lock: the handler may wait for the UI thread.
+            Raise(LanguageServerProblemKind.NoWorkspace, "No daml.yaml found for the open folder or file; Daml language features are off.");
+            return null;
         }
 
         LanguageServerSession? session;
@@ -554,6 +558,7 @@ public sealed class LanguageServerHost : IDisposable
             if (session != _currentSession || _initializedSession != session || _attachedSession != session
                 || _ready || Supervisor.State != LanguageServerState.Ready) { return; }
             _ready = true;
+            _readySession = session;
             KeepAlive.Watch(session);
         }
         ReadinessChanged?.Invoke(this, EventArgs.Empty);
@@ -575,43 +580,33 @@ public sealed class LanguageServerHost : IDisposable
         Supervisor.RequestRestart("The language server stopped responding");
     }
 
+    // Every event is about one session and is handled for that session, however late it arrives:
+    // a crash reported after Visual Studio already started the next session still has to end the
+    // crashed one's keep-alive, channel and readiness, or the next one never becomes ready.
     private void OnStateChanged(object? sender, LanguageServerStateChangedEventArgs e)
     {
         var readinessChanged = false;
+        var over = e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted;
         lock (_gate)
         {
-            if (e.SessionId < _currentSession || e.NewState != Supervisor.State) { return; }
-            if (e.NewState != LanguageServerState.Ready && _ready)
+            if (e.NewState != LanguageServerState.Ready && _ready && _readySession == e.SessionId)
             {
                 _ready = false;
                 readinessChanged = true;
             }
-            if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted)
+            if (over)
             {
                 if (_initializedSession == e.SessionId) { _initializedSession = 0; }
                 if (_attachedSession == e.SessionId) { _attachedSession = 0; }
             }
         }
-        if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopping or LanguageServerState.Stopped or LanguageServerState.Faulted)
+        if (over)
         {
             // Both consumers check ownership again: a newer session may attach after the lock.
             KeepAlive.Stop(e.SessionId);
             _channel.Detach(e.SessionId);
         }
         if (readinessChanged) { ReadinessChanged?.Invoke(this, EventArgs.Empty); }
-    }
-
-    private void SetReady(bool ready)
-    {
-        lock (_gate)
-        {
-            if (_ready == ready)
-            {
-                return;
-            }
-            _ready = ready;
-        }
-        ReadinessChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void Raise(LanguageServerProblemKind kind, string message)

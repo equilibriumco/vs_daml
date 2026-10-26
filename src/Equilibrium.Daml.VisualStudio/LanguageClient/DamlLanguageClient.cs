@@ -16,6 +16,7 @@ using Equilibrium.Daml.VisualStudio.Core.Server;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Hosting;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Messages;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
+using Equilibrium.Daml.VisualStudio.LanguageServer.Supervision;
 using Equilibrium.Daml.VisualStudio.LanguageServer.VirtualResources;
 using Equilibrium.Daml.VisualStudio.Options;
 using Equilibrium.Daml.VisualStudio.ScriptResults;
@@ -95,6 +96,13 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
             new TaskStatusCenterPresenter(_joinableTaskFactory, logger),
             id => _host.Channel.CancelSdkInstallAsync(id),
             logger);
+        _host.Supervisor.StateChanged += (_, e) =>
+        {
+            if (e.NewState is LanguageServerState.Crashed or LanguageServerState.Stopped or LanguageServerState.Faulted)
+            {
+                installs.SessionEnded();
+            }
+        };
         VirtualResources = new VirtualResourceManager(_host.Channel, scriptResults, logger);
         _host.SessionReady += (_, e) => VirtualResources.OnSessionReady(e.SessionId);
         CustomMessageTarget = new DamlCustomMessageTarget(VirtualResources, installs, logger);

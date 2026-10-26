@@ -22,6 +22,23 @@ public class SdkInstallProgressTrackerTests
     private static SdkInstallProgressParams Step(SdkInstallProgressKind kind, int progress, string id = "3.6.0") =>
         new(id, "SDK " + id, kind, progress);
 
+    // A server that crashes or is restarted mid-install never sends the end; the user would be
+    // left with a progress bar and a cancel aimed at a process that is gone.
+    [Fact, Trait("Category", "Unit")]
+    public void The_session_ending_closes_what_it_was_installing()
+    {
+        var tracker = Tracker();
+        tracker.Report(Step(SdkInstallProgressKind.Begin, 0));
+        tracker.Report(Step(SdkInstallProgressKind.Report, 40));
+
+        tracker.SessionEnded();
+        tracker.Report(Step(SdkInstallProgressKind.End, 100));
+
+        var view = _presenter.Views.ShouldHaveSingleItem();
+        view.Completed.ShouldBeTrue();
+        _cancelled.ShouldBeEmpty();
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void An_install_is_shown_from_begin_through_its_reports_to_the_end()
     {

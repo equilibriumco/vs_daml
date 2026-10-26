@@ -95,6 +95,28 @@ public sealed class SdkInstallProgressTracker : ISdkInstallProgressSink
         view!.Report(percent);
     }
 
+    /// <summary>
+    /// The server stopped or crashed: nothing it was installing will report an end, so whatever is
+    /// still shown is closed. The next session starts its own installations from the beginning.
+    /// </summary>
+    public void SessionEnded()
+    {
+        List<ISdkInstallView> views;
+        lock (_gate)
+        {
+            views = [.. _running.Values];
+            _running.Clear();
+        }
+        foreach (var view in views)
+        {
+            view.Complete();
+        }
+        if (views.Count > 0)
+        {
+            _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, "The language server stopped before its SDK installation reported an end.");
+        }
+    }
+
     private async Task CancelAsync(string sdkVersionIdentifier)
     {
         _logger.Log(DamlLogCategory.LanguageServer, DamlLogLevel.Information, $"Cancelling the installation of SDK {sdkVersionIdentifier}.");
