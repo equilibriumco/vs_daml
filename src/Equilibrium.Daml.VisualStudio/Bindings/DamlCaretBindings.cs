@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel.Composition;
 using System.Threading;
 using System.Threading.Tasks;
+using Equilibrium.Daml.VisualStudio.Core.Concurrency;
 using Equilibrium.Daml.VisualStudio.Core.ScriptResults;
 using Equilibrium.Daml.VisualStudio.Roslyn.Bindings;
 using Microsoft.CodeAnalysis.Text;
@@ -35,8 +36,10 @@ internal sealed class DamlCaretBindingsListener : IWpfTextViewCreationListener
 
 /// <summary>
 /// Whether the name at a C# editor's caret stands for Daml, looked up a moment after the caret
-/// stops moving, so a context menu can tell at once whether to offer going there. The answer
-/// always belongs to a caret position; the command itself looks again before it goes.
+/// stops moving, so a context menu can tell at once whether to offer going there. It is looked up
+/// again when the bindings index changes, since a lookup before the index was read finds nothing.
+/// The answer always belongs to a caret position, and only the latest lookup's counts; the command
+/// itself looks again before it goes.
 /// </summary>
 internal sealed class DamlCaretBindings : IDisposable
 {
@@ -46,7 +49,7 @@ internal sealed class DamlCaretBindings : IDisposable
     private readonly DamlBindingService _service;
     private readonly JoinableTaskFactory _joinableTaskFactory;
     private readonly Debouncer _debouncer = new(Quiet, TimeProvider.System);
-    private volatile Answer? _answer;
+    private readonly LatestResult<Answer> _answers = new();
 
     public DamlCaretBindings(ITextView view, DamlBindingService service, JoinableTaskFactory joinableTaskFactory)
     {
@@ -55,6 +58,7 @@ internal sealed class DamlCaretBindings : IDisposable
         _joinableTaskFactory = joinableTaskFactory;
         _view.Caret.PositionChanged += OnCaretMoved;
         _view.Closed += OnClosed;
+        _service.IndexChanged += OnIndexChanged;
         LookAt(_view.Caret.Position.BufferPosition);
     }
 
@@ -69,35 +73,53 @@ internal sealed class DamlCaretBindings : IDisposable
         {
             ThreadHelper.ThrowIfNotOnUIThread();
             var caret = _view.Caret.Position.BufferPosition;
-            return _answer is { Found: { } found } answer && answer.Snapshot == caret.Snapshot
+            return _answers.Current is { Found: { } found } answer && answer.Snapshot == caret.Snapshot
                 && found.Span.Start <= caret.Position && caret.Position <= found.Span.End;
         }
     }
 
     private void OnCaretMoved(object sender, CaretPositionChangedEventArgs e) => LookAt(e.NewPosition.BufferPosition);
 
+    // Raised on any thread; the caret is read on the UI thread.
+    private void OnIndexChanged(object? sender, EventArgs e) =>
+        _joinableTaskFactory.RunAsync(async () =>
+        {
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            if (!_view.IsClosed)
+            {
+                LookAt(_view.Caret.Position.BufferPosition);
+            }
+        }).FileAndForget("daml/bindings/caretIndexChanged");
+
     /// <summary>Stops following the caret.</summary>
     public void Dispose()
     {
         _view.Caret.PositionChanged -= OnCaretMoved;
         _view.Closed -= OnClosed;
+        _service.IndexChanged -= OnIndexChanged;
         _debouncer.Dispose();
+        _answers.Dispose();
     }
 
     private void OnClosed(object sender, EventArgs e) => Dispose();
 
-    private void LookAt(SnapshotPoint point) =>
+    private void LookAt(SnapshotPoint point)
+    {
+        // A newer lookup makes every one still under way stale, however late it finishes.
+        _answers.Invalidate();
         _joinableTaskFactory.RunAsync(async () =>
         {
             if (!await _debouncer.WaitAsync())
             {
                 return;
             }
+            var generation = _answers.Generation;
             await TaskScheduler.Default;
             var document = point.Snapshot.GetOpenDocumentInCurrentContextWithChanges();
             var found = document is null ? null : await _service.FindAsync(document, point.Position, CancellationToken.None);
-            _answer = new Answer(point.Snapshot, found?.Found);
+            _answers.TryPublish(generation, new Answer(point.Snapshot, found?.Found));
         }).FileAndForget("daml/bindings/caret");
+    }
 
     private sealed record Answer(ITextSnapshot Snapshot, BindingsAtPosition? Found);
 }
