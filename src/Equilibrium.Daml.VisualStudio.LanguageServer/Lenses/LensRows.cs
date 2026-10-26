@@ -41,6 +41,10 @@ public interface IVisibleLensProvider : ILensSegmentProvider
     /// <param name="textVersion">The version of the text the lines are of; the same version is the same text.</param>
     /// <param name="text">The text of that version, read only when the provider needs it.</param>
     void Shown(string documentUri, int firstLine, int lastLine, int textVersion, Func<string> text);
+
+    /// <summary>No view shows <paramref name="documentUri"/> any more: its work stops and what was kept for it goes.</summary>
+    /// <param name="documentUri">The document.</param>
+    void Hidden(string documentUri);
 }
 
 /// <summary>Arranges segments into rows.</summary>

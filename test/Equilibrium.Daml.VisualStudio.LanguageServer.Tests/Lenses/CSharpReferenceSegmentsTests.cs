@@ -146,6 +146,38 @@ public sealed class CSharpReferenceSegmentsTests : IDisposable
 
     // The C# workspace changes over and over while a solution loads; a count under way still ends and
     // shows, and the next one starts after it, so the row never stays "C#: …" for good.
+    // Every view of the file closed: what it was counting stops, and changes to the C# over a long
+    // session don't keep counting for a file nobody looks at.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_document_no_view_shows_any_more_is_counted_no_more()
+    {
+        Show(0, 5);
+        await UntilAsync(() => _source.Asked.Count == 1);
+
+        _segments.Hidden(Uri);
+        await UntilAsync(() => _source.Cancelled.Count == 1);
+        _source.RaiseChanged();
+        _source.RaiseChanged();
+        await SettleAsync();
+
+        _source.Asked.ShouldBe(["T0"]);
+        _segments.SegmentsFor(Uri).ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_document_shown_again_is_counted_afresh()
+    {
+        Show(0, 5);
+        await UntilAsync(() => _source.Asked.Count == 1);
+        _segments.Hidden(Uri);
+        await UntilAsync(() => _source.Cancelled.Count == 1);
+
+        Show(0, 5);
+
+        await UntilAsync(() => _source.Asked.Count == 2);
+        _source.Asked.ShouldBe(["T0", "T0"]);
+    }
+
     [Fact, Trait("Category", "Unit")]
     public async Task A_count_under_way_finishes_however_often_the_CSharp_changes()
     {

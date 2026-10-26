@@ -143,6 +143,14 @@ internal sealed class DamlLensRows : IDisposable
             }
             Dispose();
             _buffer.Properties.RemoveProperty(typeof(DamlLensRows));
+            // After the pending report is dropped, so it can't bring the document back.
+            if (_documentUri is not null)
+            {
+                foreach (var provider in _providers.OfType<IVisibleLensProvider>())
+                {
+                    provider.Hidden(_documentUri);
+                }
+            }
         }
     }
 
@@ -164,7 +172,8 @@ internal sealed class DamlLensRows : IDisposable
 
     private async Task ShownWhenQuietAsync(string documentUri, int firstLine, int lastLine, ITextSnapshot snapshot)
     {
-        if (!await _shown.WaitAsync().ConfigureAwait(false))
+        // The last view may have closed while this waited.
+        if (!await _shown.WaitAsync().ConfigureAwait(false) || Volatile.Read(ref _users) == 0)
         {
             return;
         }

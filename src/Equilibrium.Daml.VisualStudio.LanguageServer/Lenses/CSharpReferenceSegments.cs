@@ -209,6 +209,23 @@ public sealed class CSharpReferenceSegments : IVisibleLensProvider, IDisposable
         }
     }
 
+    /// <inheritdoc />
+    public void Hidden(string documentUri)
+    {
+        List<CancellationTokenSource> stop;
+        lock (_gate)
+        {
+            if (!_documents.TryGetValue(documentUri, out var document))
+            {
+                return;
+            }
+            _documents.Remove(documentUri);
+            stop = [.. document.Running.Values];
+            document.Running.Clear();
+        }
+        Cancel(stop);
+    }
+
     /// <summary>Stops every count; the source isn't listened to any more.</summary>
     public void Dispose()
     {
