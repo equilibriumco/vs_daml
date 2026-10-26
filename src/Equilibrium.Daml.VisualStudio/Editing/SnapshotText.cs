@@ -16,6 +16,12 @@ internal static class SnapshotText
     public static LineEdit Edit(TextContentChangedEventArgs e)
     {
         var changes = e.Changes;
+        // Reloading unchanged text (including encoding detection) can advance the version
+        // without any text changes. Refresh the caches without indexing an empty list.
+        if (changes.Count == 0)
+        {
+            return new LineEdit(0, e.After.LineCount - 1, e.After.LineCount - e.Before.LineCount);
+        }
         var firstLine = e.Before.GetLineNumberFromPosition(changes[0].OldPosition);
         var lastLine = e.After.GetLineNumberFromPosition(changes[changes.Count - 1].NewEnd);
         return new LineEdit(firstLine, lastLine, e.After.LineCount - e.Before.LineCount);
