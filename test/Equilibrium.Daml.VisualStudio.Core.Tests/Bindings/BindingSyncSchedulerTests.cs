@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Bindings;
+using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Shouldly;
 using Xunit;
@@ -27,7 +28,7 @@ public sealed class BindingSyncSchedulerTests : IDisposable
 
     public BindingSyncSchedulerTests()
     {
-        _scheduler = new BindingSyncScheduler(_refresher, _time);
+        _scheduler = new BindingSyncScheduler(_refresher, _time, NullDamlLogger.Instance);
         _scheduler.StatusChanged += (_, status) =>
         {
             lock (_statuses)
@@ -61,6 +62,30 @@ public sealed class BindingSyncSchedulerTests : IDisposable
     // Gives a refresh that should not start the chance to start anyway. Only a broken scheduler
     // can be caught out by it; a slow machine can't make a correct one fail.
     private static Task GraceAsync() => Task.Delay(100);
+
+    // The status handlers are Visual Studio's; one of them failing is not the scheduler's fault
+    // and must not stop the refreshes.
+    [Fact, Trait("Category", "Unit")]
+    public async Task A_status_handler_that_throws_does_not_stop_the_refreshes()
+    {
+        _scheduler.StatusChanged += (_, status) =>
+        {
+            if (status.State == BindingSyncState.Updating)
+            {
+                throw new InvalidOperationException("the Error List is gone");
+            }
+        };
+
+        _scheduler.Request([App]);
+        Quiet();
+        await StartedAsync(App);
+        _refresher.Complete(App, Succeeded);
+        await StatesAsync(App, BindingSyncState.Stale, BindingSyncState.Updating, BindingSyncState.Ready);
+        _scheduler.Request([Web]);
+        Quiet();
+
+        await StartedAsync(App, Web);
+    }
 
     [Fact, Trait("Category", "Unit")]
     public async Task A_request_is_refreshed_after_two_quiet_seconds()

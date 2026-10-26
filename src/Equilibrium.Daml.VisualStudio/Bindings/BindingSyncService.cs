@@ -56,7 +56,7 @@ internal sealed class BindingSyncService : IDisposable
         _errors = new BindingErrorList(_joinableTaskFactory);
         var files = new PhysicalFileSystem();
         _planner = new BindingSyncPlanner(files, new YamlManifestReader(files));
-        _scheduler = new BindingSyncScheduler(new MSBuildBindingRefresher(logger, new ProcessRunner(), _errors, _solution, OnFilesRemoved), TimeProvider.System);
+        _scheduler = new BindingSyncScheduler(new MSBuildBindingRefresher(logger, new ProcessRunner(), _errors, _solution, OnFilesRemoved), TimeProvider.System, logger);
         _scheduler.StatusChanged += OnStatusChanged;
     }
 

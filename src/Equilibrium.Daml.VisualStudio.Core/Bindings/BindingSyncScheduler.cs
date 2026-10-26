@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.Core.ScriptResults;
 
 namespace Equilibrium.Daml.VisualStudio.Core.Bindings;
@@ -60,6 +61,7 @@ public sealed class BindingSyncScheduler : IDisposable
     private readonly object _gate = new();
     private readonly IBindingRefresher _refresher;
     private readonly TimeProvider _time;
+    private readonly IDamlLogger _logger;
     private readonly Debouncer _quiet;
     private readonly List<(BindingRefreshTarget Target, DateTimeOffset Asked)> _pending = [];
     private (BindingRefreshTarget Target, DateTimeOffset Asked, CancellationTokenSource Cancel)? _running;
@@ -69,10 +71,11 @@ public sealed class BindingSyncScheduler : IDisposable
     private bool _disposed;
 
     /// <summary>Creates the scheduler.</summary>
-    public BindingSyncScheduler(IBindingRefresher refresher, TimeProvider time)
+    public BindingSyncScheduler(IBindingRefresher refresher, TimeProvider time, IDamlLogger logger)
     {
         _refresher = refresher ?? throw new ArgumentNullException(nameof(refresher));
         _time = time ?? throw new ArgumentNullException(nameof(time));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _quiet = new Debouncer(Quiet, time);
     }
 
@@ -231,13 +234,16 @@ public sealed class BindingSyncScheduler : IDisposable
                 }
             }
         }
-        catch
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            // Nobody awaits this pump, so an exception here would go unobserved; the next request
+            // starts a fresh one.
             lock (_gate)
             {
                 _pumping = false;
+                _running = null;
             }
-            throw;
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, "The background binding refresh stopped.", ex);
         }
     }
 
@@ -262,6 +268,17 @@ public sealed class BindingSyncScheduler : IDisposable
         }
     }
 
-    private void Raise(BindingRefreshTarget target, BindingSyncState state, string? message) =>
-        StatusChanged?.Invoke(this, new BindingSyncStatus(target, state, message));
+    // The handlers are the host's (Error List, status bar); their failures are theirs to log and
+    // must not take the refreshes with them.
+    private void Raise(BindingRefreshTarget target, BindingSyncState state, string? message)
+    {
+        try
+        {
+            StatusChanged?.Invoke(this, new BindingSyncStatus(target, state, message));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _logger.Log(DamlLogCategory.Extension, DamlLogLevel.Error, $"A binding status handler failed for {target.Project}.", ex);
+        }
+    }
 }
