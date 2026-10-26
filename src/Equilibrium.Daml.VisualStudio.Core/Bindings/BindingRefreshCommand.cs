@@ -109,6 +109,32 @@ public static class MSBuildOutput
             .ToList();
     }
 
+    /// <summary>
+    /// What a failed refresh tells the user: the first error MSBuild named, or, with none, only the
+    /// exit code (the end of the output is for the log, see <see cref="Tail"/>).
+    /// </summary>
+    public static string Failure(int exitCode, IReadOnlyList<MSBuildDiagnostic> diagnostics)
+    {
+        if (diagnostics is null)
+        {
+            throw new ArgumentNullException(nameof(diagnostics));
+        }
+        return diagnostics.FirstOrDefault(d => d.IsError) is { } error
+            ? $"{Path.GetFileName(error.File)}: {error.Code}: {error.Message}"
+            : $"MSBuild exited with code {exitCode}.";
+    }
+
+    /// <summary>The last <paramref name="lines"/> lines of <paramref name="text"/> that have any text.</summary>
+    public static string Tail(string text, int lines)
+    {
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+        var all = text.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(Environment.NewLine, all.Skip(Math.Max(0, all.Length - lines)));
+    }
+
     private static int Number(Group group) =>
         group.Success ? int.Parse(group.Value, NumberStyles.None, CultureInfo.InvariantCulture) : 0;
 }

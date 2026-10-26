@@ -9,6 +9,27 @@ public class BindingRefreshCommandTests
 {
     // The configuration Visual Studio builds in, the references' DARs but no compiled C# library, and no
     // summary repeating each error. The project's own setting decides whether tools may be installed.
+    // What the user is told when the refresh fails: the first error MSBuild named, in short;
+    // without one, only the exit code, since the end of the output goes to the log.
+    [Fact, Trait("Category", "Unit")]
+    public void A_failed_refresh_is_explained_by_its_first_error()
+    {
+        var diagnostics = MSBuildOutput.Diagnostics(
+            "C:\\sln\\App\\Uses.cs(3,5): warning CS0168: unused [C:\\sln\\App\\App.csproj]\n" +
+            "C:\\sln\\App\\Uses.cs(4,1): error CS0246: The type 'Asset' could not be found [C:\\sln\\App\\App.csproj]\n" +
+            "C:\\sln\\App\\Other.cs(1,1): error CS1002: ; expected [C:\\sln\\App\\App.csproj]\n");
+
+        MSBuildOutput.Failure(1, diagnostics).ShouldBe("Uses.cs: CS0246: The type 'Asset' could not be found");
+        MSBuildOutput.Failure(1, []).ShouldBe("MSBuild exited with code 1.");
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void The_tail_is_the_last_lines_with_text()
+    {
+        MSBuildOutput.Tail("a\r\nb\n\nc\nd\n", 2).ShouldBe("c" + System.Environment.NewLine + "d");
+        MSBuildOutput.Tail("only", 5).ShouldBe("only");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_refresh_runs_the_targeted_build_in_the_active_configuration()
     {

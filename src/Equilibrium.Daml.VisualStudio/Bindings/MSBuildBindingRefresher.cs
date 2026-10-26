@@ -107,18 +107,12 @@ internal sealed class MSBuildBindingRefresher : IBindingRefresher
             }
             return new BindingRefreshResult(true, null);
         }
-        if (diagnostics.FirstOrDefault(d => d.IsError) is { } error)
+        if (!diagnostics.Any(d => d.IsError))
         {
-            return new BindingRefreshResult(false, $"{Path.GetFileName(error.File)}: {error.Code}: {error.Message}");
+            // No error MSBuild's format names: the end of its output is all there is to go by.
+            _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning,
+                $"MSBuild exited with code {result.ExitCode}; the end of its output:{Environment.NewLine}{MSBuildOutput.Tail(result.Stdout + Environment.NewLine + result.Stderr, 20)}");
         }
-        // No error MSBuild's format names: the end of its output is all there is to go by.
-        _logger.Log(DamlLogCategory.Build, DamlLogLevel.Warning, $"MSBuild exited with code {result.ExitCode}; the end of its output:{Environment.NewLine}{Tail(result.Stdout + Environment.NewLine + result.Stderr, 20)}");
-        return new BindingRefreshResult(false, $"MSBuild exited with code {result.ExitCode}.");
-    }
-
-    private static string Tail(string text, int lines)
-    {
-        var all = text.Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries);
-        return string.Join(Environment.NewLine, all.Skip(Math.Max(0, all.Length - lines)));
+        return new BindingRefreshResult(false, MSBuildOutput.Failure(result.ExitCode, diagnostics));
     }
 }

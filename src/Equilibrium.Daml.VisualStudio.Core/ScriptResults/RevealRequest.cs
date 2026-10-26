@@ -35,6 +35,26 @@ public sealed record RevealRequest(string File, int StartLine, int EndLine)
     public bool FitsIn(int lineCount) => StartLine < lineCount && EndLine <= lineCount;
 
     /// <summary>
+    /// Where the selection ends in a document of <paramref name="lineCount"/> lines: a one-line range
+    /// at the end of that line, a longer one at the start of <see cref="EndLine"/>, or at the end of
+    /// the document when that is where it ends. Only for a request that <see cref="FitsIn"/>.
+    /// </summary>
+    /// <param name="lineCount">The document's lines.</param>
+    /// <param name="lengthOfLine">The length of a line, without its line break.</param>
+    public (int Line, int Column) SelectionEnd(int lineCount, Func<int, int> lengthOfLine)
+    {
+        if (lengthOfLine is null)
+        {
+            throw new ArgumentNullException(nameof(lengthOfLine));
+        }
+        if (EndLine == StartLine)
+        {
+            return (StartLine, lengthOfLine(StartLine));
+        }
+        return EndLine < lineCount ? (EndLine, 0) : (lineCount - 1, lengthOfLine(lineCount - 1));
+    }
+
+    /// <summary>
     /// Reads a <c>command:daml.revealLocation?["file://…", start, end]</c> link. Only a Daml
     /// file given by a full local or network path, with no <c>.</c>/<c>..</c> segments, query,
     /// fragment or stream, and a plausible range, is accepted; anything else gets a reason.

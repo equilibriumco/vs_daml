@@ -19,6 +19,19 @@ public class RevealRequestTests
         return rejection.ShouldNotBeNull();
     }
 
+    private static int LengthOf(int line) => 10 + line;
+
+    // A one-line range selects that whole line; a longer one ends at the start of its end line,
+    // or at the end of the document when that is where it ends.
+    [Theory, Trait("Category", "Unit")]
+    [InlineData(4, 4, 4, 14)]
+    [InlineData(2, 5, 5, 0)]
+    [InlineData(7, 10, 9, 19)]
+    public void The_selection_ends_where_the_range_says(int start, int end, int endLine, int endColumn)
+    {
+        new RevealRequest(@"C:\work\a.daml", start, end).SelectionEnd(10, LengthOf).ShouldBe((endLine, endColumn));
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_recorded_link_names_the_file_and_its_lines()
     {

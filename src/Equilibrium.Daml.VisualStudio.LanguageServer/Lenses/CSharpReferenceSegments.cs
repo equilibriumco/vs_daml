@@ -21,6 +21,28 @@ public enum CSharpLinkState
     Current,
 }
 
+/// <summary>Turns the generations of a package's C# into what its references can be counted from.</summary>
+public static class CSharpLinks
+{
+    /// <summary>
+    /// Current when any generation was made from the sources as they are now, with each such
+    /// package once; stale when the only ones were made from other sources; otherwise none.
+    /// </summary>
+    /// <param name="generations">Each generation's package and how its recorded sources compare with the Daml now.</param>
+    public static (CSharpLinkState State, IReadOnlyList<string> Packages) From(IEnumerable<(string Package, SourceStatus Status)> generations)
+    {
+        if (generations is null)
+        {
+            throw new ArgumentNullException(nameof(generations));
+        }
+        var all = generations.ToList();
+        var current = all.Where(g => g.Status == SourceStatus.Current).Select(g => g.Package).Distinct(StringComparer.Ordinal).ToList();
+        return current.Count > 0 ? (CSharpLinkState.Current, current)
+            : all.Any(g => g.Status == SourceStatus.Stale) ? (CSharpLinkState.Stale, [])
+            : (CSharpLinkState.None, []);
+    }
+}
+
 /// <summary>What a "C#: N references" segment stands for, for a click to act on.</summary>
 /// <param name="DamlFile">The Daml file.</param>
 /// <param name="Module">Its module.</param>

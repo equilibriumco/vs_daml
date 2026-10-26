@@ -121,11 +121,8 @@ internal sealed class RoslynCSharpReferenceSource : ICSharpReferenceSource, IDis
             }
         }
         var generations = _bindings.IndexOf(_workspace)?.GenerationsFrom(manifest) ?? [];
-        var statuses = generations.Select(g => (Generation: g, Status: _bindings.Sources.StatusOf(g))).ToList();
-        var current = statuses.Where(s => s.Status == SourceStatus.Current).Select(s => s.Generation.MainPackageId).Distinct().ToList();
-        var link = current.Count > 0 ? new Link(CSharpLinkState.Current, current)
-            : statuses.Any(s => s.Status == SourceStatus.Stale) ? new Link(CSharpLinkState.Stale, [])
-            : Link.None;
+        var (state, packages) = CSharpLinks.From(generations.Select(g => (g.MainPackageId, _bindings.Sources.StatusOf(g))));
+        var link = new Link(state, packages);
         lock (_gate)
         {
             _links[manifest] = (DateTime.UtcNow, link);

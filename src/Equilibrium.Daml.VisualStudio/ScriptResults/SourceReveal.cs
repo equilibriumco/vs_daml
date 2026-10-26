@@ -48,25 +48,11 @@ internal static class SourceReveal
             return;
         }
 
-        // A one-line range selects that line; otherwise up to the start of the end line, or the
-        // end of the document when that is where it ends.
-        int endLine;
-        int endColumn;
-        if (request.EndLine == request.StartLine)
+        var (endLine, endColumn) = request.SelectionEnd(lineCount, line =>
         {
-            endLine = request.StartLine;
-            buffer.GetLengthOfLine(endLine, out endColumn);
-        }
-        else if (request.EndLine < lineCount)
-        {
-            endLine = request.EndLine;
-            endColumn = 0;
-        }
-        else
-        {
-            endLine = lineCount - 1;
-            buffer.GetLengthOfLine(endLine, out endColumn);
-        }
+            buffer.GetLengthOfLine(line, out var length);
+            return length;
+        });
         view.SetSelection(request.StartLine, 0, endLine, endColumn);
         view.CenterLines(request.StartLine, Math.Max(1, endLine - request.StartLine + 1));
     }
