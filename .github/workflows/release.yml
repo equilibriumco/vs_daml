@@ -1,10 +1,11 @@
 name: Release
 
 # Started by hand only. Builds the VSIX and the three NuGet packages with the given build number,
-# runs the PR gate on them and keeps them as an artifact. Started from a tag v<version>, it also
+# runs the Hosted gate on them and keeps them as an artifact. Started from a tag v<version>, it also
 # drafts a GitHub pre-release with those files. Publishing is done by a person: the draft on
 # GitHub, the VSIX on the Visual Studio Marketplace and the packages on nuget.org, from exactly
-# these files.
+# these files. A hosted runner can't run the Full gate (no Visual Studio session, no dpm), so the
+# person publishing runs it on the tagged commit first; the run summary says so.
 on:
   workflow_dispatch:
     inputs:
@@ -57,8 +58,8 @@ jobs:
           Install-Module Pester -RequiredVersion 4.10.1 -Scope CurrentUser -Force -SkipPublisherCheck
           ./scripts/test-scripts.ps1
 
-      - name: Tests (PR gate)
-        run: ./scripts/test.ps1 -Category All -Gate PR -RequiredTools -Configuration Release -NoBuild
+      - name: Tests (Hosted gate)
+        run: ./scripts/test.ps1 -Category All -Gate Hosted -RequiredTools -Configuration Release -NoBuild
 
       - name: One version, named by the tag
         id: version
@@ -69,6 +70,20 @@ jobs:
           if ($tag) { Write-Host "::error::$tag"; exit 1 }
           Write-Host "Release $($version.NuGet) (VSIX $($version.Vsix))"
           "version=$($version.NuGet)" >> $env:GITHUB_OUTPUT
+
+      - name: What this run didn't prove
+        run: |
+          @(
+            "## $env:GITHUB_REF_NAME at $env:GITHUB_SHA"
+            ''
+            'This run passed the **Hosted** gate: Unit, Process, Editor and MSBuild (fake backend), with coverage.'
+            'It did **not** run the Contract, Integration or real-backend MSBuild tests.'
+            'Before publishing, run the Full gate on this commit on a machine with Visual Studio 2026, dpm and a JDK:'
+            ''
+            '```'
+            'pwsh scripts/test.ps1 -Category All -Gate Full -RequiredTools'
+            '```'
+          ) -join "`n" >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload the release files
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

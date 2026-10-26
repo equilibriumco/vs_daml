@@ -2,9 +2,9 @@ name: Nightly
 
 # Gate-mode run: every required category must execute tests without skips and meet the gate's
 # coverage. On GitHub's hosted runner only the Hosted profile can pass: it has no Visual Studio
-# session for Integration and no dpm for Contract and the real MSBuild tests. The Full gate
-# needs a self-hosted runner with both; then switch runs-on to its label, pick Full, and enable
-# the schedule.
+# session for Integration and no dpm for Contract and the real MSBuild tests; the schedule runs
+# Hosted. The Full gate needs a self-hosted runner with both; then switch runs-on to its label and
+# make Full the scheduled gate.
 on:
   workflow_dispatch:
     inputs:
@@ -16,8 +16,8 @@ on:
           - Full
         default: Hosted
         required: true
-  # schedule:
-  #   - cron: '0 2 * * *'
+  schedule:
+    - cron: '0 2 * * *'
 
 permissions:
   contents: read

@@ -62,9 +62,12 @@ pwsh scripts/run-exp.ps1 -Path samples\single-package
 needs an unlocked interactive session.
 
 **Releasing.** The *Release* workflow runs by hand with a build number. From a branch it builds,
-tests and keeps the files as an artifact. From a tag `v<version>` (for example `v0.9.0-beta.3` with
-build number 3) it also drafts a GitHub pre-release with the VSIX, the packages and their SBOMs.
-Publish those exact files by hand: the VSIX on the Visual Studio Marketplace (listing text in
+runs the `Hosted` test gate and keeps the files as an artifact. From a tag `v<version>` (for example
+`v0.9.0-beta.3` with build number 3) it also drafts a GitHub pre-release with the VSIX, the packages
+and their SBOMs. A hosted runner can't run the `Contract`, `Integration` or real-backend `MSBuild`
+tests, so before publishing, run the full gate on the tagged commit on a machine with Visual Studio
+2026, dpm and a JDK: `pwsh scripts/test.ps1 -Category All -Gate Full -RequiredTools`. Then publish the
+workflow's exact files by hand: the VSIX on the Visual Studio Marketplace (listing text in
 `src/Equilibrium.Daml.VisualStudio/Marketplace/overview.md`), the packages on nuget.org, then the draft.
 
 | Folder | Contents |
