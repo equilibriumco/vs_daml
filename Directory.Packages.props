@@ -69,17 +69,17 @@
 
   <!-- Tests. xUnit stays on v2 until the [IdeFact] harness supports v3. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
     <!-- Kept at the test SDK's version: xunit.runner.visualstudio pulls an older one onto net48, and the
          test host then warns about every extension file it scans with the app domain disabled. -->
-    <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.10.1" />
+    <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.11.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Verify.Xunit" Version="31.12.5" />
     <PackageVersion Include="FsCheck.Xunit" Version="3.4.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.10.0" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
     <!-- VS-MEF, at the version VS 17.14 resolves; tests use its part discovery to check our MEF exports. -->
