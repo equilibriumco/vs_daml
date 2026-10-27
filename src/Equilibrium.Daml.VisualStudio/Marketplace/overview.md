@@ -4,7 +4,9 @@ Daml in Visual Studio 2026: editing backed by the `damlc` language server, Daml 
 the code, Daml packages as MSBuild projects, and C# generated from Daml in the same build.
 
 **Beta.** Windows x64, Visual Studio 2026 only. Please report problems on
-[GitHub Issues](https://github.com/equilibriumco/vs_daml/issues).
+[GitHub Issues](https://github.com/equilibriumco/vs_daml/issues); the
+[beta guide](https://github.com/equilibriumco/vs_daml/blob/main/docs/beta-testing.md) has a short tour and
+says what to include.
 
 ## Features
 

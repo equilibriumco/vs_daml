@@ -104,7 +104,8 @@ jobs:
             artifacts/packages
             artifacts/sbom
           if-no-files-found: error
-          retention-days: 90
+          # The repository's limit; asking for more only earns a warning.
+          retention-days: 80
 
       - name: Upload logs and test results
         if: always()

@@ -37,7 +37,8 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
   nuget.org (prerelease).
 
 See the [user guide](docs/user-guide.md) for setup, settings, build properties, diagnostic codes,
-troubleshooting and known limitations.
+troubleshooting and known limitations. Testing the beta: [a short tour and how to report
+problems](docs/beta-testing.md).
 
 ## Support
 
