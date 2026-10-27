@@ -48,9 +48,20 @@ jobs:
       - name: Verify formatting
         run: dotnet format Equilibrium.Daml.VisualStudio.sln --verify-no-changes --no-restore
 
+      # The PowerShell Gallery now and then drops a download; one miss shouldn't fail the run.
       - name: Test gate scripts
         run: |
-          Install-Module Pester -RequiredVersion 4.10.1 -Scope CurrentUser -Force -SkipPublisherCheck
+          foreach ($try in 1..3) {
+            try {
+              Install-Module Pester -RequiredVersion 4.10.1 -Scope CurrentUser -Force -SkipPublisherCheck -ErrorAction Stop
+              break
+            }
+            catch {
+              if ($try -eq 3) { throw }
+              Write-Host "::warning::Pester download failed (try $try of 3): $($_.Exception.Message)"
+              Start-Sleep -Seconds 30
+            }
+          }
           ./scripts/test-scripts.ps1
 
       # The PR profile in scripts/test-gates.psd1: every required project must run tests on each
