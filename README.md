@@ -71,6 +71,10 @@ tests, so before publishing, run the full gate on the tagged commit on a machine
 workflow's exact files by hand: the VSIX on the Visual Studio Marketplace (listing text in
 `src/Equilibrium.Daml.VisualStudio/Marketplace/overview.md`), the packages on nuget.org, then the draft.
 
+The VSIX installation target declares stable API `17.14` for Marketplace compatibility. Its
+CoreEditor prerequisite requires Visual Studio 2026 (`18.0+`); API `18.0` is experimental and is
+rejected by Marketplace.
+
 | Folder | Contents |
 |---|---|
 | `src/` | Extension (`Equilibrium.Daml.VisualStudio`), host-independent libraries, MSBuild tasks and packages |

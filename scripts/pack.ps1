@@ -48,7 +48,7 @@ if ($vsixProblems) {
     $vsixProblems | ForEach-Object { Write-Host "VSIX check: $_" -ForegroundColor Red }
     exit 1
 }
-Write-Host "VSIX check passed: $($vsix[0].Name) $version (VS 2026 [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
+Write-Host "VSIX check passed: $($vsix[0].Name) $version (stable API [17.14,), CoreEditor [18.0,), amd64, no VS-provided assemblies, codeBase for every third-party assembly)"
 
 # The listing goes out with the VSIX, so a listing that breaks the trademark rules stops the pack too.
 Import-Module (Join-Path $PSScriptRoot 'lib\Marketplace.psm1') -Force

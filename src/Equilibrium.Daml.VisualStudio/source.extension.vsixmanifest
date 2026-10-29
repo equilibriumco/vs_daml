@@ -4,7 +4,7 @@
     <!-- The Id is the extension's identity in the Marketplace and in every user's install;
          never change it after the first public release. Version comes from the project.
          Naming: Equilibrium leads, Daml describes the language (see TRADEMARK.md). -->
-    <Identity Id="Equilibrium.DamlTools" Version="|%CurrentProject%;GetVsixVersion|" Language="en-US" Publisher="Equilibrium" />
+    <Identity Id="Equilibrium.Daml.VisualStudio" Version="|%CurrentProject%;GetVsixVersion|" Language="en-US" Publisher="Equilibrium" />
     <DisplayName>EQ Daml Tools for Visual Studio</DisplayName>
     <Description xml:space="preserve">Daml language support, project system and C# integration for Visual Studio. Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
     <License>LICENSE</License>
@@ -14,9 +14,9 @@
     <Preview>true</Preview>
   </Metadata>
   <Installation>
-    <!-- VS 2026 only. The SDK packages we compile against are 17.14 (nuget.org has no 18.x);
-         VS 2026 redirects them to its own assemblies. -->
-    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[18.0,)">
+    <!-- VS 2026 interprets this lower bound as an API version: 17.14 is stable;
+         Marketplace rejects the experimental 18.0 API. CoreEditor below requires VS 2026. -->
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.14,)">
       <ProductArchitecture>amd64</ProductArchitecture>
     </InstallationTarget>
   </Installation>
@@ -24,6 +24,7 @@
     <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework" d:Source="Manual" Version="[4.8,)" />
   </Dependencies>
   <Prerequisites>
+    <!-- Component versions are product versions, unlike InstallationTarget's API baseline. -->
     <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[18.0,)" DisplayName="Visual Studio core editor" />
   </Prerequisites>
   <Assets>

@@ -2,14 +2,16 @@ Add-Type -AssemblyName System.IO.Compression
 Import-Module (Join-Path $PSScriptRoot '..\..\scripts\lib\VsixContents.psm1') -Force
 
 # Files maps an entry name to a file whose bytes go in; Pkgdef is the pkgdef's text.
-function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Equilibrium.DamlTools',
-    [hashtable] $Files = @{}, [string] $Pkgdef = '', [string] $Range = '[18.0,)', [string[]] $Architectures = @('amd64')) {
+function New-TestVsix([string] $Path, [string[]] $ExtraEntries = @(), [string] $Version = '0.2.0.0', [string[]] $Without = @(), [string] $Id = 'Equilibrium.Daml.VisualStudio',
+    [hashtable] $Files = @{}, [string] $Pkgdef = '', [string] $Range = '[17.14,)', [string[]] $Architectures = @('amd64'),
+    [string] $EditorRange = '[18.0,)') {
     $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
     try {
         $arch = ($Architectures | ForEach-Object { "<ProductArchitecture>$_</ProductArchitecture>" }) -join ''
         $manifest = $zip.CreateEntry('extension.vsixmanifest')
         $writer = [IO.StreamWriter]::new($manifest.Open())
-        try { $writer.Write('<PackageManifest><Metadata><Identity Id="' + $Id + '" Version="' + $Version + '" /></Metadata><Installation><InstallationTarget Id="Microsoft.VisualStudio.Community" Version="' + $Range + '">' + $arch + '</InstallationTarget></Installation></PackageManifest>') }
+        $prerequisites = if ($EditorRange) { '<Prerequisites><Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="' + $EditorRange + '" /></Prerequisites>' } else { '' }
+        try { $writer.Write('<PackageManifest><Metadata><Identity Id="' + $Id + '" Version="' + $Version + '" /></Metadata><Installation><InstallationTarget Id="Microsoft.VisualStudio.Community" Version="' + $Range + '">' + $arch + '</InstallationTarget></Installation>' + $prerequisites + '</PackageManifest>') }
         finally { $writer.Dispose() }
         $required = @('[Content_Types].xml', 'Equilibrium.Daml.VisualStudio.dll', 'Equilibrium.Daml.VisualStudio.Core.dll', 'Equilibrium.Daml.VisualStudio.LanguageServer.dll', 'Equilibrium.Daml.Build.Core.dll', 'LICENSE', 'NOTICE')
         foreach ($name in @($required | Where-Object { $_ -notin $Without }) + $ExtraEntries) {
@@ -59,7 +61,7 @@ Describe 'Release VSIX contents' {
         New-TestVsix $script:vsix -Id 'Daml.VisualStudio.e536ad39-5d35-4aba-a4ae-7bcc5b3fae1e'
         $problems = @(Test-Vsix $script:vsix)
         $problems.Count | Should Be 1
-        $problems[0] | Should Match 'Id Daml\.VisualStudio.*Equilibrium\.DamlTools'
+        $problems[0] | Should Match 'Id Daml\.VisualStudio.*Equilibrium.Daml.VisualStudio'
     }
 
     It 'rejects a VSIX without the license and the third-party notices' {
@@ -110,10 +112,33 @@ Describe 'Release VSIX contents' {
         $problems[0] | Should Match 'ships VS-provided assembly System.Text.Json.dll'
     }
 
-    It 'installs only into Visual Studio 2026 and later, on x64' {
-        New-TestVsix $script:vsix -Range '[17.0,)' -Architectures 'amd64', 'arm64'
+    It 'rejects the experimental API 18.0 range refused by Marketplace' {
+        New-TestVsix $script:vsix -Range '[18.0,)'
         $problems = @(Test-Vsix $script:vsix) -join ';'
-        $problems | Should Match 'range \[17\.0,\), expected \[18\.0,\)'
+        $problems | Should Match 'range \[18\.0,\), expected stable API \[17\.14,\)'
+    }
+
+    It 'requires the stable API baseline used by the extension' {
+        New-TestVsix $script:vsix -Range '[17.0,)'
+        $problems = @(Test-Vsix $script:vsix) -join ';'
+        $problems | Should Match 'range \[17\.0,\), expected stable API \[17\.14,\)'
+    }
+
+    It 'installs only on x64' {
+        New-TestVsix $script:vsix -Architectures 'amd64', 'arm64'
+        $problems = @(Test-Vsix $script:vsix) -join ';'
         $problems | Should Match "architectures 'amd64, arm64', expected amd64 only"
+    }
+
+    It 'keeps the Visual Studio 2026 product requirement in CoreEditor prerequisites' {
+        New-TestVsix $script:vsix -EditorRange '[17.14,)'
+        $problems = @(Test-Vsix $script:vsix) -join ';'
+        $problems | Should Match 'CoreEditor.*expected \[18\.0,\)'
+    }
+
+    It 'rejects a missing CoreEditor prerequisite' {
+        New-TestVsix $script:vsix -EditorRange ''
+        $problems = @(Test-Vsix $script:vsix) -join ';'
+        $problems | Should Match 'CoreEditor.*expected \[18\.0,\)'
     }
 }

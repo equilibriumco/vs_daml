@@ -21,7 +21,7 @@ function New-Listing([string] $Folder, [hashtable] $Manifest = @{}, [string] $Ov
     if (-not $Overview) { $Overview ="# EQ Daml Tools for Visual Studio`n`nDaml in Visual Studio.`n`n## Trademarks`n`nEQ Daml Tools for Visual Studio is an independent project by Equilibrium and is not affiliated with,`nsponsored by, or endorsed by Digital Asset. Daml and Canton are trademarks of Digital Asset`n(Switzerland) GmbH. Visual Studio is a trademark of Microsoft Corporation.`n" }
     Set-Content (Join-Path $Folder 'overview.md') $Overview -Encoding UTF8
     if (-not $Description) { $Description ="Daml language support for Visual Studio. $script:shortNotice" }
-    $vsix = '<PackageManifest xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"><Metadata><Identity Id="Equilibrium.DamlTools" Version="1.0" Language="en-US" Publisher="Equilibrium" /><DisplayName>EQ Daml Tools for Visual Studio</DisplayName><Description xml:space="preserve">' + [Security.SecurityElement]::Escape($Description) + '</Description></Metadata></PackageManifest>'
+    $vsix = '<PackageManifest xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"><Metadata><Identity Id="Equilibrium.Daml.VisualStudio" Version="1.0" Language="en-US" Publisher="Equilibrium" /><DisplayName>EQ Daml Tools for Visual Studio</DisplayName><Description xml:space="preserve">' + [Security.SecurityElement]::Escape($Description) + '</Description></Metadata></PackageManifest>'
     Set-Content (Join-Path $Folder 'source.extension.vsixmanifest') $vsix -Encoding UTF8
 }
 

@@ -12,7 +12,7 @@ function New-Artifacts([string] $Folder, [string] $NuGet = '0.9.0-beta.3', [stri
     $zip = [IO.Compression.ZipFile]::Open($path, [IO.Compression.ZipArchiveMode]::Create)
     try {
         $writer = [IO.StreamWriter]::new($zip.CreateEntry('extension.vsixmanifest').Open())
-        try { $writer.Write('<PackageManifest xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"><Metadata><Identity Id="Equilibrium.DamlTools" Version="' + $Vsix + '" Publisher="Equilibrium" /></Metadata></PackageManifest>') }
+        try { $writer.Write('<PackageManifest xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"><Metadata><Identity Id="Equilibrium.Daml.VisualStudio" Version="' + $Vsix + '" Publisher="Equilibrium" /></Metadata></PackageManifest>') }
         finally { $writer.Dispose() }
     }
     finally { $zip.Dispose() }

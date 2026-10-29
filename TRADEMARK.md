@@ -12,7 +12,7 @@ licensor's trade names or trademarks. This file sets how this repository uses th
 | Display name | EQ Daml Tools for Visual Studio |
 | Short name (options pages, output panes, tool windows, tags) | EQ Daml Tools |
 | Description | Daml language support, project system and C# integration for Visual Studio. |
-| VSIX Identity Id / Publisher | `Equilibrium.DamlTools` / `Equilibrium` |
+| VSIX Identity Id / Publisher | `Equilibrium.Daml.VisualStudio` / `Equilibrium` |
 | NuGet IDs | `Equilibrium.Daml.Sdk`, `Equilibrium.Daml.Build.CSharp`, `Equilibrium.Daml.Templates` |
 | Namespaces and assemblies | `Equilibrium.Daml.*` |
 | MSBuild properties, items and targets we define | `EqDaml` prefix |

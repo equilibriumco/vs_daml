@@ -1,8 +1,9 @@
 # Validates package contents and reads assembly identities in a private temporary folder.
 Set-StrictMode -Version Latest
 
-# The Identity Id every release so far has carried. Never change it once a version is out.
-$ShippedId = 'Equilibrium.DamlTools'
+# The Identity Id the Marketplace listing is registered under. Never change it once a version is out:
+# the Marketplace keeps a deleted ID reserved and VS treats a new one as a different extension.
+$ShippedId = 'Equilibrium.Daml.VisualStudio'
 
 function Read-ZipText($Zip, [string] $Name) {
     $entry = $Zip.GetEntry($Name)
@@ -80,9 +81,17 @@ function Test-Vsix([string] $Path, [string] $ExpectedVersion, [string[]] $Allowe
     $targets = @($manifest.PackageManifest.Installation.InstallationTarget)
     if (-not $targets) { $problems.Add('no InstallationTarget') }
     foreach ($target in $targets) {
-        if ($target.Version -ne '[18.0,)') { $problems.Add("InstallationTarget $($target.Id) has range $($target.Version), expected [18.0,)") }
+        # VS 2026 uses the lower bound as an API version, not the product version.
+        # Marketplace rejects 18.0 as experimental; our host APIs are on the stable 17.14 baseline.
+        if ($target.Version -ne '[17.14,)') { $problems.Add("InstallationTarget $($target.Id) has range $($target.Version), expected stable API [17.14,)") }
         $arch = @($target.ProductArchitecture)
         if ($arch.Count -ne 1 -or $arch[0] -ne 'amd64') { $problems.Add("InstallationTarget $($target.Id) architectures '$($arch -join ', ')', expected amd64 only") }
+    }
+
+    # Keep the VS 2026-only product requirement independently of the stable API baseline.
+    $editors = @($manifest.SelectNodes("//*[local-name()='Prerequisites']/*[local-name()='Prerequisite'][@Id='Microsoft.VisualStudio.Component.CoreEditor']"))
+    if ($editors.Count -ne 1 -or $editors[0].GetAttribute('Version') -ne '[18.0,)') {
+        $problems.Add('CoreEditor prerequisite missing or has the wrong product range, expected [18.0,)')
     }
 
     # The MIT notices of the libraries we bundle have to travel with them.
