@@ -6,7 +6,7 @@
          Naming: Equilibrium leads, Daml describes the language (see TRADEMARK.md). -->
     <Identity Id="Equilibrium.Daml.VisualStudio" Version="|%CurrentProject%;GetVsixVersion|" Language="en-US" Publisher="Equilibrium" />
     <DisplayName>EQ Daml Tools for Visual Studio</DisplayName>
-    <Description xml:space="preserve">Daml language support, project system and C# integration for Visual Studio. Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.</Description>
+    <Description xml:space="preserve">Daml language support, project system and C# integration for Visual Studio. Independent Daml tooling by Equilibrium, not affiliated with or endorsed by Digital Asset.</Description>
     <License>LICENSE</License>
     <!-- No Icon or PreviewImage yet: an icon of our own design is still to be made. Never reuse
          Daml, Canton or Digital Asset artwork. -->

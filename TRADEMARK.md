@@ -20,10 +20,14 @@ licensor's trade names or trademarks. This file sets how this repository uses th
 | Authors, Company, Copyright | Equilibrium |
 | Language name, content type, file extension | Daml / `daml` / `.daml`: these name the language and are not ours to rename |
 
-Short form, used in the VSIX description, the installed-product registration and the NuGet
-package descriptions:
+Short form, used in the installed-product registration and the NuGet package descriptions:
 
 > Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.
+
+The Visual Studio Marketplace shows only the first 200 characters of a VSIX description, so the
+VSIX description ends with the shortest form instead; the full notices are on the Marketplace page:
+
+> Independent Daml tooling by Equilibrium, not affiliated with or endorsed by Digital Asset.
 
 ## Rules
 

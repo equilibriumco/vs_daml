@@ -3,7 +3,10 @@
 Set-StrictMode -Version Latest
 
 $script:longNotice = 'EQ Daml Tools for Visual Studio is an independent project by Equilibrium and is not affiliated with, sponsored by, or endorsed by Digital Asset. Daml and Canton are trademarks of Digital Asset (Switzerland) GmbH. Visual Studio is a trademark of Microsoft Corporation.'
-$script:shortNotice = 'Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.'
+# The VSIX description is capped at 200 characters on the Marketplace (the rest is cut off), so it
+# carries the shortest form of the notice; the full short form lives in the NuGet descriptions.
+$script:descriptionLimit = 200
+$script:shortNotice = 'Independent Daml tooling by Equilibrium, not affiliated with or endorsed by Digital Asset.'
 $script:repository = 'https://github.com/equilibriumco/vs_daml'
 # The categories VsixPublisher takes for a Visual Studio extension.
 $script:categories = @('build', 'coding', 'data', 'debugging', 'deployment', 'documentation', 'other', 'performance',
@@ -61,6 +64,7 @@ function Test-MarketplaceListing {
     $vsix = [xml](Get-Content -LiteralPath $VsixManifest -Raw -Encoding UTF8)
     $description = Get-Flat ($vsix.SelectSingleNode("//*[local-name()='Metadata']/*[local-name()='Description']").InnerText)
     if (-not $description.EndsWith($script:shortNotice)) { $problems.Add('the extension description has to end with the short notice (TRADEMARK.md)') }
+    if ($description.Length -gt $script:descriptionLimit) { $problems.Add("the extension description is $($description.Length) characters; the Marketplace shows $script:descriptionLimit") }
     # What the Marketplace and Extensions > Manage Extensions show of the extension itself.
     $displayName = Get-Flat ($vsix.SelectSingleNode("//*[local-name()='Metadata']/*[local-name()='DisplayName']").InnerText)
     foreach ($part in @(@{ Name = 'display name'; Text = $displayName }, @{ Name = 'description'; Text = $description.Replace($script:shortNotice, '') })) {

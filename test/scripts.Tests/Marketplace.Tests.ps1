@@ -1,7 +1,7 @@
 Import-Module (Join-Path $PSScriptRoot '..\..\scripts\lib\Marketplace.psm1') -Force
 
 $script:longNotice = 'EQ Daml Tools for Visual Studio is an independent project by Equilibrium and is not affiliated with, sponsored by, or endorsed by Digital Asset. Daml and Canton are trademarks of Digital Asset (Switzerland) GmbH. Visual Studio is a trademark of Microsoft Corporation.'
-$script:shortNotice = 'Independent Daml tooling by Equilibrium — not affiliated with or endorsed by Digital Asset. Daml is a trademark of Digital Asset (Switzerland) GmbH.'
+$script:shortNotice = 'Independent Daml tooling by Equilibrium, not affiliated with or endorsed by Digital Asset.'
 
 function New-Listing([string] $Folder, [hashtable] $Manifest = @{}, [string] $Overview = $null, [string] $Description = $null) {
     New-Item -ItemType Directory -Force $Folder | Out-Null
@@ -72,6 +72,11 @@ It 'rejects endorsement words and forbidden names in what the extension calls it
     It 'needs the short notice at the end of the extension description' {
         New-Listing $script:folder -Description 'Daml language support for Visual Studio.'
         (Test-Folder $script:folder) -join "`n" | Should Match 'short notice'
+    }
+
+    It 'keeps the extension description within the 200 characters the Marketplace shows' {
+        New-Listing $script:folder -Description (('Daml language support for Visual Studio. ' * 3) + $script:shortNotice)
+        (Test-Folder $script:folder) -join "`n" | Should Match 'Marketplace shows 200'
     }
 
     It 'takes one to three known categories' {
