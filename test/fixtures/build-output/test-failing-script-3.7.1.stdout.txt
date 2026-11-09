@@ -1,0 +1,4 @@
+Running tests (single-package) ...
+Test Summary (single-package): 1 failed, 1 passed
+Failed tests (passing tests omitted):
+daml/Main.daml: 1 test failed: failing

@@ -1,0 +1,3 @@
+Running tests (single-package) ...
+Test Summary (single-package): 1 passed
+daml/Main.daml: 1 test passed
