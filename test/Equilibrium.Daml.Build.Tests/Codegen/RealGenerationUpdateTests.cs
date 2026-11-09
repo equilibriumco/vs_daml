@@ -19,8 +19,8 @@ using Xunit;
 namespace Equilibrium.Daml.Build.Tests.Codegen;
 
 // The whole update with the dpm and JDK installed on this machine and the real pinned generator.
-// The generator's own repository ships a mini demo with the bindings it generates committed; built
-// here, the demo must come out exactly as those.
+// The generator's mini demo, built here, must come out exactly as the bindings recorded for it;
+// with EQDAML_UPDATE_BINDING_FIXTURES=1 they are recorded again instead.
 public sealed class RealGenerationUpdateTests : IDisposable
 {
     private const string FolderName = "Contracts-0123456789abcdef";
@@ -30,8 +30,6 @@ public sealed class RealGenerationUpdateTests : IDisposable
 
     // dpm build's package database has paths past 260 characters.
     public void Dispose() => DeepPath.Delete(_root);
-
-    private static string MiniDemo => Path.Combine(Repository.Root, "third_party", "canton-dotnet-sdk-mini-demo");
 
     private static string Locks => LockNames.Root(Environment.GetEnvironmentVariable);
 
@@ -48,12 +46,13 @@ public sealed class RealGenerationUpdateTests : IDisposable
     // A copy, so the build's .daml folder never lands in third_party.
     private async Task<string> BuildDarAsync(string dpm)
     {
-        foreach (var file in Directory.GetFiles(Path.Combine(MiniDemo, "daml"), "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.GetFiles(MiniDemo.Daml, "*", SearchOption.AllDirectories))
         {
-            var copy = Path.Combine(Package, file.Substring(Path.Combine(MiniDemo, "daml").Length + 1));
+            var copy = Path.Combine(Package, file.Substring(MiniDemo.Daml.Length + 1));
             Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
             File.Copy(file, copy);
         }
+        MiniDemo.UseFixtureSdk(Package);
         var build = await new ProcessRunner().RunAsync(
             new ProcessSpec(dpm, ["build"]) { WorkingDirectory = Package, Timeout = TimeSpan.FromMinutes(5) }, CancellationToken.None);
         build.ExitCode.ShouldBe(0, build.Stdout + build.Stderr);
@@ -71,8 +70,8 @@ public sealed class RealGenerationUpdateTests : IDisposable
                 Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), null, "0123456789abcdef", FolderName),
             dar)],
         DesignTime: false,
-        RuntimeVersion: "0.6.0")
-    { LedgerAbstractionsVersion = "0.6.0" };
+        RuntimeVersion: "0.8.0")
+    { LedgerAbstractionsVersion = "0.8.0" };
 
     private static Task<CodegenPlan> PlanAsync(CodegenRequest request) =>
         new CodegenPreflight(new ProcessRunner(), new PhysicalFileSystem(), Environment.GetEnvironmentVariable, SharedCodegenRoot, Locks)
@@ -100,8 +99,9 @@ public sealed class RealGenerationUpdateTests : IDisposable
 
     private static string Describe(IEnumerable<BuildMessage> messages) => string.Join("\n", messages.Select(m => $"{m.Code}: {m.Text}"));
 
+    // Hashed with LF line ends: git keeps the fixture that way whatever the checkout does.
     private static List<(string Path, string Sha256)> Tree(string folder, IEnumerable<string> files) => files
-        .Select(f => (f.Substring(folder.Length + 1), Hashing.Sha256File(f)))
+        .Select(f => (f.Substring(folder.Length + 1), Hashing.Sha256Text(File.ReadAllText(f).Replace("\r\n", "\n"))))
         .OrderBy(f => f.Item1, StringComparer.OrdinalIgnoreCase)
         .ToList();
 
@@ -113,12 +113,25 @@ public sealed class RealGenerationUpdateTests : IDisposable
         var result = await UpdateAsync(request, plan);
 
         result.Messages.Where(m => m.Severity == DamlDiagnosticSeverity.Error).ShouldBeEmpty(Describe(result.Messages));
-        var committed = Path.Combine(MiniDemo, @"src\MiniDemo.Contracts\Generated");
-        Tree(Folder, result.Files.Select(f => f.Path)).ShouldBe(Tree(committed, Directory.GetFiles(committed, "*", SearchOption.AllDirectories)));
+        if (Environment.GetEnvironmentVariable("EQDAML_UPDATE_BINDING_FIXTURES") == "1")
+        {
+            if (Directory.Exists(MiniDemo.Bindings))
+            {
+                Directory.Delete(MiniDemo.Bindings, recursive: true);
+            }
+            foreach (var file in result.Files)
+            {
+                var target = Path.Combine(MiniDemo.Bindings, file.Path.Substring(Folder.Length + 1));
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.WriteAllText(target, File.ReadAllText(file.Path).Replace("\r\n", "\n"));
+            }
+            throw new SkipException("The mini-demo bindings were recorded again; run again without EQDAML_UPDATE_BINDING_FIXTURES to compare.");
+        }
+        Tree(Folder, result.Files.Select(f => f.Path)).ShouldBe(Tree(MiniDemo.Bindings, Directory.GetFiles(MiniDemo.Bindings, "*", SearchOption.AllDirectories)));
         _generator.Calls.ShouldBe(1);
         // The package id read from the DAR is the one the generator registers.
         var package = GenerationManifest.Read(Path.Combine(Folder, GenerationManifest.FileName))!.Package.ShouldNotBeNull();
-        (package.PackageName, package.PackageVersion, package.SdkVersion).ShouldBe(("canton-mini-demo-hbde402d4f83a", "0.1.0", "3.5.2"));
+        (package.PackageName, package.PackageVersion, package.SdkVersion, package.MainPackageId).ShouldBe(("canton-mini-demo-hbde402d4f83a", "0.1.0", MiniDemo.Sdk, MiniDemo.PackageId));
         result.Files.ShouldContain(f => Path.GetFileName(f.Path) == $"PackageRegistration_{package.MainPackageId}.cs");
 
         var again = await PlanAsync(request);

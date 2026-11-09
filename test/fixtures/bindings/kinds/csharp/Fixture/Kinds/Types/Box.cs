@@ -21,6 +21,15 @@ public sealed record Box<TA>(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("label")] string Label
 ) where TA : notnull
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(Content, global::Daml.Runtime.Data.DamlEqualityComparer<TA>.Default);
+        hash.Add(Label, global::Daml.Runtime.Data.DamlEqualityComparer<string>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord(global::System.Func<TA, global::Daml.Runtime.Data.DamlValue> convertTA) => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("content", convertTA(Content)),
@@ -29,8 +38,8 @@ public sealed record Box<TA>(
 
     /// <summary>Creates an instance from a DamlRecord. Each <c>absent</c> argument is what an omitted field of that type parameter reads as: <c>DamlOptional.None</c> when the instantiation is an <c>Optional</c>, <c>null</c> when it is required.</summary>
     public static Box<TA> FromRecord(global::Daml.Runtime.Data.DamlRecord record, global::System.Func<global::Daml.Runtime.Data.DamlValue, TA> convertTA, global::Daml.Runtime.Data.DamlValue? absentTA) => new Box<TA>(
-        Content: record.GetTypeParameterField("content", convertTA, absentTA),
-        Label: record.GetRequiredField("label").As<global::Daml.Runtime.Data.DamlText>().Value
+        Content: record.GetTypeParameterField("content", 0, convertTA, absentTA),
+        Label: record.GetRequiredField("label", 1).As<global::Daml.Runtime.Data.DamlText>().Value
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection. Each <c>absent</c> argument is what an omitted field of that type parameter reads as: <c>DamlOptional.None</c> when the instantiation is an <c>Optional</c>, <c>null</c> when it is required.</summary>
@@ -43,5 +52,4 @@ public sealed record Box<TA>(
         fields.Add(global::Daml.Runtime.Data.DamlField.Create("label", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadText(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "label"), context.Field("label"))));
         return global::Daml.Runtime.Data.DamlRecord.Create(fields.ToArray());
     }
-
 }

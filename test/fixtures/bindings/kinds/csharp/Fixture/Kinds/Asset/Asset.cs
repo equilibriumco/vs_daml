@@ -32,7 +32,7 @@ public sealed partial record Asset(
     global::Fixture.Kinds.Types.Colour Colour,
     global::System.Collections.Generic.IReadOnlyList<string> Tags,
     decimal? Amount
-) : global::Daml.Runtime.Contracts.ITemplate, global::Daml.Runtime.Contracts.IHasKey<Asset, global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string>>, global::Daml.Runtime.Contracts.IHasChoices<Asset>, global::Daml.Runtime.Data.IDamlRecord<Asset>
+) : global::Daml.Runtime.Contracts.ITemplate, global::Daml.Runtime.Contracts.IHasKey<Asset, global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string>>, global::Daml.Runtime.Contracts.IHasChoices<Asset>, global::Daml.Runtime.Contracts.IArchivable<Asset>, global::Daml.Runtime.Data.IDamlRecord<Asset>
 {
     /// <summary>The Daml field <c>issuer</c>.</summary>
     [global::Daml.Runtime.Data.DamlFieldAttribute("issuer")]
@@ -90,22 +90,22 @@ public sealed partial record Asset(
     public override int GetHashCode()
     {
         var hash = new global::System.HashCode();
-        hash.Add(Issuer);
-        hash.Add(Owner);
-        hash.Add(Name);
-        hash.Add(Position);
-        hash.Add(Shape);
-        hash.Add(Colour);
+        hash.Add(Issuer, global::Daml.Runtime.Data.DamlEqualityComparer<global::Daml.Runtime.Data.Party>.Default);
+        hash.Add(Owner, global::Daml.Runtime.Data.DamlEqualityComparer<global::Daml.Runtime.Data.Party>.Default);
+        hash.Add(Name, global::Daml.Runtime.Data.DamlEqualityComparer<string>.Default);
+        hash.Add(Position, global::Daml.Runtime.Data.DamlEqualityComparer<global::Fixture.Kinds.Types.Point>.Default);
+        hash.Add(Shape, global::Daml.Runtime.Data.DamlEqualityComparer<global::Fixture.Kinds.Types.Shape>.Default);
+        hash.Add(Colour, global::Daml.Runtime.Data.DamlEqualityComparer<global::Fixture.Kinds.Types.Colour>.Default);
         hash.Add(global::Daml.Runtime.Data.DamlFieldCollections.Hash(Tags));
-        hash.Add(Amount);
+        hash.Add(Amount, global::Daml.Runtime.Data.DamlEqualityComparer<decimal?>.Default);
         return hash.ToHashCode();
     }
 
     /// <summary>Gets the template identifier.</summary>
-    public static global::Daml.Runtime.Data.Identifier TemplateId { get; } = new("bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1", "Kinds.Asset", "Asset");
+    public static global::Daml.Runtime.Data.Identifier TemplateId { get; } = new("f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716", "Kinds.Asset", "Asset");
 
     /// <summary>Gets the package ID.</summary>
-    public static string PackageId => "bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1";
+    public static string PackageId => "f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716";
 
     /// <summary>Gets the package name.</summary>
     public static string PackageName => "kinds";
@@ -139,14 +139,14 @@ public sealed partial record Asset(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static Asset FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new Asset(
-        Issuer: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("issuer").As<global::Daml.Runtime.Data.DamlParty>()),
-        Owner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("owner").As<global::Daml.Runtime.Data.DamlParty>()),
-        Name: record.GetRequiredField("name").As<global::Daml.Runtime.Data.DamlText>().Value,
-        Position: global::Fixture.Kinds.Types.Point.FromRecord(record.GetRequiredField("position").As<global::Daml.Runtime.Data.DamlRecord>()),
-        Shape: global::Fixture.Kinds.Types.Shape.FromVariant(record.GetRequiredField("shape").As<global::Daml.Runtime.Data.DamlVariant>()),
-        Colour: global::Fixture.Kinds.Types.ColourExtensions.FromDamlEnum(record.GetRequiredField("colour").As<global::Daml.Runtime.Data.DamlEnum>()),
-        Tags: (global::System.Collections.Generic.IReadOnlyList<string>)record.GetRequiredField("tags").As<global::Daml.Runtime.Data.DamlList>().Values.Select(x => x.As<global::Daml.Runtime.Data.DamlText>().Value).ToList(),
-        Amount: record.GetOptionalField("amount").AsOptional().HasValue ? record.GetOptionalField("amount").AsOptional().Value!.As<global::Daml.Runtime.Data.DamlNumeric>().Value : null
+        Issuer: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("issuer", 0).As<global::Daml.Runtime.Data.DamlParty>()),
+        Owner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("owner", 1).As<global::Daml.Runtime.Data.DamlParty>()),
+        Name: record.GetRequiredField("name", 2).As<global::Daml.Runtime.Data.DamlText>().Value,
+        Position: global::Fixture.Kinds.Types.Point.FromRecord(record.GetRequiredField("position", 3).As<global::Daml.Runtime.Data.DamlRecord>()),
+        Shape: global::Fixture.Kinds.Types.Shape.FromVariant(record.GetRequiredField("shape", 4).As<global::Daml.Runtime.Data.DamlVariant>()),
+        Colour: global::Fixture.Kinds.Types.ColourExtensions.FromDamlEnum(record.GetRequiredField("colour", 5).As<global::Daml.Runtime.Data.DamlEnum>()),
+        Tags: (global::System.Collections.Generic.IReadOnlyList<string>)record.GetRequiredField("tags", 6).As<global::Daml.Runtime.Data.DamlList>().Values.Select(x => x.As<global::Daml.Runtime.Data.DamlText>().Value).ToList(),
+        Amount: record.GetOptionalField("amount", 7).AsOptional().HasValue ? record.GetOptionalField("amount", 7).AsOptional().Value!.As<global::Daml.Runtime.Data.DamlNumeric>().Value : null
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -233,8 +233,8 @@ public sealed partial record Asset(
         return new global::Daml.Runtime.Commands.ExerciseByKeyCommand(
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             key.ToRecord(__t0 => (global::Daml.Runtime.Data.DamlValue)(__t0.ToDamlValue()), __t1 => (global::Daml.Runtime.Data.DamlValue)(new global::Daml.Runtime.Data.DamlText(__t1))),
-            new global::Daml.Runtime.Commands.ChoiceName("Archive"),
-            global::Daml.Runtime.Data.DamlRecord.Create());
+            global::Fixture.Kinds.Asset.Asset.ChoiceArchive.Name,
+            global::Daml.Runtime.Data.DamlRecord.Create()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
     /// <summary>
@@ -257,7 +257,7 @@ public sealed partial record Asset(
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             key.ToRecord(__t0 => (global::Daml.Runtime.Data.DamlValue)(__t0.ToDamlValue()), __t1 => (global::Daml.Runtime.Data.DamlValue)(new global::Daml.Runtime.Data.DamlText(__t1))),
             new global::Daml.Runtime.Commands.ChoiceName("Describe"),
-            argument.ToRecord());
+            argument.ToRecord()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
     /// <summary>
@@ -280,9 +280,259 @@ public sealed partial record Asset(
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             key.ToRecord(__t0 => (global::Daml.Runtime.Data.DamlValue)(__t0.ToDamlValue()), __t1 => (global::Daml.Runtime.Data.DamlValue)(new global::Daml.Runtime.Data.DamlText(__t1))),
             new global::Daml.Runtime.Commands.ChoiceName("Give"),
-            argument.ToRecord());
+            argument.ToRecord()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
+    /// <summary>
+    /// Exercises the Archive choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// One <c>Party</c> parameter is emitted per Daml controller (declaration order).
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="issuer">Controller party from the Daml <c>controller</c> clause, routed into the submission's <c>actAs</c> set.</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, global::Daml.Runtime.Data.DamlUnit>>> TryArchiveByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Daml.Runtime.Data.Party issuer,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        global::Daml.Runtime.Commands.SubmitterInfo submitter = issuer;
+
+        return TryArchiveByKeyAsync(client, key, submitter, workflowId, commandId, timeout, configure, cancellationToken);
+    }
+
+    /// <summary>
+    /// Exercises the Archive choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>).</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, global::Daml.Runtime.Data.DamlUnit>>> TryArchiveByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Daml.Runtime.Commands.SubmitterInfo submitter,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        var command = ArchiveByKeyCommand(key);
+
+        var outcome = await client.TrySubmitSingleAsync(command, submitter, workflowId, commandId, timeout, configure, cancellationToken).ConfigureAwait(false);
+
+        return outcome.ProjectCommitted(tx => tx.ProjectByKeyExercise(global::Fixture.Kinds.Asset.Asset.ChoiceArchive));
+    }
+
+    /// <summary>
+    /// Exercises the Describe choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// One <c>Party</c> parameter is emitted per Daml controller (declaration order).
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="argument">The choice argument.</param>
+    /// <param name="owner">Controller party from the Daml <c>controller</c> clause, routed into the submission's <c>actAs</c> set.</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, string>>> TryDescribeByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Fixture.Kinds.Asset.Asset.Describe argument,
+        global::Daml.Runtime.Data.Party owner,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        global::Daml.Runtime.Commands.SubmitterInfo submitter = owner;
+
+        return TryDescribeByKeyAsync(client, key, argument, submitter, workflowId, commandId, timeout, configure, cancellationToken);
+    }
+
+    /// <summary>
+    /// Exercises the Describe choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="argument">The choice argument.</param>
+    /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>).</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, string>>> TryDescribeByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Fixture.Kinds.Asset.Asset.Describe argument,
+        global::Daml.Runtime.Commands.SubmitterInfo submitter,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        var command = DescribeByKeyCommand(key, argument);
+
+        var outcome = await client.TrySubmitSingleAsync(command, submitter, workflowId, commandId, timeout, configure, cancellationToken).ConfigureAwait(false);
+
+        return outcome.ProjectCommitted(tx => tx.ProjectByKeyExercise(global::Fixture.Kinds.Asset.Asset.ChoiceDescribe));
+    }
+
+    /// <summary>
+    /// Exercises the Give choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// One <c>Party</c> parameter is emitted per Daml controller (declaration order).
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="argument">The choice argument.</param>
+    /// <param name="owner">Controller party from the Daml <c>controller</c> clause, routed into the submission's <c>actAs</c> set.</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>>> TryGiveByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Fixture.Kinds.Asset.Asset.Give argument,
+        global::Daml.Runtime.Data.Party owner,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        global::Daml.Runtime.Commands.SubmitterInfo submitter = owner;
+
+        return TryGiveByKeyAsync(client, key, argument, submitter, workflowId, commandId, timeout, configure, cancellationToken);
+    }
+
+    /// <summary>
+    /// Exercises the Give choice on the contract carrying <paramref name="key"/> and returns the
+    /// choice's exercise result together with the contract the ledger resolved the key to, as a
+    /// <see cref="global::Daml.Runtime.Outcomes.ExerciseOutcome{T}"/> over a
+    /// <see cref="global::Daml.Runtime.Outcomes.ByKeyExercise{TTemplate,TResult}"/>.
+    /// </summary>
+    /// <remarks>
+    /// Contract keys are not unique: several active contracts may carry the same key, and the
+    /// ledger resolves this command against a first match by an order it only partly
+    /// guarantees. The outcome's ResolvedContractId names the contract the ledger chose; to
+    /// force the choice, disclose the intended contract through configure. Keeping a key
+    /// unique is the application's responsibility. No active contract with the key is a
+    /// DamlError with error id CONTRACT_KEY_NOT_FOUND.
+    /// </remarks>
+    /// <param name="client">The ledger client.</param>
+    /// <param name="key">The contract key to exercise the choice against.</param>
+    /// <param name="argument">The choice argument.</param>
+    /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>).</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Outcomes.ByKeyExercise<global::Fixture.Kinds.Asset.Asset, global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>>> TryGiveByKeyAsync(
+        global::Daml.Ledger.Abstractions.ILedgerWriter client,
+        global::Daml.Runtime.Stdlib.Tuple2<global::Daml.Runtime.Data.Party, string> key,
+        global::Fixture.Kinds.Asset.Asset.Give argument,
+        global::Daml.Runtime.Commands.SubmitterInfo submitter,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
+        global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
+        global::System.Threading.CancellationToken cancellationToken = default)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(client);
+
+        var command = GiveByKeyCommand(key, argument);
+
+        var outcome = await client.TrySubmitSingleAsync(command, submitter, workflowId, commandId, timeout, configure, cancellationToken).ConfigureAwait(false);
+
+        return outcome.ProjectCommitted(tx => tx.ProjectByKeyExercise(global::Fixture.Kinds.Asset.Asset.ChoiceGive));
+    }
 }
 
 
@@ -309,7 +559,7 @@ public static class AssetExtensions
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             contractId,
             new global::Daml.Runtime.Commands.ChoiceName("Give"),
-            argument.ToRecord());
+            argument.ToRecord()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
     /// <summary>
@@ -323,8 +573,8 @@ public static class AssetExtensions
     /// <param name="argument">The choice argument.</param>
     /// <param name="owner">Controller party from the Daml <c>controller</c> clause, routed into the submission's <c>actAs</c> set.</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>> TryGiveAsync(
@@ -364,8 +614,8 @@ public static class AssetExtensions
     /// <param name="argument">The choice argument.</param>
     /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>).</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>> TryGiveAsync(
@@ -398,8 +648,8 @@ public static class AssetExtensions
     /// <param name="client">The ledger client.</param>
     /// <param name="argument">The choice argument.</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>> TryGiveAsync(
@@ -439,8 +689,8 @@ public static class AssetExtensions
     /// <param name="argument">The choice argument.</param>
     /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>).</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Contracts.ContractId<global::Fixture.Kinds.Asset.Asset>>> TryGiveAsync(
@@ -492,11 +742,17 @@ public static class AssetSubmissionExtensions
     /// </summary>
     /// <param name="client">The ledger client.</param>
     /// <param name="payload">The contract payload.</param>
-    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
+    /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-template default would bucket every create of the same template under one ID.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Contracts.ContractId<Asset>>> TryCreateAsync(
         this global::Daml.Ledger.Abstractions.ILedgerWriter client,
         Asset payload,
+        string? workflowId = null,
+        global::Daml.Runtime.Commands.CommandId? commandId = null,
+        global::System.TimeSpan? timeout = null,
         global::System.Func<global::Daml.Runtime.Commands.CommandsSubmission, global::Daml.Runtime.Commands.CommandsSubmission>? configure = null,
         global::System.Threading.CancellationToken cancellationToken = default)
     {
@@ -505,7 +761,7 @@ public static class AssetSubmissionExtensions
 
         global::Daml.Runtime.Commands.SubmitterInfo submitter = payload.Issuer;
 
-        return global::Daml.Ledger.Abstractions.Extensions.SingleCommandExtensions.TryCreateAsync<Asset>(client, payload, submitter, configure: configure, cancellationToken: cancellationToken);
+        return global::Daml.Ledger.Abstractions.Extensions.SingleCommandExtensions.TryCreateAsync<Asset>(client, payload, submitter, workflowId, commandId, timeout, configure, cancellationToken);
     }
 
     /// <summary>
@@ -546,8 +802,8 @@ public static class AssetNonContractExtensions
         return new global::Daml.Runtime.Commands.ExerciseCommand(
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             contractId,
-            new global::Daml.Runtime.Commands.ChoiceName("Archive"),
-            global::Daml.Runtime.Data.DamlRecord.Create());
+            global::Fixture.Kinds.Asset.Asset.ChoiceArchive.Name,
+            global::Daml.Runtime.Data.DamlRecord.Create()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
     /// <summary>
@@ -559,8 +815,8 @@ public static class AssetNonContractExtensions
     /// <param name="client">The ledger client.</param>
     /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>), so a submitter that must read contracts it does not act as stays expressible.</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<global::Daml.Runtime.Data.DamlUnit>> TryArchiveAsync(
@@ -597,7 +853,7 @@ public static class AssetNonContractExtensions
             global::Fixture.Kinds.Asset.Asset.TemplateId,
             contractId,
             new global::Daml.Runtime.Commands.ChoiceName("Describe"),
-            argument.ToRecord());
+            argument.ToRecord()) { PackageName = global::Fixture.Kinds.Asset.Asset.PackageName };
     }
 
     /// <summary>
@@ -610,8 +866,8 @@ public static class AssetNonContractExtensions
     /// <param name="argument">The choice argument.</param>
     /// <param name="submitter">The submitter party set (<c>actAs</c> + optional <c>readAs</c>), so a submitter that must read contracts it does not act as stays expressible.</param>
     /// <param name="workflowId">Optional workflow id; passed through to the ledger when supplied. No default — workflow IDs are correlation keys, and a per-choice default would bucket every submission of the same choice under one ID.</param>
-    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted, and a minted id is not reported back on a failed submission. Supply and retain your own id to make a retry of a lost-but-accepted submission deduplicable, so the ledger deduplicates the resubmission instead of re-executing the choice.</param>
-    /// <param name="timeout">Optional per-call deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> applies no deadline. An overrun surfaces as an <c>InfraError</c> outcome.</param>
+    /// <param name="commandId">Optional command id for deduplication; a fresh id is minted only when omitted. The id the submission was sent with, minted or supplied, is reported on the outcome's <c>CommandId</c>, including a failed one; look it up on the completion stream to learn whether the submission was accepted before deciding to retry.</param>
+    /// <param name="timeout">Optional per-attempt deadline, applied best-effort by the transport; transports without a server-side deadline apply a client-side bound only. The default <c>null</c> falls back to the client-wide <c>Timeout</c> option (30 seconds unless changed). An overrun surfaces as an <c>InfraError</c> outcome.</param>
     /// <param name="configure">Optional hook that receives the submission built for this call and returns the one to submit, so a caller can add what this helper does not expose: <c>s => s.WithDisclosedContracts(holding.Disclosure!)</c>, <c>WithDeduplicationPeriod</c>, <c>WithSynchronizerId</c> or <c>WithMinLedgerTime</c>. It runs after <c>workflowId</c> and <c>commandId</c> are applied. It must keep the helper's command, and the submitter's act-as and read-as parties replace any set on the submission. The default <c>null</c> submits the submission unchanged.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     public static async global::System.Threading.Tasks.Task<global::Daml.Runtime.Outcomes.ExerciseOutcome<string>> TryDescribeAsync(

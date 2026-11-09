@@ -28,7 +28,7 @@
     "EqDamlSdkVersion": {
       "type": "parameter",
       "datatype": "text",
-      "defaultValue": "3.6.0",
+      "defaultValue": "3.7.1",
       "replaces": "EQDAML_SDK_VERSION",
       "description": "The Daml SDK the packages are built with (sdk-version in daml.yaml); install it with dpm install <version>."
     },

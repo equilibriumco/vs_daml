@@ -58,7 +58,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
     private GenerationReference Reference(string name, string id) => new(
         DamlReferenceSource.EqDamlReference, $@"..\{name}\{name}.msbuildproj", Path.Combine(_root, $@"{name}\{name}.msbuildproj"), "Contracts", id, $"{name}-{id}");
 
-    private CodegenRequest Request(bool designTime = false, string? runtime = "0.6.0", params GenerationReference[] references) => new(
+    private CodegenRequest Request(bool designTime = false, string? runtime = "0.8.0", params GenerationReference[] references) => new(
         Project,
         "Debug",
         "net10.0",
@@ -67,7 +67,7 @@ public sealed class CodegenOrchestratorTests : IDisposable
         (references.Length == 0 ? [Contracts] : references).Select(r => new CodegenInput(r, Dar)).ToList(),
         designTime,
         runtime)
-    { LedgerAbstractionsVersion = "0.6.0" };
+    { LedgerAbstractionsVersion = "0.8.0" };
 
     // The same project in another configuration, target framework or output mode.
     private CodegenRequest Request(string configuration, string targetFramework, GeneratedOutputMode mode, string root) => Request() with
@@ -358,6 +358,19 @@ public sealed class CodegenOrchestratorTests : IDisposable
         result.Files.ShouldBe(published.Files);
         result.Messages.ShouldBeEmpty();
         _runner.Calls.Count.ShouldBe(calls);
+    }
+
+    // The generator's own listing of its output is in the manifest, so it is cleaned up, but the
+    // compiler never sees it, at design time either.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Design_time_lists_only_the_CSharp_of_the_last_generation()
+    {
+        Generates(Contracts, ".codegen-manifest", @"Contracts\Asset\Asset.cs");
+        await Run(Request());
+
+        var result = await Run(Request(designTime: true));
+
+        result.Files.Select(f => Path.GetFileName(f.Path)).ShouldBe(["Asset.cs"]);
     }
 
     [Fact, Trait("Category", "Unit")]

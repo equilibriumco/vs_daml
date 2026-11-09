@@ -15,6 +15,13 @@ the original CRLF line endings and timestamps.
 | `clean-single-package.stderr.txt` | `dpm clean` | copy of `samples/single-package` | 0 |
 | `test-failing-script.stdout.txt`, `test-failing-script.stderr.txt` | `dpm test` | copy of `samples/single-package` with a `failing` script (`assertMsg "the total is wrong" False`) appended to `Main.daml`; captured on 2026-10-16 | 1 |
 
+Files with `-3.7.1` in the name are the same commands on dpm 1.1.1 with SDK 3.7.1, captured on 2026-11-09 with
+`ProcessStartInfo` (stdout and stderr apart). dpm 1.1 prints the full path after `File:`, on the next line, indented,
+when it is long (`build-broken-long-path-3.7.1.stderr.txt`, built under a deep temporary folder, kept as printed apart
+from the user name and a fixed folder id); it adds the script name to the source (`Source:   Script: failing`), and
+its test summary counts per package and per file and names only the failed scripts. `test-single-package-3.7.1.stdout.txt`
+is a passing `dpm test` of a copy of `samples/single-package`.
+
 `dpm build` and `dpm clean` printed nothing on stdout; `dpm test` printed only its summary there. damlc colours message text with ANSI escape sequences (e.g. `ESC[0;91m` … `ESC[0m`) even though its output was redirected; they are kept here as captured.
 
 Absolute paths were redacted: the temporary root became `C:/work` (or `C:\work`), and the user

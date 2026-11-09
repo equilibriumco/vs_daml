@@ -88,6 +88,12 @@ public sealed class DamlDiagnosticParser
                 SetField(_block, field.Groups[1].Value, field.Groups[2].Value.Trim());
                 return;
             }
+            // dpm 1.1 moves a path too long for its line to the next one, indented.
+            if (_block.File.Length == 0 && line.Length > 0 && char.IsWhiteSpace(line[0]))
+            {
+                _block.File = line.Trim();
+                return;
+            }
             if (line.Length == 0)
             {
                 return;
@@ -141,7 +147,11 @@ public sealed class DamlDiagnosticParser
                 block.Range = ParseRange(value);
                 break;
             case "Source":
-                block.Source = value.Length > 0 ? value : null;
+                // dpm 1.1 names what failed after the source ("Script: failing"); the source is
+                // the compiler's subcategory, so the name goes to the message instead.
+                var named = value.IndexOf(": ", StringComparison.Ordinal);
+                block.Source = named > 0 ? value.Substring(0, named) : value.Length > 0 ? value : null;
+                block.Subject = named > 0 ? value.Substring(named + 2).Trim() : null;
                 break;
             case "Severity":
                 block.Severity = value switch
@@ -177,6 +187,7 @@ public sealed class DamlDiagnosticParser
     {
         if (_block is not null)
         {
+            var message = string.Join("\n", _message).TrimEnd();
             _diagnostics.Add(new DamlDiagnostic
             {
                 PrintedPath = _block.File,
@@ -185,7 +196,7 @@ public sealed class DamlDiagnosticParser
                 Severity = _block.Severity,
                 Source = _block.Source,
                 Hidden = _block.Hidden,
-                Message = string.Join("\n", _message).TrimEnd(),
+                Message = string.IsNullOrEmpty(_block.Subject) ? message : $"{_block.Subject}: {message}",
             });
         }
         _block = null;
@@ -198,13 +209,15 @@ public sealed class DamlDiagnosticParser
     {
         public Block(string file) => File = file;
 
-        public string File { get; }
+        public string File { get; set; }
 
         public bool Hidden { get; set; }
 
         public DamlRange? Range { get; set; }
 
         public string? Source { get; set; }
+
+        public string? Subject { get; set; }
 
         public DamlDiagnosticSeverity Severity { get; set; } = DamlDiagnosticSeverity.Error;
     }

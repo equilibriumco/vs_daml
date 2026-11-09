@@ -16,6 +16,14 @@ public sealed record Transfer(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("newOwner")] global::Daml.Runtime.Data.Party NewOwner
 ) : global::Daml.Runtime.Data.IDamlRecord<Transfer>
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(NewOwner, global::Daml.Runtime.Data.DamlEqualityComparer<global::Daml.Runtime.Data.Party>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord() => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("newOwner", NewOwner.ToDamlValue())
@@ -23,7 +31,7 @@ public sealed record Transfer(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static Transfer FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new Transfer(
-        NewOwner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("newOwner").As<global::Daml.Runtime.Data.DamlParty>())
+        NewOwner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("newOwner", 0).As<global::Daml.Runtime.Data.DamlParty>())
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -35,5 +43,4 @@ public sealed record Transfer(
             global::Daml.Runtime.Data.DamlField.Create("newOwner", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadParty(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "newOwner"), context.Field("newOwner")))
         );
     }
-
 }

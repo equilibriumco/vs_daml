@@ -54,5 +54,4 @@ public static class Mode_u0027Extensions
         global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadEnumConstructor(json, context, ExpectedConstructors);
 
     private static readonly string[] ExpectedConstructors = ["One$u0027", "Two$u0027"];
-
 }

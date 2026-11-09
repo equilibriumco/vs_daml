@@ -311,7 +311,7 @@ public sealed class LanguageServerHostTests
         host.Channel.TryGet(out var attached, out var sessionId).ShouldBeTrue();
         attached.ShouldBeSameAs(rpc);
         sessionId.ShouldBe(connection.SessionId);
-        host.LastResolution.ShouldNotBeNull().ContextSdkVersion.ShouldBe("3.6.0");
+        host.LastResolution.ShouldNotBeNull().ContextSdkVersion.ShouldBe("3.7.1");
         host.IsReady.ShouldBeTrue();
         host.AttachRpc(rpc);
         readyEvents.ShouldBe(1, "attaching the same connection again must not resubscribe session features");

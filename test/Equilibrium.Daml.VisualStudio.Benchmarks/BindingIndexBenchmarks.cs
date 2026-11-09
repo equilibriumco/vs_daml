@@ -25,7 +25,7 @@ namespace Equilibrium.Daml.VisualStudio.Benchmarks;
 [MemoryDiagnoser]
 public class BindingIndexBenchmarks : IDisposable
 {
-    private const string Package = "bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1";
+    private const string Package = "f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716";
     private const int Generations = 50;
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), "daml-index-bench-" + Guid.NewGuid().ToString("N"));
@@ -145,8 +145,8 @@ public class BindingIndexBenchmarks : IDisposable
         string[] folders =
         [
             Path.Combine(packages, @"microsoft.netcore.app.ref\10.0.0\ref\net10.0"),
-            Path.Combine(packages, @"daml.runtime\0.6.0\lib\net10.0"),
-            Path.Combine(packages, @"daml.ledger.abstractions\0.6.0\lib\net10.0"),
+            Path.Combine(packages, @"daml.runtime\0.8.0\lib\net10.0"),
+            Path.Combine(packages, @"daml.ledger.abstractions\0.8.0\lib\net10.0"),
         ];
         return folders.SelectMany(f => Directory.GetFiles(f, "*.dll")).Select(f => (MetadataReference)MetadataReference.CreateFromFile(f)).ToList();
     }

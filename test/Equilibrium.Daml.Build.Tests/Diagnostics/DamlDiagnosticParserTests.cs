@@ -30,6 +30,40 @@ public class DamlDiagnosticParserTests
             "      In an equation for ‘total’: total = \"forty-two\"");
     }
 
+    // dpm 1.1 prints the full path, and when it is long, on the line after "File:".
+    [Theory, Trait("Category", "Unit")]
+    [InlineData("build-broken-3.7.1.stderr.txt", "C:/work/broken/daml/")]
+    [InlineData("build-broken-long-path-3.7.1.stderr.txt", "C:/Users/<user>/AppData/Local/Temp/dpm-capture-0123456789abcdef0123456789abcdef/a-folder-deep-enough-to-make-the-path-long/broken/daml/")]
+    public void On_sdk_3_7_each_block_has_its_full_path_wherever_dpm_puts_it(string fixture, string folder)
+    {
+        var parser = new DamlDiagnosticParser();
+        foreach (var line in Fixture(fixture).Split('\n'))
+        {
+            parser.AddLine(line);
+        }
+        parser.Complete();
+
+        parser.Diagnostics.Select(d => d.PrintedPath).ShouldBe([folder + "SyntaxError.daml", folder + "TypeError.daml", folder + "UnknownImport.daml"]);
+        parser.UnrecognisedLines.ShouldBeEmpty();
+        var type = parser.Diagnostics[1];
+        type.Range.ShouldBe(new DamlRange(5, 9, 5, 20));
+        type.Source.ShouldBe("typecheck");
+        type.Message.ShouldStartWith("daml/TypeError.daml:5:9: error:\n    • Couldn't match expected type ‘Int’ with actual type ‘Text’");
+    }
+
+    // dpm 1.1 names the script in the source ("Script: failing"); the source stays one word, as
+    // the compiler's subcategory, and the name leads the message.
+    [Fact, Trait("Category", "Unit")]
+    public void On_sdk_3_7_a_failing_script_is_a_Script_diagnostic_named_in_its_message()
+    {
+        var failing = DamlDiagnosticParser.Parse(Fixture("test-failing-script-3.7.1.stderr.txt")).ShouldHaveSingleItem();
+
+        failing.PrintedPath.ShouldBe("C:/work/single-package/daml/Main.daml");
+        failing.Range.ShouldBe(new DamlRange(47, 1, 47, 8));
+        failing.Source.ShouldBe("Script");
+        failing.Message.ShouldStartWith("failing: Script execution failed:\n  Failed with status: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: the total is wrong");
+    }
+
     [Fact, Trait("Category", "Unit")]
     public void A_message_ends_where_dpm_reports_the_failure()
     {

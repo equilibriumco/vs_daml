@@ -7,7 +7,7 @@
 
 namespace Fixture.Kinds.Asset;
 
-internal static class PackageRegistration_bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1
+internal static class PackageRegistration_f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716
 {
     [global::System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Register()

@@ -19,10 +19,10 @@ internal static class SdkFeed
     private const string NoTargetsVersion = "3.7.134";
 
     /// <summary>The runtime the generated C# compiles against, in the version the generator pins.</summary>
-    public const string RuntimeVersion = "0.6.0";
+    public const string RuntimeVersion = "0.8.0";
 
     /// <summary>The Splice packages the C# of the mixed-dotnet sample compiles against, as the sample pins them.</summary>
-    public const string SpliceVersion = "1.0.0.17";
+    public const string SpliceVersion = "1.0.0.21";
 
     private static readonly (string Id, string Version)[] FromCache =
     [

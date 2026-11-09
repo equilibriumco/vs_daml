@@ -12,10 +12,10 @@
        the Splice packages for the token standard interfaces the contracts implement. -->
   <ItemGroup>
     <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.9.0-beta.0" PrivateAssets="all" />
-    <PackageReference Include="Daml.Runtime" Version="0.6.0" />
-    <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
-    <PackageReference Include="Splice.Api.Token.Holding.V2" Version="1.0.0.17" />
-    <PackageReference Include="Splice.Api.Token.Transfer.Instruction.V2" Version="1.0.0.17" />
+    <PackageReference Include="Daml.Runtime" Version="0.8.0" />
+    <PackageReference Include="Daml.Ledger.Abstractions" Version="0.8.0" />
+    <PackageReference Include="Splice.Api.Token.Holding.V2" Version="1.0.0.21" />
+    <PackageReference Include="Splice.Api.Token.Transfer.Instruction.V2" Version="1.0.0.21" />
     <EqDamlReference Include="..\daml\Contracts.msbuildproj" />
   </ItemGroup>
 

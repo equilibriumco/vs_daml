@@ -12,17 +12,17 @@ namespace Equilibrium.Daml.VisualStudio.Roslyn.Tests;
 /// <summary>
 /// Generated C# from the checked-in fixtures, compiled the way a net10.0 project referencing the
 /// Daml runtime compiles it: against the .NET 10 reference assemblies and Daml.Runtime and
-/// Daml.Ledger.Abstractions 0.6.0, which the test project downloads as plain files.
+/// Daml.Ledger.Abstractions 0.8.0, which the test project downloads as plain files.
 /// </summary>
 internal static class GeneratedCode
 {
     /// <summary>The generator's output for the kinds fixture: the C# of a <c>Namespace="Fixture"</c> reference.</summary>
     public static string Kinds { get; } = Path.Combine(Repository.Root, @"test\fixtures\bindings\kinds\csharp");
 
-    /// <summary>The mini demo's checked-in bindings, which implement Splice interfaces.</summary>
-    public static string MiniDemo { get; } = Path.Combine(Repository.Root, @"third_party\canton-dotnet-sdk-mini-demo\src\MiniDemo.Contracts\Generated");
+    /// <summary>What the pinned generator writes for the mini demo, whose templates implement Splice interfaces.</summary>
+    public static string MiniDemo { get; } = Path.Combine(Repository.Root, @"test\fixtures\bindings\mini-demo\csharp");
 
-    public const string KindsPackage = "bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1";
+    public const string KindsPackage = "f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716";
 
     public static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Preview);
 
@@ -51,8 +51,8 @@ internal static class GeneratedCode
         string[] folders =
         [
             Path.Combine(packages, @"microsoft.netcore.app.ref\10.0.0\ref\net10.0"),
-            Path.Combine(packages, @"daml.runtime\0.6.0\lib\net10.0"),
-            Path.Combine(packages, @"daml.ledger.abstractions\0.6.0\lib\net10.0"),
+            Path.Combine(packages, @"daml.runtime\0.8.0\lib\net10.0"),
+            Path.Combine(packages, @"daml.ledger.abstractions\0.8.0\lib\net10.0"),
         ];
         return folders.SelectMany(f => Directory.GetFiles(f, "*.dll")).Select(f => (MetadataReference)MetadataReference.CreateFromFile(f)).ToList();
     }

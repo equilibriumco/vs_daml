@@ -216,7 +216,7 @@ public class BindingExtractorTests
         found.Where(d => d.Name.Kind == DamlSymbolKind.Choice && d.Name.Entity == "Instrument").Select(d => d.Name.Member).Distinct()
             .ShouldBe(["Archive", "Mint", "TotalSupply"], ignoreOrder: true);
         found.ShouldAllBe(d => d.Name.Kind == DamlSymbolKind.Choice || d.Name.Kind == DamlSymbolKind.Field || d.Name.Kind == DamlSymbolKind.Template
-            ? d.Name.PackageId == "1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb" && d.Name.Module == "MiniDemo.Asset"
+            ? d.Name.PackageId == "b2fd028a37023d031efa04d0f1a06c88d5e5614083e3fa236f680f95f9a36bf2" && d.Name.Module == "MiniDemo.Asset"
             : d.Name.PackageId == null);
     }
 }

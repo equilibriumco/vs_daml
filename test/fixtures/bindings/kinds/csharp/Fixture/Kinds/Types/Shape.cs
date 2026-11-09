@@ -52,6 +52,15 @@ public abstract record Shape : global::Daml.Runtime.Data.IDamlVariant<Shape>
     public sealed record Circle(global::Fixture.Kinds.Types.Shape_Circle Value) : Shape
     {
         /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            var hash = new global::System.HashCode();
+            hash.Add(base.GetHashCode());
+            hash.Add(Value, global::Daml.Runtime.Data.DamlEqualityComparer<global::Fixture.Kinds.Types.Shape_Circle>.Default);
+            return hash.ToHashCode();
+        }
+
+        /// <inheritdoc />
         public override string Tag => "Circle";
 
         /// <inheritdoc />
@@ -61,6 +70,15 @@ public abstract record Shape : global::Daml.Runtime.Data.IDamlVariant<Shape>
     /// <summary>Square constructor.</summary>
     public sealed record Square(decimal Value) : Shape
     {
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            var hash = new global::System.HashCode();
+            hash.Add(base.GetHashCode());
+            hash.Add(Value, global::Daml.Runtime.Data.DamlEqualityComparer<decimal>.Default);
+            return hash.ToHashCode();
+        }
+
         /// <inheritdoc />
         public override string Tag => "Square";
 
@@ -77,5 +95,4 @@ public abstract record Shape : global::Daml.Runtime.Data.IDamlVariant<Shape>
         /// <inheritdoc />
         public override global::Daml.Runtime.Data.DamlVariant ToVariant() => global::Daml.Runtime.Data.DamlVariant.Create("Empty", global::Daml.Runtime.Data.DamlUnit.Instance);
     }
-
 }

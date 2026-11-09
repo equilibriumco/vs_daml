@@ -22,7 +22,7 @@ central package versions out, so the solution builds like a user's.
    else comes from nuget.org. NuGet keeps the first copy of a version it saw, so after a new pack
    delete `equilibrium.daml.sdk\0.9.0-beta.0` and `equilibrium.daml.build.csharp\0.9.0-beta.0` under
    `%USERPROFILE%\.nuget\packages`; `pack.ps1` warns and names the folders when they hold another copy.
-2. dpm with SDK 3.6.0 installed, and a JDK 17 or later in `JAVA_HOME` for the C# generator.
+2. dpm with SDK 3.7.1 installed, and a JDK 17 or later in `JAVA_HOME` for the C# generator.
 3. Build, run, test:
 
    ```powershell
@@ -41,7 +41,7 @@ central package versions out, so the solution builds like a user's.
 v0.6.0 (Apache-2.0, Copyright 2026 Peaceful Studio OÜ; pristine copy and hashes in
 `third_party/canton-dotnet-sdk-mini-demo`). Changes from upstream:
 
-- SDK moved from 3.5.2 to 3.6.0;
+- SDK moved from 3.5.2 to 3.7.1;
 - package renamed from the upstream content-hash name to `mixed-dotnet-contracts`;
 - the test package depends on the freshly built DAR instead of a copied one, and both
   packages are listed in `multi-package.yaml`;

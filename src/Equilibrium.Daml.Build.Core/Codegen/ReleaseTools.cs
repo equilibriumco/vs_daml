@@ -17,13 +17,13 @@ internal static class ReleaseTools
 
     /// <summary>The C# code generator, pinned by digest.</summary>
     public static CodegenComponentPin CodegenComponent { get; } =
-        CodegenComponentPin.TryParse("oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548")!;
+        CodegenComponentPin.TryParse("oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.8.0@sha256:002f7382a01e141395d4cf62c6a42696c6778108c592444d9233ec31e26eeb38")!;
 
     /// <summary>The runtime package and exact version tested with the generated code.</summary>
     public static (string Package, Version Version) Runtime { get; } = ("Daml.Runtime", new Version(RuntimeVersion));
 
     /// <summary>The tested version of both Daml.Runtime and Daml.Ledger.Abstractions.</summary>
-    public const string RuntimeVersion = "0.6.0";
+    public const string RuntimeVersion = "0.8.0";
 
     /// <summary>The oldest .NET a project using the bindings may target; the runtime supports nothing older.</summary>
     public static Version MinimumTargetFramework { get; } = new(10, 0);

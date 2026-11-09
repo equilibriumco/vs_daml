@@ -18,7 +18,7 @@ versions out, so the solution builds like a user's.
    Studio evaluates the projects before its own restore brings the packages back, and as the restore writes the same
    files as before, it never evaluates them again: `Client` would build without the package's targets in its design-time
    view, so without its build-order dependency on `Contracts` (EQD0104 "There is no DAR" in a Rebuild) until reloaded.
-3. dpm with SDK 3.6.0 installed (`dpm version`), as for the other samples, and a JDK 17 or later in `JAVA_HOME` for the
+3. dpm with SDK 3.7.1 installed (`dpm version`), as for the other samples, and a JDK 17 or later in `JAVA_HOME` for the
    C# generator. The first build of `Client` on a machine without the pinned generator needs
    `/p:EqDamlAllowToolInstall=true` once (or `dpm` installing it by hand); after that it builds offline.
 4. Open `SdkManual.sln` in Visual Studio 2026; the extension isn't needed for this.

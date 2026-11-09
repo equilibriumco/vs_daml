@@ -61,7 +61,7 @@ public sealed class CodegenPreflightTests : IDisposable
 
     private void JavaSays(string stderr) => _runner.On(Java, ["-version"], new ProcessResult(0, "", stderr));
 
-    private CodegenRequest Request(Func<ToolOptions, ToolOptions>? tools = null, string? runtime = "0.6.0", string targetFramework = "net10.0", bool designTime = false)
+    private CodegenRequest Request(Func<ToolOptions, ToolOptions>? tools = null, string? runtime = "0.8.0", string targetFramework = "net10.0", bool designTime = false)
     {
         var reference = new GenerationReference(DamlReferenceSource.EqDamlReference, @"..\Contracts\Contracts.msbuildproj",
             Path.Combine(_root, @"Contracts\Contracts.msbuildproj"), "Contracts", "0123456789abcdef", "Contracts-0123456789abcdef");
@@ -73,7 +73,7 @@ public sealed class CodegenPreflightTests : IDisposable
             [new CodegenInput(reference, Dar)],
             designTime,
             runtime)
-        { LedgerAbstractionsVersion = "0.6.0" };
+        { LedgerAbstractionsVersion = "0.8.0" };
     }
 
     private Task<CodegenPlan> Plan(CodegenRequest request, ToolVersionCache? versions = null) =>

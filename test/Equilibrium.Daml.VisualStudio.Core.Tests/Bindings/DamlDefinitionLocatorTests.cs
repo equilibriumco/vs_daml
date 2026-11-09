@@ -11,7 +11,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Tests.Bindings;
 // The kinds fixture's Daml sources, whose generated C# the index is tested against.
 public sealed class DamlDefinitionLocatorTests : IDisposable
 {
-    private const string Package = "bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1";
+    private const string Package = "f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716";
 
     private static readonly string Fixture = Path.Combine(Repository.Root, @"test\fixtures\bindings\kinds");
     private static readonly string Manifest = Path.Combine(Fixture, "daml.yaml");

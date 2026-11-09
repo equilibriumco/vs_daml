@@ -12,7 +12,7 @@ generated from Daml in the same build.
 | dpm | 1.0.20 or later for editing; 1.0.22 or later for building Daml projects and generating C#. Found on `PATH`, in `%DPM_HOME%\bin`, `%APPDATA%\.dpm\bin` or `%APPDATA%\dpm\bin`. |
 | Daml SDK | 3.7.x or 3.6.x (`dpm install <version>`). Packages on SDKs older than 3.4 use the `daml` assistant if it is installed. |
 | JDK | 17 or later, for C# generation and for running scripts and tests. Not needed for editing. `JAVA_HOME` or `java` on `PATH`. |
-| .NET SDK | 10.0, for solutions with Daml and C# projects. Generated C# targets `net10.0` and needs `Daml.Runtime` and `Daml.Ledger.Abstractions` 0.6.0. |
+| .NET SDK | 10.0, for solutions with Daml and C# projects. Generated C# targets `net10.0` and needs `Daml.Runtime` and `Daml.Ledger.Abstractions` 0.8.0. |
 
 MSBuild builds are tested with MSBuild 18.11 and 18.12 and with `dotnet build` (.NET SDK 10.0.402).
 
@@ -112,8 +112,8 @@ in the same directory* to get the same layout as `dotnet new`.
 ```xml
 <ItemGroup>
   <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.9.0-beta.1" PrivateAssets="all" />
-  <PackageReference Include="Daml.Runtime" Version="0.6.0" />
-  <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
+  <PackageReference Include="Daml.Runtime" Version="0.8.0" />
+  <PackageReference Include="Daml.Ledger.Abstractions" Version="0.8.0" />
   <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
   <EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
 </ItemGroup>
@@ -126,7 +126,7 @@ in the same directory* to get the same layout as `dotnet new`.
   same types fail with `EQD0202`.
 - C# is generated for the DAR's own package only. Dependencies need their own references or NuGet
   packages.
-- **Generator**: `dpm-codegen-cs` 0.6.0, pinned by digest and cached in
+- **Generator**: `dpm-codegen-cs` 0.8.0, pinned by digest and cached in
   `%LOCALAPPDATA%\EquilibriumDamlTools\codegen`. A build downloads it (about 180 MB) only when
   `EqDamlAllowToolInstall` is true; otherwise a missing generator fails with `EQD0101`. Run
   `dotnet build -p:EqDamlAllowToolInstall=true` once per machine. Apps created from the template allow
@@ -182,7 +182,7 @@ Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Ot
 | `EQD0109` | A failed generation could not restore the previous code. | Build again. |
 | `EQD0110` | dpm or the generator was canceled or timed out. | Build again, or raise the limit. |
 | `EQD0111` | Warning: generated path exceeds 260 characters. | Shorten `EqDamlGeneratedDir` or enable Windows long paths. |
-| `EQD0201` | Runtime packages missing or incompatible, or target framework below `net10.0`. | Reference both runtime packages at 0.6.0; target `net10.0`. |
+| `EQD0201` | Runtime packages missing or incompatible, or target framework below `net10.0`. | Reference both runtime packages at 0.8.0; target `net10.0`. |
 | `EQD0202` | Two references generate the same types. | Give one a `Namespace`. |
 | `EQD0203` | C#/Daml navigation not possible: sources ambiguous or changed since the build. | Build. |
 
@@ -264,7 +264,7 @@ full file contents.
   but IntelliSense reports missing types unless Windows long paths are enabled.
 - The first generating build on a machine downloads the generator (about 180 MB) and needs
   `EqDamlAllowToolInstall` unless the project came from the app template.
-- C# is generated for a DAR's own package only; it requires `net10.0` and the 0.6.0 runtime packages.
+- C# is generated for a DAR's own package only; it requires `net10.0` and the 0.8.0 runtime packages.
 - `Source` output mode supports one target framework.
 - Background C# binding updates are a preview and off by default; removed types may stay in
   IntelliSense until the next build or project reload.

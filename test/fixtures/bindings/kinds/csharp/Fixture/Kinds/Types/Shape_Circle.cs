@@ -16,6 +16,14 @@ public sealed record Shape_Circle(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("radius")] decimal Radius
 ) : global::Daml.Runtime.Data.IDamlRecord<Shape_Circle>
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(Radius, global::Daml.Runtime.Data.DamlEqualityComparer<decimal>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord() => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("radius", new global::Daml.Runtime.Data.DamlNumeric(Radius))
@@ -23,7 +31,7 @@ public sealed record Shape_Circle(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static Shape_Circle FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new Shape_Circle(
-        Radius: record.GetRequiredField("radius").As<global::Daml.Runtime.Data.DamlNumeric>().Value
+        Radius: record.GetRequiredField("radius", 0).As<global::Daml.Runtime.Data.DamlNumeric>().Value
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -35,5 +43,4 @@ public sealed record Shape_Circle(
             global::Daml.Runtime.Data.DamlField.Create("radius", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadNumeric(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "radius"), context.Field("radius")))
         );
     }
-
 }

@@ -7,7 +7,7 @@
 
 namespace Names.More;
 
-internal static class PackageRegistration_01369120814ed69ddf9c25cbe59194051b717447b9a8ee1d67593aecf4339ec7
+internal static class PackageRegistration_e194b68a71c9665ced6e89582ec69acc38d4e9afac52386a607c819eacadadc9
 {
     [global::System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Register()

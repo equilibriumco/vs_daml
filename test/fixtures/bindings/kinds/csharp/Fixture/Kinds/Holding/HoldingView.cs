@@ -17,6 +17,15 @@ public sealed record HoldingView(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("amount")] decimal Amount
 ) : global::Fixture.Kinds.Holding.IHolding, global::Daml.Runtime.Data.IDamlRecord<HoldingView>
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(Owner, global::Daml.Runtime.Data.DamlEqualityComparer<global::Daml.Runtime.Data.Party>.Default);
+        hash.Add(Amount, global::Daml.Runtime.Data.DamlEqualityComparer<decimal>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord() => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("owner", Owner.ToDamlValue()),
@@ -25,8 +34,8 @@ public sealed record HoldingView(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static HoldingView FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new HoldingView(
-        Owner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("owner").As<global::Daml.Runtime.Data.DamlParty>()),
-        Amount: record.GetRequiredField("amount").As<global::Daml.Runtime.Data.DamlNumeric>().Value
+        Owner: global::Daml.Runtime.Data.Party.FromDamlValue(record.GetRequiredField("owner", 0).As<global::Daml.Runtime.Data.DamlParty>()),
+        Amount: record.GetRequiredField("amount", 1).As<global::Daml.Runtime.Data.DamlNumeric>().Value
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -39,5 +48,4 @@ public sealed record HoldingView(
             global::Daml.Runtime.Data.DamlField.Create("amount", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadNumeric(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "amount"), context.Field("amount")))
         );
     }
-
 }

@@ -4,7 +4,7 @@
 
   <PropertyGroup>
     <EqDamlCodegenEnabled Condition="'$(EqDamlCodegenEnabled)' == ''">true</EqDamlCodegenEnabled>
-    <EqDamlCodegenComponent Condition="'$(EqDamlCodegenComponent)' == ''">oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548</EqDamlCodegenComponent>
+    <EqDamlCodegenComponent Condition="'$(EqDamlCodegenComponent)' == ''">oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.8.0@sha256:002f7382a01e141395d4cf62c6a42696c6778108c592444d9233ec31e26eeb38</EqDamlCodegenComponent>
     <EqDamlGeneratedOutputMode Condition="'$(EqDamlGeneratedOutputMode)' == ''">Intermediate</EqDamlGeneratedOutputMode>
     <EqDamlJavaHome Condition="'$(EqDamlJavaHome)' == ''">$(JAVA_HOME)</EqDamlJavaHome>
     <_EqDamlCSharpTasks>$(MSBuildThisFileDirectory)..\tasks\netstandard2.0\Equilibrium.Daml.Build.Tasks.dll</_EqDamlCSharpTasks>

@@ -65,7 +65,7 @@ public sealed class GenerationUpdateTests : IDisposable
         new CodegenOptions(true, _cache.Pin, GeneratedOutputMode.Source, Root, JavaHome: null),
         [Input],
         DesignTime: false,
-        "0.6.0");
+        "0.8.0");
 
     // What the preflight found before the update took the lock.
     private CodegenPlan Plan(GenerationStatus found = GenerationStatus.Stale, string? darSha256 = null) => new(
@@ -119,6 +119,20 @@ public sealed class GenerationUpdateTests : IDisposable
         ]);
         GenerationState.Evaluate(Folder, Fingerprint, Project).Status.ShouldBe(GenerationStatus.Current);
         WorkLeftovers().ShouldBeEmpty();
+    }
+
+    // From 0.8.0 the generator lists what it wrote in .codegen-manifest beside the C#: ours to
+    // clean up, not the compiler's to read.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Only_the_CSharp_the_generator_writes_is_compiled_but_all_of_it_is_owned()
+    {
+        _generator.Writes(new() { [".codegen-manifest"] = "# package: contracts\nContracts/Asset.cs\n", [@"Contracts\Asset.cs"] = "class Asset { }" });
+
+        var result = await Update();
+
+        result.Files.ShouldBe([new GeneratedFile(Path.Combine(Folder, @"Contracts\Asset.cs"), Id)]);
+        GenerationManifest.Read(Path.Combine(Folder, GenerationManifest.FileName))!.Files.Select(f => f.Path)
+            .ShouldBe([".codegen-manifest", @"Contracts\Asset.cs"], ignoreOrder: true);
     }
 
     // Our own steps take any length; the warning is for the compiler and the editor, which may not.

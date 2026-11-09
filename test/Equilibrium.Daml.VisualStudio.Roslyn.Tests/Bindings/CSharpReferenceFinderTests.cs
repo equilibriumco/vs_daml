@@ -15,7 +15,7 @@ namespace Equilibrium.Daml.VisualStudio.Roslyn.Tests.Bindings;
 public sealed class CSharpReferenceFinderTests : IDisposable
 {
     private const string Package = GeneratedCode.KindsPackage;
-    private const string Other = "1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb";
+    private const string Other = "b2fd028a37023d031efa04d0f1a06c88d5e5614083e3fa236f680f95f9a36bf2";
     private const string Id = "9de80d6cfe50bada";
 
     private const string Uses = """

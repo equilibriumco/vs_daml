@@ -71,8 +71,9 @@ public sealed class GenerationUpdate
         // Our own steps take any length; the compiler and the editor may not.
         void Collect(IReadOnlyList<string> generated, GenerationReference reference)
         {
-            files.AddRange(generated.Select(f => new GeneratedFile(f, reference.GenerationId)));
-            var longest = generated.OrderByDescending(f => f.Length).FirstOrDefault();
+            var compiled = generated.Where(GeneratedFile.IsCompiled).ToList();
+            files.AddRange(compiled.Select(f => new GeneratedFile(f, reference.GenerationId)));
+            var longest = compiled.OrderByDescending(f => f.Length).FirstOrDefault();
             if (longest is not null && longest.Length > LongPaths.MaxPathLength)
             {
                 Report(DamlDiagnosticSeverity.Warning, DamlDiagnosticCodes.LongGeneratedPath,

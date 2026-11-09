@@ -8,7 +8,7 @@
   DamlProject   EqDamlManifestPath = '$(MSBuildProjectDirectory)\daml.yaml' (the path of the package's daml.yaml)
   DamlProject   EqDamlBuildEnabled = 'true' (true or false)
   CSharpProject EqDamlCodegenEnabled = 'true' (true or false)
-  CSharpProject EqDamlCodegenComponent = 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548' (oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>)
+  CSharpProject EqDamlCodegenComponent = 'oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.8.0@sha256:002f7382a01e141395d4cf62c6a42696c6778108c592444d9233ec31e26eeb38' (oci://<registry>/<repository>:<tag>@sha256:<64 lowercase hex digits>)
   CSharpProject EqDamlGeneratedOutputMode = 'Intermediate' (Intermediate or Source)
   CSharpProject EqDamlGeneratedDir = '' (a folder of its own)
   CSharpProject EqDamlJavaHome = '$(JAVA_HOME)' (a JDK folder)

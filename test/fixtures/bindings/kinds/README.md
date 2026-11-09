@@ -11,9 +11,9 @@ from them, so they test against the generator's real output rather than a guess 
 
 | What | Version |
 |---|---|
-| Daml SDK | 3.6.0 (`daml.yaml`) |
-| Generator | `oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.6.0@sha256:9f040219936298f085e2ade77fbbc37829df065b879633282aa4628c9a1b6548`, the default of `Equilibrium.Daml.Build.CSharp` |
-| Main package ID | `bd2aa85e017dad908dbd9c8103929df3edaa7b0961b675d3ef216644565f9cb1` |
+| Daml SDK | 3.7.1 (`daml.yaml`) |
+| Generator | `oci://ghcr.io/peacefulstudio/dpm-codegen-cs:0.8.0@sha256:002f7382a01e141395d4cf62c6a42696c6778108c592444d9233ec31e26eeb38`, the default of `Equilibrium.Daml.Build.CSharp` |
+| Main package ID | `f212e3063732400d22fefbd51b4293366a542fddb4db3a16b14cc037486ce716` |
 
 ## Keeping it current
 `BindingFixtureTests` in `test/Equilibrium.Daml.Build.Tests` (category `MSBuild`, backend `Real`) builds this package and generates

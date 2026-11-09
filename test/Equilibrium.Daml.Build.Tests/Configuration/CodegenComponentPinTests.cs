@@ -15,8 +15,8 @@ public class CodegenComponentPinTests
 
         pin.ShouldNotBeNull();
         pin.Repository.ShouldBe("ghcr.io/peacefulstudio/dpm-codegen-cs");
-        pin.Tag.ShouldBe("0.6.0");
-        pin.Digest.ShouldBe(Digest);
+        pin.Tag.ShouldBe("0.8.0");
+        pin.Digest.ShouldBe("002f7382a01e141395d4cf62c6a42696c6778108c592444d9233ec31e26eeb38");
         pin.Reference.ShouldBe(DamlProperties.CodegenComponent.Default);
     }
 

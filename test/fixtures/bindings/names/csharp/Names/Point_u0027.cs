@@ -16,6 +16,14 @@ public sealed record Point_u0027(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("x$u0027")] long XU0027
 ) : global::Daml.Runtime.Data.IDamlRecord<Point_u0027>
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(XU0027, global::Daml.Runtime.Data.DamlEqualityComparer<long>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord() => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("x$u0027", new global::Daml.Runtime.Data.DamlInt64(XU0027))
@@ -23,7 +31,7 @@ public sealed record Point_u0027(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static Point_u0027 FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new Point_u0027(
-        XU0027: record.GetRequiredField("x$u0027").As<global::Daml.Runtime.Data.DamlInt64>().Value
+        XU0027: record.GetRequiredField("x$u0027", 0).As<global::Daml.Runtime.Data.DamlInt64>().Value
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -35,5 +43,4 @@ public sealed record Point_u0027(
             global::Daml.Runtime.Data.DamlField.Create("x$u0027", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadInt64(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "x$u0027"), context.Field("x$u0027")))
         );
     }
-
 }

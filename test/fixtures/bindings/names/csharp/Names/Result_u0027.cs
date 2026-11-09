@@ -50,6 +50,15 @@ public abstract record Result_u0027 : global::Daml.Runtime.Data.IDamlVariant<Res
     public sealed record Value_u0027(long Value) : Result_u0027
     {
         /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            var hash = new global::System.HashCode();
+            hash.Add(base.GetHashCode());
+            hash.Add(Value, global::Daml.Runtime.Data.DamlEqualityComparer<long>.Default);
+            return hash.ToHashCode();
+        }
+
+        /// <inheritdoc />
         public override string Tag => "Value$u0027";
 
         /// <inheritdoc />
@@ -65,5 +74,4 @@ public abstract record Result_u0027 : global::Daml.Runtime.Data.IDamlVariant<Res
         /// <inheritdoc />
         public override global::Daml.Runtime.Data.DamlVariant ToVariant() => global::Daml.Runtime.Data.DamlVariant.Create("Empty$u0027", global::Daml.Runtime.Data.DamlUnit.Instance);
     }
-
 }

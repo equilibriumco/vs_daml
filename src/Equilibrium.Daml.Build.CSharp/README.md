@@ -7,8 +7,8 @@ project.
 ```xml
 <ItemGroup>
   <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="<version>" PrivateAssets="all" />
-  <PackageReference Include="Daml.Runtime" Version="0.6.0" />
-  <PackageReference Include="Daml.Ledger.Abstractions" Version="0.6.0" />
+  <PackageReference Include="Daml.Runtime" Version="0.8.0" />
+  <PackageReference Include="Daml.Ledger.Abstractions" Version="0.8.0" />
   <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
   <EqDamlDar Include="..\vendor\finance-1.0.0.dar" Namespace="Finance" />
 </ItemGroup>

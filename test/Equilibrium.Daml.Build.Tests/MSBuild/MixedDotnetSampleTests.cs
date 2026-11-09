@@ -101,10 +101,10 @@ public sealed class MixedDotnetSampleTests : IDisposable
     // contracts into C# that the app compiles with the Splice packages and runs, and the scripts pass; on
     // both supported SDK lines.
     [SkippableTheory, Trait("Category", "MSBuild"), Trait("Backend", "Real"), Trait("RequiresDaml", "true"), Trait("RequiresJava", "true")]
-    [InlineData(MSBuildHost.MSBuildExe, "3.6.0")]
-    [InlineData(MSBuildHost.MSBuildExe, "3.5.2")]
-    [InlineData(MSBuildHost.Dotnet, "3.6.0")]
-    [InlineData(MSBuildHost.Dotnet, "3.5.2")]
+    [InlineData(MSBuildHost.MSBuildExe, "3.7.1")]
+    [InlineData(MSBuildHost.MSBuildExe, "3.6.4")]
+    [InlineData(MSBuildHost.Dotnet, "3.7.1")]
+    [InlineData(MSBuildHost.Dotnet, "3.6.4")]
     public async Task The_sample_solution_builds_runs_and_passes_its_Daml_tests(MSBuildHost host, string sdk)
     {
         using var alone = await DpmHome.ExclusiveAsync();

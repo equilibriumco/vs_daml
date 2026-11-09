@@ -16,6 +16,14 @@ public sealed record Entry_u0027(
     [property: global::Daml.Runtime.Data.DamlFieldAttribute("value$u0027")] string ValueU0027
 ) : global::Daml.Runtime.Data.IDamlRecord<Entry_u0027>
 {
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new global::System.HashCode();
+        hash.Add(ValueU0027, global::Daml.Runtime.Data.DamlEqualityComparer<string>.Default);
+        return hash.ToHashCode();
+    }
+
     /// <summary>Converts this value to a DamlRecord.</summary>
     public global::Daml.Runtime.Data.DamlRecord ToRecord() => global::Daml.Runtime.Data.DamlRecord.Create(
         global::Daml.Runtime.Data.DamlField.Create("value$u0027", new global::Daml.Runtime.Data.DamlText(ValueU0027))
@@ -23,7 +31,7 @@ public sealed record Entry_u0027(
 
     /// <summary>Creates an instance from a DamlRecord.</summary>
     public static Entry_u0027 FromRecord(global::Daml.Runtime.Data.DamlRecord record) => new Entry_u0027(
-        ValueU0027: record.GetRequiredField("value$u0027").As<global::Daml.Runtime.Data.DamlText>().Value
+        ValueU0027: record.GetRequiredField("value$u0027", 0).As<global::Daml.Runtime.Data.DamlText>().Value
     );
 
     /// <summary>Decodes a Daml-LF JSON record directly into a DamlRecord, without going through reflection.</summary>
@@ -35,5 +43,4 @@ public sealed record Entry_u0027(
             global::Daml.Runtime.Data.DamlField.Create("value$u0027", global::Daml.Runtime.Serialization.DamlLfJsonDecoders.ReadText(global::Daml.Runtime.Serialization.DamlLfJsonDecoders.RequireField(json, context, "value$u0027"), context.Field("value$u0027")))
         );
     }
-
 }

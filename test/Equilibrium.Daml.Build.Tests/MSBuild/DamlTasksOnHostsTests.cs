@@ -235,7 +235,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
           <Target Name="Build">
             <DamlCodegenCSharp ProjectPath="$(MSBuildProjectFullPath)" IntermediateOutputPath="obj\Debug\net10.0\" Configuration="Debug" TargetFramework="net10.0"
                 References="@(DamlRef)" DesignTime="$(DamlDesignTime)" DpmPath="$(EqDamlDpmPath)" JavaHome="$(EqDamlJavaHome)"
-                AllowToolInstall="$(EqDamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" LedgerAbstractionsVersion="0.6.0" CodegenComponent="$(EqDamlCodegenComponent)"
+                AllowToolInstall="$(EqDamlAllowToolInstall)" RuntimeVersion="$(DamlRuntimeVersion)" LedgerAbstractionsVersion="0.8.0" CodegenComponent="$(EqDamlCodegenComponent)"
                 SkipPreflight="$(EqDamlSkipPreflight)">
               <Output TaskParameter="GeneratedFiles" ItemName="_EqDamlGenerated" />
             </DamlCodegenCSharp>
@@ -335,7 +335,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
             ["DamlDarFile"] = dar,
             ["EqDamlDpmPath"] = _dpm.ExecutablePath,
             ["EqDamlJavaHome"] = Path.Combine(_sandbox.Root, "jdk"),
-            ["DamlRuntimeVersion"] = "0.6.0",
+            ["DamlRuntimeVersion"] = "0.8.0",
             ["EqDamlCodegenComponent"] = cache.Pin.Reference,
             ["EqDamlSkipPreflight"] = "true",
         };
@@ -369,7 +369,8 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         var hostPath = HostPath(host);
         var dpm = RequiredTools.Require(ExternalTool.Dpm);
         var java = RequiredTools.Require(ExternalTool.Java);
-        var package = CopyPackage(Path.Combine(Repository.Root, @"third_party\canton-dotnet-sdk-mini-demo\daml"), "demo");
+        var package = CopyPackage(MiniDemo.Daml, "demo");
+        MiniDemo.UseFixtureSdk(Path.Combine(_sandbox.Root, package));
         _sandbox.Build(host, hostPath, Path.Combine(package, "Contracts.proj"), properties: new Dictionary<string, string> { ["EqDamlDpmPath"] = dpm })
             .ExitCode.ShouldBe(0);
         var app = _sandbox.Write(@"App\App.proj", AppProject);
@@ -380,7 +381,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
             ["EqDamlJavaHome"] = Path.GetDirectoryName(Path.GetDirectoryName(java))!,
             // Installs the generator once on a machine that hasn't got it yet.
             ["EqDamlAllowToolInstall"] = "true",
-            ["DamlRuntimeVersion"] = "0.6.0",
+            ["DamlRuntimeVersion"] = "0.8.0",
         };
 
         var first = _sandbox.Build(host, hostPath, app, properties: properties);
@@ -388,11 +389,12 @@ public sealed class DamlTasksOnHostsTests : IDisposable
 
         first.ExitCode.ShouldBe(0, first.Log);
         first.Log.ShouldContain("Generated C# for");
-        first.Log.ShouldContain("PackageRegistration_1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb.cs");
-        Directory.GetFiles(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml"), "*.cs", SearchOption.AllDirectories).Length.ShouldBe(7);
+        first.Log.ShouldContain($"PackageRegistration_{MiniDemo.PackageId}.cs");
+        Directory.GetFiles(Path.Combine(_sandbox.Root, @"App\obj\Debug\net10.0\Daml"), "*.cs", SearchOption.AllDirectories).Length
+            .ShouldBe(Directory.GetFiles(MiniDemo.Bindings, "*.cs", SearchOption.AllDirectories).Length);
         second.ExitCode.ShouldBe(0, second.Log);
         second.Log.ShouldNotContain("Generated C# for");
-        second.Log.ShouldContain("PackageRegistration_1c7a18f31befd3df5426c623abcbe71fcfe796665de0feefd09ce752ef7fa9fb.cs");
+        second.Log.ShouldContain($"PackageRegistration_{MiniDemo.PackageId}.cs");
     }
 
     // A copy without earlier build output, with the package project next to its daml.yaml.

@@ -123,7 +123,7 @@ public sealed class CodegenOrchestrator : ICodegenOrchestrator
                 Tell($"{folder} holds C# generated for {manifest.Owner}, not for this project; build the project to see what to do.");
                 continue;
             }
-            files.AddRange(manifest.Files.Select(f => new GeneratedFile(Path.Combine(folder, f.Path), reference.GenerationId)));
+            files.AddRange(manifest.Files.Where(f => GeneratedFile.IsCompiled(f.Path)).Select(f => new GeneratedFile(Path.Combine(folder, f.Path), reference.GenerationId)));
         }
         return new CodegenResult(files, messages);
     }

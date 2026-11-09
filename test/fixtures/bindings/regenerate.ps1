@@ -5,7 +5,7 @@
     generator writes now.
 
 .DESCRIPTION
-    Builds the solution, then runs BindingFixtureTests (real dpm, JDK and generator) with
+    Builds the solution, then runs BindingFixtureTests and the mini-demo update test (real dpm, JDK and generator) with
     EQDAML_UPDATE_BINDING_FIXTURES=1, which writes the output instead of comparing it. Review the
     diff afterwards: it is what the binding index has to keep up with.
 #>
@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 $env:EQDAML_UPDATE_BINDING_FIXTURES = '1'
 try {
     dotnet test (Join-Path $root 'test\Equilibrium.Daml.Build.Tests\Equilibrium.Daml.Build.Tests.csproj') --no-build -f net10.0 `
-        --filter 'FullyQualifiedName~BindingFixtureTests' --nologo
+        --filter 'FullyQualifiedName~BindingFixtureTests|FullyQualifiedName~RealGenerationUpdateTests.The_mini_demo_comes_out' --nologo
     exit $LASTEXITCODE
 }
 finally {
