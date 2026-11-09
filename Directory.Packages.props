@@ -74,26 +74,29 @@
          test host then warns about every extension file it scans with the app domain disabled. -->
     <PackageVersion Include="Microsoft.TestPlatform.ObjectModel" Version="18.11.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
     <PackageVersion Include="Xunit.SkippableFact" Version="1.5.85" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Verify.Xunit" Version="31.12.5" />
-    <PackageVersion Include="FsCheck.Xunit" Version="3.4.0" />
+    <PackageVersion Include="FsCheck.Xunit" Version="3.6.0" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
     <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Microsoft.VisualStudio.Sdk.TestFramework.Xunit" Version="17.11.66" />
     <!-- VS-MEF, at the version VS 17.14 resolves; tests use its part discovery to check our MEF exports. -->
     <PackageVersion Include="Microsoft.VisualStudio.Composition" Version="17.13.41" />
     <!-- StreamJsonRpc 2.22 and the VS test framework pull MessagePack 2.5.192, which has open
-         advisories (2.5.301 fixed the first ones, 2.5.307 GHSA-qhrr-8q5h-9q3h). Test-side projects
-         that use them reference this directly; product code never ships MessagePack, devenv
-         provides its own. -->
-    <PackageVersion Include="MessagePack" Version="2.5.307" />
+         advisories (GHSA-qhrr-8q5h-9q3h and earlier). Test-side projects that use them reference
+         this directly; product code never ships MessagePack, devenv provides its own. 3.x isn't
+         what StreamJsonRpc was built against: the tests only speak JSON-RPC over the JSON
+         formatter, which never touches it, and the Editor and IDE runs are what would show a
+         member missing at run time. -->
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
     <!-- In-IDE test harness ([IdeFact]). Only on the vssdk feed (see nuget.config) and only as
          daily prereleases: the original repo was archived and the code now builds from
          dotnet/roslyn. Pin a build at least two weeks old; the middle number of the suffix is
-         the build date (YY*1000 + MM*50 + DD), so 26475 = 2026-09-25. -->
-    <PackageVersion Include="Microsoft.VisualStudio.Extensibility.Testing.Xunit" Version="5.12.0-1.26475.5" />
+         the build date (YY*1000 + MM*50 + DD), so 26526 = 2026-10-26. Several minor lines get
+         builds side by side; take the one that was newest at that date, not a line's first build. -->
+    <PackageVersion Include="Microsoft.VisualStudio.Extensibility.Testing.Xunit" Version="5.13.0-1.26526.10" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 
