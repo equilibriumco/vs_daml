@@ -3,7 +3,7 @@
 Visual Studio 2026 extension for [Daml](https://docs.digitalasset.com/), plus MSBuild packages that
 build Daml packages and generate C# from them through the Canton .NET SDK (`dpm codegen-cs`).
 
-Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
+Status: **0.9.1 beta**. Windows x64, Visual Studio 2026 only.
 
 ## Features
 
@@ -64,7 +64,7 @@ needs an unlocked interactive session.
 
 **Releasing.** The *Release* workflow runs by hand with a build number. From a branch it builds,
 runs the `Hosted` test gate and keeps the files as an artifact. From a tag `v<version>` (for example
-`v0.9.0-beta.3` with build number 3) it also drafts a GitHub pre-release with the VSIX, the packages
+`v0.9.1-beta.3` with build number 3) it also drafts a GitHub pre-release with the VSIX, the packages
 and their SBOMs. A hosted runner can't run the `Contract`, `Integration` or real-backend `MSBuild`
 tests, so before publishing, run the full gate on the tagged commit on a machine with Visual Studio
 2026, dpm and a JDK: `pwsh scripts/test.ps1 -Category All -Gate Full -RequiredTools`. Then publish the

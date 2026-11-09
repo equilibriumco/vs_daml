@@ -22,7 +22,7 @@ anything you can't afford to lose.
 2. **Templates.** Install them with the version from the release page, for example:
 
    ```
-   dotnet new install Equilibrium.Daml.Templates::0.9.0-beta.1
+   dotnet new install Equilibrium.Daml.Templates::0.9.1-beta.1
    ```
 
    The other two packages, `Equilibrium.Daml.Sdk` and `Equilibrium.Daml.Build.CSharp`, come in

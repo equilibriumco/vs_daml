@@ -53,12 +53,12 @@
 
   <!-- One version for everything. The VSIX manifest only accepts numeric versions, so the
        build number goes into the fourth part there and after the prerelease label on NuGet:
-         VSIX / FileVersion   0.9.0.3
-         NuGet                0.9.0-beta.3
+         VSIX / FileVersion   0.9.1.3
+         NuGet                0.9.1-beta.3
        Local builds use build number 0; CI passes its run number. An empty label makes a stable
        release. -->
   <PropertyGroup>
-    <VersionPrefix>0.9.0</VersionPrefix>
+    <VersionPrefix>0.9.1</VersionPrefix>
     <EqDamlPrereleaseLabel>beta</EqDamlPrereleaseLabel>
     <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == '' and '$(GITHUB_RUN_NUMBER)' != ''">$(GITHUB_RUN_NUMBER)</EqDamlBuildNumber>
     <EqDamlBuildNumber Condition="'$(EqDamlBuildNumber)' == ''">0</EqDamlBuildNumber>

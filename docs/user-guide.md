@@ -1,6 +1,6 @@
 # EQ Daml Tools for Visual Studio: user guide
 
-Version 0.9.0 beta. Daml editing in Visual Studio 2026 backed by the `damlc` language server, native
+Version 0.9.1 beta. Daml editing in Visual Studio 2026 backed by the `damlc` language server, native
 syntax features, Daml Script results next to the code, Daml packages as MSBuild projects, and C#
 generated from Daml in the same build.
 
@@ -28,7 +28,7 @@ Extensions > Installed.
 with:
 
 ```
-dotnet new install Equilibrium.Daml.Templates::0.9.0-beta.1
+dotnet new install Equilibrium.Daml.Templates::0.9.1-beta.1
 ```
 
 NuGet caches a version once in `%USERPROFILE%\.nuget\packages`. If you replace a package with a
@@ -87,7 +87,7 @@ Document, signature help or workspace symbols, so Visual Studio does not offer t
 A Daml package becomes a solution project with a project file next to its `daml.yaml`:
 
 ```xml
-<Project Sdk="Equilibrium.Daml.Sdk/0.9.0-beta.1">
+<Project Sdk="Equilibrium.Daml.Sdk/0.9.1-beta.1">
 </Project>
 ```
 
@@ -111,7 +111,7 @@ in the same directory* to get the same layout as `dotnet new`.
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.9.0-beta.1" PrivateAssets="all" />
+  <PackageReference Include="Equilibrium.Daml.Build.CSharp" Version="0.9.1-beta.1" PrivateAssets="all" />
   <PackageReference Include="Daml.Runtime" Version="0.8.0" />
   <PackageReference Include="Daml.Ledger.Abstractions" Version="0.8.0" />
   <EqDamlReference Include="..\Contracts\Contracts.msbuildproj" Namespace="Contracts" />
