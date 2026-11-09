@@ -8,10 +8,10 @@ namespace Equilibrium.Daml.TestHelpers;
 public sealed class FakeLanguageServerScenario
 {
     /// <summary>
-    /// Returned as <c>capabilities</c> from <c>initialize</c>: what damlc 3.6.0 (ide) announced
+    /// Returned as <c>capabilities</c> from <c>initialize</c>: what damlc 3.7.1 (ide) announced
     /// when the capabilities fixtures were recorded, unless a test says otherwise.
     /// </summary>
-    public JObject Capabilities { get; set; } = RecordedCapabilities("ide-3.6.0");
+    public JObject Capabilities { get; set; } = RecordedCapabilities("ide-3.7.1");
 
     /// <summary>Written to stderr, one per line, as soon as the server starts.</summary>
     public List<string> StderrLines { get; } = new();

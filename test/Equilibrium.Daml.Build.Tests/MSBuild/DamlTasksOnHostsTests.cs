@@ -34,7 +34,7 @@ public sealed class DamlTasksOnHostsTests : IDisposable
         </Project>
         """;
 
-    private const string Manifest = "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n";
+    private const string Manifest = "sdk-version: 3.7.1\nname: contracts\nversion: 1.2.0\nsource: daml\n";
 
     private readonly MSBuildSandbox _sandbox = new();
     private readonly FakeDpm _dpm = FakeDpm.Create(new FakeDpmScenario());

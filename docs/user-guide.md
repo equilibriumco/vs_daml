@@ -10,7 +10,7 @@ generated from Daml in the same build.
 |---|---|
 | Visual Studio | 2026 (18.0 or later), any edition, x64. Tested on 18.12. Visual Studio 2022 is not supported. |
 | dpm | 1.0.20 or later for editing; 1.0.22 or later for building Daml projects and generating C#. Found on `PATH`, in `%DPM_HOME%\bin`, `%APPDATA%\.dpm\bin` or `%APPDATA%\dpm\bin`. |
-| Daml SDK | 3.6.x or 3.5.x (`dpm install <version>`). Packages on SDKs older than 3.4 use the `daml` assistant if it is installed. |
+| Daml SDK | 3.7.x or 3.6.x (`dpm install <version>`). Packages on SDKs older than 3.4 use the `daml` assistant if it is installed. |
 | JDK | 17 or later, for C# generation and for running scripts and tests. Not needed for editing. `JAVA_HOME` or `java` on `PATH`. |
 | .NET SDK | 10.0, for solutions with Daml and C# projects. Generated C# targets `net10.0` and needs `Daml.Runtime` and `Daml.Ledger.Abstractions` 0.6.0. |
 
@@ -68,7 +68,7 @@ folder, and restarts when one is added or removed. Go To Definition across packa
 `multi-package.yaml` that lists them; when it is missing or incomplete, a bar offers to create it or
 names the missing packages. The extension never edits an existing file.
 
-**Not available.** `damlc` 3.5 and 3.6 do not implement Find All References, Rename, Format
+**Not available.** `damlc` 3.6 and 3.7 do not implement Find All References, Rename, Format
 Document, signature help or workspace symbols, so Visual Studio does not offer them in Daml files.
 
 ### Keyboard
@@ -171,7 +171,7 @@ Boolean values accept MSBuild forms (`true`/`false`, `on`/`off`, `yes`/`no`). Ot
 |---|---|---|
 | `EQD0001` / `EQD0002` | Daml compiler error / warning. | Fix the Daml at the reported location. |
 | `EQD0100` | Invalid property, item, path or `daml.yaml` field. | See the message. |
-| `EQD0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.6.0`), set `EqDamlDpmPath`, or set `EqDamlAllowToolInstall`. |
+| `EQD0101` | dpm, the pinned SDK or the generator is not installed. | Install it (`dpm install 3.7.1`), set `EqDamlDpmPath`, or set `EqDamlAllowToolInstall`. |
 | `EQD0102` | No JDK 17+ for the generator. | Install a JDK or set `EqDamlJavaHome`. |
 | `EQD0103` | dpm older than 1.0.22. | Update dpm. |
 | `EQD0104` | Generation failed. | See the message; for a locked file, build again. |

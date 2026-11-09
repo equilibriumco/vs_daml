@@ -9,8 +9,8 @@
         MinimumVersion = '1.0.20'
         Sdks    = @(
             # First entry is the default SDK and the one dpm itself is bootstrapped from.
-            @{ Version = '3.6.0'; Sha256 = 'a826f5733c80ae7763ef4631fe0d8a82a64345a10dbcbe117e9bcc76883db8c5' }
-            @{ Version = '3.5.2'; Sha256 = 'e4881c56ff1db28e9999dcbac3ff72d61905e70bcfc2253331d7836c3d043e7d' }
+            @{ Version = '3.7.1'; Sha256 = '18abfd25d465a7717c43705850e31b4216cf9e0984c82c3191718fad1add3b1d' }
+            @{ Version = '3.6.4'; Sha256 = '9310a02c5d646786484cee94a67bd7fa73890aab46ec396b2af9fc7ce0c45580' }
         )
     }
 

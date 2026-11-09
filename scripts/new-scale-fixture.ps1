@@ -19,7 +19,7 @@ param(
     [Parameter(Mandatory)] [string] $SdkPackageVersion,
     [Parameter(Mandatory)] [string] $RuntimeVersion,
     [string] $PackagePrefix = 'Equilibrium.Daml',
-    [string] $DamlSdk = '3.6.0',
+    [string] $DamlSdk = '3.7.1',
     [ValidateRange(1, 100)] [int] $Packages = 20,
     [ValidateRange(1, 500)] [int] $ModulesPerPackage = 50,
     [ValidateRange(20, 1000)] [int] $LinesPerModule = 100,

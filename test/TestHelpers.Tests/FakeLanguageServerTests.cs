@@ -104,7 +104,7 @@ public class FakeLanguageServerTests
     {
         using var server = FakeLanguageServer.Create(new FakeLanguageServerScenario
         {
-            Replay = FakeLanguageServerScenario.Transcript("3.6.0", "ide-A_type_error_is_published_for_the_opened_file"),
+            Replay = FakeLanguageServerScenario.Transcript("3.7.1", "ide-A_type_error_is_published_for_the_opened_file"),
             ReplayRoot = "C:/work/app",
         });
         var client = new ClientSide();
@@ -112,7 +112,7 @@ public class FakeLanguageServerTests
         using var session = server.Start(client);
 
         var initialized = await session.Rpc.InvokeWithParameterObjectAsync<JObject>("initialize", new { processId = 1, rootUri = "file:///C:/work/app", capabilities = new { } });
-        JToken.DeepEquals(initialized["capabilities"], FakeLanguageServerScenario.RecordedCapabilities("ide-3.6.0")).ShouldBeTrue();
+        JToken.DeepEquals(initialized["capabilities"], FakeLanguageServerScenario.RecordedCapabilities("ide-3.7.1")).ShouldBeTrue();
         await session.Rpc.NotifyWithParameterObjectAsync("initialized", new { });
         await session.Rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", new { textDocument = new { uri = "file:///C:/work/app/daml/TypeError.daml", languageId = "daml", version = 1, text = "module TypeError where" } });
 

@@ -30,7 +30,7 @@ public class DamlcContractTests
     public DamlcContractTests(ITestOutputHelper output) => _output = output;
 
     public static IEnumerable<object[]> Matrix() =>
-        from sdk in new[] { "3.6.0", "3.5.2" }
+        from sdk in new[] { "3.7.1", "3.6.4" }
         from mode in new[] { "multi-ide", "ide" }
         select new object[] { sdk, mode };
 
@@ -52,6 +52,15 @@ public class DamlcContractTests
         foreach (var missing in new[] { "referencesProvider", "renameProvider", "documentFormattingProvider", "documentHighlightProvider", "workspaceSymbolProvider", "signatureHelpProvider" })
         {
             IsOn(damlc.Capabilities[missing]).ShouldBeFalse($"{missing} appeared; the extension may want to use it now");
+        }
+
+        // With EQDAML_RECORD_FIXTURES=1 what damlc announced goes to artifacts/test/lsp-capabilities;
+        // a new SDK's snapshot is copied from there by hand, after a look at it.
+        if (Environment.GetEnvironmentVariable("EQDAML_RECORD_FIXTURES") == "1")
+        {
+            var recorded = Path.Combine(Repository.Root, "artifacts", "test", "lsp-capabilities", $"{mode}-{sdk}.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(recorded)!);
+            File.WriteAllText(recorded, damlc.Capabilities.ToString() + "\n");
         }
 
         var snapshot = JObject.Parse(File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "lsp-capabilities", $"{mode}-{sdk}.json")));
@@ -129,8 +138,8 @@ public class DamlcContractTests
     // still lands in the other package's source when multi-package.yaml is in its folder. On the
     // import line itself damlc finds nothing, so the probe is a use of the name.
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
-    [InlineData("3.6.0")]
-    [InlineData("3.5.2")]
+    [InlineData("3.7.1")]
+    [InlineData("3.6.4")]
     public async Task Definition_of_a_name_from_another_package_opens_its_source(string sdk)
     {
         using var sample = SampleCopy.Create("multi-package", sdk);
@@ -274,6 +283,20 @@ public class DamlcContractTests
         page.ShouldContain("$webviewSrc");
         page.ShouldContain("$webviewCss");
         page.ShouldContain("Asset", Case.Sensitive, "the setup script creates an Asset");
+
+        // With EQDAML_RECORD_FIXTURES=1 the multi-ide page goes to artifacts/test/script-results with
+        // the copy's path spelled the way the fixtures spell it; a new SDK's page is copied from there.
+        if (Environment.GetEnvironmentVariable("EQDAML_RECORD_FIXTURES") == "1" && mode == "multi-ide")
+        {
+            var root = sample.Root.Replace('\\', '/');
+            var recorded = page
+                .Replace(Uri.EscapeDataString(root), Uri.EscapeDataString("C:/work/single-package"))
+                .Replace(root, "C:/work/single-package")
+                .Replace(sample.Root, "C:/work/single-package");
+            var file = Path.Combine(Repository.Root, "artifacts", "test", "script-results", $"sdk-{sdk}-setup.html");
+            Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+            File.WriteAllText(file, recorded);
+        }
     }
 
     private sealed class CapturingWindows : IVirtualResourceWindows

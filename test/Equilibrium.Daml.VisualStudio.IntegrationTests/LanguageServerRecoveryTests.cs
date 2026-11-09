@@ -71,16 +71,16 @@ public class LanguageServerRecoveryTests
     }
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 5 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public async Task A_package_on_sdk_3_5_is_served_and_a_file_from_elsewhere_does_not_disturb_it()
+    public async Task A_package_on_sdk_3_6_is_served_and_a_file_from_elsewhere_does_not_disturb_it()
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-        var folder = Ide.CopySample("broken", sdkVersion: "3.5.2");
+        var folder = Ide.CopySample("broken", sdkVersion: "3.6.4");
         Ide.OpenFolder(folder);
         try
         {
             Ide.OpenFile(Path.Combine(folder, "daml", "TypeError.daml"));
             await Ide.WaitForServerAsync(ready: true, ServerStart);
-            Assert.True(await ErrorListHasAsync(Path.Combine(folder, "daml", "TypeError.daml"), TimeSpan.FromSeconds(60)), "No error for TypeError.daml on SDK 3.5.2.");
+            Assert.True(await ErrorListHasAsync(Path.Combine(folder, "daml", "TypeError.daml"), TimeSpan.FromSeconds(60)), "No error for TypeError.daml on SDK 3.6.4.");
 
             // A Daml file with no daml.yaml above it once took multi-ide down entirely.
             Ide.OpenFile(Path.Combine(Ide.RepoRoot(), "test", "fixtures", "lexer", "keywords.daml"));

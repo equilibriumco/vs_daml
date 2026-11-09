@@ -12,7 +12,7 @@ namespace Equilibrium.Daml.Build.Tests.MSBuild;
 // from a local feed, in MSBuild.exe of Visual Studio 2026 and in dotnet msbuild, with a fake dpm.
 public sealed class DamlSdkOnHostsTests : IDisposable
 {
-    private const string Manifest = "sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\nsource: daml\n";
+    private const string Manifest = "sdk-version: 3.7.1\nname: contracts\nversion: 1.2.0\nsource: daml\n";
 
     private readonly MSBuildSandbox _sandbox = new();
     private readonly FakeDpm _dpm = FakeDpm.Create(new FakeDpmScenario());
@@ -131,8 +131,8 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     [InlineData(MSBuildHost.Dotnet, "source: .")]
     public void The_project_shows_its_manifest_and_sources_and_no_build_output(MSBuildHost host, string source)
     {
-        var project = DamlProject($"sdk-version: 3.6.0\nname: contracts\nversion: 1.2.0\n{source}\n", ShowItems);
-        foreach (var file in new[] { @"daml\Asset\Asset.daml", @".daml\package-database\3.6.0\daml-stdlib\DA\List.daml", @"obj\Generated.daml", @"bin\Copied.daml" })
+        var project = DamlProject($"sdk-version: 3.7.1\nname: contracts\nversion: 1.2.0\n{source}\n", ShowItems);
+        foreach (var file in new[] { @"daml\Asset\Asset.daml", @".daml\package-database\3.7.1\daml-stdlib\DA\List.daml", @"obj\Generated.daml", @"bin\Copied.daml" })
         {
             _sandbox.Write(Path.Combine("contracts", file), "module M where\n");
         }
@@ -220,7 +220,7 @@ public sealed class DamlSdkOnHostsTests : IDisposable
     {
         Scenario(CreatesTheDar());
         var project = DamlProject();
-        var cache = _sandbox.Write(@"contracts\.daml\package-database\3.6.0\cached.dalf", "kept");
+        var cache = _sandbox.Write(@"contracts\.daml\package-database\3.7.1\cached.dalf", "kept");
 
         var dar = $@"{Package}\.daml\dist\contracts-1.2.0.dar";
         var record = $@"{Package}\obj\daml.build.state";

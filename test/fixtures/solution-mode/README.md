@@ -12,7 +12,7 @@ versions out, so the projects build like a user's.
 1. `pwsh scripts/pack.ps1` — leaves `Equilibrium.Daml.Sdk.0.9.0-beta.0.nupkg` in `artifacts/packages`, where `nuget.config` here
    looks for it. After every new pack, delete `%USERPROFILE%\.nuget\packages\equilibrium.daml.sdk\0.9.0-beta.0`: NuGet keeps the
    first copy of a version and never looks again (`pack.ps1` warns when it holds another copy).
-2. dpm with SDK 3.6.0 installed.
+2. dpm with SDK 3.7.1 installed.
 3. Build once (the data-dependencies are the DARs): `dotnet build app\SolutionMode.slnx`, or Build Solution in Visual
    Studio.
 

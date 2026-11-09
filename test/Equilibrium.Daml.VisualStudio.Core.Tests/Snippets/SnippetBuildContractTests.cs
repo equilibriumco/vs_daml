@@ -60,7 +60,7 @@ public sealed class SnippetBuildContractTests : IDisposable
         // Daml 3 wants interfaces in a package of their own and refuses an instance next to its
         // interface; that's about package layout, not the snippet, so this one package allows it.
         File.WriteAllText(Path.Combine(_root, "daml.yaml"),
-            "sdk-version: 3.6.0\nname: snippets\nsource: daml\nversion: 0.0.1\ndependencies:\n  - daml-prim\n  - daml-stdlib\n  - daml-script\nbuild-options:\n  - -Wno-upgrade-interfaces\n");
+            "sdk-version: 3.7.1\nname: snippets\nsource: daml\nversion: 0.0.1\ndependencies:\n  - daml-prim\n  - daml-stdlib\n  - daml-script\nbuild-options:\n  - -Wno-upgrade-interfaces\n");
 
         foreach (var snippet in DamlSnippets.All)
         {

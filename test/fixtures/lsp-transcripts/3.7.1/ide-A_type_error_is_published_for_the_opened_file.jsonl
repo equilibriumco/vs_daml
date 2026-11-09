@@ -3,16 +3,16 @@
 {"direction":"client","message":{"jsonrpc":"2.0","method":"initialized","params":{}}}
 {"direction":"client","message":{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///${ROOT}/daml/TypeError.daml","languageId":"daml","version":1,"text":"<redacted 113 chars>"}}}}
 {"direction":"server","message":{"id":0,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/Prelude.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/Prelude.daml","kind":5}]}}]}}}
-{"direction":"server","message":{"id":1,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/Record.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/Record.daml","kind":5}]}}]}}}
-{"direction":"server","message":{"id":2,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/GHC/Types.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/GHC/Types.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":0,"result":null}}
+{"direction":"server","message":{"id":1,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/Record.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/Record.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":1,"result":null}}
+{"direction":"server","message":{"id":2,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/GHC/Types.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/GHC/Types.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":2,"result":null}}
 {"direction":"server","message":{"id":3,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/GHC/Err.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/GHC/Err.daml","kind":5}]}}]}}}
-{"direction":"server","message":{"id":4,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/Desugar.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/Desugar.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":3,"result":null}}
-{"direction":"server","message":{"id":5,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/RebindableSyntax.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/RebindableSyntax.daml","kind":5}]}}]}}}
+{"direction":"server","message":{"id":4,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/Desugar.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/Desugar.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":4,"result":null}}
+{"direction":"server","message":{"id":5,"jsonrpc":"2.0","method":"client/registerCapability","params":{"registrations":[{"id":"${ROOT}/daml/DA/Internal/RebindableSyntax.daml","method":"workspace/didChangeWatchedFiles","registerOptions":{"watchers":[{"globPattern":"${ROOT}/daml/DA/Internal/RebindableSyntax.daml","kind":5}]}}]}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":5,"result":null}}
 {"direction":"server","message":{"id":6,"jsonrpc":"2.0","method":"window/workDoneProgress/create","params":{"token":"2"}}}
 {"direction":"client","message":{"jsonrpc":"2.0","id":6,"result":null}}

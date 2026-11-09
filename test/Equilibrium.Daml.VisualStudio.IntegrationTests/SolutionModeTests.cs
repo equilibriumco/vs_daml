@@ -20,7 +20,7 @@ public class SolutionModeTests
 
     // The same on the older supported SDK: building, the DARs and the server all come from it.
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 15 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public Task On_sdk_3_5_Go_To_Definition_crosses_the_packages_of_the_solution_too() => CrossPackagesAsync(sdkVersion: "3.5.2");
+    public Task On_sdk_3_6_Go_To_Definition_crosses_the_packages_of_the_solution_too() => CrossPackagesAsync(sdkVersion: "3.6.4");
 
     private static async Task CrossPackagesAsync(string? sdkVersion)
     {

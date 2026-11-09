@@ -21,11 +21,18 @@ public class SampleWorkspaceTests
     [Fact, Trait("Category", "Unit")]
     public void Every_sample_manifest_reads_without_problems()
     {
-        foreach (var file in new[] { @"single-package\daml\Main.daml", @"multi-package\main\daml\Main.daml", @"mixed-dotnet\daml\test\daml\MiniDemo\AssetTest.daml", @"broken\daml\TypeError.daml" })
+        // mixed-dotnet moves with the C# generator, which pins the SDK its bindings come from.
+        foreach (var (file, sdk) in new[]
+        {
+            (@"single-package\daml\Main.daml", "3.7.1"),
+            (@"multi-package\main\daml\Main.daml", "3.7.1"),
+            (@"mixed-dotnet\daml\test\daml\MiniDemo\AssetTest.daml", "3.6.0"),
+            (@"broken\daml\TypeError.daml", "3.7.1"),
+        })
         {
             var location = _locator.FindForFile(Repository.Sample(file));
             location.Diagnostics.ShouldBeEmpty(file);
-            location.Package.ShouldNotBeNull(file).SdkVersion.ShouldBe("3.6.0", file);
+            location.Package.ShouldNotBeNull(file).SdkVersion.ShouldBe(sdk, file);
         }
     }
 

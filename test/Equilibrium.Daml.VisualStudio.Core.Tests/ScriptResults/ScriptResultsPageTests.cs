@@ -9,7 +9,7 @@ namespace Equilibrium.Daml.VisualStudio.Core.Tests.ScriptResults;
 public class ScriptResultsPageTests
 {
     private static string Fixture() =>
-        File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "script-results", "sdk-3.5.2-setup.html"));
+        File.ReadAllText(Path.Combine(Repository.Root, "test", "fixtures", "script-results", "sdk-3.7.1-setup.html"));
 
     [Fact, Trait("Category", "Unit")]
     public void The_placeholders_point_at_the_shipped_script_and_stylesheet()

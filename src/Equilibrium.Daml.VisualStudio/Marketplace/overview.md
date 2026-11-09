@@ -27,13 +27,13 @@ says what to include.
 | Component | Version |
 |---|---|
 | Visual Studio | 2026 (18.0 or later), any edition, x64 |
-| dpm | 1.0.22 or later, with Daml SDK 3.6.x or 3.5.x |
+| dpm | 1.0.22 or later, with Daml SDK 3.7.x or 3.6.x |
 | JDK | 17 or later (C# generation, scripts and tests) |
 | .NET SDK | 10.0 (solutions with C# projects) |
 
 ## Getting started
 
-1. Install dpm and an SDK: `dpm install 3.6.0`.
+1. Install dpm and an SDK: `dpm install 3.7.1`.
 2. Open a folder with a `daml.yaml` (File > Open > Folder) and open a `.daml` file. The status bar shows
    *EQ Daml: ready* when the language server is up.
 3. For a solution, create a project from *Daml and .NET App*, then build.

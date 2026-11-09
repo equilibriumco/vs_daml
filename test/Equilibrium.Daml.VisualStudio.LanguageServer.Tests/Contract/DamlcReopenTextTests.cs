@@ -28,7 +28,7 @@ public class DamlcReopenTextTests
     [InlineData("ide", 10)]
     public async Task After_a_reopen_damlc_answers_for_the_reopened_text(string mode, int reopenVersion)
     {
-        using var sample = SampleCopy.Create("single-package", "3.6.0");
+        using var sample = SampleCopy.Create("single-package", "3.7.1");
         var main = sample.File(@"daml\Main.daml");
         var disk = File.ReadAllText(main);
         var edited = string.Concat(Enumerable.Repeat("\n", 20)) + disk;

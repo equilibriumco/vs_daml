@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Equilibrium.Daml.VisualStudio.Core.Tests.Sdk;
 
-// The installed dpm and SDK 3.6.0 (scripts/bootstrap.ps1 -Install): the outputs the unit tests
+// The installed dpm and SDK 3.7.1 (scripts/bootstrap.ps1 -Install): the outputs the unit tests
 // replay must still be what the real tools print.
 public class RealDpmContractTests
 {
@@ -36,7 +36,7 @@ public class RealDpmContractTests
 
         var capabilities = await new DamlcProbe(_runner).ProbeAsync(dpm, Repository.Sample("single-package"), CancellationToken.None);
 
-        capabilities.Version.ShouldNotBeNull().ShouldStartWith("3.6.");
+        capabilities.Version.ShouldNotBeNull().ShouldStartWith("3.7.");
         capabilities.SupportsIde.ShouldBeTrue();
         capabilities.SupportsMultiIde.ShouldBeTrue();
         capabilities.SupportsIdeIdentifier.ShouldBeTrue();
@@ -55,8 +55,8 @@ public class RealDpmContractTests
         var sdk = await resolver.ResolveAsync(workspace, new LanguageServerOptions { DpmPath = dpmPath }, CancellationToken.None);
 
         sdk.Assistant.Kind.ShouldBe(AssistantKind.Dpm);
-        sdk.ContextSdkVersion.ShouldBe("3.6.0");
-        sdk.CoordinatorVersion.ShouldNotBeNull().ShouldStartWith("3.6.");
+        sdk.ContextSdkVersion.ShouldBe("3.7.1");
+        sdk.CoordinatorVersion.ShouldNotBeNull().ShouldStartWith("3.7.");
         sdk.SupportsMultiIde.ShouldBe(true);
         sdk.Notes.ShouldBeEmpty();
     }

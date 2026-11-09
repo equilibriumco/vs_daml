@@ -10,7 +10,7 @@ anything you can't afford to lose.
 ## Before you start
 
 - Visual Studio 2026 (18.0 or later), any edition, on Windows x64.
-- dpm 1.0.22 or later with a Daml SDK: `dpm install 3.6.0` (3.5.x works too).
+- dpm 1.0.22 or later with a Daml SDK: `dpm install 3.7.1` (3.6.x works too).
 - JDK 17 or later, for C# generation and for running scripts.
 - .NET SDK 10.0.
 

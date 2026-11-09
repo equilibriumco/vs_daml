@@ -26,7 +26,7 @@ Status: **0.9.0 beta**. Windows x64, Visual Studio 2026 only.
 | Component | Version |
 |---|---|
 | Visual Studio | 2026 (18.0+), any edition, x64 |
-| dpm | 1.0.22+ with Daml SDK 3.6.x or 3.5.x |
+| dpm | 1.0.22+ with Daml SDK 3.7.x or 3.6.x |
 | JDK | 17+ (C# generation, scripts and tests) |
 | .NET SDK | 10.0 (solutions with C# projects) |
 

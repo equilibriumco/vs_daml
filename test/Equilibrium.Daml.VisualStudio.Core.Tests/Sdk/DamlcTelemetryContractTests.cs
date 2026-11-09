@@ -33,8 +33,8 @@ public sealed class DamlcTelemetryContractTests : IDisposable
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
-    [InlineData("3.6.0")]
-    [InlineData("3.5.2")]
+    [InlineData("3.7.1")]
+    [InlineData("3.6.4")]
     public async Task Damlc_ide_takes_the_telemetry_switches_without_listing_them(string sdk)
     {
         var package = Package(sdk);
@@ -57,8 +57,8 @@ public sealed class DamlcTelemetryContractTests : IDisposable
 
     // Only its help can tell: multi-ide takes any switch, known or not, so taking one proves nothing.
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
-    [InlineData("3.6.0")]
-    [InlineData("3.5.2")]
+    [InlineData("3.7.1")]
+    [InlineData("3.6.4")]
     public async Task Damlc_multi_ide_lists_no_telemetry_switch_in_its_help(string sdk)
     {
         var help = await DamlcAsync(Package(sdk), "multi-ide", "--help");
@@ -69,8 +69,8 @@ public sealed class DamlcTelemetryContractTests : IDisposable
     }
 
     [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
-    [InlineData("3.6.0")]
-    [InlineData("3.5.2")]
+    [InlineData("3.7.1")]
+    [InlineData("3.6.4")]
     public async Task The_server_command_for_a_real_package_carries_no_telemetry_switch(string sdk)
     {
         var dpm = RequiredTools.Require(ExternalTool.Dpm);

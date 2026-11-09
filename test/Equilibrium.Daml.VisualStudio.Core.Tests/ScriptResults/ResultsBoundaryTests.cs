@@ -93,8 +93,8 @@ public class ResultsBoundaryTests
     }
 
     [Theory, Trait("Category", "Unit")]
-    [InlineData("3.5.2")]
-    [InlineData("3.6.0")]
+    [InlineData("3.6.4")]
+    [InlineData("3.7.1")]
     public void The_results_of_both_supported_sdks_fit_the_shipped_page_script(string sdk)
     {
         ResultsPageFormat.MissingParts(Fixture(sdk)).ShouldBeEmpty();
@@ -108,7 +108,7 @@ public class ResultsBoundaryTests
     [InlineData("hide_transaction", "hide_transaction")]
     public void Results_in_a_format_the_page_script_doesnt_know_are_named(string removed, string named)
     {
-        var html = Fixture("3.6.0").Replace(removed, "something_else");
+        var html = Fixture("3.7.1").Replace(removed, "something_else");
 
         ResultsPageFormat.MissingParts(html).ShouldContain(part => part.Contains(named));
     }
