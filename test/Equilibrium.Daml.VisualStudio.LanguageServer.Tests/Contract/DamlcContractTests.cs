@@ -6,6 +6,8 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Equilibrium.Daml.Build.Core.FileSystem;
+using Equilibrium.Daml.Build.Core.Manifests;
 using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.TestHelpers;
 using Equilibrium.Daml.VisualStudio.Core.Project;
@@ -369,6 +371,44 @@ public class DamlcContractTests
 
         var missing = await damlc.WaitForDiagnosticsAsync(user, d => d.Any(e => ((string?)e["message"])?.Contains("Could not find module") == true));
         missing.ShouldNotBeNull($"damlc {mode} {sdk} still resolves Dep after the rename was reported");
+    }
+
+    // A clean removes a DAR, and multi-ide restarts the packages that use it, which then fail. When
+    // the build puts the DAR back, multi-ide leaves them failed even though it hears of the DAR
+    // (digital-asset/daml#23601); hearing that their daml.yaml changed starts them again. Once that
+    // issue is fixed, the DAR event alone will do and the extra events become harmless.
+    [SkippableTheory, Trait("Category", "Contract"), Trait("RequiresDaml", "true")]
+    [InlineData("3.7.1")]
+    [InlineData("3.6.4")]
+    public async Task A_package_whose_DAR_came_back_after_a_clean_starts_again_once_told_its_manifest_changed(string sdk)
+    {
+        using var sample = SampleCopy.Create("multi-package", sdk);
+        var build = await new ProcessRunner().RunAsync(
+            new ProcessSpec(RequiredTools.Require(ExternalTool.Dpm), ["build", "--all"]) { WorkingDirectory = sample.Root },
+            CancellationToken.None);
+        build.ExitCode.ShouldBe(0, build.Stdout + build.Stderr);
+        var test = sample.File(@"test\daml\Test.daml");
+        var dar = sample.File(@"interfaces\.daml\dist\multi-package-interfaces-1.0.0.dar");
+        await using var damlc = await OpenedAsync(sample, test, "multi-ide");
+        var channel = new DamlRpcChannel();
+        channel.Attach(damlc.Rpc, 1);
+        static bool FailedToStart(JArray diagnostics) =>
+            diagnostics.Any(d => ((string?)d["message"])?.Contains("failed to start") == true);
+
+        File.Move(dar, dar + ".away");
+        (await channel.NotifyWatchedFilesAsync([new FileEvent(RealDamlcSession.Uri(dar), FileChangeType.Deleted)])).ShouldBeTrue();
+        (await damlc.WaitForDiagnosticsAsync(test, FailedToStart)).ShouldNotBeNull($"damlc {sdk} didn't restart the test package when the DAR it uses was deleted");
+
+        File.Move(dar + ".away", dar);
+        var before = damlc.PublishedCount(test);
+        var manifests = new YamlManifestReader(new PhysicalFileSystem());
+        var packages = new[] { "interfaces", "main", "test" }.Select(p => manifests.ReadPackage(sample.File($@"{p}\daml.yaml")).Value!).ToList();
+        var events = WatchedFiles.ForDarWritten(dar, packages);
+        events.Select(e => e.Uri).ShouldBe([RealDamlcSession.Uri(sample.File(@"main\daml.yaml")), RealDamlcSession.Uri(sample.File(@"test\daml.yaml"))]);
+        (await channel.NotifyWatchedFilesAsync([new FileEvent(RealDamlcSession.Uri(dar), FileChangeType.Created), .. events])).ShouldBeTrue();
+
+        var recovered = await damlc.WaitForDiagnosticsAsync(test, d => !FailedToStart(d), skip: before);
+        recovered.ShouldNotBeNull($"damlc {sdk} kept the test package failed after the DAR came back and its daml.yaml was reported changed");
     }
 
     // ide sends no diagnostics at all for a clean file, so there's nothing to wait for; the

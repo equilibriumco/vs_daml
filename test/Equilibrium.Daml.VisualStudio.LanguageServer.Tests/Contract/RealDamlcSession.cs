@@ -129,15 +129,27 @@ internal sealed class RealDamlcSession : IAsyncDisposable
             textDocument = new { uri = Uri(path), languageId = "daml", version = 1, text = File.ReadAllText(path) },
         });
 
-    /// <summary>Waits for diagnostics on <paramref name="path"/> that satisfy <paramref name="accept"/>; returns them, or null on timeout.</summary>
-    public async Task<JArray?> WaitForDiagnosticsAsync(string path, Func<JArray, bool> accept)
+    /// <summary>How many times diagnostics were published for <paramref name="path"/> so far.</summary>
+    public int PublishedCount(string path)
+    {
+        lock (_diagnostics)
+        {
+            return _diagnostics.TryGetValue(Key(Uri(path)), out var published) ? published.Count : 0;
+        }
+    }
+
+    /// <summary>
+    /// Waits for diagnostics on <paramref name="path"/> that satisfy <paramref name="accept"/>, among
+    /// those published after the first <paramref name="skip"/>; returns them, or null on timeout.
+    /// </summary>
+    public async Task<JArray?> WaitForDiagnosticsAsync(string path, Func<JArray, bool> accept, int skip = 0)
     {
         var deadline = DateTime.UtcNow + Patience;
         while (DateTime.UtcNow < deadline)
         {
             lock (_diagnostics)
             {
-                if (_diagnostics.TryGetValue(Key(Uri(path)), out var published) && published.LastOrDefault(accept) is { } match)
+                if (_diagnostics.TryGetValue(Key(Uri(path)), out var published) && published.Skip(skip).LastOrDefault(accept) is { } match)
                 {
                     return match;
                 }

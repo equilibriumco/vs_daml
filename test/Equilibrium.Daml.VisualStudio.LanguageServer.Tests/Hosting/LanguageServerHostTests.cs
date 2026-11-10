@@ -15,6 +15,7 @@ using Equilibrium.Daml.VisualStudio.LanguageServer.Hosting;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Protocol;
 using Equilibrium.Daml.VisualStudio.LanguageServer.Supervision;
 using Microsoft.Extensions.Time.Testing;
+using Nerdbank.Streams;
 using Newtonsoft.Json.Linq;
 using Shouldly;
 using StreamJsonRpc;
@@ -184,6 +185,140 @@ public sealed class LanguageServerHostTests
         time.Advance(TimeSpan.FromSeconds(1));
 
         host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+    }
+
+    private const string InterfacesDar = @"C:\repo\interfaces\.daml\dist\interfaces-1.0.0.dar";
+    private const string MainDar = @"C:\repo\main\.daml\dist\main-1.0.0.dar";
+
+    // main and test use the interfaces DAR, test also uses main's.
+    private static InMemoryFileSystem MultiPackageFiles() => new InMemoryFileSystem()
+        .AddFile(@"C:\repo\multi-package.yaml", "packages:\n- ./interfaces\n- ./main\n- ./test\n")
+        .AddFile(@"C:\repo\interfaces\daml.yaml", "sdk-version: 3.7.1\nname: interfaces\nversion: 1.0.0\nsource: daml\n")
+        .AddFile(@"C:\repo\main\daml.yaml", "sdk-version: 3.7.1\nname: main\nversion: 1.0.0\nsource: daml\ndata-dependencies:\n  - ../interfaces/.daml/dist/interfaces-1.0.0.dar\n")
+        .AddFile(@"C:\repo\test\daml.yaml", "sdk-version: 3.7.1\nname: test\nversion: 1.0.0\nsource: daml\ndata-dependencies:\n  - ../interfaces/.daml/dist/interfaces-1.0.0.dar\n  - ../main/.daml/dist/main-1.0.0.dar\n");
+
+    private static WorkspaceContext MultiPackage(ServerMode mode = ServerMode.MultiIde) => new()
+    {
+        WorkspaceRoot = @"C:\repo",
+        ServerWorkingDirectory = @"C:\repo",
+        Mode = mode,
+        MultiPackageManifestPath = mode == ServerMode.MultiIde ? @"C:\repo\multi-package.yaml" : null,
+        PackageRoot = mode == ServerMode.MultiIde ? null : @"C:\repo\main",
+        Packages = [@"C:\repo\interfaces", @"C:\repo\main", @"C:\repo\test"],
+        Version = 1,
+    };
+
+    private static LanguageServerHost DarHost(IDamlFileSystem files, TimeProvider time)
+    {
+        var runner = new FakeProcessRunner();
+        var manifests = new YamlManifestReader(files);
+        return new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(files, _ => null), manifests), NullDamlLogger.Instance, time, manifests: manifests);
+    }
+
+    // multi-ide leaves the packages that use a DAR failed when the DAR comes back after a clean;
+    // a changed daml.yaml starts them again. A build writes each package's DAR at its end, so the
+    // packages hear of it once the whole build has gone quiet.
+    [Fact, Trait("Category", "Unit")]
+    public async Task Once_DAR_writes_are_quiet_the_packages_that_use_them_are_told_their_manifests_changed()
+    {
+        var time = new FakeTimeProvider();
+        using var host = DarHost(MultiPackageFiles(), time);
+        host.SetWorkspace(MultiPackage(), new LanguageServerOptions());
+        using var server = new WatchedFilesRecorder(host);
+
+        host.OnDarWritten(InterfacesDar);
+        time.Advance(TimeSpan.FromSeconds(1.5));
+        host.OnDarWritten(MainDar);
+        time.Advance(TimeSpan.FromSeconds(1.5));
+        await Task.Delay(200);
+        server.Received.ShouldBeEmpty("the build is still writing DARs");
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        (await server.WaitAsync(1)).ShouldBe(["2 file:///C:/repo/main/daml.yaml, 2 file:///C:/repo/test/daml.yaml"]);
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public async Task The_single_package_server_and_a_DAR_nobody_uses_send_nothing()
+    {
+        var time = new FakeTimeProvider();
+        using var host = DarHost(MultiPackageFiles(), time);
+        using var server = new WatchedFilesRecorder(host);
+
+        host.SetWorkspace(MultiPackage(ServerMode.Ide), new LanguageServerOptions());
+        host.OnDarWritten(InterfacesDar);
+        time.Advance(TimeSpan.FromSeconds(5));
+        host.SetWorkspace(MultiPackage(), new LanguageServerOptions());
+        host.OnDarWritten(@"C:\repo\test\.daml\dist\test-1.0.0.dar");
+        time.Advance(TimeSpan.FromSeconds(5));
+
+        await Task.Delay(200);
+        server.Received.ShouldBeEmpty();
+    }
+
+    [Fact, Trait("Category", "Unit")]
+    public void A_written_DAR_without_a_session_or_with_a_broken_manifest_neither_fails_nor_restarts()
+    {
+        var time = new FakeTimeProvider();
+        var files = MultiPackageFiles().AddFile(@"C:\repo\main\daml.yaml", "data-dependencies: [");
+        using var host = DarHost(files, time);
+        host.SetWorkspace(MultiPackage(), new LanguageServerOptions());
+
+        host.OnDarWritten(InterfacesDar);
+        time.Advance(TimeSpan.FromSeconds(5));
+
+        host.Supervisor.PendingRestartReasons.ShouldBeEmpty();
+    }
+
+    // The other end of the session's connection, keeping what workspace/didChangeWatchedFiles carried.
+    private sealed class WatchedFilesRecorder : IDisposable
+    {
+        private readonly List<string> _received = new();
+        private readonly JsonRpc _client;
+        private readonly JsonRpc _server;
+
+        public WatchedFilesRecorder(LanguageServerHost host)
+        {
+            var (clientStream, serverStream) = FullDuplexStream.CreatePair();
+            _server = new JsonRpc(new HeaderDelimitedMessageHandler(serverStream, serverStream, new JsonMessageFormatter()));
+            _server.AddLocalRpcMethod("workspace/didChangeWatchedFiles", new Action<JArray>(changes =>
+            {
+                lock (_received)
+                {
+                    _received.Add(string.Join(", ", changes.Select(c => $"{(int)c["type"]!} {(string)c["uri"]!}")));
+                }
+            }));
+            _server.StartListening();
+            _client = new JsonRpc(new HeaderDelimitedMessageHandler(clientStream, clientStream, new JsonMessageFormatter()));
+            _client.StartListening();
+            host.AttachRpc(_client);
+        }
+
+        public List<string> Received
+        {
+            get
+            {
+                lock (_received)
+                {
+                    return _received.ToList();
+                }
+            }
+        }
+
+        public async Task<List<string>> WaitAsync(int count)
+        {
+            var deadline = DateTime.UtcNow + Generous;
+            while (Received.Count < count && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(20);
+            }
+            return Received;
+        }
+
+        public void Dispose()
+        {
+            _client.Dispose();
+            _server.Dispose();
+        }
     }
 
     // One save is several change events; they add up to one restart, asked for once the

@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Equilibrium.Daml.Build.Core.Codegen;
 using Equilibrium.Daml.Build.Core.FileSystem;
+using Equilibrium.Daml.Build.Core.Manifests;
 using Equilibrium.Daml.Build.Core.Processes;
 using Equilibrium.Daml.VisualStudio.Core.Logging;
 using Equilibrium.Daml.VisualStudio.Core.Project;
@@ -80,7 +82,14 @@ public sealed class LanguageServerHost : IDisposable
     // A save produces several change events; this long after the last one, they count as one.
     private static readonly TimeSpan FileChangeWindow = TimeSpan.FromMilliseconds(500);
 
+    // A build writes each package's DAR as its last step, and a solution build goes package by
+    // package; this long after the last DAR, the build is taken to be over.
+    private static readonly TimeSpan DarWriteWindow = TimeSpan.FromSeconds(2);
+
     private readonly SdkResolver _sdkResolver;
+    private readonly IManifestReader _manifests;
+    private readonly List<string> _writtenDars = new();
+    private ITimer? _darWriteTimer;
     private readonly IDamlLogger _logger;
     private readonly LspAdapterSettings _lspSettings;
     private readonly TimeProvider _time;
@@ -108,9 +117,11 @@ public sealed class LanguageServerHost : IDisposable
         RestartPolicy? policy = null,
         SupervisorSettings? supervisorSettings = null,
         LspAdapterSettings? lspSettings = null,
-        KeepAliveSettings? keepAlive = null)
+        KeepAliveSettings? keepAlive = null,
+        IManifestReader? manifests = null)
     {
         _sdkResolver = sdkResolver ?? throw new ArgumentNullException(nameof(sdkResolver));
+        _manifests = manifests ?? new YamlManifestReader(new PhysicalFileSystem());
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _lspSettings = lspSettings ?? new LspAdapterSettings();
         _time = time ?? TimeProvider.System;
@@ -419,6 +430,40 @@ public sealed class LanguageServerHost : IDisposable
     }
 
     /// <summary>
+    /// A DAR was written, usually by a build. When a clean removed it first (a Rebuild), the
+    /// multi-package server restarted the packages that use it, which failed without it, and it
+    /// doesn't start them again when the DAR is back. Telling it their daml.yaml changed does.
+    /// That happens once DAR writes have been quiet for a moment, so a solution build ends in one
+    /// round of restarts and no package database is still being written when they read it.
+    /// </summary>
+    public void OnDarWritten(string path)
+    {
+        if (path is null)
+        {
+            throw new ArgumentNullException(nameof(path));
+        }
+        lock (_gate)
+        {
+            if (_workspace?.Mode != ServerMode.MultiIde)
+            {
+                return;
+            }
+            if (!_writtenDars.Contains(path, DamlPath.Comparer))
+            {
+                _writtenDars.Add(path);
+            }
+            if (_darWriteTimer is null)
+            {
+                _darWriteTimer = _time.CreateTimer(_ => ReportWrittenDars(), null, DarWriteWindow, Timeout.InfiniteTimeSpan);
+            }
+            else
+            {
+                _darWriteTimer.Change(DarWriteWindow, Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    /// <summary>
     /// The file watcher lost events (its buffer overflowed, say under a large clean or build):
     /// whatever changed, a fresh start sees it.
     /// </summary>
@@ -462,6 +507,8 @@ public sealed class LanguageServerHost : IDisposable
         {
             _fileChangeTimer?.Dispose();
             _fileChangeTimer = null;
+            _darWriteTimer?.Dispose();
+            _darWriteTimer = null;
         }
         KeepAlive.Dispose();
         ScriptLenses.Dispose();
@@ -497,7 +544,51 @@ public sealed class LanguageServerHost : IDisposable
         }
         catch (Exception ex) when (ex is ConnectionLostException or ObjectDisposedException)
         {
-            Log(DamlLogLevel.Debug, "The session ended before a file rename reached the language server.", ex);
+            Log(DamlLogLevel.Debug, "The session ended before a file change reached the language server.", ex);
+        }
+    }
+
+    private void ReportWrittenDars()
+    {
+        string[] dars;
+        WorkspaceContext? workspace;
+        lock (_gate)
+        {
+            dars = _writtenDars.ToArray();
+            _writtenDars.Clear();
+            _darWriteTimer?.Dispose();
+            _darWriteTimer = null;
+            workspace = _workspace;
+        }
+        if (workspace?.Mode != ServerMode.MultiIde || dars.Length == 0)
+        {
+            return;
+        }
+        var packages = new List<DamlPackageManifest>();
+        foreach (var root in workspace.Packages)
+        {
+            try
+            {
+                var manifest = _manifests.ReadPackage(Path.Combine(root, WorkspaceLocator.PackageManifestName));
+                if (manifest.Value is not null && !manifest.HasErrors)
+                {
+                    packages.Add(manifest.Value);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log(DamlLogLevel.Debug, $"Couldn't read the manifest of {root} to see whether it uses a rebuilt DAR.", ex);
+            }
+        }
+        var events = new List<FileEvent>();
+        foreach (var dar in dars)
+        {
+            events.AddRange(WatchedFiles.ForDarWritten(dar, packages).Where(e => !events.Contains(e)));
+        }
+        if (events.Count > 0)
+        {
+            Log(DamlLogLevel.Debug, $"Rebuilt DARs ({string.Join(", ", dars.Select(Path.GetFileName))}): telling the server the manifests of the packages that use them changed.");
+            _ = NotifyWatchedFilesAsync(events);
         }
     }
 

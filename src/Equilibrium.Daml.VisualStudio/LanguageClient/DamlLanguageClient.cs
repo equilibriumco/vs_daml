@@ -67,7 +67,7 @@ internal sealed class DamlLanguageClient : ILanguageClient, ILanguageClientCusto
         var manifests = new YamlManifestReader(files);
         var runner = new ProcessRunner();
         _discovery = new WorkspaceDiscovery(files, manifests);
-        _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger);
+        _host = new LanguageServerHost(runner, new SdkResolver(runner, new AssistantLocator(), manifests), logger, manifests: manifests);
         _watcher = new WorkspaceWatcher(_host);
         _notifier = new LanguageServerNotifier(_joinableTaskFactory, logger, _host);
         _host.ProblemRaised += _notifier.OnProblemRaised;
