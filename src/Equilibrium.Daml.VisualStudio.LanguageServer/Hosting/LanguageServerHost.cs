@@ -587,7 +587,7 @@ public sealed class LanguageServerHost : IDisposable
         }
         if (events.Count > 0)
         {
-            Log(DamlLogLevel.Debug, $"Rebuilt DARs ({string.Join(", ", dars.Select(Path.GetFileName))}): telling the server the manifests of the packages that use them changed.");
+            Log(DamlLogLevel.Information, $"Rebuilt DARs ({string.Join(", ", dars.Select(Path.GetFileName))}): telling the server the manifests of the packages that use them changed.");
             _ = NotifyWatchedFilesAsync(events);
         }
     }

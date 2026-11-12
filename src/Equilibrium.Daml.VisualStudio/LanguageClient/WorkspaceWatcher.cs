@@ -10,7 +10,7 @@ namespace Equilibrium.Daml.VisualStudio.LanguageClient;
 /// <summary>
 /// Watches the workspace root, and the solution's packages outside it, for the changes the server
 /// won't notice by itself: manifest edits, renamed Daml files (Visual Studio reports only their new
-/// name), and the package database vanishing under a clean. What it sees goes to the host, which
+/// name), DARs written by a build, and the package database vanishing under a clean. What it sees goes to the host, which
 /// decides whether a restart is due or what to tell the server.
 /// </summary>
 internal sealed class WorkspaceWatcher : IDisposable
@@ -80,6 +80,15 @@ internal sealed class WorkspaceWatcher : IDisposable
         sources.Error += (_, _) => _host.OnWatcherOverflow();
         sources.EnableRaisingEvents = true;
         _watchers.Add(sources);
+
+        // A build writing a package's DAR; the host works out which packages use it.
+        var dars = new FileSystemWatcher(folder, "*.dar") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite, InternalBufferSize = BufferSize };
+        dars.Created += (_, e) => _host.OnDarWritten(e.FullPath);
+        dars.Changed += (_, e) => _host.OnDarWritten(e.FullPath);
+        dars.Renamed += (_, e) => _host.OnDarWritten(e.FullPath);
+        dars.Error += (_, _) => _host.OnWatcherOverflow();
+        dars.EnableRaisingEvents = true;
+        _watchers.Add(dars);
 
         // dpm clean deletes the package database damlc reads library sources from.
         var directories = new FileSystemWatcher(folder) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.DirectoryName, InternalBufferSize = BufferSize };

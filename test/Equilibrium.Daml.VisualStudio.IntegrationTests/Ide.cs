@@ -533,7 +533,28 @@ internal static class Ide
     }
 
     /// <summary>Build > Build Solution; returns how many projects failed.</summary>
-    public static async Task<int> BuildSolutionAsync(TimeSpan timeout)
+    public static Task<int> BuildSolutionAsync(TimeSpan timeout) =>
+        RunSolutionBuildAsync(
+            build =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                build.Build(WaitForBuildToFinish: false);
+            },
+            "Build Solution",
+            timeout);
+
+    /// <summary>Build > Rebuild Solution: every project cleaned, then built. Returns how many projects failed.</summary>
+    public static Task<int> RebuildSolutionAsync(TimeSpan timeout) =>
+        RunSolutionBuildAsync(
+            _ =>
+            {
+                ThreadHelper.ThrowIfNotOnUIThread();
+                Dte().ExecuteCommand("Build.RebuildSolution");
+            },
+            "Rebuild Solution",
+            timeout);
+
+    private static async Task<int> RunSolutionBuildAsync(Action<SolutionBuild> start, string name, TimeSpan timeout)
     {
         await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
         var dte = Dte();
@@ -547,10 +568,10 @@ internal static class Ide
         events.OnBuildDone += done;
         try
         {
-            build.Build(WaitForBuildToFinish: false);
+            start(build);
             var first = await Task.WhenAny(finished.Task, Task.Delay(timeout));
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            Assert.True(first == finished.Task, "Build Solution didn't finish." + Environment.NewLine + BuildOutput());
+            Assert.True(first == finished.Task, $"{name} didn't finish." + Environment.NewLine + BuildOutput());
         }
         finally
         {
