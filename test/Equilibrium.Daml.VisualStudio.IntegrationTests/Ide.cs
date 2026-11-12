@@ -543,15 +543,15 @@ internal static class Ide
             "Build Solution",
             timeout);
 
-    /// <summary>Build > Rebuild Solution: every project cleaned, then built. Returns how many projects failed.</summary>
-    public static Task<int> RebuildSolutionAsync(TimeSpan timeout) =>
+    /// <summary>Build > Clean Solution; returns how many projects failed.</summary>
+    public static Task<int> CleanSolutionAsync(TimeSpan timeout) =>
         RunSolutionBuildAsync(
-            _ =>
+            build =>
             {
                 ThreadHelper.ThrowIfNotOnUIThread();
-                Dte().ExecuteCommand("Build.RebuildSolution");
+                build.Clean(WaitForCleanToFinish: false);
             },
-            "Rebuild Solution",
+            "Clean Solution",
             timeout);
 
     private static async Task<int> RunSolutionBuildAsync(Action<SolutionBuild> start, string name, TimeSpan timeout)

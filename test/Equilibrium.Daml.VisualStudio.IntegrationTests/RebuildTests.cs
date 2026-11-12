@@ -8,7 +8,8 @@ namespace Equilibrium.Daml.VisualStudio.IntegrationTests;
 
 // Rebuild cleans a package's DAR before building it again. The multi-package server restarts the
 // packages that use the DAR when it disappears, and they fail without it; once it is back they
-// have to be serving again, without a restart of the server.
+// have to be serving again, without a restart of the server. Whether a Rebuild leaves the DAR
+// missing long enough for that is down to timing, so the test cleans and builds in two steps.
 public class RebuildTests
 {
     private const string ServerPane = "EQ Daml Tools: Language Server";
@@ -17,7 +18,7 @@ public class RebuildTests
     private static readonly TimeSpan Settled = TimeSpan.FromSeconds(10);
 
     [IdeFact(MinVersion = VisualStudioVersion.VS18, MaxVersion = VisualStudioVersion.VS18, Timeout = 15 * 60), Trait("Category", "Integration"), Trait("RequiresDaml", "true")]
-    public async Task After_Rebuild_Solution_a_package_using_a_rebuilt_DAR_has_no_errors_again()
+    public async Task A_package_using_a_cleaned_DAR_has_no_errors_again_once_the_DAR_is_built()
     {
         var root = Ide.CopyFixtureFolder("solution-mode");
         var app = Path.Combine(root, "app");
@@ -31,13 +32,17 @@ public class RebuildTests
             Assert.True(failed == 0, "The build failed." + Environment.NewLine + Ide.BuildReport());
             Ide.OpenFile(test);
             await Ide.WaitForServerAsync(ready: true, Patience);
-            Assert.True(await NoErrorsForAWhileAsync(test), $"{Path.GetFileName(test)} has errors before the rebuild.{Environment.NewLine}{Report()}");
+            Assert.True(await NoErrorsForAWhileAsync(test), $"{Path.GetFileName(test)} has errors before the clean.{Environment.NewLine}{Report()}");
 
-            failed = await Ide.RebuildSolutionAsync(BuildTimeout);
+            failed = await Ide.CleanSolutionAsync(BuildTimeout);
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-            Assert.True(failed == 0, "The rebuild failed." + Environment.NewLine + Ide.BuildReport());
+            Assert.True(failed == 0, "The clean failed." + Environment.NewLine + Ide.BuildReport());
+            Assert.True(await ErrorsShowUpAsync(test), $"{Path.GetFileName(test)} has no errors without the DARs it uses, so the rest proves nothing.{Environment.NewLine}{Report()}");
 
-            Assert.True(await NoErrorsForAWhileAsync(test), $"{Path.GetFileName(test)} still has errors after the rebuild.{Environment.NewLine}{Report()}");
+            failed = await Ide.BuildSolutionAsync(BuildTimeout);
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            Assert.True(failed == 0, "The build after the clean failed." + Environment.NewLine + Ide.BuildReport());
+            Assert.True(await NoErrorsForAWhileAsync(test), $"{Path.GetFileName(test)} still has errors after the build.{Environment.NewLine}{Report()}");
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
             Assert.Contains("Rebuilt DARs", Ide.PaneText(ServerPane, 20000), StringComparison.Ordinal);
         }
@@ -68,6 +73,20 @@ public class RebuildTests
             else
             {
                 clearSince = null;
+            }
+            await Task.Delay(500);
+        }
+        return false;
+    }
+
+    private static async Task<bool> ErrorsShowUpAsync(string file)
+    {
+        var deadline = DateTime.UtcNow + Patience;
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await Ide.ErrorsInAsync(file) > 0)
+            {
+                return true;
             }
             await Task.Delay(500);
         }
